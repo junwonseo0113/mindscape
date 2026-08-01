@@ -116,6 +116,59 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
+// A pacing/breather card between dense content — a lesson carried over from
+// an earlier project: don't staple a bridging question onto the bottom of a
+// content card. Give it its own quiet screen instead. No chart, no stat, no
+// decoration competes with it; deliberately visual-free by design, not a
+// placeholder for a chart that's missing.
+function ScreenPivot({ kicker, statement, counter, cta }: { kicker?: string; statement: React.ReactNode; counter?: string; cta?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ink }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 24px 14px", minHeight: 0 }}>
+        <div style={{ flex: 1.4 }} />
+        <div>
+          {kicker && (
+            <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: accent, letterSpacing: "0.04em", wordBreak: "keep-all" }}>{kicker}</div>
+          )}
+          <div style={{ ...serif, fontSize: 26, color: "#F4F1EC", lineHeight: 1.45, marginTop: kicker ? 14 : 0, wordBreak: "keep-all" }}>{statement}</div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div>
+          {cta}
+          {counter && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: cta ? 14 : 0 }}>
+              <span style={{ ...mono, fontSize: 12, color: "#8A8590" }}>{counter}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shared "current vs. actual" row grammar — arrow-connected steps kept at
+// identical geometry across rows so alignment itself teaches the comparison,
+// a hairline divider instead of a bordered card per row.
+function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; accent?: boolean }[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {rows.map((row, ri) => (
+        <div key={row.label} style={{ paddingTop: ri === 0 ? 0 : 16, paddingBottom: ri < rows.length - 1 ? 16 : 0, borderBottom: ri < rows.length - 1 ? `1px solid ${hair}` : "none" }}>
+          <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: row.accent ? accent : mid, letterSpacing: "0.03em", marginBottom: 10 }}>{row.label}</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {row.steps.map((step, i) => (
+              <React.Fragment key={step}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: i % 2 === 1 ? 700 : 500, color: i % 2 === 1 ? (row.accent ? accent : ink) : mid, textAlign: "center", lineHeight: 1.3, wordBreak: "keep-all" }}>{step}</div>
+                {i < row.steps.length - 1 && (<div style={{ ...sans, fontSize: 12, color: row.accent ? accent : faint, flexShrink: 0, padding: "0 4px" }}>→</div>)}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
   React.useEffect(() => {
@@ -237,6 +290,15 @@ const HYPOTHESES = [
       { date: "2026.06.14", quote: "그 사람한테 먼저 연락할까 하다가, 좀 더 기다려보기로 했어." },
       { date: "2026.05.28", quote: "지금 들어가기엔 너무 오른 것 같아서, 조정 오면 그때 사려고." },
     ],
+    investigate: {
+      origin: { date: "2025.11.19", quote: "일단 지금은 상황을 좀 더 보고 나서 정하는 게 맞는 것 같아." },
+      originNote: "8개월 전, 이 표현이 처음 등장했어요. 그때는 한 번뿐이었지만, 지금은 세 영역에서 반복되고 있어요.",
+      compareLabel1: "그때 말한 이유",
+      compareSteps1: ["\"조금 더\"", "\"확신이 서면\""],
+      compareLabel2: "8개월 후, 실제 결과",
+      compareSteps2: ["결정 미룸", "기회 3건 지나감"],
+      related: "이 '기다림' 패턴은 '완벽해야 시작할 수 있다'는 신념과도 연결돼 보여요 — 확신이 서는 순간은, 아마 오지 않을지도 모릅니다.",
+    },
   },
   {
     title: "성과를 인정받지 못하면, 노력 자체가 부족했다고 스스로를 탓하는 패턴이 있습니다.",
@@ -247,6 +309,15 @@ const HYPOTHESES = [
       { date: "2026.06.30", quote: "발표가 별로였나봐. 준비를 더 했어야 했는데." },
       { date: "2026.05.10", quote: "승진 안 된 거 보면, 내가 아직 부족한 게 맞는 것 같아." },
     ],
+    investigate: {
+      origin: { date: "2026.01.14", quote: "그때도 노력이 부족해서 그런 거였겠지, 뭐." },
+      originNote: "올해 초부터, 원인을 외부보다 스스로에게서 먼저 찾는 표현이 5번 넘게 나타났어요.",
+      compareLabel1: "실제로 통제할 수 있었던 것",
+      compareSteps1: ["준비 시간", "발표 내용"],
+      compareLabel2: "탓하고 있는 것",
+      compareSteps2: ["능력 전체", "\"나는 부족해\""],
+      related: "'노력하면 결국 인정받는다'는 신념과 짝을 이뤄요 — 인정받지 못하면, 노력이 아니라 자격 자체를 의심하게 되는 것 같아요.",
+    },
   },
   {
     title: "'자유를 중시한다'고 말하지만, 실제 선택은 안정성을 우선하는 방향으로 반복됩니다.",
@@ -257,6 +328,15 @@ const HYPOTHESES = [
       { date: "2026.07.10", quote: "프리랜서 하고 싶다고 했었는데, 이번에도 정규직 제안을 골랐어." },
       { date: "2026.04.22", quote: "자유롭게 살고 싶다니까. 근데 이 안정적인 자리를 놓치기는 아깝잖아." },
     ],
+    investigate: {
+      origin: { date: "2025.09.02", quote: "언젠가는 자유롭게 일하고 싶어." },
+      originNote: "10개월 전 '언젠가는'으로 시작된 바람이, 실제 갈림길에서는 매번 안정 쪽으로 이어졌어요.",
+      compareLabel1: "말한 가치",
+      compareSteps1: ["자유", "\"언젠가는\""],
+      compareLabel2: "갈림길에서의 실제 선택",
+      compareSteps2: ["정규직", "\"이번에도\""],
+      related: "'안전이 최우선이다'는 신념이 실제로는 '자유'보다 더 강하게 작동하고 있는 것으로 보여요.",
+    },
   },
 ];
 
@@ -449,27 +529,67 @@ function ScreenThinkComplete({ onDone }: { onDone?: () => void }) {
 }
 
 // ── Screen 8 · Belief Map ─────────────────────────────────────────────────────
+// Radius encodes real evidence count, not a hand-picked size — r ∝ √value so
+// circle AREA (which is what the eye actually compares) reads proportionally
+// correct, the same lesson as an earlier project's GDP bubble chart. Domain
+// tags stay inside the circle (short enough to fit at any radius); the full
+// belief sentence lives in the list below, same split BRICS used (chart
+// carries magnitude, list carries the actual claim).
+const BELIEF_BUBBLES = BELIEFS.map((b, i) => {
+  const maxValue = Math.max(...BELIEFS.map((x) => x.evidenceCount));
+  const maxR = 58;
+  const minR = 30;
+  const r = minR + (maxR - minR) * Math.sqrt(b.evidenceCount / maxValue);
+  const positions = [
+    { x: 150, y: 108 },
+    { x: 244, y: 188 },
+    { x: 68, y: 184 },
+    { x: 236, y: 66 },
+    { x: 72, y: 70 },
+  ];
+  return { ...b, r, ...positions[i % positions.length] };
+});
+
+function BeliefBubbleChart() {
+  return (
+    <svg viewBox="6 6 288 248" style={{ width: "100%", height: "auto", overflow: "visible" }}>
+      {BELIEF_BUBBLES.map((b, i) => (
+        <circle key={b.label} cx={b.x} cy={b.y} r={b.r} fill={i === 0 ? accent : accentSoft} stroke={accent} strokeOpacity={i === 0 ? 0 : 0.35} strokeWidth={1.2} />
+      ))}
+      {BELIEF_BUBBLES.map((b, i) => (
+        <React.Fragment key={`${b.label}-text`}>
+          <text x={b.x} y={b.y - 3} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: Math.max(b.r * 0.24, 9), fontWeight: 700, fill: i === 0 ? "#fff" : ink }}>{b.domain}</text>
+          <text x={b.x} y={b.y + Math.max(b.r * 0.3, 12)} textAnchor="middle" dominantBaseline="central" style={{ ...mono, fontSize: Math.max(b.r * 0.16, 7.5), fontWeight: 600, fill: i === 0 ? "rgba(255,255,255,0.8)" : mid }}>{b.evidenceCount}건</text>
+        </React.Fragment>
+      ))}
+    </svg>
+  );
+}
+
 function ScreenBeliefMap({ onBack }: { onBack?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
         <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>신념 지도</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>당신의 결정을 이끄는 것으로 보이는 믿음들이에요.</div>
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>당신의 결정을 이끄는 것으로 보이는 믿음들이에요. 원의 크기는 실제 근거 건수를 나타내요.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        {BELIEFS.map((b) => (
-          <div key={b.label} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{b.domain}</span>
-              <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
+        <BeliefBubbleChart />
+        <div style={{ marginTop: 8 }}>
+          {BELIEFS.map((b) => (
+            <div key={b.label} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{b.domain}</span>
+                <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
+              </div>
+              <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.label}</div>
+              <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
+                <div style={{ height: "100%", width: `${b.strength}%`, borderRadius: 2, backgroundColor: accent }} />
+              </div>
             </div>
-            <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.label}</div>
-            <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
-              <div style={{ height: "100%", width: `${b.strength}%`, borderRadius: 2, backgroundColor: accent }} />
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -616,7 +736,7 @@ function ScreenHypotheses({ onBack, onOpen }: { onBack?: () => void; onOpen?: (i
 }
 
 // ── Screen 12 · Hypothesis detail ─────────────────────────────────────────────
-function ScreenHypothesisDetail({ index, onBack }: { index: number; onBack?: () => void }) {
+function ScreenHypothesisDetail({ index, onBack, onInvestigate }: { index: number; onBack?: () => void; onInvestigate?: () => void }) {
   const h = HYPOTHESES[index] ?? HYPOTHESES[0];
   const [reaction, setReaction] = React.useState<null | "agree" | "disagree">(null);
   return (
@@ -665,7 +785,7 @@ function ScreenHypothesisDetail({ index, onBack }: { index: number; onBack?: () 
             </motion.div>
           </div>
           <div style={{ marginTop: 10 }}>
-            <GhostBtn onClick={() => {}}>더 깊이 알아보기</GhostBtn>
+            {h.investigate && <GhostBtn onClick={onInvestigate}>더 깊이 알아보기</GhostBtn>}
           </div>
           {reaction && (
             <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
@@ -674,6 +794,83 @@ function ScreenHypothesisDetail({ index, onBack }: { index: number; onBack?: () 
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Screen 12.5 · Investigate (deep dive into one hypothesis) ────────────────
+// A short guided walk through the evidence trail: where the pattern first
+// appeared, what changed between then and now, and how it connects to other
+// patterns already surfaced — closing on the same reflective question grammar
+// as the hypothesis card itself, not a new one.
+function ScreenInvestigate({ index, onBack }: { index: number; onBack?: () => void }) {
+  const h = HYPOTHESES[index] ?? HYPOTHESES[0];
+  const inv = h.investigate;
+  const [step, setStep] = React.useState(0);
+  const steps = 4;
+  if (!inv) return null;
+
+  let body: React.ReactNode;
+  if (step === 0) {
+    body = (
+      <ScreenPivot
+        kicker="더 깊이 알아보기"
+        statement={<>이 패턴이 처음<br />어디서 시작됐는지<br />같이 찾아볼게요.</>}
+        cta={<PrimaryBtn onClick={() => setStep(1)}>시작</PrimaryBtn>}
+      />
+    );
+  } else if (step === 1) {
+    body = (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>가장 처음 등장한 순간</div>
+          <div style={{ marginTop: 16, padding: 16, borderRadius: 14, backgroundColor: surface }}>
+            <div style={{ ...mono, fontSize: 11, color: faint }}>{inv.origin.date}</div>
+            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: inkSoft, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>"{inv.origin.quote}"</div>
+          </div>
+          <div style={{ ...sans, fontSize: 13.5, color: mid, marginTop: 18, lineHeight: 1.75, wordBreak: "keep-all" }}>{inv.originNote}</div>
+        </div>
+      </div>
+    );
+  } else if (step === 2) {
+    body = (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>그때와 지금, 나란히 놓아보면</div>
+          <div style={{ marginTop: 18 }}>
+            <AlignedRowCompare
+              rows={[
+                { label: inv.compareLabel1, steps: inv.compareSteps1 },
+                { label: inv.compareLabel2, steps: inv.compareSteps2, accent: true },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    body = (
+      <ScreenPivot
+        kicker="다른 패턴과의 연결"
+        statement={inv.related}
+        cta={<PrimaryBtn onClick={onBack}>가설로 돌아가기</PrimaryBtn>}
+      />
+    );
+  }
+
+  const onDark = step === 0 || step === steps - 1;
+  return (
+    <div style={{ position: "relative", height: "100%" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 22px 0", zIndex: 2 }}>
+        <motion.span role="button" tabIndex={0} onClick={step === 0 ? onBack : () => setStep(step - 1)} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: onDark ? "#C9C6CF" : subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+        <span style={{ ...mono, fontSize: 11, color: onDark ? "#8A8590" : faint }}>{step + 1} / {steps}</span>
+      </div>
+      <div style={{ height: "100%" }}>{body}</div>
+      {step > 0 && step < steps - 1 && (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 22px 24px" }}>
+          <PrimaryBtn onClick={() => setStep(step + 1)}>다음</PrimaryBtn>
+        </div>
+      )}
     </div>
   );
 }
@@ -752,7 +949,8 @@ export default function App() {
     case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} />; break;
     case "drift": content = <ScreenDrift onBack={() => setScreen("home")} />; break;
     case "hypotheses": content = <ScreenHypotheses onBack={() => setScreen("home")} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />; break;
-    case "hypothesisDetail": content = <ScreenHypothesisDetail index={hypothesisIndex} onBack={() => setScreen("hypotheses")} />; break;
+    case "hypothesisDetail": content = <ScreenHypothesisDetail index={hypothesisIndex} onBack={() => setScreen("hypotheses")} onInvestigate={() => setScreen("investigate")} />; break;
+    case "investigate": content = <ScreenInvestigate index={hypothesisIndex} onBack={() => setScreen("hypothesisDetail")} />; break;
     case "history": content = <ScreenHistory onNavSelect={goToTab} />; break;
     case "profile": content = <ScreenProfile onNavSelect={goToTab} />; break;
     default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} />;
