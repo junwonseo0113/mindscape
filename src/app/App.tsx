@@ -412,9 +412,11 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact }: { onNavSelect
 }
 
 // ── Screen 5 · Think (record) ─────────────────────────────────────────────────
-function ScreenThink({ onDone, onBack }: { onDone?: () => void; onBack?: () => void }) {
+function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
+  const [textMode, setTextMode] = React.useState(false);
+  const [text, setText] = React.useState("");
   React.useEffect(() => {
     if (!recording) return;
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -425,72 +427,135 @@ function ScreenThink({ onDone, onBack }: { onDone?: () => void; onBack?: () => v
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ink }}>
-      <div style={{ padding: "16px 20px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#8A8590", cursor: "pointer" }}>
           ✕ 그만하기
         </motion.span>
-      </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
-        {!recording ? (
-          <>
-            <div style={{ ...serif, fontSize: 22, color: "#F4F1EC", textAlign: "center", lineHeight: 1.6, wordBreak: "keep-all" }}>
-              편하게 말하세요.<br />정리하려 하지 않아도 됩니다.
-            </div>
-            <div style={{ ...sans, fontSize: 13, color: "#8A8590", textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
-              오늘 있었던 일, 갑자기 든 생각,<br />아직 결정하지 못한 것 — 무엇이든.
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 3, height: 40 }}>
-              {Array.from({ length: 24 }, (_, i) => (
-                <motion.div
-                  key={i}
-                  animate={{ height: [8, 24 + (i % 5) * 4, 8] }}
-                  transition={{ duration: 0.9 + (i % 4) * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.04 }}
-                  style={{ width: 3, borderRadius: 2, backgroundColor: accent }}
-                />
-              ))}
-            </div>
-            <div style={{ ...mono, fontSize: 15, color: "#8A8590", marginTop: 22 }}>{mm}:{ss}</div>
-          </>
+        {!recording && (
+          <motion.span role="button" tabIndex={0} onClick={() => setTextMode((v) => !v)} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: accent, cursor: "pointer" }}>
+            {textMode ? "음성으로 하기" : "글로 쓰기"}
+          </motion.span>
         )}
       </div>
-      <div style={{ padding: "0 32px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
-        <motion.div
-          role="button" tabIndex={0}
-          onClick={() => (recording ? onDone?.() : setRecording(true))}
-          whileTap={{ scale: 0.94 }}
-          style={{
-            width: 76, height: 76, borderRadius: "50%",
-            backgroundColor: recording ? tension : "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-          }}
-        >
-          {recording ? (
-            <div style={{ width: 22, height: 22, borderRadius: 5, backgroundColor: "#fff" }} />
-          ) : (
-            <div style={{ width: 26, height: 26, borderRadius: "50%", backgroundColor: ink }} />
-          )}
-        </motion.div>
-        <span style={{ ...sans, fontSize: 13, color: "#8A8590" }}>{recording ? "탭하면 마칩니다" : "탭해서 시작하세요"}</span>
-      </div>
+
+      {textMode ? (
+        <>
+          <div style={{ flex: 1, minHeight: 0, padding: "20px 24px 0", display: "flex" }}>
+            <textarea
+              autoFocus
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="오늘 있었던 일, 갑자기 든 생각, 아직 결정하지 못한 것 — 무엇이든 편하게 적어보세요."
+              style={{
+                ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+                backgroundColor: "transparent", color: "#F4F1EC", fontSize: 19, lineHeight: 1.7,
+                wordBreak: "keep-all",
+              }}
+            />
+          </div>
+          <div style={{ padding: "0 24px 40px" }}>
+            <PrimaryBtn disabled={!text.trim()} onClick={() => onDone?.(text.trim())}>다음</PrimaryBtn>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
+            {!recording ? (
+              <>
+                <div style={{ ...serif, fontSize: 22, color: "#F4F1EC", textAlign: "center", lineHeight: 1.6, wordBreak: "keep-all" }}>
+                  편하게 말하세요.<br />정리하려 하지 않아도 됩니다.
+                </div>
+                <div style={{ ...sans, fontSize: 13, color: "#8A8590", textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                  오늘 있었던 일, 갑자기 든 생각,<br />아직 결정하지 못한 것 — 무엇이든.
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, height: 40 }}>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <motion.div
+                      key={i}
+                      animate={{ height: [8, 24 + (i % 5) * 4, 8] }}
+                      transition={{ duration: 0.9 + (i % 4) * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.04 }}
+                      style={{ width: 3, borderRadius: 2, backgroundColor: accent }}
+                    />
+                  ))}
+                </div>
+                <div style={{ ...mono, fontSize: 15, color: "#8A8590", marginTop: 22 }}>{mm}:{ss}</div>
+              </>
+            )}
+          </div>
+          <div style={{ padding: "0 32px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+            <motion.div
+              role="button" tabIndex={0}
+              onClick={() => (recording ? onDone?.("") : setRecording(true))}
+              whileTap={{ scale: 0.94 }}
+              style={{
+                width: 76, height: 76, borderRadius: "50%",
+                backgroundColor: recording ? tension : "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+              }}
+            >
+              {recording ? (
+                <div style={{ width: 22, height: 22, borderRadius: 5, backgroundColor: "#fff" }} />
+              ) : (
+                <div style={{ width: 26, height: 26, borderRadius: "50%", backgroundColor: ink }} />
+              )}
+            </motion.div>
+            <span style={{ ...sans, fontSize: 13, color: "#8A8590" }}>{recording ? "탭하면 마칩니다" : "탭해서 시작하세요"}</span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ── Screen 6 · Processing ─────────────────────────────────────────────────────
-function ScreenProcessing({ onDone }: { onDone?: () => void }) {
+// When real typed text is present, this screen actually calls the analysis
+// endpoint (server-side LLM call) instead of just running a fixed timer —
+// the timer stays as pacing for the still-unimplemented voice/STT path.
+function ScreenProcessing({ text, onDone, onError }: { text?: string; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
+
   React.useEffect(() => {
+    if (text) return;
     if (step >= STEPS.length - 1) {
-      const t = setTimeout(() => onDone?.(), 900);
+      const t = setTimeout(() => onDone?.(null), 900);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setStep((s) => s + 1), 700);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [text, step]);
+
+  React.useEffect(() => {
+    if (!text) return;
+    let cancelled = false;
+    const stepTimer = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 700);
+    fetch("/api/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "분석에 실패했습니다.");
+        return data;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        clearInterval(stepTimer);
+        setStep(STEPS.length - 1);
+        setTimeout(() => { if (!cancelled) onDone?.(data); }, 500);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        clearInterval(stepTimer);
+        onError?.(err instanceof Error ? err.message : "분석에 실패했습니다.");
+      });
+    return () => { cancelled = true; clearInterval(stepTimer); };
+  }, [text]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
       <motion.div
@@ -504,24 +569,78 @@ function ScreenProcessing({ onDone }: { onDone?: () => void }) {
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-function ScreenThinkComplete({ onDone }: { onDone?: () => void }) {
+function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; error?: string; onDone?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 22, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          잘 들었습니다.
-        </div>
-        <div style={{ ...sans, fontSize: 14, color: mid, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-          오늘 이야기도 기록에 더해졌어요. 판단하거나 정리하지 않습니다 — 그냥 조용히 쌓아둡니다.
-        </div>
-        <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>가볍게 눈에 띈 것</div>
-          <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
-            "좀 더 지켜보고 싶다"는 표현, 최근 몇 번 더 나왔었어요.
-          </div>
-        </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: error || analysis ? "flex-start" : "center", padding: analysis ? "44px 28px 24px" : "0 28px" }}>
+        {error ? (
+          <>
+            <div style={{ ...serif, fontSize: 21, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              분석하지 못했어요.
+            </div>
+            <div style={{ ...sans, fontSize: 13.5, color: tension, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+              {error}
+            </div>
+          </>
+        ) : analysis ? (
+          <>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>방금 남긴 생각에서</div>
+            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>잘 들었습니다.</div>
+
+            {Array.isArray(analysis.beliefs) && analysis.beliefs.length > 0 && (
+              <div style={{ marginTop: 26 }}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>드러난 신념</div>
+                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {analysis.beliefs.map((b: any, i: number) => (
+                    <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mid }}>{b.domain}</span>
+                        {typeof b.confidence === "number" && <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: accent }}>{b.confidence}%</span>}
+                      </div>
+                      <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{b.statement}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(analysis.assumptions) && analysis.assumptions.length > 0 && (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복될 수 있는 가정</div>
+                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {analysis.assumptions.map((a: any, i: number) => (
+                    <div key={i} style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                      <span style={{ color: subtle }}>{a.trigger}</span> → {a.interpretation}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.reflection && (
+              <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
+                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.reflection}</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ ...serif, fontSize: 22, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              잘 들었습니다.
+            </div>
+            <div style={{ ...sans, fontSize: 14, color: mid, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+              오늘 이야기도 기록에 더해졌어요. 판단하거나 정리하지 않습니다 — 그냥 조용히 쌓아둡니다.
+            </div>
+            <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
+              <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>가볍게 눈에 띈 것</div>
+              <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                "좀 더 지켜보고 싶다"는 표현, 최근 몇 번 더 나왔었어요.
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      <div style={{ padding: "0 28px 40px" }}>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
         <PrimaryBtn onClick={onDone}>홈으로</PrimaryBtn>
       </div>
     </div>
@@ -933,6 +1052,9 @@ function ScreenProfile({ onNavSelect }: { onNavSelect?: (id: string) => void }) 
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
+  const [thinkText, setThinkText] = React.useState("");
+  const [analysis, setAnalysis] = React.useState<any>(null);
+  const [analysisError, setAnalysisError] = React.useState("");
 
   const goToTab = (id: string) => setScreen(id);
 
@@ -942,9 +1064,9 @@ export default function App() {
     case "auth": content = <ScreenAuth onDone={() => setScreen("onboarding")} />; break;
     case "onboarding": content = <ScreenOnboarding onDone={() => setScreen("home")} />; break;
     case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} />; break;
-    case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={() => setScreen("processing")} />; break;
-    case "processing": content = <ScreenProcessing onDone={() => setScreen("thinkComplete")} />; break;
-    case "thinkComplete": content = <ScreenThinkComplete onDone={() => setScreen("home")} />; break;
+    case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
+    case "processing": content = <ScreenProcessing text={thinkText} onDone={(result) => { setAnalysis(result); setScreen("thinkComplete"); }} onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }} />; break;
+    case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} />; break;
     case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} />; break;
     case "drift": content = <ScreenDrift onBack={() => setScreen("home")} />; break;
