@@ -225,7 +225,11 @@ const ASSUMPTIONS = [
 
 const HYPOTHESES = [
   {
-    title: "불확실할 때, 기다리는 것이 가장 안전한 선택이라고 가정하는 경향이 있습니다.",
+    title: "불확실함이 나타날 때마다, 기다리는 것이 가장 안전한 선택이라고 가정하는 경향이 있습니다.",
+    // The closing line is the whole point of this screen, almost verbatim
+    // from the product brief's own example — the AI never states a verdict
+    // ("이건 당신에게 안 좋은 습관이에요"), it hands the interpretation back.
+    question: "이 패턴은 커리어, 관계, 투자에서 반복적으로 나타났어요. 이 가정이 당신에게 도움이 되고 있다고 생각하세요, 아니면 당신을 제한하고 있다고 생각하세요?",
     confidence: 78,
     domains: ["커리어", "관계", "투자"],
     evidence: [
@@ -236,6 +240,7 @@ const HYPOTHESES = [
   },
   {
     title: "성과를 인정받지 못하면, 노력 자체가 부족했다고 스스로를 탓하는 패턴이 있습니다.",
+    question: "이 해석은 발표, 승진, 그리고 관계에서의 실망까지 — 결과가 안 좋을 때마다 똑같은 방식으로 나타났어요. 정말 매번 노력이 부족했던 걸까요, 아니면 이게 그냥 익숙한 설명일 뿐일까요?",
     confidence: 64,
     domains: ["커리어", "자아"],
     evidence: [
@@ -245,6 +250,7 @@ const HYPOTHESES = [
   },
   {
     title: "'자유를 중시한다'고 말하지만, 실제 선택은 안정성을 우선하는 방향으로 반복됩니다.",
+    question: "말하는 가치와 실제 선택 사이에 이 간격이 세 번 연속 나타났어요. 자유가 정말 당신이 원하는 것이 맞나요, 아니면 그렇게 믿고 싶은 이야기에 가까울까요?",
     confidence: 52,
     domains: ["가치관", "결정"],
     evidence: [
@@ -499,44 +505,80 @@ function ScreenAssumptions({ onBack }: { onBack?: () => void }) {
 }
 
 // ── Screen 10 · Identity Drift ────────────────────────────────────────────────
+// Identity Drift isn't a before/after mood chart — it's a gap between a
+// stated aspiration and the pattern actually observed since. The quote is
+// something the person said about who they wanted to become; the bar below
+// it is how close recent behavior actually tracks that, not a vague mood
+// score. This is the one screen most tied to the mission line "당신은 의식
+// 적으로 되고 싶은 사람이 될 수 있도록 돕는다" — it has to show the gap
+// plainly, not soften it into a neutral-sounding statistic.
+const ASPIRATIONS = [
+  {
+    said: "안정보다 도전을 선택하는 사람이 되고 싶어.",
+    saidDate: "2026.02.03",
+    label: "도전을 선택하는 빈도",
+    target: 100,
+    actual: 34,
+    note: "지난 6개월간 실제로 '더 위험한 선택'을 고른 순간은 34%뿐이었어요. 나머지는 안정적인 쪽을 택했습니다.",
+  },
+  {
+    said: "내 감정을 더 솔직하게 표현하는 사람이 되고 싶어.",
+    saidDate: "2026.03.18",
+    label: "감정을 먼저 꺼낸 대화 비율",
+    target: 100,
+    actual: 41,
+    note: "관계에서 갈등이 있었던 대화 중, 먼저 감정을 표현한 쪽은 41%였어요.",
+  },
+  {
+    said: "완벽하지 않아도 일단 시작하는 사람이 되고 싶어.",
+    saidDate: "2026.01.22",
+    label: "\"준비되면 하겠다\"고 미룬 비율",
+    target: 0,
+    actual: 58,
+    note: "새로운 시도를 언급한 대화의 58%가 결국 '조금 더 준비되면'으로 끝났어요.",
+  },
+];
+
 function ScreenDrift({ onBack }: { onBack?: () => void }) {
-  const rows = [
-    { label: "안정 vs 도전", before: 78, after: 58 },
-    { label: "타인의 인정 의존도", before: 70, after: 52 },
-    { label: "혼자 해결하려는 경향", before: 60, after: 66 },
-  ];
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
         <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>사고의 변화</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>6개월 전과 지금, 무엇이 달라졌을까요.</div>
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          되고 싶다고 말했던 사람과, 최근 실제 패턴 사이의 거리예요.
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
-        {rows.map((r) => (
-          <div key={r.label} style={{ marginBottom: 24 }}>
-            <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: ink }}>{r.label}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <span style={{ ...sans, fontSize: 10, color: faint, width: 44, flexShrink: 0 }}>6개월 전</span>
-              <div style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: hair }}>
-                <div style={{ height: "100%", width: `${r.before}%`, borderRadius: 3, backgroundColor: faint }} />
+        {ASPIRATIONS.map((a) => {
+          const gap = Math.abs(a.target - a.actual);
+          return (
+            <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${hair}` }}>
+              <div style={{ ...mono, fontSize: 11, color: faint }}>{a.saidDate}, 당신이 한 말</div>
+              <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                "{a.said}"
               </div>
-              <span style={{ ...mono, fontSize: 11, color: faint, width: 28, textAlign: "right" }}>{r.before}</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
-              <span style={{ ...sans, fontSize: 10, color: accent, width: 44, flexShrink: 0 }}>지금</span>
-              <div style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: hair }}>
-                <div style={{ height: "100%", width: `${r.after}%`, borderRadius: 3, backgroundColor: accent }} />
+
+              <div style={{ marginTop: 16 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                  <span style={{ ...sans, fontSize: 12, color: mid }}>{a.label}</span>
+                  <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: tension }}>{gap}%p 차이</span>
+                </div>
+                <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: hair, marginTop: 8 }}>
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(181,83,60,0.18)" }} />
+                  <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: faint, left: `${a.target}%` }} />
+                  <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: accent, left: `${a.actual}%` }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ ...sans, fontSize: 10, color: faint }}>목표 {a.target}%</span>
+                  <span style={{ ...sans, fontSize: 10, color: accent }}>실제 {a.actual}%</span>
+                </div>
               </div>
-              <span style={{ ...mono, fontSize: 11, color: accent, width: 28, textAlign: "right" }}>{r.after}</span>
+
+              <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
             </div>
-          </div>
-        ))}
-        <div style={{ marginTop: 8, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-          <div style={{ ...serif, fontSize: 15, color: ink, lineHeight: 1.6, wordBreak: "keep-all" }}>
-            "안정보다 도전"을 원한다고 말했던 6개월 전보다, 지금은 안정에 대한 회의가 조금씩 늘어나고 있어요.
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -600,6 +642,10 @@ function ScreenHypothesisDetail({ index, onBack }: { index: number; onBack?: () 
               </div>
             ))}
           </div>
+        </div>
+
+        <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
+          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.question}</div>
         </div>
 
         <div style={{ marginTop: 26 }}>
