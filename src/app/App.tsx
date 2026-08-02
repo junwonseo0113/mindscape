@@ -28,7 +28,7 @@ const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 // reinforce it" (Model → Update), and — the network part — explicitly link
 // beliefs that share a root cause, so the graph gets richer (and analysis
 // has more to reason from) the longer someone uses the app.
-const STORE_KEY = "mijeong.store.v3";
+const STORE_KEY = "mijeong.store.v4";
 
 type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number };
 type StoredAssumption = { id: string; trigger: string; interpretation: string; count: number };
@@ -36,6 +36,7 @@ type StoredConnection = { a: string; b: string; note: string };
 type StoredHistoryEntry = { date: string; text: string };
 type StoredHypothesis = { id: string; title: string; confidence: number; domains: string[]; reaction: "agree" | "disagree" | null; createdDate: string };
 type StoredDriftNote = { date: string; note: string };
+type StoredSettings = { dailyReminder: boolean; newHypothesisAlert: boolean; weeklySummary: boolean };
 type Store = {
   beliefs: StoredBelief[];
   assumptions: StoredAssumption[];
@@ -45,6 +46,7 @@ type Store = {
   aspiration: string | null;
   aspirationSetDate: string | null;
   driftNotes: StoredDriftNote[];
+  settings: StoredSettings;
   entryCount: number;
 };
 
@@ -52,8 +54,12 @@ function formatDateDots(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function defaultSettings(): StoredSettings {
+  return { dailyReminder: true, newHypothesisAlert: true, weeklySummary: false };
+}
+
 function emptyStore(): Store {
-  return { beliefs: [], assumptions: [], connections: [], history: [], hypotheses: [], aspiration: null, aspirationSetDate: null, driftNotes: [], entryCount: 0 };
+  return { beliefs: [], assumptions: [], connections: [], history: [], hypotheses: [], aspiration: null, aspirationSetDate: null, driftNotes: [], settings: defaultSettings(), entryCount: 0 };
 }
 
 function loadStore(): Store {
@@ -70,6 +76,7 @@ function loadStore(): Store {
       aspiration: typeof parsed.aspiration === "string" ? parsed.aspiration : null,
       aspirationSetDate: typeof parsed.aspirationSetDate === "string" ? parsed.aspirationSetDate : null,
       driftNotes: Array.isArray(parsed.driftNotes) ? parsed.driftNotes : [],
+      settings: parsed.settings && typeof parsed.settings === "object" ? { ...defaultSettings(), ...parsed.settings } : defaultSettings(),
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
     };
   } catch {
@@ -177,6 +184,7 @@ function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Stor
     aspiration: prev.aspiration,
     aspirationSetDate: prev.aspirationSetDate,
     driftNotes,
+    settings: prev.settings,
     entryCount: prev.entryCount + 1,
   };
 }
@@ -1489,9 +1497,15 @@ function ScreenHistory({ onNavSelect, store }: { onNavSelect?: (id: string) => v
 }
 
 // ── Screen 14 · Profile ────────────────────────────────────────────────────────
-function ScreenProfile({ onNavSelect, store, onSetupAspiration }: { onNavSelect?: (id: string) => void; store?: Store; onSetupAspiration?: () => void }) {
-  const rows = ["나의 목표", "알림", "데이터와 개인정보", "도움말", "로그아웃"];
+function ScreenProfile({ onNavSelect, store, onSetupAspiration, onOpenSettings }: { onNavSelect?: (id: string) => void; store?: Store; onSetupAspiration?: () => void; onOpenSettings?: (screen: "notifications" | "dataPrivacy" | "help") => void }) {
   const live = !!store && store.entryCount > 0;
+  const rows: { label: string; onClick?: () => void }[] = [
+    { label: "나의 목표", onClick: onSetupAspiration },
+    { label: "알림", onClick: () => onOpenSettings?.("notifications") },
+    { label: "데이터와 개인정보", onClick: () => onOpenSettings?.("dataPrivacy") },
+    { label: "도움말", onClick: () => onOpenSettings?.("help") },
+    { label: "로그아웃", onClick: onNavSelect ? () => onNavSelect("auth") : undefined },
+  ];
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "28px 22px 24px" }}>
@@ -1502,18 +1516,151 @@ function ScreenProfile({ onNavSelect, store, onSetupAspiration }: { onNavSelect?
         </div>
         <div style={{ marginTop: 28 }}>
           {rows.map((r, i) => (
-            <div
-              key={r} role={r === "나의 목표" ? "button" : undefined} tabIndex={r === "나의 목표" ? 0 : undefined}
-              onClick={r === "나의 목표" ? onSetupAspiration : undefined}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: i < rows.length - 1 ? `1px solid ${hair}` : "none", cursor: r === "나의 목표" ? "pointer" : "default" }}
+            <motion.div
+              key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: i < rows.length - 1 ? `1px solid ${hair}` : "none", cursor: "pointer" }}
             >
-              <span style={{ ...sans, fontSize: 15, color: r === "로그아웃" ? tension : inkSoft }}>{r}</span>
+              <span style={{ ...sans, fontSize: 15, color: r.label === "로그아웃" ? tension : inkSoft }}>{r.label}</span>
               <span style={{ ...sans, fontSize: 14, color: faint }}>›</span>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
       <BottomNav active="profile" onSelect={onNavSelect} />
+    </div>
+  );
+}
+
+// ── Screen 14.1 · Notification settings ───────────────────────────────────────
+function SettingsToggle({ label, note, value, onChange }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${hair}` }}>
+      <div style={{ paddingRight: 16 }}>
+        <div style={{ ...sans, fontSize: 15, color: ink }}>{label}</div>
+        {note && <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
+      </div>
+      <motion.div
+        role="button" tabIndex={0} onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
+        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? accent : hair, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
+      >
+        <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff" }} />
+      </motion.div>
+    </div>
+  );
+}
+
+function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: StoredSettings; onBack?: () => void; onChange?: (settings: StoredSettings) => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>알림</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+        <SettingsToggle
+          label="매일 리마인더"
+          note="하루에 한 번, 오늘 있었던 생각을 남겨보라고 알려드려요."
+          value={settings.dailyReminder}
+          onChange={(v) => onChange?.({ ...settings, dailyReminder: v })}
+        />
+        <SettingsToggle
+          label="새 가설 알림"
+          note="AI가 새로운 패턴을 발견했을 때 알려드려요."
+          value={settings.newHypothesisAlert}
+          onChange={(v) => onChange?.({ ...settings, newHypothesisAlert: v })}
+        />
+        <SettingsToggle
+          label="주간 요약"
+          note="일주일간 쌓인 신념과 변화를 한 번에 정리해드려요."
+          value={settings.weeklySummary}
+          onChange={(v) => onChange?.({ ...settings, weeklySummary: v })}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 14.2 · Data & privacy ───────────────────────────────────────────────
+function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBack?: () => void; onResetData?: () => void }) {
+  const [armed, setArmed] = React.useState(false);
+  const s = store;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>데이터와 개인정보</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+        <div style={{ ...sans, fontSize: 13.5, color: mid, lineHeight: 1.75, wordBreak: "keep-all" }}>
+          이 앱은 별도 서버에 계정을 만들지 않아요. 신념, 가정, 대화 기록은 전부 이 기기의 브라우저 안에만 저장됩니다. "생각 말하기"로 남긴 텍스트는 분석하는 순간에만 Claude(Anthropic)로 전송되고, 그 외에는 어디로도 나가지 않아요.
+        </div>
+
+        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: surface }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>이 기기에 저장된 데이터</div>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              ["신념", s?.beliefs.length ?? 0],
+              ["반복되는 가정", s?.assumptions.length ?? 0],
+              ["신념 사이의 연결", s?.connections.length ?? 0],
+              ["대화 기록", s?.history.length ?? 0],
+              ["AI의 가설", s?.hypotheses.length ?? 0],
+            ].map(([label, count]) => (
+              <div key={label as string} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ ...sans, fontSize: 13, color: inkSoft }}>{label}</span>
+                <span style={{ ...mono, fontSize: 13, color: mid }}>{count}개</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 28 }}>
+          <div
+            role="button" tabIndex={0}
+            onClick={() => (armed ? onResetData?.() : setArmed(true))}
+            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? tension : hair}`, backgroundColor: armed ? "rgba(181,83,60,0.08)" : "transparent", cursor: "pointer" }}
+          >
+            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: tension }}>
+              {armed ? "정말요? 다시 누르면 완전히 삭제돼요" : "내 데이터 모두 삭제"}
+            </span>
+          </div>
+          {armed && (
+            <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 8, lineHeight: 1.5 }}>
+              이 기기에 저장된 신념, 가정, 대화 기록, 목표 설정이 모두 사라져요. 되돌릴 수 없어요.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 14.3 · Help ─────────────────────────────────────────────────────────
+const HELP_ITEMS = [
+  { q: "이 앱은 무엇을 하나요?", a: "지난 일을 기록하는 일기장이 아니에요. 시간이 지날수록 당신이 왜 그렇게 생각하는지 — 반복되는 신념, 자동적인 가정, 스스로도 못 보는 패턴 — 을 조용히 비춰주는 도구예요." },
+  { q: "'생각 말하기'는 어떻게 쓰나요?", a: "정리하지 마세요. 오늘 있었던 일, 갑자기 든 생각, 아직 결정 못한 것 — 떠오르는 순서 그대로 말하거나 적으면 돼요. 음성은 브라우저 내장 인식을, 텍스트는 직접 타이핑을 지원해요." },
+  { q: "신념 지도는 뭔가요?", a: "당신의 결정을 이끄는 것으로 보이는 믿음들을, 근거가 쌓일수록 커지는 원으로 보여줘요. 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 신념들의 연결이에요." },
+  { q: "AI의 가설은 확정된 사실인가요?", a: "아니요. 확신도와 함께 제시되는 하나의 해석일 뿐이에요. 동의하거나 아니라고 답하면서 함께 다듬어가는 게 정상적인 사용 방식이에요." },
+  { q: "사고의 변화는 어떻게 계산되나요?", a: "당신이 되고 싶다고 말한 모습과, 실제로 쌓인 신념/가정 사이의 구체적인 간극을 AI가 짚어드려요. 목표를 먼저 프로필에서 설정해야 시작돼요." },
+];
+
+function ScreenHelp({ onBack }: { onBack?: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>도움말</div>
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          당신의 마음에는 패턴이 있습니다. 안에서는 보이지 않을 뿐입니다.
+        </div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+        {HELP_ITEMS.map((h, i) => (
+          <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${hair}` : "none" }}>
+            <div style={{ ...serif, fontSize: 16, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.q}</div>
+            <div style={{ ...sans, fontSize: 13.5, color: mid, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.a}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1608,7 +1755,34 @@ export default function App() {
     ); break;
     case "investigate": content = <ScreenInvestigate index={hypothesisIndex} onBack={() => setScreen("hypothesisDetail")} />; break;
     case "history": content = <ScreenHistory onNavSelect={goToTab} store={store} />; break;
-    case "profile": content = <ScreenProfile onNavSelect={goToTab} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
+    case "profile": content = (
+      <ScreenProfile
+        onNavSelect={goToTab}
+        store={store}
+        onSetupAspiration={() => setScreen("aspirationSetup")}
+        onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
+      />
+    ); break;
+    case "notifications": content = (
+      <ScreenNotificationSettings
+        settings={store.settings}
+        onBack={() => setScreen("profile")}
+        onChange={(settings) => { const next: Store = { ...store, settings }; setStore(next); saveStore(next); }}
+      />
+    ); break;
+    case "dataPrivacy": content = (
+      <ScreenDataPrivacy
+        store={store}
+        onBack={() => setScreen("profile")}
+        onResetData={() => {
+          const next = emptyStore();
+          setStore(next);
+          saveStore(next);
+          setScreen("profile");
+        }}
+      />
+    ); break;
+    case "help": content = <ScreenHelp onBack={() => setScreen("profile")} />; break;
     default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />;
   }
 
