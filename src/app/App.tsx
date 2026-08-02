@@ -506,18 +506,87 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact }: { onNavSelect
 }
 
 // ── Screen 5 · Think (record) ─────────────────────────────────────────────────
+// The browser's own speech recognizer — no extra API key, but Chrome/Edge/
+// Safari only (no Firefox), and audio goes through the browser vendor's
+// servers to come back as text. Good enough to make voice input real for a
+// minimal version instead of the decorative waveform-only mock it used to be.
+function getSpeechRecognitionCtor(): any {
+  if (typeof window === "undefined") return null;
+  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
+}
+
 function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
   const [textMode, setTextMode] = React.useState(false);
   const [text, setText] = React.useState("");
+  const [transcript, setTranscript] = React.useState("");
+  const [interim, setInterim] = React.useState("");
+  const voiceSupportedRef = React.useRef(!!getSpeechRecognitionCtor());
+  const recognitionRef = React.useRef<any>(null);
+  const manualStopRef = React.useRef(false);
+
   React.useEffect(() => {
     if (!recording) return;
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [recording]);
+
+  React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); }, []);
+
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
   const ss = String(seconds % 60).padStart(2, "0");
+
+  const startRecording = () => {
+    setTranscript("");
+    setInterim("");
+    setSeconds(0);
+    const SR = getSpeechRecognitionCtor();
+    if (SR) {
+      manualStopRef.current = false;
+      const recognition = new SR();
+      recognition.lang = "ko-KR";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (e: any) => {
+        let finalChunk = "";
+        let interimChunk = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) finalChunk += r[0].transcript;
+          else interimChunk += r[0].transcript;
+        }
+        if (finalChunk) setTranscript((t) => (t ? t + " " : "") + finalChunk.trim());
+        setInterim(interimChunk);
+      };
+      recognition.onerror = (e: any) => {
+        // Fatal errors (mic denied, no mic, offline): stop retrying instead
+        // of looping start/stop forever. "no-speech" is not fatal — it just
+        // means a silent gap, so let onend's restart handle that one.
+        if (["not-allowed", "audio-capture", "network", "service-not-allowed"].includes(e?.error)) {
+          manualStopRef.current = true;
+        }
+      };
+      recognition.onend = () => {
+        if (!manualStopRef.current) {
+          try { recognition.start(); } catch { /* already stopped for good */ }
+        }
+      };
+      recognitionRef.current = recognition;
+      try { recognition.start(); } catch { /* ignore */ }
+    }
+    setRecording(true);
+  };
+
+  const stopRecording = () => {
+    manualStopRef.current = true;
+    recognitionRef.current?.stop?.();
+    recognitionRef.current = null;
+    setRecording(false);
+    const finalText = (transcript + (interim ? " " + interim : "")).trim();
+    setInterim("");
+    onDone?.(finalText);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ink }}>
@@ -562,6 +631,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                 <div style={{ ...sans, fontSize: 13, color: "#8A8590", textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
                   오늘 있었던 일, 갑자기 든 생각,<br />아직 결정하지 못한 것 — 무엇이든.
                 </div>
+                {!voiceSupportedRef.current && (
+                  <div style={{ ...sans, fontSize: 12, color: tension, textAlign: "center", marginTop: 18, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                    이 브라우저는 음성 인식을 지원하지 않아요. "글로 쓰기"를 이용해주세요.
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -576,13 +650,18 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   ))}
                 </div>
                 <div style={{ ...mono, fontSize: 15, color: "#8A8590", marginTop: 22 }}>{mm}:{ss}</div>
+                {voiceSupportedRef.current && (
+                  <div style={{ ...serif, fontSize: 16, color: "#D9D6DE", textAlign: "center", marginTop: 24, lineHeight: 1.65, wordBreak: "keep-all", minHeight: 50 }}>
+                    {(transcript + (interim ? " " + interim : "")).trim() || "듣고 있어요…"}
+                  </div>
+                )}
               </>
             )}
           </div>
           <div style={{ padding: "0 32px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
             <motion.div
               role="button" tabIndex={0}
-              onClick={() => (recording ? onDone?.("") : setRecording(true))}
+              onClick={() => (recording ? stopRecording() : startRecording())}
               whileTap={{ scale: 0.94 }}
               style={{
                 width: 76, height: 76, borderRadius: "50%",
