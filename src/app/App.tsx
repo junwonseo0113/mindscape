@@ -28,7 +28,7 @@ const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 // reinforce it" (Model → Update), and — the network part — explicitly link
 // beliefs that share a root cause, so the graph gets richer (and analysis
 // has more to reason from) the longer someone uses the app.
-const STORE_KEY = "mijeong.store.v4";
+const STORE_KEY = "mijeong.store.v5";
 
 type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number };
 type StoredAssumption = { id: string; trigger: string; interpretation: string; count: number };
@@ -37,6 +37,11 @@ type StoredHistoryEntry = { date: string; text: string };
 type StoredHypothesis = { id: string; title: string; confidence: number; domains: string[]; reaction: "agree" | "disagree" | null; createdDate: string };
 type StoredDriftNote = { date: string; note: string };
 type StoredSettings = { dailyReminder: boolean; newHypothesisAlert: boolean; weeklySummary: boolean };
+// Local-only mock account — there's no backend, so this is just a gate on
+// top of the one on-device dataset (see 데이터와 개인정보), not real auth.
+// Password is compared in plaintext client-side; that's fine for a
+// prototype where the only "attacker" is someone with your own browser.
+type StoredAccount = { name: string; email: string; password: string };
 type Store = {
   beliefs: StoredBelief[];
   assumptions: StoredAssumption[];
@@ -47,6 +52,7 @@ type Store = {
   aspirationSetDate: string | null;
   driftNotes: StoredDriftNote[];
   settings: StoredSettings;
+  account: StoredAccount | null;
   entryCount: number;
 };
 
@@ -59,7 +65,7 @@ function defaultSettings(): StoredSettings {
 }
 
 function emptyStore(): Store {
-  return { beliefs: [], assumptions: [], connections: [], history: [], hypotheses: [], aspiration: null, aspirationSetDate: null, driftNotes: [], settings: defaultSettings(), entryCount: 0 };
+  return { beliefs: [], assumptions: [], connections: [], history: [], hypotheses: [], aspiration: null, aspirationSetDate: null, driftNotes: [], settings: defaultSettings(), account: null, entryCount: 0 };
 }
 
 function loadStore(): Store {
@@ -77,6 +83,7 @@ function loadStore(): Store {
       aspirationSetDate: typeof parsed.aspirationSetDate === "string" ? parsed.aspirationSetDate : null,
       driftNotes: Array.isArray(parsed.driftNotes) ? parsed.driftNotes : [],
       settings: parsed.settings && typeof parsed.settings === "object" ? { ...defaultSettings(), ...parsed.settings } : defaultSettings(),
+      account: parsed.account && typeof parsed.account === "object" ? parsed.account : null,
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
     };
   } catch {
@@ -185,6 +192,7 @@ function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Stor
     aspirationSetDate: prev.aspirationSetDate,
     driftNotes,
     settings: prev.settings,
+    account: prev.account,
     entryCount: prev.entryCount + 1,
   };
 }
@@ -360,7 +368,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 }
 
 // ── Screen 2 · Auth ───────────────────────────────────────────────────────────
-function ScreenAuth({ onDone }: { onDone?: () => void }) {
+function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
@@ -370,8 +378,123 @@ function ScreenAuth({ onDone }: { onDone?: () => void }) {
         </div>
       </div>
       <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onDone}>시작하기</PrimaryBtn>
-        <GhostBtn onClick={onDone}>둘러보기</GhostBtn>
+        <PrimaryBtn onClick={onEmailStart}>이메일로 계속하기</PrimaryBtn>
+        <GhostBtn onClick={onGuest}>게스트로 둘러보기</GhostBtn>
+      </div>
+    </div>
+  );
+}
+
+function TextField({ label, type = "text", value, onChange, placeholder, error }: { label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: boolean }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, marginBottom: 6 }}>{label}</div>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
+          border: `1px solid ${error ? tension : hair}`, fontSize: 15, color: ink,
+          backgroundColor: surface, outline: "none",
+        }}
+      />
+    </div>
+  );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// A local-only mock login: there's no server, so "logging in" just checks
+// against the single account stored on this device (see StoredAccount).
+// It's here so the flow feels real, not to imply real multi-user auth.
+function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: StoredAccount | null; onBack?: () => void; onGoSignup?: () => void; onLogin?: () => void }) {
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const submit = () => {
+    if (loading) return;
+    setError("");
+    if (!email.trim() || !password) { setError("이메일과 비밀번호를 모두 입력해주세요."); return; }
+    if (!EMAIL_RE.test(email.trim())) { setError("이메일 형식이 올바르지 않아요."); return; }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      if (!account) { setError("등록된 계정이 없어요. 회원가입을 먼저 해주세요."); return; }
+      if (account.email.toLowerCase() !== email.trim().toLowerCase() || account.password !== password) {
+        setError("이메일 또는 비밀번호가 올바르지 않아요.");
+        return;
+      }
+      onLogin?.();
+    }, 500);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
+        <div style={{ ...serif, fontSize: 24, color: ink, lineHeight: 1.4 }}>다시 만나서 반가워요</div>
+        <div style={{ marginTop: 24 }}>
+          <TextField label="이메일" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
+        </div>
+        {error && <div style={{ ...sans, fontSize: 12.5, color: tension, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
+        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "확인하는 중…" : "로그인"}</PrimaryBtn>
+        <div style={{ textAlign: "center", marginTop: 18 }}>
+          <span style={{ ...sans, fontSize: 13, color: mid }}>계정이 없으신가요? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: accent, fontWeight: 600, cursor: "pointer" }}>회원가입</motion.span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; onGoLogin?: () => void; onSignup?: (account: StoredAccount) => void }) {
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const submit = () => {
+    if (loading) return;
+    setError("");
+    if (!name.trim()) { setError("이름을 입력해주세요."); return; }
+    if (!EMAIL_RE.test(email.trim())) { setError("이메일 형식이 올바르지 않아요."); return; }
+    if (password.length < 6) { setError("비밀번호는 6자 이상이어야 해요."); return; }
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      onSignup?.({ name: name.trim(), email: email.trim(), password });
+    }, 500);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
+        <div style={{ ...serif, fontSize: 24, color: ink, lineHeight: 1.4 }}>계정을 만들어요</div>
+        <div style={{ ...sans, fontSize: 12.5, color: subtle, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
+          이 기기에만 저장돼요. 다른 서버로 전송되지 않아요.
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <TextField label="이름" value={name} onChange={setName} placeholder="어떻게 불러드릴까요?" error={!!error} />
+          <TextField label="이메일" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="6자 이상" error={!!error} />
+        </div>
+        {error && <div style={{ ...sans, fontSize: 12.5, color: tension, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
+        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "만드는 중…" : "가입하기"}</PrimaryBtn>
+        <div style={{ textAlign: "center", marginTop: 18 }}>
+          <span style={{ ...sans, fontSize: 13, color: mid }}>이미 계정이 있으신가요? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: accent, fontWeight: 600, cursor: "pointer" }}>로그인</motion.span>
+        </div>
       </div>
     </div>
   );
@@ -898,8 +1021,8 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   {analysis.connections.map((c: any, i: number) => (
                     <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
-                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent }}>{c.aLabel} ↔ {c.bLabel}</div>
-                      <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 5, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                      <ConnectionSpark aLabel={c.aLabel} bLabel={c.bLabel} />
+                      <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                     </div>
                   ))}
                 </div>
@@ -951,6 +1074,45 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
         <PrimaryBtn onClick={onDone}>홈으로</PrimaryBtn>
       </div>
     </div>
+  );
+}
+
+// A tiny standalone "synapse forming" diagram — two nodes, a line drawing
+// itself in, then a pulse that keeps traveling between them. Used wherever
+// a freshly-found connection between two beliefs needs to feel like it's
+// actually being wired together, not just printed as text.
+function ConnectionSpark({ aLabel, bLabel }: { aLabel: string; bLabel: string }) {
+  const w = 240, h = 48, r = 17;
+  const ax = r + 6, ay = h / 2;
+  const bx = w - r - 6, by = h / 2;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: h, display: "block", overflow: "visible" }}>
+      <motion.line
+        x1={ax} y1={ay} x2={bx} y2={by}
+        stroke={accent} strokeWidth={1.6}
+        initial={{ pathLength: 0, opacity: 0 }}
+        animate={{ pathLength: 1, opacity: 0.5 }}
+        transition={{ duration: 0.7, ease: "easeOut" }}
+      />
+      <motion.circle
+        r={3} fill={accent}
+        initial={{ opacity: 0, cx: ax, cy: ay }}
+        animate={{ opacity: [0, 1, 1, 0], cx: [ax, ax, bx, bx], cy: [ay, ay, by, by] }}
+        transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.9, delay: 0.8, ease: "easeInOut", times: [0, 0.08, 0.92, 1] }}
+      />
+      <motion.circle
+        cx={ax} cy={ay} r={r} fill={accentSoft} stroke={accent} strokeOpacity={0.5} strokeWidth={1.2}
+        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, ease: "backOut" }}
+        style={{ transformOrigin: `${ax}px ${ay}px` }}
+      />
+      <motion.circle
+        cx={bx} cy={by} r={r} fill={accentSoft} stroke={accent} strokeOpacity={0.5} strokeWidth={1.2}
+        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, delay: 0.15, ease: "backOut" }}
+        style={{ transformOrigin: `${bx}px ${by}px` }}
+      />
+      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: ink }}>{aLabel}</text>
+      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: ink }}>{bLabel}</text>
+    </svg>
   );
 }
 
@@ -1013,6 +1175,9 @@ function layoutBeliefNodes(items: { evidenceCount: number }[]) {
 // The "brain network" view: same bubbles, plus lines wherever the model
 // found two beliefs share a root cause. Lines render first so bubbles sit
 // on top of them.
+// Synapses, not just lines: each connection draws itself in on mount, then a
+// small pulse keeps traveling along it — a standing "signal" between the two
+// beliefs it links, instead of a static diagram.
 function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[]; connections: StoredConnection[] }) {
   const positioned = layoutBeliefNodes(beliefs).map((pos, i) => ({ ...beliefs[i], ...pos }));
   const byId = new Map(positioned.map((b) => [b.id, b]));
@@ -1022,7 +1187,23 @@ function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[];
         const a = byId.get(c.a);
         const b = byId.get(c.b);
         if (!a || !b) return null;
-        return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={accent} strokeWidth={1.4} strokeOpacity={0.4} />;
+        return (
+          <React.Fragment key={i}>
+            <motion.line
+              x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+              stroke={accent} strokeWidth={1.4}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 0.4 }}
+              transition={{ duration: 0.9, delay: 0.15 * i, ease: "easeOut" }}
+            />
+            <motion.circle
+              r={2.6} fill={accent}
+              initial={{ opacity: 0, cx: a.x, cy: a.y }}
+              animate={{ opacity: [0, 1, 1, 0], cx: [a.x, a.x, b.x, b.x], cy: [a.y, a.y, b.y, b.y] }}
+              transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 1.1, delay: 1 + 0.15 * i, ease: "easeInOut", times: [0, 0.08, 0.92, 1] }}
+            />
+          </React.Fragment>
+        );
       })}
       {positioned.map((b) => (
         <circle key={b.id} cx={b.x} cy={b.y} r={b.r} fill={accentSoft} stroke={accent} strokeOpacity={0.4} strokeWidth={1.2} />
@@ -1074,8 +1255,8 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
                 if (!from || !to) return null;
                 return (
                   <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent }}>{from.domain} ↔ {to.domain}</div>
-                    <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 5, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                    <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
+                    <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                   </div>
                 );
               })}
@@ -1511,8 +1692,10 @@ function ScreenProfile({ onNavSelect, store, onSetupAspiration, onOpenSettings }
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "28px 22px 24px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: surface }} />
-          <div style={{ ...serif, fontSize: 20, color: ink, marginTop: 12 }}>익명의 관찰자</div>
-          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4 }}>2026년 5월부터 함께하는 중 · 대화 {live ? store!.entryCount : 47}회</div>
+          <div style={{ ...serif, fontSize: 20, color: ink, marginTop: 12 }}>{store?.account?.name || "익명의 관찰자"}</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4 }}>
+            {store?.account?.email ? `${store.account.email} · ` : ""}대화 {live ? store!.entryCount : 47}회
+          </div>
         </div>
         <div style={{ marginTop: 28 }}>
           {rows.map((r, i) => (
@@ -1679,7 +1862,27 @@ export default function App() {
   let content: React.ReactNode = null;
   switch (screen) {
     case "splash": content = <ScreenSplash onDone={() => setScreen("auth")} />; break;
-    case "auth": content = <ScreenAuth onDone={() => setScreen("onboarding")} />; break;
+    case "auth": content = <ScreenAuth onEmailStart={() => setScreen(store.account ? "login" : "signup")} onGuest={() => setScreen("onboarding")} />; break;
+    case "login": content = (
+      <ScreenLogin
+        account={store.account}
+        onBack={() => setScreen("auth")}
+        onGoSignup={() => setScreen("signup")}
+        onLogin={() => setScreen("home")}
+      />
+    ); break;
+    case "signup": content = (
+      <ScreenSignup
+        onBack={() => setScreen("auth")}
+        onGoLogin={() => setScreen("login")}
+        onSignup={(account) => {
+          const next: Store = { ...store, account };
+          setStore(next);
+          saveStore(next);
+          setScreen("onboarding");
+        }}
+      />
+    ); break;
     case "onboarding": content = <ScreenOnboarding onDone={() => setScreen("home")} />; break;
     case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />; break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
