@@ -22,28 +22,36 @@ const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
 const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 
-// ── Persisted belief store — the one place this app keeps real, accumulating
-// state instead of curated demo data. Every analysis feeds the current store
+// ── Persisted belief graph — the one place this app keeps real, accumulating
+// state instead of curated demo data. Every analysis feeds the current graph
 // back to the model so it can tell "new belief" apart from "this again,
-// reinforce it" instead of starting from zero each time (Model → Update).
-const STORE_KEY = "mijeong.store.v1";
+// reinforce it" (Model → Update), and — the network part — explicitly link
+// beliefs that share a root cause, so the graph gets richer (and analysis
+// has more to reason from) the longer someone uses the app.
+const STORE_KEY = "mijeong.store.v2";
 
-type StoredBelief = { domain: string; statement: string; confidence: number; evidenceCount: number };
-type StoredAssumption = { trigger: string; interpretation: string; count: number };
-type Store = { beliefs: StoredBelief[]; assumptions: StoredAssumption[]; entryCount: number };
+type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number };
+type StoredAssumption = { id: string; trigger: string; interpretation: string; count: number };
+type StoredConnection = { a: string; b: string; note: string };
+type Store = { beliefs: StoredBelief[]; assumptions: StoredAssumption[]; connections: StoredConnection[]; entryCount: number };
+
+function emptyStore(): Store {
+  return { beliefs: [], assumptions: [], connections: [], entryCount: 0 };
+}
 
 function loadStore(): Store {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return { beliefs: [], assumptions: [], entryCount: 0 };
+    if (!raw) return emptyStore();
     const parsed = JSON.parse(raw);
     return {
       beliefs: Array.isArray(parsed.beliefs) ? parsed.beliefs : [],
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
+      connections: Array.isArray(parsed.connections) ? parsed.connections : [],
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
     };
   } catch {
-    return { beliefs: [], assumptions: [], entryCount: 0 };
+    return emptyStore();
   }
 }
 
@@ -53,6 +61,59 @@ function saveStore(store: Store) {
   } catch {
     // private-mode / storage-full — non-fatal, just don't persist
   }
+}
+
+// The model matches beliefs/connections by content (statement text), not by
+// id — it has no reliable way to keep bookkeeping ids consistent across
+// calls. Identity/id assignment happens here instead: exact (domain,
+// statement) match reuses the prior id (so a bubble/node keeps its identity
+// as it strengthens); anything unmatched is a genuinely new node.
+function mergeAnalysisIntoStore(prev: Store, result: any): Store {
+  const beliefKey = (b: { domain: string; statement: string }) => `${b.domain}::${b.statement}`;
+  const prevBeliefByKey = new Map(prev.beliefs.map((b) => [beliefKey(b), b]));
+  const rawBeliefs: any[] = Array.isArray(result?.beliefs) ? result.beliefs : prev.beliefs;
+  const beliefs: StoredBelief[] = rawBeliefs.map((b, i) => {
+    const prevMatch = prevBeliefByKey.get(beliefKey(b));
+    return {
+      id: prevMatch?.id ?? `belief-${Date.now()}-${i}`,
+      domain: b.domain,
+      statement: b.statement,
+      confidence: typeof b.confidence === "number" ? b.confidence : prevMatch?.confidence ?? 50,
+      evidenceCount: typeof b.evidenceCount === "number" ? b.evidenceCount : prevMatch?.evidenceCount ?? 1,
+    };
+  });
+
+  const assumptionKey = (a: { trigger: string; interpretation: string }) => `${a.trigger}::${a.interpretation}`;
+  const prevAssumptionByKey = new Map(prev.assumptions.map((a) => [assumptionKey(a), a]));
+  const rawAssumptions: any[] = Array.isArray(result?.assumptions) ? result.assumptions : prev.assumptions;
+  const assumptions: StoredAssumption[] = rawAssumptions.map((a, i) => {
+    const prevMatch = prevAssumptionByKey.get(assumptionKey(a));
+    return {
+      id: prevMatch?.id ?? `assumption-${Date.now()}-${i}`,
+      trigger: a.trigger,
+      interpretation: a.interpretation,
+      count: typeof a.count === "number" ? a.count : prevMatch?.count ?? 1,
+    };
+  });
+
+  const idByStatement = new Map(beliefs.map((b) => [b.statement, b.id]));
+  const rawConnections: any[] = Array.isArray(result?.connections) ? result.connections : [];
+  const newConnections: StoredConnection[] = rawConnections
+    .map((c) => ({ a: idByStatement.get(c.aStatement) ?? "", b: idByStatement.get(c.bStatement) ?? "", note: c.note ?? "" }))
+    .filter((c) => c.a && c.b && c.a !== c.b);
+
+  const stillValidIds = new Set(beliefs.map((b) => b.id));
+  const carriedOver = prev.connections.filter((c) => stillValidIds.has(c.a) && stillValidIds.has(c.b));
+  const seenPairs = new Set(carriedOver.map((c) => [c.a, c.b].sort().join("::")));
+  const connections = [...carriedOver];
+  for (const c of newConnections) {
+    const pairKey = [c.a, c.b].sort().join("::");
+    if (seenPairs.has(pairKey)) continue;
+    seenPairs.add(pairKey);
+    connections.push(c);
+  }
+
+  return { beliefs, assumptions, connections, entryCount: prev.entryCount + 1 };
 }
 
 // ── Status bar ────────────────────────────────────────────────────────────────
@@ -547,7 +608,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
-function ScreenProcessing({ text, priorBeliefs, priorAssumptions, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
+function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
 
@@ -568,7 +629,7 @@ function ScreenProcessing({ text, priorBeliefs, priorAssumptions, onDone, onErro
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, priorBeliefs, priorAssumptions }),
+      body: JSON.stringify({ text, priorBeliefs, priorAssumptions, priorConnections }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -658,6 +719,29 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
               </div>
             )}
 
+            {Array.isArray(analysis.connections) && analysis.connections.length > 0 && (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
+                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                  {analysis.connections.map((c: any, i: number) => (
+                    <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent }}>{c.aLabel} ↔ {c.bLabel}</div>
+                      <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 5, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {analysis.metaInsight && (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>네트워크가 커지면서 보이는 것</div>
+                <div style={{ marginTop: 8, padding: 16, borderRadius: 14, backgroundColor: ink }}>
+                  <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#F4F1EC", lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.metaInsight}</div>
+                </div>
+              </div>
+            )}
+
             {analysis.reflection && (
               <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
                 <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.reflection}</div>
@@ -726,30 +810,96 @@ function BeliefBubbleChart() {
   );
 }
 
-function ScreenBeliefMap({ onBack }: { onBack?: () => void }) {
+// Generic layout for a live, arbitrary-length belief graph (the demo chart
+// above uses 5 hand-placed positions; real data grows one node at a time,
+// so this needs a rule instead of fixed coordinates). Radius still encodes
+// evidenceCount via sqrt — same "area, not radius, is what the eye compares"
+// rule as the demo chart.
+function layoutBeliefNodes(items: { evidenceCount: number }[]) {
+  const cx = 150, cy = 132;
+  const maxV = Math.max(1, ...items.map((it) => it.evidenceCount || 1));
+  const maxR = 50, minR = 26;
+  const sizeOf = (v: number) => minR + (maxR - minR) * Math.sqrt((v || 1) / maxV);
+  if (items.length === 1) return [{ x: cx, y: cy, r: sizeOf(items[0].evidenceCount) }];
+  const ringR = items.length <= 3 ? 68 : items.length <= 5 ? 92 : 108;
+  return items.map((it, i) => {
+    const angle = (i / items.length) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + Math.cos(angle) * ringR, y: cy + Math.sin(angle) * ringR, r: sizeOf(it.evidenceCount) };
+  });
+}
+
+// The "brain network" view: same bubbles, plus lines wherever the model
+// found two beliefs share a root cause. Lines render first so bubbles sit
+// on top of them.
+function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[]; connections: StoredConnection[] }) {
+  const positioned = layoutBeliefNodes(beliefs).map((pos, i) => ({ ...beliefs[i], ...pos }));
+  const byId = new Map(positioned.map((b) => [b.id, b]));
+  return (
+    <svg viewBox="6 6 288 248" style={{ width: "100%", height: "auto", overflow: "visible" }}>
+      {connections.map((c, i) => {
+        const a = byId.get(c.a);
+        const b = byId.get(c.b);
+        if (!a || !b) return null;
+        return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={accent} strokeWidth={1.4} strokeOpacity={0.4} />;
+      })}
+      {positioned.map((b) => (
+        <circle key={b.id} cx={b.x} cy={b.y} r={b.r} fill={accentSoft} stroke={accent} strokeOpacity={0.4} strokeWidth={1.2} />
+      ))}
+      {positioned.map((b) => (
+        <React.Fragment key={`${b.id}-text`}>
+          <text x={b.x} y={b.y - 3} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: Math.max(b.r * 0.24, 9), fontWeight: 700, fill: ink }}>{b.domain}</text>
+          <text x={b.x} y={b.y + Math.max(b.r * 0.3, 12)} textAnchor="middle" dominantBaseline="central" style={{ ...mono, fontSize: Math.max(b.r * 0.16, 7.5), fontWeight: 600, fill: mid }}>{b.evidenceCount}건</text>
+        </React.Fragment>
+      ))}
+    </svg>
+  );
+}
+
+function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store }) {
+  const live = !!store && store.beliefs.length > 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
         <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>신념 지도</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>당신의 결정을 이끄는 것으로 보이는 믿음들이에요. 원의 크기는 실제 근거 건수를 나타내요.</div>
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>
+          {live ? "실제 남긴 생각들에서 뽑아낸 신념과, 서로 연결된 것으로 보이는 지점들이에요." : "당신의 결정을 이끄는 것으로 보이는 믿음들이에요. 원의 크기는 실제 근거 건수를 나타내요."}
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <BeliefBubbleChart />
+        {live ? <BeliefNetworkChart beliefs={store!.beliefs} connections={store!.connections} /> : <BeliefBubbleChart />}
         <div style={{ marginTop: 8 }}>
-          {BELIEFS.map((b) => (
-            <div key={b.label} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
+          {(live ? store!.beliefs : BELIEFS).map((b: any) => (
+            <div key={live ? b.id : b.label} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{b.domain}</span>
                 <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
               </div>
-              <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.label}</div>
+              <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{live ? b.statement : b.label}</div>
               <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
-                <div style={{ height: "100%", width: `${b.strength}%`, borderRadius: 2, backgroundColor: accent }} />
+                <div style={{ height: "100%", width: `${live ? b.confidence : b.strength}%`, borderRadius: 2, backgroundColor: accent }} />
               </div>
             </div>
           ))}
         </div>
+        {live && store!.connections.length > 0 && (
+          <div style={{ marginTop: 22 }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+              {store!.connections.map((c, i) => {
+                const from = store!.beliefs.find((b) => b.id === c.a);
+                const to = store!.beliefs.find((b) => b.id === c.b);
+                if (!from || !to) return null;
+                return (
+                  <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
+                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent }}>{from.domain} ↔ {to.domain}</div>
+                    <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 5, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1112,24 +1262,38 @@ export default function App() {
         text={thinkText}
         priorBeliefs={store.beliefs}
         priorAssumptions={store.assumptions}
+        priorConnections={store.connections.map((c) => ({
+          aStatement: store.beliefs.find((b) => b.id === c.a)?.statement ?? "",
+          bStatement: store.beliefs.find((b) => b.id === c.b)?.statement ?? "",
+          note: c.note,
+        }))}
         onDone={(result) => {
           if (result) {
-            const next: Store = {
-              beliefs: Array.isArray(result.beliefs) ? result.beliefs : store.beliefs,
-              assumptions: Array.isArray(result.assumptions) ? result.assumptions : store.assumptions,
-              entryCount: store.entryCount + 1,
-            };
-            setStore(next);
-            saveStore(next);
+            const merged = mergeAnalysisIntoStore(store, result);
+            setStore(merged);
+            saveStore(merged);
+            setAnalysis({
+              beliefs: merged.beliefs,
+              assumptions: merged.assumptions,
+              connections: merged.connections.map((c) => ({
+                aLabel: merged.beliefs.find((b) => b.id === c.a)?.domain ?? "?",
+                bLabel: merged.beliefs.find((b) => b.id === c.b)?.domain ?? "?",
+                note: c.note,
+              })),
+              reflection: result.reflection,
+              changeNote: result.changeNote,
+              metaInsight: result.metaInsight,
+            });
+          } else {
+            setAnalysis(null);
           }
-          setAnalysis(result);
           setScreen("thinkComplete");
         }}
         onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }}
       />
     ); break;
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
-    case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} />; break;
+    case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
     case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} />; break;
     case "drift": content = <ScreenDrift onBack={() => setScreen("home")} />; break;
     case "hypotheses": content = <ScreenHypotheses onBack={() => setScreen("home")} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />; break;
