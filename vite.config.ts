@@ -54,8 +54,9 @@ ${historyBlock}${aspirationBlock}
 아래는 이 사람이 방금 정리하지 않고 자유롭게 적은 새 생각입니다. 사건이 아니라 그 뒤에 깔린 사고방식(신념, 자동적인 해석 습관)을 분석해서, 기존 목록에 통합한 "갱신된 전체 목록"을 만드세요. 갱신 규칙:
 
 [신념/가정 갱신]
-- 새 텍스트가 기존 신념 중 하나와 본질적으로 같은 믿음을 다시 보여준다면: 그 신념을 새로 추가하지 말고, 같은 문장을 유지한 채 confidence를 5~15 사이로 올리고 evidenceCount를 1 늘리세요.
-- 기존 목록에 없는 진짜 새로운 신념이 드러난다면: confidence 40~60, evidenceCount 1로 새 항목을 추가하세요.
+- 새 텍스트가 기존 신념 중 하나와 본질적으로 같은 믿음을 다시 보여준다면: 그 신념을 새로 추가하지 말고, 같은 문장을 유지한 채 confidence를 5~15 사이로 올리고 evidenceCount를 1 늘리세요. 이때 quote에는 이번 새 텍스트에서 그 신념을 뒷받침하는 실제 구절(직접 인용하거나 짧게 다듬어서)을 넣으세요.
+- 기존 목록에 없는 진짜 새로운 신념이 드러난다면: confidence 40~60, evidenceCount 1로 새 항목을 추가하고, quote에 마찬가지로 새 텍스트에서 근거가 된 구절을 넣으세요.
+- 이번 텍스트와 무관해서 그대로 유지되는 기존 신념은 quote를 null로 두세요 (근거가 오래된 것처럼 지어내지 마세요).
 - assumptions도 동일한 방식(반복이면 count만 +1, 새로운 것이면 count 1로 추가)으로 갱신하세요.
 - 최종 beliefs는 confidence 높은 순으로 최대 6개, assumptions는 최대 4개까지만 남기세요.
 
@@ -67,7 +68,7 @@ ${historyBlock}${aspirationBlock}
 
 [메타 통찰 — 그물망이 커질수록 깊어짐]
 - 기존 신념 수 + 기존 연결 수가 지금까지 ${networkSize}개였습니다. 이 숫자가 클수록(신념 4개 이상이고 연결이 2개 이상 쌓였을 때만) 여러 신념/연결을 가로지르는 더 높은 차원의 통찰이 있다면 metaInsight에 담으세요 — 개별 신념 하나가 아니라, "이 사람의 사고 구조 전체를 보면" 수준의 문장이어야 합니다. 아직 그물망이 충분히 자라지 않았다면 (신념 4개 미만이거나 연결 2개 미만) metaInsight는 반드시 null로 두세요. 얕은 억지 통찰을 만들지 마세요.
-- metaInsight가 null이 아니면 metaInsightConfidence(정수 0-100, 이 통찰에 대한 확신도)와 metaInsightDomains(이 통찰과 관련된 영역 단어 2~3개)도 함께 채우세요. metaInsight가 null이면 둘 다 null로 두세요.
+- metaInsight가 null이 아니면 metaInsightConfidence(정수 0-100, 이 통찰에 대한 확신도), metaInsightDomains(관련 영역 단어 2~3개), metaInsightBeliefStatements(이 통찰의 근거가 된 beliefs 배열의 statement들을 정확히 그대로 2~4개, 배열)도 함께 채우세요. metaInsight가 null이면 셋 다 null로 두세요.
 
 ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- 이 사람이 되고 싶다고 말한 모습과, beliefs/assumptions에 드러난 실제 사고 패턴을 비교하세요. 구체적인 행동상의 간극이 보이면 driftNote에 한두 문장으로 담으세요 — 막연한 격려나 위로가 아니라, "말한 것"과 "실제로 반복되는 패턴" 사이의 눈에 보이는 차이를 짚어야 합니다. 이번 텍스트만으로 판단하기 어려우면 driftNote는 null로 두세요.\n` : '- 이번 요청에는 "되고 싶은 모습"이 설정되어 있지 않으므로 driftNote는 항상 null로 두세요.\n'}
 [기타]
@@ -77,7 +78,7 @@ ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- �
 아래 JSON 스키마와 정확히 동일한 구조로만 응답하세요. 설명, 코드블록, 그 외 텍스트 없이 JSON 객체 하나만 출력하세요.
 
 {
-  "beliefs": [ { "domain": "한 단어 영역, 예: 커리어/관계/돈/일/자기인식", "statement": "신념 자체를 말하는 문장 (있었던 일의 요약이 아닐 것)", "confidence": 정수 0-100, "evidenceCount": 정수 } ],
+  "beliefs": [ { "domain": "한 단어 영역, 예: 커리어/관계/돈/일/자기인식", "statement": "신념 자체를 말하는 문장 (있었던 일의 요약이 아닐 것)", "confidence": 정수 0-100, "evidenceCount": 정수, "quote": "string 또는 null" } ],
   "assumptions": [ { "trigger": "이 가정이 발동되는 상황을 짧게, 예: 불확실함이 나타날 때", "interpretation": "자동으로 하게 되는 해석 한 문장", "count": 정수 } ],
   "connections": [ { "aStatement": "beliefs 배열의 statement와 정확히 동일한 문자열", "bStatement": "beliefs 배열의 statement와 정확히 동일한 문자열", "note": "왜 연결되는지 한 문장" } ],
   "reflection": "이 사람에게 되돌려줄 한두 문장. 결론을 내리지 말고, '이게 도움이 되고 있나요, 아니면 제한하고 있나요' 같은 톤의 질문으로 끝날 것.",
@@ -85,6 +86,7 @@ ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- �
   "metaInsight": "string 또는 null (위 조건을 만족할 때만)",
   "metaInsightConfidence": "정수 0-100 또는 null",
   "metaInsightDomains": "string[] 또는 null",
+  "metaInsightBeliefStatements": "string[] 또는 null",
   "driftNote": "string 또는 null"
 }
 

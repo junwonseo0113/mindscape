@@ -28,13 +28,14 @@ const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 // reinforce it" (Model → Update), and — the network part — explicitly link
 // beliefs that share a root cause, so the graph gets richer (and analysis
 // has more to reason from) the longer someone uses the app.
-const STORE_KEY = "mijeong.store.v5";
+const STORE_KEY = "mijeong.store.v6";
 
-type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number };
+type StoredEvidenceQuote = { date: string; quote: string };
+type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number; evidenceQuotes: StoredEvidenceQuote[] };
 type StoredAssumption = { id: string; trigger: string; interpretation: string; count: number };
 type StoredConnection = { a: string; b: string; note: string };
 type StoredHistoryEntry = { date: string; text: string };
-type StoredHypothesis = { id: string; title: string; confidence: number; domains: string[]; reaction: "agree" | "disagree" | null; createdDate: string };
+type StoredHypothesis = { id: string; title: string; confidence: number; domains: string[]; reaction: "agree" | "disagree" | null; createdDate: string; relatedBeliefIds: string[] };
 type StoredDriftNote = { date: string; note: string };
 type StoredSettings = { dailyReminder: boolean; newHypothesisAlert: boolean; weeklySummary: boolean };
 // Local-only mock account — there's no backend, so this is just a gate on
@@ -105,17 +106,23 @@ function saveStore(store: Store) {
 // statement) match reuses the prior id (so a bubble/node keeps its identity
 // as it strengthens); anything unmatched is a genuinely new node.
 function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Store {
+  const today = formatDateDots(new Date());
+
   const beliefKey = (b: { domain: string; statement: string }) => `${b.domain}::${b.statement}`;
   const prevBeliefByKey = new Map(prev.beliefs.map((b) => [beliefKey(b), b]));
   const rawBeliefs: any[] = Array.isArray(result?.beliefs) ? result.beliefs : prev.beliefs;
   const beliefs: StoredBelief[] = rawBeliefs.map((b, i) => {
     const prevMatch = prevBeliefByKey.get(beliefKey(b));
+    const priorQuotes = prevMatch?.evidenceQuotes ?? [];
+    const newQuote = typeof b.quote === "string" && b.quote.trim() ? b.quote.trim() : null;
+    const evidenceQuotes = newQuote ? [...priorQuotes, { date: today, quote: newQuote }].slice(-4) : priorQuotes;
     return {
       id: prevMatch?.id ?? `belief-${Date.now()}-${i}`,
       domain: b.domain,
       statement: b.statement,
       confidence: typeof b.confidence === "number" ? b.confidence : prevMatch?.confidence ?? 50,
       evidenceCount: typeof b.evidenceCount === "number" ? b.evidenceCount : prevMatch?.evidenceCount ?? 1,
+      evidenceQuotes,
     };
   });
 
@@ -149,8 +156,6 @@ function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Stor
     connections.push(c);
   }
 
-  const today = formatDateDots(new Date());
-
   const history: StoredHistoryEntry[] = [...prev.history, { date: today, text: rawText }].slice(-50);
 
   // A metaInsight only ever appears once the belief network is big enough
@@ -161,9 +166,15 @@ function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Stor
   if (typeof result?.metaInsight === "string" && result.metaInsight.trim()) {
     const alreadyHave = prev.hypotheses.some((h) => h.title === result.metaInsight.trim());
     if (!alreadyHave) {
+      const relatedStatements: string[] = Array.isArray(result?.metaInsightBeliefStatements) ? result.metaInsightBeliefStatements : [];
+      const relatedBeliefIds = relatedStatements
+        .map((s) => beliefs.find((b) => b.statement === s)?.id)
+        .filter((id): id is string => !!id);
       const domains = Array.isArray(result?.metaInsightDomains) && result.metaInsightDomains.length > 0
         ? result.metaInsightDomains
-        : [...new Set(beliefs.map((b) => b.domain))].slice(0, 3);
+        : relatedBeliefIds.length > 0
+          ? [...new Set(relatedBeliefIds.map((id) => beliefs.find((b) => b.id === id)!.domain))]
+          : [...new Set(beliefs.map((b) => b.domain))].slice(0, 3);
       hypotheses = [
         {
           id: `hyp-${Date.now()}`,
@@ -172,6 +183,7 @@ function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Stor
           domains,
           reaction: null,
           createdDate: today,
+          relatedBeliefIds,
         },
         ...prev.hypotheses,
       ].slice(0, 8);
@@ -938,7 +950,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
-function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; aspiration?: string | null; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
+function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration, onDone, onError }: { text?: string; priorBeliefs?: Pick<StoredBelief, "domain" | "statement" | "confidence" | "evidenceCount">[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; aspiration?: string | null; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
 
@@ -1276,6 +1288,15 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
               <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
                 <div style={{ height: "100%", width: `${live ? b.confidence : b.strength}%`, borderRadius: 2, backgroundColor: accent }} />
               </div>
+              {live && b.evidenceQuotes?.length > 0 && (
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[...b.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
+                    <div key={qi} style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                      <span style={{ ...mono, fontSize: 10.5, color: faint }}>{q.date}</span> · "{q.quote}"
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1542,6 +1563,14 @@ function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }
     else setLocalReaction(r);
   };
   const question = live ? "이 통찰이 지금 당신에게 도움이 되고 있나요, 아니면 제한하고 있나요?" : h.question;
+  const liveEvidence = live && Array.isArray(h.relatedBeliefIds)
+    ? h.relatedBeliefIds
+        .map((id: string) => store!.beliefs.find((b) => b.id === id))
+        .filter((b: StoredBelief | undefined): b is StoredBelief => !!b)
+        .flatMap((b: StoredBelief) => b.evidenceQuotes.map((q) => ({ ...q, domain: b.domain })))
+        .sort((a: StoredEvidenceQuote, b: StoredEvidenceQuote) => (a.date < b.date ? 1 : -1))
+        .slice(0, 5)
+    : [];
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1562,6 +1591,23 @@ function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }
               {h.evidence.map((e: any) => (
                 <div key={e.date} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
                   <div style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</div>
+                  <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {live && liveEvidence.length > 0 && (
+          <div style={{ marginTop: 26 }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>근거가 된 대화들</div>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              {liveEvidence.map((e: StoredEvidenceQuote & { domain: string }, i: number) => (
+                <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</span>
+                    <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>
+                  </div>
                   <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
                 </div>
               ))}
@@ -1935,7 +1981,7 @@ export default function App() {
     case "processing": content = (
       <ScreenProcessing
         text={thinkText}
-        priorBeliefs={store.beliefs}
+        priorBeliefs={store.beliefs.map(({ domain, statement, confidence, evidenceCount }) => ({ domain, statement, confidence, evidenceCount }))}
         priorAssumptions={store.assumptions}
         priorConnections={store.connections.map((c) => ({
           aStatement: store.beliefs.find((b) => b.id === c.a)?.statement ?? "",
