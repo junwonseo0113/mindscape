@@ -519,29 +519,63 @@ const ONBOARDING_SLIDES = [
   },
 ];
 
-function ScreenOnboarding({ onDone }: { onDone?: () => void }) {
+// The onboarding sequence's last beat is a real question, not another
+// slide: what kind of person do you want to become. It's optional (typing
+// nothing just means "skip"), but asking it here — right when someone
+// commits to using the app — is what actually seeds Identity Drift instead
+// of leaving it undiscoverable inside Profile settings.
+function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: string | null; onDone?: (aspiration: string | null) => void }) {
+  const totalSteps = ONBOARDING_SLIDES.length + 1;
   const [i, setI] = React.useState(0);
-  const slide = ONBOARDING_SLIDES[i];
-  const isLast = i === ONBOARDING_SLIDES.length - 1;
+  const [aspiration, setAspiration] = React.useState(initialAspiration ?? "");
+  const isAspirationStep = i === ONBOARDING_SLIDES.length;
+  const isLast = i === totalSteps - 1;
+  const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ display: "flex", gap: 6, padding: "20px 28px 0" }}>
-        {ONBOARDING_SLIDES.map((_, idx) => (
+      <div style={{ display: "flex", gap: 6, padding: "20px 28px 0", flexShrink: 0 }}>
+        {Array.from({ length: totalSteps }).map((_, idx) => (
           <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? ink : hair }} />
         ))}
       </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: accent, letterSpacing: "0.06em" }}>{slide.kicker}</div>
-        <div style={{ ...serif, fontSize: 28, color: ink, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
-          {slide.title}
+      {!isAspirationStep ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: accent, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+          <div style={{ ...serif, fontSize: 28, color: ink, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
+            {slide!.title}
+          </div>
+          <div style={{ ...sans, fontSize: 15, color: mid, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
+            {slide!.body}
+          </div>
         </div>
-        <div style={{ ...sans, fontSize: 15, color: mid, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
-          {slide.body}
+      ) : (
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px" }}>
+          <div style={{ flexShrink: 0, paddingTop: 8 }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: accent, letterSpacing: "0.06em" }}>마지막으로</div>
+            <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
+              당신은 어떤 사람이<br />되고 싶나요?
+            </div>
+            <div style={{ ...sans, fontSize: 13.5, color: mid, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
+              선택이에요. 적어두면, 앞으로 남기는 생각들과 이 말 사이의 거리를 계속 보여드릴게요.
+            </div>
+          </div>
+          <textarea
+            autoFocus
+            value={aspiration}
+            onChange={(e) => setAspiration(e.target.value)}
+            placeholder="예: 안정보다 도전을 선택하는 사람이 되고 싶어."
+            style={{
+              ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+              backgroundColor: "transparent", color: ink, fontSize: 18, lineHeight: 1.7,
+              wordBreak: "keep-all", marginTop: 18, minHeight: 0,
+            }}
+          />
         </div>
-      </div>
-      <div style={{ padding: "0 28px 40px" }}>
-        <PrimaryBtn onClick={() => (isLast ? onDone?.() : setI((v) => v + 1))}>
-          {isLast ? "시작하기" : "다음"}
+      )}
+      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
+          {isLast ? (aspiration.trim() ? "저장하고 시작하기" : "건너뛰고 시작하기") : "다음"}
         </PrimaryBtn>
       </div>
     </div>
@@ -1883,7 +1917,19 @@ export default function App() {
         }}
       />
     ); break;
-    case "onboarding": content = <ScreenOnboarding onDone={() => setScreen("home")} />; break;
+    case "onboarding": content = (
+      <ScreenOnboarding
+        initialAspiration={store.aspiration}
+        onDone={(aspiration) => {
+          if (aspiration && aspiration !== store.aspiration) {
+            const next: Store = { ...store, aspiration, aspirationSetDate: formatDateDots(new Date()) };
+            setStore(next);
+            saveStore(next);
+          }
+          setScreen("home");
+        }}
+      />
+    ); break;
     case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />; break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
     case "processing": content = (
