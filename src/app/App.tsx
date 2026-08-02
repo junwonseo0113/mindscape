@@ -22,6 +22,39 @@ const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
 const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 
+// ── Persisted belief store — the one place this app keeps real, accumulating
+// state instead of curated demo data. Every analysis feeds the current store
+// back to the model so it can tell "new belief" apart from "this again,
+// reinforce it" instead of starting from zero each time (Model → Update).
+const STORE_KEY = "mijeong.store.v1";
+
+type StoredBelief = { domain: string; statement: string; confidence: number; evidenceCount: number };
+type StoredAssumption = { trigger: string; interpretation: string; count: number };
+type Store = { beliefs: StoredBelief[]; assumptions: StoredAssumption[]; entryCount: number };
+
+function loadStore(): Store {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return { beliefs: [], assumptions: [], entryCount: 0 };
+    const parsed = JSON.parse(raw);
+    return {
+      beliefs: Array.isArray(parsed.beliefs) ? parsed.beliefs : [],
+      assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
+      entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
+    };
+  } catch {
+    return { beliefs: [], assumptions: [], entryCount: 0 };
+  }
+}
+
+function saveStore(store: Store) {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  } catch {
+    // private-mode / storage-full — non-fatal, just don't persist
+  }
+}
+
 // ── Status bar ────────────────────────────────────────────────────────────────
 function StatusBar() {
   return (
@@ -514,7 +547,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
-function ScreenProcessing({ text, onDone, onError }: { text?: string; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
+function ScreenProcessing({ text, priorBeliefs, priorAssumptions, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
 
@@ -535,7 +568,7 @@ function ScreenProcessing({ text, onDone, onError }: { text?: string; onDone?: (
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, priorBeliefs, priorAssumptions }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -587,17 +620,24 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
             <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>방금 남긴 생각에서</div>
             <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>잘 들었습니다.</div>
 
+            {analysis.changeNote && (
+              <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: accent, marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                {analysis.changeNote}
+              </div>
+            )}
+
             {Array.isArray(analysis.beliefs) && analysis.beliefs.length > 0 && (
               <div style={{ marginTop: 26 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>드러난 신념</div>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>지금까지 쌓인 신념</div>
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   {analysis.beliefs.map((b: any, i: number) => (
                     <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                         <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mid }}>{b.domain}</span>
-                        {typeof b.confidence === "number" && <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: accent }}>{b.confidence}%</span>}
+                        {typeof b.evidenceCount === "number" && <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>}
                       </div>
                       <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{b.statement}</div>
+                      {typeof b.confidence === "number" && <div style={{ marginTop: 10 }}><ConfidenceBar value={b.confidence} /></div>}
                     </div>
                   ))}
                 </div>
@@ -606,11 +646,12 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
 
             {Array.isArray(analysis.assumptions) && analysis.assumptions.length > 0 && (
               <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복될 수 있는 가정</div>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 가정</div>
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   {analysis.assumptions.map((a: any, i: number) => (
                     <div key={i} style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>
                       <span style={{ color: subtle }}>{a.trigger}</span> → {a.interpretation}
+                      {typeof a.count === "number" && <span style={{ ...mono, fontSize: 11, color: faint }}> · {a.count}회</span>}
                     </div>
                   ))}
                 </div>
@@ -1055,6 +1096,7 @@ export default function App() {
   const [thinkText, setThinkText] = React.useState("");
   const [analysis, setAnalysis] = React.useState<any>(null);
   const [analysisError, setAnalysisError] = React.useState("");
+  const [store, setStore] = React.useState<Store>(() => loadStore());
 
   const goToTab = (id: string) => setScreen(id);
 
@@ -1065,7 +1107,27 @@ export default function App() {
     case "onboarding": content = <ScreenOnboarding onDone={() => setScreen("home")} />; break;
     case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} />; break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
-    case "processing": content = <ScreenProcessing text={thinkText} onDone={(result) => { setAnalysis(result); setScreen("thinkComplete"); }} onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }} />; break;
+    case "processing": content = (
+      <ScreenProcessing
+        text={thinkText}
+        priorBeliefs={store.beliefs}
+        priorAssumptions={store.assumptions}
+        onDone={(result) => {
+          if (result) {
+            const next: Store = {
+              beliefs: Array.isArray(result.beliefs) ? result.beliefs : store.beliefs,
+              assumptions: Array.isArray(result.assumptions) ? result.assumptions : store.assumptions,
+              entryCount: store.entryCount + 1,
+            };
+            setStore(next);
+            saveStore(next);
+          }
+          setAnalysis(result);
+          setScreen("thinkComplete");
+        }}
+        onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }}
+      />
+    ); break;
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} />; break;
     case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} />; break;
