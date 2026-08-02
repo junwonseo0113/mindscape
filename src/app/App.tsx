@@ -28,15 +28,32 @@ const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 // reinforce it" (Model → Update), and — the network part — explicitly link
 // beliefs that share a root cause, so the graph gets richer (and analysis
 // has more to reason from) the longer someone uses the app.
-const STORE_KEY = "mijeong.store.v2";
+const STORE_KEY = "mijeong.store.v3";
 
 type StoredBelief = { id: string; domain: string; statement: string; confidence: number; evidenceCount: number };
 type StoredAssumption = { id: string; trigger: string; interpretation: string; count: number };
 type StoredConnection = { a: string; b: string; note: string };
-type Store = { beliefs: StoredBelief[]; assumptions: StoredAssumption[]; connections: StoredConnection[]; entryCount: number };
+type StoredHistoryEntry = { date: string; text: string };
+type StoredHypothesis = { id: string; title: string; confidence: number; domains: string[]; reaction: "agree" | "disagree" | null; createdDate: string };
+type StoredDriftNote = { date: string; note: string };
+type Store = {
+  beliefs: StoredBelief[];
+  assumptions: StoredAssumption[];
+  connections: StoredConnection[];
+  history: StoredHistoryEntry[];
+  hypotheses: StoredHypothesis[];
+  aspiration: string | null;
+  aspirationSetDate: string | null;
+  driftNotes: StoredDriftNote[];
+  entryCount: number;
+};
+
+function formatDateDots(d: Date) {
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function emptyStore(): Store {
-  return { beliefs: [], assumptions: [], connections: [], entryCount: 0 };
+  return { beliefs: [], assumptions: [], connections: [], history: [], hypotheses: [], aspiration: null, aspirationSetDate: null, driftNotes: [], entryCount: 0 };
 }
 
 function loadStore(): Store {
@@ -48,6 +65,11 @@ function loadStore(): Store {
       beliefs: Array.isArray(parsed.beliefs) ? parsed.beliefs : [],
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
       connections: Array.isArray(parsed.connections) ? parsed.connections : [],
+      history: Array.isArray(parsed.history) ? parsed.history : [],
+      hypotheses: Array.isArray(parsed.hypotheses) ? parsed.hypotheses : [],
+      aspiration: typeof parsed.aspiration === "string" ? parsed.aspiration : null,
+      aspirationSetDate: typeof parsed.aspirationSetDate === "string" ? parsed.aspirationSetDate : null,
+      driftNotes: Array.isArray(parsed.driftNotes) ? parsed.driftNotes : [],
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
     };
   } catch {
@@ -68,7 +90,7 @@ function saveStore(store: Store) {
 // calls. Identity/id assignment happens here instead: exact (domain,
 // statement) match reuses the prior id (so a bubble/node keeps its identity
 // as it strengthens); anything unmatched is a genuinely new node.
-function mergeAnalysisIntoStore(prev: Store, result: any): Store {
+function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Store {
   const beliefKey = (b: { domain: string; statement: string }) => `${b.domain}::${b.statement}`;
   const prevBeliefByKey = new Map(prev.beliefs.map((b) => [beliefKey(b), b]));
   const rawBeliefs: any[] = Array.isArray(result?.beliefs) ? result.beliefs : prev.beliefs;
@@ -113,7 +135,50 @@ function mergeAnalysisIntoStore(prev: Store, result: any): Store {
     connections.push(c);
   }
 
-  return { beliefs, assumptions, connections, entryCount: prev.entryCount + 1 };
+  const today = formatDateDots(new Date());
+
+  const history: StoredHistoryEntry[] = [...prev.history, { date: today, text: rawText }].slice(-50);
+
+  // A metaInsight only ever appears once the belief network is big enough
+  // to support one (see the server prompt) — treat each as a real,
+  // reactable hypothesis instead of a demo one, same shape so both screens
+  // can render either without a special case.
+  let hypotheses = prev.hypotheses;
+  if (typeof result?.metaInsight === "string" && result.metaInsight.trim()) {
+    const alreadyHave = prev.hypotheses.some((h) => h.title === result.metaInsight.trim());
+    if (!alreadyHave) {
+      const domains = Array.isArray(result?.metaInsightDomains) && result.metaInsightDomains.length > 0
+        ? result.metaInsightDomains
+        : [...new Set(beliefs.map((b) => b.domain))].slice(0, 3);
+      hypotheses = [
+        {
+          id: `hyp-${Date.now()}`,
+          title: result.metaInsight.trim(),
+          confidence: typeof result?.metaInsightConfidence === "number" ? result.metaInsightConfidence : 60,
+          domains,
+          reaction: null,
+          createdDate: today,
+        },
+        ...prev.hypotheses,
+      ].slice(0, 8);
+    }
+  }
+
+  const driftNotes: StoredDriftNote[] = typeof result?.driftNote === "string" && result.driftNote.trim()
+    ? [...prev.driftNotes, { date: today, note: result.driftNote.trim() }].slice(-20)
+    : prev.driftNotes;
+
+  return {
+    beliefs,
+    assumptions,
+    connections,
+    history,
+    hypotheses,
+    aspiration: prev.aspiration,
+    aspirationSetDate: prev.aspirationSetDate,
+    driftNotes,
+    entryCount: prev.entryCount + 1,
+  };
 }
 
 // ── Status bar ────────────────────────────────────────────────────────────────
@@ -450,7 +515,14 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
   );
 }
 
-function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenArtifact?: (id: string) => void }) {
+function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenArtifact?: (id: string) => void; store?: Store }) {
+  const live = !!store && store.entryCount > 0;
+  const recent = live
+    ? [...store!.history].reverse().slice(0, 4).map((h) => ({ date: h.date.slice(5), text: h.text }))
+    : [
+        { date: "07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다." },
+        { date: "07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다." },
+      ];
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 22px 24px" }}>
@@ -476,27 +548,41 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact }: { onNavSelect
 
         <div style={{ marginTop: 28, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>지금까지 관찰된 것들</span>
-          <span style={{ ...mono, fontSize: 11, color: faint }}>대화 47회</span>
+          <span style={{ ...mono, fontSize: 11, color: faint }}>대화 {live ? store!.entryCount : 47}회</span>
         </div>
         <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <ArtifactTile label="신념 지도" teaser="핵심 신념 5가지가 드러났어요." onClick={() => onOpenArtifact?.("beliefs")} />
-          <ArtifactTile label="반복되는 가정" teaser="4가지 자동 해석 패턴" onClick={() => onOpenArtifact?.("assumptions")} />
-          <ArtifactTile label="사고의 변화" teaser="6개월 전과 비교해보세요" onClick={() => onOpenArtifact?.("drift")} />
-          <ArtifactTile label="AI의 가설" badge="NEW" teaser="확인이 필요한 가설 3개" onClick={() => onOpenArtifact?.("hypotheses")} />
+          <ArtifactTile
+            label="신념 지도"
+            teaser={live ? `핵심 신념 ${store!.beliefs.length}가지가 드러났어요.` : "핵심 신념 5가지가 드러났어요."}
+            onClick={() => onOpenArtifact?.("beliefs")}
+          />
+          <ArtifactTile
+            label="반복되는 가정"
+            teaser={live ? `${store!.assumptions.length}가지 자동 해석 패턴` : "4가지 자동 해석 패턴"}
+            onClick={() => onOpenArtifact?.("assumptions")}
+          />
+          <ArtifactTile label="사고의 변화" teaser="되고 싶은 모습과 비교해보세요" onClick={() => onOpenArtifact?.("drift")} />
+          <ArtifactTile
+            label="AI의 가설"
+            badge={live && store!.hypotheses.some((h) => h.reaction === null) ? "NEW" : undefined}
+            teaser={live ? `확인이 필요한 가설 ${store!.hypotheses.length}개` : "확인이 필요한 가설 3개"}
+            onClick={() => onOpenArtifact?.("hypotheses")}
+          />
         </div>
 
         <div style={{ marginTop: 28 }}>
           <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>최근 생각</span>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-            {[
-              { date: "07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다." },
-              { date: "07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다." },
-            ].map((item) => (
-              <div key={item.date} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: `1px solid ${hair}` }}>
-                <span style={{ ...mono, fontSize: 11, color: faint, flexShrink: 0, marginTop: 2 }}>{item.date}</span>
-                <span style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.5, wordBreak: "keep-all" }}>{item.text}</span>
-              </div>
-            ))}
+            {recent.length === 0 ? (
+              <div style={{ ...sans, fontSize: 13, color: faint, padding: "12px 0" }}>아직 남긴 생각이 없어요.</div>
+            ) : (
+              recent.map((item, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: `1px solid ${hair}` }}>
+                  <span style={{ ...mono, fontSize: 11, color: faint, flexShrink: 0, marginTop: 2 }}>{item.date}</span>
+                  <span style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.5, wordBreak: "keep-all" }}>{item.text}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -687,7 +773,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
-function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
+function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration, onDone, onError }: { text?: string; priorBeliefs?: StoredBelief[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; aspiration?: string | null; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
 
@@ -708,7 +794,7 @@ function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnectio
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, priorBeliefs, priorAssumptions, priorConnections }),
+      body: JSON.stringify({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -817,6 +903,15 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
                 <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>네트워크가 커지면서 보이는 것</div>
                 <div style={{ marginTop: 8, padding: 16, borderRadius: 14, backgroundColor: ink }}>
                   <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#F4F1EC", lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.metaInsight}</div>
+                </div>
+              </div>
+            )}
+
+            {analysis.driftNote && (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>되고 싶은 모습과의 거리</div>
+                <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: surface }}>
+                  <div style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>{analysis.driftNote}</div>
                 </div>
               </div>
             )}
@@ -985,7 +1080,9 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
 }
 
 // ── Screen 9 · Recurring Assumptions ──────────────────────────────────────────
-function ScreenAssumptions({ onBack }: { onBack?: () => void }) {
+function ScreenAssumptions({ onBack, store }: { onBack?: () => void; store?: Store }) {
+  const live = !!store && store.assumptions.length > 0;
+  const items = live ? store!.assumptions : ASSUMPTIONS;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -994,16 +1091,20 @@ function ScreenAssumptions({ onBack }: { onBack?: () => void }) {
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>여러 상황에서 자동으로 튀어나오는 해석들이에요.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        {ASSUMPTIONS.map((a, i) => (
-          <div key={a.label} style={{ display: "flex", gap: 14, padding: "16px 0", borderBottom: i < ASSUMPTIONS.length - 1 ? `1px solid ${hair}` : "none" }}>
+        {items.map((a: any, i: number) => (
+          <div key={live ? a.id : a.label} style={{ display: "flex", gap: 14, padding: "16px 0", borderBottom: i < items.length - 1 ? `1px solid ${hair}` : "none" }}>
             <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: accent, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
             <div>
-              <div style={{ ...serif, fontSize: 17, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>{a.label}</div>
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                {a.domains.map((d) => (
-                  <span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
-                ))}
+              <div style={{ ...serif, fontSize: 17, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>
+                {live ? <>{a.trigger} → {a.interpretation}</> : a.label}
               </div>
+              {!live && (
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {a.domains.map((d: string) => (
+                    <span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
+                  ))}
+                </div>
+              )}
               <div style={{ ...sans, fontSize: 11, color: faint, marginTop: 8 }}>{a.count}번의 대화에서 발견</div>
             </div>
           </div>
@@ -1048,7 +1149,8 @@ const ASPIRATIONS = [
   },
 ];
 
-function ScreenDrift({ onBack }: { onBack?: () => void }) {
+function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void; store?: Store; onSetupAspiration?: () => void }) {
+  const hasAspiration = !!store?.aspiration;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1059,42 +1161,119 @@ function ScreenDrift({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
-        {ASPIRATIONS.map((a) => {
-          const gap = Math.abs(a.target - a.actual);
-          return (
-            <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${hair}` }}>
-              <div style={{ ...mono, fontSize: 11, color: faint }}>{a.saidDate}, 당신이 한 말</div>
-              <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                "{a.said}"
+        {hasAspiration ? (
+          <>
+            <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: `1px solid ${hair}` }}>
+              <div style={{ ...mono, fontSize: 11, color: faint }}>{store!.aspirationSetDate}, 당신이 한 말</div>
+              <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>
+                "{store!.aspiration}"
               </div>
-
-              <div style={{ marginTop: 16 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                  <span style={{ ...sans, fontSize: 12, color: mid }}>{a.label}</span>
-                  <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: tension }}>{gap}%p 차이</span>
-                </div>
-                <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: hair, marginTop: 8 }}>
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(181,83,60,0.18)" }} />
-                  <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: faint, left: `${a.target}%` }} />
-                  <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: accent, left: `${a.actual}%` }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                  <span style={{ ...sans, fontSize: 10, color: faint }}>목표 {a.target}%</span>
-                  <span style={{ ...sans, fontSize: 10, color: accent }}>실제 {a.actual}%</span>
-                </div>
-              </div>
-
-              <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
+              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: accent, cursor: "pointer", display: "inline-block", marginTop: 10 }}>
+                다시 설정하기
+              </motion.span>
             </div>
-          );
-        })}
+            {store!.driftNotes.length === 0 ? (
+              <div style={{ ...sans, fontSize: 13.5, color: mid, lineHeight: 1.7, wordBreak: "keep-all" }}>
+                아직 비교할 만큼 기록이 쌓이지 않았어요. 생각을 몇 번 더 남기면, 실제 패턴과 이 말 사이의 거리를 보여드릴게요.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {[...store!.driftNotes].reverse().map((d, i) => (
+                  <div key={i} style={{ padding: 16, borderRadius: 14, backgroundColor: surface }}>
+                    <div style={{ ...mono, fontSize: 11, color: faint }}>{d.date}</div>
+                    <div style={{ ...sans, fontSize: 14, color: inkSoft, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{d.note}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div
+              role="button" tabIndex={0} onClick={onSetupAspiration}
+              style={{ padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}`, marginBottom: 24, cursor: "pointer" }}
+            >
+              <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: accent }}>당신이 되고 싶은 모습을 알려주세요</div>
+              <div style={{ ...sans, fontSize: 12.5, color: inkSoft, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                한 문장만 남겨주시면, 실제로 쌓인 기록과 그 말 사이의 거리를 계속 보여드릴게요. (아래는 그 예시예요.)
+              </div>
+            </div>
+            {ASPIRATIONS.map((a) => {
+              const gap = Math.abs(a.target - a.actual);
+              return (
+                <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${hair}` }}>
+                  <div style={{ ...mono, fontSize: 11, color: faint }}>{a.saidDate}, 당신이 한 말</div>
+                  <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                    "{a.said}"
+                  </div>
+
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                      <span style={{ ...sans, fontSize: 12, color: mid }}>{a.label}</span>
+                      <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: tension }}>{gap}%p 차이</span>
+                    </div>
+                    <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: hair, marginTop: 8 }}>
+                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(181,83,60,0.18)" }} />
+                      <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: faint, left: `${a.target}%` }} />
+                      <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: accent, left: `${a.actual}%` }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                      <span style={{ ...sans, fontSize: 10, color: faint }}>목표 {a.target}%</span>
+                      <span style={{ ...sans, fontSize: 10, color: accent }}>실제 {a.actual}%</span>
+                    </div>
+                  </div>
+
+                  <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 10.5 · Aspiration setup ────────────────────────────────────────────
+function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?: string | null; onBack?: () => void; onSave?: (value: string) => void }) {
+  const [value, setValue] = React.useState(initialValue ?? "");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 24, color: ink, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>당신은 어떤 사람이 되고 싶나요?</div>
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          앞으로 남기는 생각들과 이 말을 계속 비교해드릴게요.
+        </div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, padding: "8px 22px 0", display: "flex" }}>
+        <textarea
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="예: 안정보다 도전을 선택하는 사람이 되고 싶어."
+          style={{
+            ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+            backgroundColor: "transparent", color: ink, fontSize: 19, lineHeight: 1.7,
+            wordBreak: "keep-all",
+          }}
+        />
+      </div>
+      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
+        <PrimaryBtn disabled={!value.trim()} onClick={() => onSave?.(value.trim())}>저장</PrimaryBtn>
       </div>
     </div>
   );
 }
 
 // ── Screen 11 · Active Hypotheses ─────────────────────────────────────────────
-function ScreenHypotheses({ onBack, onOpen }: { onBack?: () => void; onOpen?: (i: number) => void }) {
+function hypothesesLive(store?: Store) {
+  return !!store && store.hypotheses.length > 0;
+}
+
+function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOpen?: (i: number) => void; store?: Store }) {
+  const live = hypothesesLive(store);
+  const items = live ? store!.hypotheses : HYPOTHESES;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1103,20 +1282,25 @@ function ScreenHypotheses({ onBack, onOpen }: { onBack?: () => void; onOpen?: (i
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>확실하지 않습니다. 동의/반박하며 함께 다듬어가요.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        {HYPOTHESES.map((h, i) => (
+        {items.map((h: any, i: number) => (
           <motion.div
-            key={h.title} role="button" tabIndex={0} onClick={() => onOpen?.(i)} whileTap={{ scale: 0.99, opacity: 0.9 }}
-            style={{ padding: "18px 0", borderBottom: i < HYPOTHESES.length - 1 ? `1px solid ${hair}` : "none", cursor: "pointer" }}
+            key={live ? h.id : h.title} role="button" tabIndex={0} onClick={() => onOpen?.(i)} whileTap={{ scale: 0.99, opacity: 0.9 }}
+            style={{ padding: "18px 0", borderBottom: i < items.length - 1 ? `1px solid ${hair}` : "none", cursor: "pointer" }}
           >
             <div style={{ ...serif, fontSize: 16, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
             <div style={{ marginTop: 12 }}>
               <ConfidenceBar value={h.confidence} />
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-              {h.domains.map((d) => (
+              {h.domains.map((d: string) => (
                 <span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
               ))}
             </div>
+            {live && h.reaction && (
+              <div style={{ ...sans, fontSize: 11, color: h.reaction === "agree" ? accent : tension, marginTop: 8 }}>
+                {h.reaction === "agree" ? "동의함" : "아니라고 답함"}
+              </div>
+            )}
           </motion.div>
         ))}
       </div>
@@ -1125,9 +1309,16 @@ function ScreenHypotheses({ onBack, onOpen }: { onBack?: () => void; onOpen?: (i
 }
 
 // ── Screen 12 · Hypothesis detail ─────────────────────────────────────────────
-function ScreenHypothesisDetail({ index, onBack, onInvestigate }: { index: number; onBack?: () => void; onInvestigate?: () => void }) {
-  const h = HYPOTHESES[index] ?? HYPOTHESES[0];
-  const [reaction, setReaction] = React.useState<null | "agree" | "disagree">(null);
+function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }: { index: number; onBack?: () => void; onInvestigate?: () => void; onReact?: (reaction: "agree" | "disagree") => void; store?: Store }) {
+  const live = hypothesesLive(store);
+  const h: any = live ? (store!.hypotheses[index] ?? store!.hypotheses[0]) : (HYPOTHESES[index] ?? HYPOTHESES[0]);
+  const [localReaction, setLocalReaction] = React.useState<null | "agree" | "disagree">(null);
+  const reaction = live ? h.reaction : localReaction;
+  const setReaction = (r: "agree" | "disagree") => {
+    if (live) onReact?.(r);
+    else setLocalReaction(r);
+  };
+  const question = live ? "이 통찰이 지금 당신에게 도움이 되고 있나요, 아니면 제한하고 있나요?" : h.question;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1138,23 +1329,25 @@ function ScreenHypothesisDetail({ index, onBack, onInvestigate }: { index: numbe
         <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
         <div style={{ marginTop: 18 }}><ConfidenceBar value={h.confidence} /></div>
         <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-          {h.domains.map((d) => (<span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>))}
+          {h.domains.map((d: string) => (<span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>))}
         </div>
 
-        <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>근거가 된 대화들</div>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-            {h.evidence.map((e) => (
-              <div key={e.date} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
-                <div style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</div>
-                <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
-              </div>
-            ))}
+        {!live && (
+          <div style={{ marginTop: 26 }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>근거가 된 대화들</div>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              {h.evidence.map((e: any) => (
+                <div key={e.date} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
+                  <div style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</div>
+                  <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.question}</div>
+          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{question}</div>
         </div>
 
         <div style={{ marginTop: 26 }}>
@@ -1270,7 +1463,9 @@ const HISTORY_LOG = [
   { date: "2026.07.25", duration: "2분 40초", excerpt: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다..." },
   { date: "2026.07.21", duration: "6분 05초", excerpt: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다..." },
 ];
-function ScreenHistory({ onNavSelect }: { onNavSelect?: (id: string) => void }) {
+function ScreenHistory({ onNavSelect, store }: { onNavSelect?: (id: string) => void; store?: Store }) {
+  const live = !!store && store.history.length > 0;
+  const items = live ? [...store!.history].reverse() : HISTORY_LOG;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1278,13 +1473,13 @@ function ScreenHistory({ onNavSelect }: { onNavSelect?: (id: string) => void }) 
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6 }}>지금까지 나눈 생각들이에요.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        {HISTORY_LOG.map((h) => (
-          <div key={h.date} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
+        {items.map((h: any, i: number) => (
+          <div key={live ? `${h.date}-${i}` : h.date} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...mono, fontSize: 12, color: faint }}>{h.date}</span>
-              <span style={{ ...mono, fontSize: 11, color: faint }}>{h.duration}</span>
+              {!live && <span style={{ ...mono, fontSize: 11, color: faint }}>{h.duration}</span>}
             </div>
-            <div style={{ ...sans, fontSize: 14, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{h.excerpt}</div>
+            <div style={{ ...sans, fontSize: 14, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{live ? h.text : h.excerpt}</div>
           </div>
         ))}
       </div>
@@ -1294,19 +1489,24 @@ function ScreenHistory({ onNavSelect }: { onNavSelect?: (id: string) => void }) 
 }
 
 // ── Screen 14 · Profile ────────────────────────────────────────────────────────
-function ScreenProfile({ onNavSelect }: { onNavSelect?: (id: string) => void }) {
-  const rows = ["알림", "데이터와 개인정보", "도움말", "로그아웃"];
+function ScreenProfile({ onNavSelect, store, onSetupAspiration }: { onNavSelect?: (id: string) => void; store?: Store; onSetupAspiration?: () => void }) {
+  const rows = ["나의 목표", "알림", "데이터와 개인정보", "도움말", "로그아웃"];
+  const live = !!store && store.entryCount > 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "28px 22px 24px" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: surface }} />
           <div style={{ ...serif, fontSize: 20, color: ink, marginTop: 12 }}>익명의 관찰자</div>
-          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4 }}>2026년 5월부터 함께하는 중 · 대화 47회</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4 }}>2026년 5월부터 함께하는 중 · 대화 {live ? store!.entryCount : 47}회</div>
         </div>
         <div style={{ marginTop: 28 }}>
           {rows.map((r, i) => (
-            <div key={r} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: i < rows.length - 1 ? `1px solid ${hair}` : "none" }}>
+            <div
+              key={r} role={r === "나의 목표" ? "button" : undefined} tabIndex={r === "나의 목표" ? 0 : undefined}
+              onClick={r === "나의 목표" ? onSetupAspiration : undefined}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: i < rows.length - 1 ? `1px solid ${hair}` : "none", cursor: r === "나의 목표" ? "pointer" : "default" }}
+            >
               <span style={{ ...sans, fontSize: 15, color: r === "로그아웃" ? tension : inkSoft }}>{r}</span>
               <span style={{ ...sans, fontSize: 14, color: faint }}>›</span>
             </div>
@@ -1334,7 +1534,7 @@ export default function App() {
     case "splash": content = <ScreenSplash onDone={() => setScreen("auth")} />; break;
     case "auth": content = <ScreenAuth onDone={() => setScreen("onboarding")} />; break;
     case "onboarding": content = <ScreenOnboarding onDone={() => setScreen("home")} />; break;
-    case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} />; break;
+    case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />; break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
     case "processing": content = (
       <ScreenProcessing
@@ -1346,9 +1546,10 @@ export default function App() {
           bStatement: store.beliefs.find((b) => b.id === c.b)?.statement ?? "",
           note: c.note,
         }))}
+        aspiration={store.aspiration}
         onDone={(result) => {
           if (result) {
-            const merged = mergeAnalysisIntoStore(store, result);
+            const merged = mergeAnalysisIntoStore(store, result, thinkText);
             setStore(merged);
             saveStore(merged);
             setAnalysis({
@@ -1362,6 +1563,7 @@ export default function App() {
               reflection: result.reflection,
               changeNote: result.changeNote,
               metaInsight: result.metaInsight,
+              driftNote: result.driftNote,
             });
           } else {
             setAnalysis(null);
@@ -1373,14 +1575,41 @@ export default function App() {
     ); break;
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} />; break;
-    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} />; break;
-    case "hypotheses": content = <ScreenHypotheses onBack={() => setScreen("home")} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />; break;
-    case "hypothesisDetail": content = <ScreenHypothesisDetail index={hypothesisIndex} onBack={() => setScreen("hypotheses")} onInvestigate={() => setScreen("investigate")} />; break;
+    case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} store={store} />; break;
+    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
+    case "aspirationSetup": content = (
+      <ScreenAspirationSetup
+        initialValue={store.aspiration}
+        onBack={() => setScreen("drift")}
+        onSave={(value) => {
+          const next: Store = { ...store, aspiration: value, aspirationSetDate: formatDateDots(new Date()) };
+          setStore(next);
+          saveStore(next);
+          setScreen("drift");
+        }}
+      />
+    ); break;
+    case "hypotheses": content = <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />; break;
+    case "hypothesisDetail": content = (
+      <ScreenHypothesisDetail
+        index={hypothesisIndex}
+        store={store}
+        onBack={() => setScreen("hypotheses")}
+        onInvestigate={() => setScreen("investigate")}
+        onReact={(r) => {
+          const next: Store = {
+            ...store,
+            hypotheses: store.hypotheses.map((h, i) => (i === hypothesisIndex ? { ...h, reaction: r } : h)),
+          };
+          setStore(next);
+          saveStore(next);
+        }}
+      />
+    ); break;
     case "investigate": content = <ScreenInvestigate index={hypothesisIndex} onBack={() => setScreen("hypothesisDetail")} />; break;
-    case "history": content = <ScreenHistory onNavSelect={goToTab} />; break;
-    case "profile": content = <ScreenProfile onNavSelect={goToTab} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} />;
+    case "history": content = <ScreenHistory onNavSelect={goToTab} store={store} />; break;
+    case "profile": content = <ScreenProfile onNavSelect={goToTab} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />;
   }
 
   const showStatusBar = !["splash"].includes(screen);
