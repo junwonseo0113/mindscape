@@ -1979,6 +1979,7 @@ export default function App() {
   const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
+  const [aspirationReturnScreen, setAspirationReturnScreen] = React.useState("drift");
   const [thinkText, setThinkText] = React.useState("");
   const [analysis, setAnalysis] = React.useState<any>(null);
   const [analysisError, setAnalysisError] = React.useState("");
@@ -2065,16 +2066,16 @@ export default function App() {
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
     case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
+    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => { setAspirationReturnScreen("drift"); setScreen("aspirationSetup"); }} />; break;
     case "aspirationSetup": content = (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
-        onBack={() => setScreen("drift")}
+        onBack={() => setScreen(aspirationReturnScreen)}
         onSave={(value) => {
           const next: Store = { ...store, aspiration: value, aspirationSetDate: formatDateDots(new Date()) };
           setStore(next);
           saveStore(next);
-          setScreen("drift");
+          setScreen(aspirationReturnScreen);
         }}
       />
     ); break;
@@ -2108,7 +2109,7 @@ export default function App() {
       <ScreenProfile
         onNavSelect={goToTab}
         store={store}
-        onSetupAspiration={() => setScreen("aspirationSetup")}
+        onSetupAspiration={() => { setAspirationReturnScreen("profile"); setScreen("aspirationSetup"); }}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
       />
     ); break;
