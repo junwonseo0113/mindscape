@@ -358,23 +358,42 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 // ── Linku — the app's mascot. A quiet, faceless little companion whose one
-// visual trick is the glowing antenna tip, echoing the belief-network
-// "signal" motif elsewhere in the app. Used only where the moment is
-// actually about connecting/observing (splash, processing) — not stamped
-// on every screen.
-function Linku({ pose = "idle", size = 120, dark = false }: { pose?: "idle" | "connecting"; size?: number; dark?: boolean }) {
+// visual trick is a small constellation on it — antenna filaments ending
+// in glowing dots, and (in "connecting" pose) the same three-dot triangle
+// as the app's own "연결한다" icon, lit up on its chest. Used only where
+// the moment is actually about connecting/observing (splash, processing) —
+// not stamped on every screen.
+function Linku({ pose = "idle", size = 120, dark = false, rich = false }: { pose?: "idle" | "connecting"; size?: number; dark?: boolean; rich?: boolean }) {
   const stroke = dark ? "#8A8590" : ink;
   const body = dark ? "#F4F1EC" : "#fff";
   const eye = dark ? "#403E45" : ink;
   return (
-    <svg width={size} height={size * 1.15} viewBox="0 0 100 115" style={{ overflow: "visible" }}>
-      <line x1="50" y1="18" x2="38" y2="2" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
+    <svg width={size} height={size * 1.3} viewBox="-14 -22 128 140" style={{ overflow: "visible" }}>
+      <line x1="50" y1="18" x2="36" y2="-10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
       <motion.circle
-        cx="38" cy="2" r="3" fill={accent}
+        cx="36" cy="-10" r="3.2" fill={accent}
         animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.15, 0.9] }}
         transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        style={{ transformOrigin: "38px 2px" }}
+        style={{ transformOrigin: "36px -10px" }}
       />
+      {rich && (
+        <>
+          <path d="M 52 20 Q 66 8 74 -6" fill="none" stroke={stroke} strokeWidth="1.2" strokeLinecap="round" />
+          <motion.circle
+            cx="74" cy="-6" r="2.3" fill={accent}
+            animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.8, 1.1, 0.8] }}
+            transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+            style={{ transformOrigin: "74px -6px" }}
+          />
+          <path d="M 46 20 Q 30 14 22 -2" fill="none" stroke={stroke} strokeWidth="1" strokeLinecap="round" strokeOpacity="0.7" />
+          <motion.circle
+            cx="22" cy="-2" r="1.8" fill={accent}
+            animate={{ opacity: [0.2, 0.8, 0.2], scale: [0.8, 1.1, 0.8] }}
+            transition={{ duration: 2.7, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
+            style={{ transformOrigin: "22px -2px" }}
+          />
+        </>
+      )}
       <ellipse cx="38" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="62" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="18" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
@@ -384,12 +403,27 @@ function Linku({ pose = "idle", size = 120, dark = false }: { pose?: "idle" | "c
       <ellipse cx="40" cy="34" rx="2.2" ry="4" fill={eye} />
       <ellipse cx="60" cy="34" rx="2.2" ry="4" fill={eye} />
       {pose === "connecting" && (
-        <motion.circle
-          cx="50" cy="78" r="9" fill="none" stroke={accent} strokeWidth="1.5"
-          animate={{ scale: [0.85, 1.2, 0.85], opacity: [0.4, 0.9, 0.4] }}
-          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          style={{ transformOrigin: "50px 78px" }}
-        />
+        <>
+          {[["44,74", "58,84"], ["58,84", "48,68"], ["48,68", "44,74"]].map(([a, b], i) => {
+            const [x1, y1] = a.split(",").map(Number);
+            const [x2, y2] = b.split(",").map(Number);
+            return (
+              <motion.line
+                key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={accent} strokeWidth="1"
+                animate={{ opacity: [0.2, 0.7, 0.2] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
+              />
+            );
+          })}
+          {[[44, 74, 2], [58, 84, 2.6], [48, 68, 1.8]].map(([cx, cy, r], i) => (
+            <motion.circle
+              key={i} cx={cx} cy={cy} r={r} fill={accent}
+              animate={{ scale: [0.8, 1.25, 0.8], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: i * 0.25 }}
+              style={{ transformOrigin: `${cx}px ${cy}px` }}
+            />
+          ))}
+        </>
       )}
     </svg>
   );
@@ -403,7 +437,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <Linku dark size={92} />
+        <Linku dark rich size={92} />
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#8A8590", textAlign: "center", letterSpacing: "0.02em", marginTop: 18 }}>
           미정
         </div>
