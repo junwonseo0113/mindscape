@@ -357,6 +357,44 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
 }
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
+// ── Linku — the app's mascot. A quiet, faceless little companion whose one
+// visual trick is the glowing antenna tip, echoing the belief-network
+// "signal" motif elsewhere in the app. Used only where the moment is
+// actually about connecting/observing (splash, processing) — not stamped
+// on every screen.
+function Linku({ pose = "idle", size = 120, dark = false }: { pose?: "idle" | "connecting"; size?: number; dark?: boolean }) {
+  const stroke = dark ? "#8A8590" : ink;
+  const body = dark ? "#F4F1EC" : "#fff";
+  const eye = dark ? "#403E45" : ink;
+  return (
+    <svg width={size} height={size * 1.15} viewBox="0 0 100 115" style={{ overflow: "visible" }}>
+      <line x1="50" y1="18" x2="38" y2="2" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
+      <motion.circle
+        cx="38" cy="2" r="3" fill={accent}
+        animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.15, 0.9] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        style={{ transformOrigin: "38px 2px" }}
+      />
+      <ellipse cx="38" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <ellipse cx="62" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <ellipse cx="18" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <ellipse cx="82" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <ellipse cx="50" cy="78" rx="27" ry="30" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <circle cx="50" cy="34" r="30" fill={body} stroke={stroke} strokeWidth="1.5" />
+      <ellipse cx="40" cy="34" rx="2.2" ry="4" fill={eye} />
+      <ellipse cx="60" cy="34" rx="2.2" ry="4" fill={eye} />
+      {pose === "connecting" && (
+        <motion.circle
+          cx="50" cy="78" r="9" fill="none" stroke={accent} strokeWidth="1.5"
+          animate={{ scale: [0.85, 1.2, 0.85], opacity: [0.4, 0.9, 0.4] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          style={{ transformOrigin: "50px 78px" }}
+        />
+      )}
+    </svg>
+  );
+}
+
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
   React.useEffect(() => {
     const t = setTimeout(() => onDone?.(), 2200);
@@ -364,8 +402,9 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   }, [onDone]);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#8A8590", textAlign: "center", letterSpacing: "0.02em" }}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <Linku dark size={92} />
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#8A8590", textAlign: "center", letterSpacing: "0.02em", marginTop: 18 }}>
           미정
         </div>
         <div style={{ ...serif, fontSize: 26, color: "#F4F1EC", textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -1014,12 +1053,8 @@ function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnectio
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
-      <motion.div
-        animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-        style={{ width: 56, height: 56, borderRadius: "50%", border: `1.5px solid ${accent}` }}
-      />
-      <div style={{ ...sans, fontSize: 14, color: "#C7C2CE", marginTop: 26 }}>{STEPS[step]}</div>
+      <Linku dark size={110} pose={step === 1 ? "connecting" : "idle"} />
+      <div style={{ ...sans, fontSize: 14, color: "#C7C2CE", marginTop: 22 }}>{STEPS[step]}</div>
     </div>
   );
 }
