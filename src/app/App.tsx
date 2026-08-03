@@ -727,22 +727,25 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact, store }: { onNa
           <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>지금까지 관찰된 것들</span>
           <span style={{ ...mono, fontSize: 11, color: faint }}>대화 {live ? store!.entryCount : 47}회</span>
         </div>
-        <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           <ArtifactTile
-            label="신념 지도"
-            teaser={live ? `핵심 신념 ${store!.beliefs.length}가지가 드러났어요.` : "핵심 신념 5가지가 드러났어요."}
+            label="신념과 패턴"
+            teaser={live
+              ? `무엇을 믿고 있는지 — 핵심 신념 ${store!.beliefs.length}가지, 반복되는 가정 ${store!.assumptions.length}가지가 드러났어요.`
+              : "무엇을 믿고 있는지 — 핵심 신념 5가지와 반복되는 해석 패턴을 함께 보여드려요."}
             onClick={() => onOpenArtifact?.("beliefs")}
           />
           <ArtifactTile
-            label="반복되는 가정"
-            teaser={live ? `${store!.assumptions.length}가지 자동 해석 패턴` : "4가지 자동 해석 패턴"}
-            onClick={() => onOpenArtifact?.("assumptions")}
+            label="사고의 변화"
+            teaser="되고 싶다고 말한 모습과, 실제로 쌓인 패턴 사이의 거리예요."
+            onClick={() => onOpenArtifact?.("drift")}
           />
-          <ArtifactTile label="사고의 변화" teaser="되고 싶은 모습과 비교해보세요" onClick={() => onOpenArtifact?.("drift")} />
           <ArtifactTile
             label="AI의 가설"
             badge={live && store!.hypotheses.some((h) => h.reaction === null) ? "NEW" : undefined}
-            teaser={live ? `확인이 필요한 가설 ${store!.hypotheses.length}개` : "확인이 필요한 가설 3개"}
+            teaser={live
+              ? `여러 신념을 가로지르는 상위 이론 ${store!.hypotheses.length}개 — 동의/반박하며 함께 다듬어요.`
+              : "여러 신념을 가로지르는 AI의 이론이에요 — 동의/반박하며 함께 다듬어요."}
             onClick={() => onOpenArtifact?.("hypotheses")}
           />
         </div>
@@ -1264,15 +1267,21 @@ function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[];
   );
 }
 
+// Belief Map and Recurring Assumptions used to be two separate screens, but
+// a belief ("안전이 최우선이다") and an assumption ("불확실할 때 → 기다리는
+//게 안전하다") are the same kind of thing at different specificity — one
+// screen now, sectioned, instead of two nearly-redundant ones.
 function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store }) {
   const live = !!store && store.beliefs.length > 0;
+  const liveAssumptions = !!store && store.assumptions.length > 0;
+  const assumptionItems = liveAssumptions ? store!.assumptions : ASSUMPTIONS;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>신념 지도</div>
+        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>신념과 패턴</div>
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>
-          {live ? "실제 남긴 생각들에서 뽑아낸 신념과, 서로 연결된 것으로 보이는 지점들이에요." : "당신의 결정을 이끄는 것으로 보이는 믿음들이에요. 원의 크기는 실제 근거 건수를 나타내요."}
+          {live ? "실제 남긴 생각들에서 뽑아낸, 무엇을 믿고 있는지와 그 믿음이 반복되는 방식이에요." : "당신의 결정을 이끄는 것으로 보이는 믿음과, 자동으로 반복되는 해석들이에요."}
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -1300,8 +1309,36 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
             </div>
           ))}
         </div>
+
+        <div style={{ marginTop: 26 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 가정</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            신념 자체가 아니라, 특정 상황에서 자동으로 튀어나오는 해석이에요.
+          </div>
+          <div style={{ marginTop: 12 }}>
+            {assumptionItems.map((a: any, i: number) => (
+              <div key={liveAssumptions ? a.id : a.label} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: i < assumptionItems.length - 1 ? `1px solid ${hair}` : "none" }}>
+                <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: accent, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
+                <div>
+                  <div style={{ ...serif, fontSize: 16, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>
+                    {liveAssumptions ? <>{a.trigger} → {a.interpretation}</> : a.label}
+                  </div>
+                  {!liveAssumptions && (
+                    <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                      {a.domains.map((d: string) => (
+                        <span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ ...sans, fontSize: 11, color: faint, marginTop: 8 }}>{a.count}번의 대화에서 발견</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {live && store!.connections.length > 0 && (
-          <div style={{ marginTop: 22 }}>
+          <div style={{ marginTop: 26 }}>
             <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {store!.connections.map((c, i) => {
@@ -1318,41 +1355,6 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ── Screen 9 · Recurring Assumptions ──────────────────────────────────────────
-function ScreenAssumptions({ onBack, store }: { onBack?: () => void; store?: Store }) {
-  const live = !!store && store.assumptions.length > 0;
-  const items = live ? store!.assumptions : ASSUMPTIONS;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>반복되는 가정</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5 }}>여러 상황에서 자동으로 튀어나오는 해석들이에요.</div>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        {items.map((a: any, i: number) => (
-          <div key={live ? a.id : a.label} style={{ display: "flex", gap: 14, padding: "16px 0", borderBottom: i < items.length - 1 ? `1px solid ${hair}` : "none" }}>
-            <div style={{ ...mono, fontSize: 20, fontWeight: 700, color: accent, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
-            <div>
-              <div style={{ ...serif, fontSize: 17, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>
-                {live ? <>{a.trigger} → {a.interpretation}</> : a.label}
-              </div>
-              {!live && (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                  {a.domains.map((d: string) => (
-                    <span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
-                  ))}
-                </div>
-              )}
-              <div style={{ ...sans, fontSize: 11, color: faint, marginTop: 8 }}>{a.count}번의 대화에서 발견</div>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -1732,7 +1734,7 @@ const HISTORY_LOG = [
   { date: "2026.07.25", duration: "2분 40초", excerpt: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다..." },
   { date: "2026.07.21", duration: "6분 05초", excerpt: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다..." },
 ];
-function ScreenHistory({ onNavSelect, store }: { onNavSelect?: (id: string) => void; store?: Store }) {
+function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store?: Store; onOpenEntry?: (index: number) => void }) {
   const live = !!store && store.history.length > 0;
   const items = live ? [...store!.history].reverse() : HISTORY_LOG;
   return (
@@ -1743,16 +1745,42 @@ function ScreenHistory({ onNavSelect, store }: { onNavSelect?: (id: string) => v
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         {items.map((h: any, i: number) => (
-          <div key={live ? `${h.date}-${i}` : h.date} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
+          <motion.div
+            key={live ? `${h.date}-${i}` : h.date} role="button" tabIndex={0} onClick={() => onOpenEntry?.(i)} whileTap={{ opacity: 0.6 }}
+            style={{ padding: "16px 0", borderBottom: `1px solid ${hair}`, cursor: "pointer" }}
+          >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ ...mono, fontSize: 12, color: faint }}>{h.date}</span>
               {!live && <span style={{ ...mono, fontSize: 11, color: faint }}>{h.duration}</span>}
             </div>
             <div style={{ ...sans, fontSize: 14, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{live ? h.text : h.excerpt}</div>
-          </div>
+          </motion.div>
         ))}
       </div>
       <BottomNav active="history" onSelect={onNavSelect} />
+    </div>
+  );
+}
+
+// ── Screen 13.5 · History entry detail ────────────────────────────────────────
+function ScreenHistoryDetail({ index, store, onBack }: { index: number; store?: Store; onBack?: () => void }) {
+  const live = !!store && store.history.length > 0;
+  const items = live ? [...store!.history].reverse() : HISTORY_LOG;
+  const entry: any = items[index] ?? items[0];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ ...mono, fontSize: 12, color: faint }}>{entry.date}</span>
+          {!live && <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.duration}</span>}
+        </div>
+        <div style={{ ...serif, fontSize: 19, color: ink, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
+          {live ? entry.text : entry.excerpt}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1901,8 +1929,8 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBa
 const HELP_ITEMS = [
   { q: "이 앱은 무엇을 하나요?", a: "지난 일을 기록하는 일기장이 아니에요. 시간이 지날수록 당신이 왜 그렇게 생각하는지 — 반복되는 신념, 자동적인 가정, 스스로도 못 보는 패턴 — 을 조용히 비춰주는 도구예요." },
   { q: "'생각 말하기'는 어떻게 쓰나요?", a: "정리하지 마세요. 오늘 있었던 일, 갑자기 든 생각, 아직 결정 못한 것 — 떠오르는 순서 그대로 말하거나 적으면 돼요. 음성은 브라우저 내장 인식을, 텍스트는 직접 타이핑을 지원해요." },
-  { q: "신념 지도는 뭔가요?", a: "당신의 결정을 이끄는 것으로 보이는 믿음들을, 근거가 쌓일수록 커지는 원으로 보여줘요. 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 신념들의 연결이에요." },
-  { q: "AI의 가설은 확정된 사실인가요?", a: "아니요. 확신도와 함께 제시되는 하나의 해석일 뿐이에요. 동의하거나 아니라고 답하면서 함께 다듬어가는 게 정상적인 사용 방식이에요." },
+  { q: "신념과 패턴은 뭔가요?", a: "당신의 결정을 이끄는 것으로 보이는 믿음(신념)을, 근거가 쌓일수록 커지는 원으로 보여줘요. 그 아래엔 특정 상황마다 자동으로 튀어나오는 해석(반복되는 가정)이 있고, 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 신념들의 연결이에요." },
+  { q: "AI의 가설은 신념과 뭐가 다른가요?", a: "신념은 '무엇을 믿고 있는지' 그 자체고, 가설은 여러 신념/연결을 가로질러 AI가 내놓는 상위 이론이에요 (예: '이 패턴이 커리어와 관계 모두에서 같은 방식으로 나타나요'). 확정된 사실이 아니라 동의/반박하며 함께 다듬어가는 해석이에요." },
   { q: "사고의 변화는 어떻게 계산되나요?", a: "당신이 되고 싶다고 말한 모습과, 실제로 쌓인 신념/가정 사이의 구체적인 간극을 AI가 짚어드려요. 목표를 먼저 프로필에서 설정해야 시작돼요." },
 ];
 
@@ -1932,6 +1960,7 @@ function ScreenHelp({ onBack }: { onBack?: () => void }) {
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
+  const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysis, setAnalysis] = React.useState<any>(null);
   const [analysisError, setAnalysisError] = React.useState("");
@@ -2017,7 +2046,7 @@ export default function App() {
     ); break;
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "assumptions": content = <ScreenAssumptions onBack={() => setScreen("home")} store={store} />; break;
+    case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
     case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
     case "aspirationSetup": content = (
       <ScreenAspirationSetup
@@ -2049,7 +2078,14 @@ export default function App() {
       />
     ); break;
     case "investigate": content = <ScreenInvestigate index={hypothesisIndex} onBack={() => setScreen("hypothesisDetail")} />; break;
-    case "history": content = <ScreenHistory onNavSelect={goToTab} store={store} />; break;
+    case "history": content = (
+      <ScreenHistory
+        onNavSelect={goToTab}
+        store={store}
+        onOpenEntry={(i) => { setHistoryEntryIndex(i); setScreen("historyDetail"); }}
+      />
+    ); break;
+    case "historyDetail": content = <ScreenHistoryDetail index={historyEntryIndex} store={store} onBack={() => setScreen("history")} />; break;
     case "profile": content = (
       <ScreenProfile
         onNavSelect={goToTab}
