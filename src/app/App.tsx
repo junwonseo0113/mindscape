@@ -522,12 +522,12 @@ const ONBOARDING_SLIDES = [
   {
     kicker: "AI의 역할",
     title: "AI는 답을 주지 않습니다.\n패턴을 봅니다.",
-    body: "매번 조언하는 대신, 수백 번의 대화에 걸쳐 당신이 반복하는 자동 해석과 판단 습관을 조용히 관찰합니다.",
+    body: "매번 조언하는 대신, 수백 번의 대화에 걸쳐 당신이 반복하는 무의식적 해석과 판단 습관을 조용히 관찰합니다.",
   },
   {
     kicker: "시간이 지나면",
     title: "당신도 몰랐던\n당신의 패턴이 보입니다.",
-    body: "\"불확실할 때는 기다리는 게 안전하다\" — 이 자동 해석이 커리어에서도, 관계에서도, 투자에서도 반복됐다는 걸, 안에서는 알아채기 어렵습니다.",
+    body: "\"불확실할 때는 기다리는 게 안전하다\" — 이 무의식적 해석이 커리어에서도, 관계에서도, 투자에서도 반복됐다는 걸, 안에서는 알아채기 어렵습니다.",
   },
 ];
 
@@ -621,7 +621,7 @@ const HYPOTHESES = [
     // The closing line is the whole point of this screen, almost verbatim
     // from the product brief's own example — the AI never states a verdict
     // ("이건 당신에게 안 좋은 습관이에요"), it hands the interpretation back.
-    question: "이 패턴은 커리어, 관계, 투자에서 반복적으로 나타났어요. 이 자동 해석이 당신에게 도움이 되고 있다고 생각하세요, 아니면 당신을 제한하고 있다고 생각하세요?",
+    question: "이 패턴은 커리어, 관계, 투자에서 반복적으로 나타났어요. 이 무의식적 해석이 당신에게 도움이 되고 있다고 생각하세요, 아니면 당신을 제한하고 있다고 생각하세요?",
     confidence: 78,
     domains: ["커리어", "관계", "투자"],
     evidence: [
@@ -734,12 +734,12 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact, store }: { onNa
           <ArtifactTile
             label="무의식적 패턴"
             teaser={live
-              ? `스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 ${store!.beliefs.length}가지, 자동 해석 ${store!.assumptions.length}가지가 드러났어요.`
-              : "스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 5가지와 자동 해석을 함께 보여드려요."}
+              ? `스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 ${store!.beliefs.length}가지, 반복되는 해석 ${store!.assumptions.length}가지가 드러났어요.`
+              : "스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 5가지와 반복되는 해석을 함께 보여드려요."}
             onClick={() => onOpenArtifact?.("beliefs")}
           />
           <ArtifactTile
-            label="사고의 변화"
+            label="목표와의 거리"
             teaser="되고 싶다고 말한 모습과, 실제 말과 행동에서 반복되는 패턴 사이의 거리예요."
             onClick={() => onOpenArtifact?.("drift")}
           />
@@ -1069,7 +1069,7 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
 
             {Array.isArray(analysis.assumptions) && analysis.assumptions.length > 0 && (
               <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 자동 해석</div>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 무의식적 해석</div>
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   {analysis.assumptions.map((a: any, i: number) => (
                     <div key={i} style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>
@@ -1097,7 +1097,7 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
 
             {analysis.metaInsight && (
               <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>네트워크가 커지면서 보이는 것</div>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>패턴이 쌓이면서 보이는 것</div>
                 <div style={{ marginTop: 8, padding: 16, borderRadius: 14, backgroundColor: ink }}>
                   <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#F4F1EC", lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.metaInsight}</div>
                 </div>
@@ -1335,14 +1335,14 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
         </div>
 
         <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>무의식적 신념과 자동 해석, 뭐가 다른가요</div>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>무의식적 신념과 해석, 뭐가 다른가요</div>
           <div style={{ ...sans, fontSize: 12.5, color: inkSoft, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            무의식적 신념은 스스로 자각하지 못한 채 늘 배경에서 작동하는 것이고, 자동 해석은 그게 특정 순간(트리거)마다 실제 말과 행동으로 튀어나오는 구체적인 반응이에요. 무의식적 신념은 "왜 그런지"이고, 자동 해석은 "그게 실제로 벌어지는 순간"인 셈이에요. 예를 들어 위의 "{live ? store!.beliefs[0]?.statement ?? "완벽해야 시작할 수 있다" : "완벽해야 시작할 수 있다"}"는 무의식적 신념이, 아래처럼 "새로운 걸 시작해야 할 때 → 아직 준비가 안 됐다며 미룬다"는 자동 해석으로 매번 구체적인 행동에 나타나는 식이에요.
+            무의식적 신념은 스스로 자각하지 못한 채 늘 배경에서 작동하는 것이고, 무의식적 해석은 그게 특정 순간(트리거)마다 실제 말과 행동으로 튀어나오는 구체적인 반응이에요. 무의식적 신념은 "왜 그런지"이고, 무의식적 해석은 "그게 실제로 벌어지는 순간"인 셈이에요. 예를 들어 위의 "{live ? store!.beliefs[0]?.statement ?? "완벽해야 시작할 수 있다" : "완벽해야 시작할 수 있다"}"는 무의식적 신념이, 아래처럼 "새로운 걸 시작해야 할 때 → 아직 준비가 안 됐다며 미룬다"는 무의식적 해석으로 매번 구체적인 행동에 나타나는 식이에요.
           </div>
         </div>
 
         <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 자동 해석</div>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 무의식적 해석</div>
           <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
             "이런 상황에서 → 이렇게 자동으로 해석하고 행동한다"는 순간들이에요. 무의식적 신념보다 더 구체적이고, 실제로 관찰되는 트리거가 있어요.
           </div>
@@ -1433,7 +1433,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>사고의 변화</div>
+        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>목표와의 거리</div>
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           되고 싶다고 말했던 사람과, 최근 실제 패턴 사이의 거리예요.
         </div>
@@ -1914,7 +1914,7 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBa
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 13.5, color: mid, lineHeight: 1.75, wordBreak: "keep-all" }}>
-          이 앱은 별도 서버에 계정을 만들지 않아요. 무의식적 신념, 자동 해석, 대화 기록은 전부 이 기기의 브라우저 안에만 저장됩니다. "생각 말하기"로 남긴 텍스트는 분석하는 순간에만 Claude(Anthropic)로 전송되고, 그 외에는 어디로도 나가지 않아요.
+          이 앱은 별도 서버에 계정을 만들지 않아요. 무의식적 신념·해석, 대화 기록은 전부 이 기기의 브라우저 안에만 저장됩니다. "생각 말하기"로 남긴 텍스트는 분석하는 순간에만 Claude(Anthropic)로 전송되고, 그 외에는 어디로도 나가지 않아요.
         </div>
 
         <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: surface }}>
@@ -1922,7 +1922,7 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBa
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {[
               ["무의식적 신념", s?.beliefs.length ?? 0],
-              ["반복되는 자동 해석", s?.assumptions.length ?? 0],
+              ["반복되는 무의식적 해석", s?.assumptions.length ?? 0],
               ["무의식적 신념 사이의 연결", s?.connections.length ?? 0],
               ["대화 기록", s?.history.length ?? 0],
               ["AI의 가설", s?.hypotheses.length ?? 0],
@@ -1947,7 +1947,7 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBa
           </div>
           {armed && (
             <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 8, lineHeight: 1.5 }}>
-              이 기기에 저장된 무의식적 신념, 자동 해석, 대화 기록, 목표 설정이 모두 사라져요. 되돌릴 수 없어요.
+              이 기기에 저장된 무의식적 신념·해석, 대화 기록, 목표 설정이 모두 사라져요. 되돌릴 수 없어요.
             </div>
           )}
         </div>
@@ -1958,11 +1958,11 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store?: Store; onBa
 
 // ── Screen 14.3 · Help ─────────────────────────────────────────────────────────
 const HELP_ITEMS = [
-  { q: "이 앱은 무엇을 하나요?", a: "지난 일을 기록하는 일기장이 아니에요. 시간이 지날수록 당신이 왜 그렇게 생각하고 행동하는지 — 스스로도 의식하지 못한 채 실제 말과 행동에서 반복되는 무의식적 신념, 자동 해석 — 을 조용히 비춰주는 도구예요." },
+  { q: "이 앱은 무엇을 하나요?", a: "지난 일을 기록하는 일기장이 아니에요. 시간이 지날수록 당신이 왜 그렇게 생각하고 행동하는지 — 스스로도 의식하지 못한 채 실제 말과 행동에서 반복되는 무의식적 신념·해석 — 을 조용히 비춰주는 도구예요." },
   { q: "'생각 말하기'는 어떻게 쓰나요?", a: "정리하지 마세요. 오늘 있었던 일, 갑자기 든 생각, 아직 결정 못한 것 — 떠오르는 순서 그대로 말하거나 적으면 돼요. 음성은 브라우저 내장 인식을, 텍스트는 직접 타이핑을 지원해요." },
-  { q: "무의식적 패턴은 뭔가요?", a: "당신도 미처 의식하지 못한 채 실제 결정을 이끄는 것으로 보이는 무의식적 신념을, 근거가 쌓일수록 커지는 원으로 보여줘요. 그 아래엔 '반복되는 자동 해석'이 있어요 — 특정 상황마다 자동으로 튀어나오는 해석이에요. 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 무의식적 신념들의 연결이에요." },
+  { q: "무의식적 패턴은 뭔가요?", a: "당신도 미처 의식하지 못한 채 실제 결정을 이끄는 것으로 보이는 무의식적 신념을, 근거가 쌓일수록 커지는 원으로 보여줘요. 그 아래엔 '반복되는 무의식적 해석'이 있어요 — 특정 상황마다 자동으로 튀어나오는 해석이에요. 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 무의식적 신념들의 연결이에요." },
   { q: "AI의 가설은 무의식적 신념과 뭐가 다른가요?", a: "무의식적 신념은 '실제 말과 행동에서 반복적으로 드러나는 것' 그 자체고, 가설은 여러 무의식적 신념/연결을 가로질러 AI가 내놓는 상위 이론이에요 (예: '이 패턴이 커리어와 관계 모두에서 같은 방식으로 나타나요'). 확정된 사실이 아니라 동의/반박하며 함께 다듬어가는 해석이에요." },
-  { q: "사고의 변화는 어떻게 계산되나요?", a: "당신이 되고 싶다고 말한 모습과, 실제로 쌓인 무의식적 신념/자동 해석 사이의 구체적인 간극을 AI가 짚어드려요. 목표는 사고의 변화 화면에서 설정해요." },
+  { q: "목표와의 거리는 어떻게 계산되나요?", a: "당신이 되고 싶다고 말한 모습과, 실제로 쌓인 무의식적 신념·해석 사이의 구체적인 간극을 AI가 짚어드려요. 목표는 이 화면에서 직접 설정해요." },
 ];
 
 function ScreenHelp({ onBack }: { onBack?: () => void }) {

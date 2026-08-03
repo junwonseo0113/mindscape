@@ -35,10 +35,10 @@ function analyzeApiPlugin(env: Record<string, string>): Plugin {
             const hasHistory = Array.isArray(priorBeliefs) && priorBeliefs.length > 0
             const networkSize = (Array.isArray(priorBeliefs) ? priorBeliefs.length : 0) + (Array.isArray(priorConnections) ? priorConnections.length : 0)
             const historyBlock = hasHistory
-              ? `이 사람에 대해 지금까지 누적된 무의식적 신념/자동 해석/연결(그물망)입니다:
+              ? `이 사람에 대해 지금까지 누적된 무의식적 신념/무의식적 해석/연결(그물망)입니다:
 
 기존 신념: ${JSON.stringify(priorBeliefs ?? [])}
-기존 자동 해석: ${JSON.stringify(priorAssumptions ?? [])}
+기존 무의식적 해석: ${JSON.stringify(priorAssumptions ?? [])}
 기존 연결(신념들 사이의 관계): ${JSON.stringify(priorConnections ?? [])}
 `
               : `이 사람에 대한 기존 기록은 아직 없습니다. 이번이 첫 기록입니다.
@@ -63,12 +63,12 @@ ${historyBlock}${aspirationBlock}
 [정확도 규칙 — confidence는 기계적으로 계산하지 말고 실제 근거 강도를 반영하세요]
 - confidence는 (a) evidenceCount(반복 횟수)와 (b) 이번 텍스트에서 이 신념이 얼마나 직접적으로 드러났는지(명시적 진술 > 행동에서의 추론 > 약한 암시)를 함께 반영하세요. 강하고 직접적인 재확인이면 confidence를 더 올리고(최대 +15), 약한 암시면 조금만 올리거나(+3~5) 그대로 두세요. 항상 같은 값을 더하지 마세요.
 - 새 신념의 초기 confidence도 근거의 직접성에 따라 30~65 사이에서 달라져야 합니다 — 명확히 진술됐다면 높게, 행동에서 조심스레 추론한 것이라면 낮게 잡으세요.
-- 이번 텍스트와 명확히 관련 없는 기존 신념/자동 해석은 손대지 마세요 (confidence, evidenceCount 그대로, quote는 null). 관련 있어 보인다고 억지로 끼워 맞추지 마세요.
+- 이번 텍스트와 명확히 관련 없는 기존 신념/무의식적 해석은 손대지 마세요 (confidence, evidenceCount 그대로, quote는 null). 관련 있어 보인다고 억지로 끼워 맞추지 마세요.
 
 [모순 처리 — 반드시 확인]
 - 새 텍스트가 기존 신념과 같은 방향이 아니라 정반대의 행동/생각을 보여준다면 (단순히 언급이 없는 정도가 아니라 명백히 반대라면): 그 신념을 강화하지 말고 confidence를 10~20 낮추세요 (evidenceCount는 그대로 두거나 1만 늘리세요). quote에는 그 모순을 보여주는 구절을 넣고, changeNote에 "이 모순"을 반드시 언급하세요. 신념을 조용히 지우지 말고, confidence가 낮아진 채로 남겨두세요 — 모순 자체가 흥미로운 신호입니다.
 
-[신념/자동 해석 갱신]
+[신념/무의식적 해석 갱신]
 - 새 텍스트가 기존 신념 중 하나와 같은 방향으로 다시 나타난다면: 새로 추가하지 말고 같은 문장을 유지한 채 위 [정확도 규칙]에 따라 confidence를 조정하고 evidenceCount를 1 늘리세요. quote에는 이번 새 텍스트에서 그 신념을 뒷받침하는 실제 구절(직접 인용하거나 짧게 다듬어서)을 넣으세요.
 - 기존 목록에 없는 진짜 새로운 신념이 드러난다면: 위 규칙대로 초기 confidence를 정하고 evidenceCount 1로 새 항목을 추가하고, quote에 근거가 된 구절을 넣으세요.
 - assumptions도 동일한 방식(반복이면 count만 +1, 새로운 것이면 count 1로 추가)으로 갱신하세요.
@@ -94,7 +94,7 @@ ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- �
 
 {
   "beliefs": [ { "domain": "한 단어 영역, 예: 커리어/관계/돈/일/자기인식", "statement": "이 사람이 의식적으로 자각하지 못한 채 실제 행동/말에서 반복적으로 드러나는 무의식적 신념을 3인칭 관찰자 시점으로 서술한 문장 (있었던 일의 요약이 아니고, 본인이 할 법한 1인칭 자기소개도 아닐 것)", "confidence": 정수 0-100, "evidenceCount": 정수, "quote": "string 또는 null" } ],
-  "assumptions": [ { "trigger": "이 자동 해석이 발동되는 상황을 짧게, 예: 불확실함이 나타날 때", "interpretation": "자동으로 하게 되는 해석 한 문장", "count": 정수 } ],
+  "assumptions": [ { "trigger": "이 무의식적 해석이 발동되는 상황을 짧게, 예: 불확실함이 나타날 때", "interpretation": "자동으로 하게 되는 해석 한 문장", "count": 정수 } ],
   "connections": [ { "aStatement": "beliefs 배열의 statement와 정확히 동일한 문자열", "bStatement": "beliefs 배열의 statement와 정확히 동일한 문자열", "note": "왜 연결되는지 한 문장" } ],
   "reflection": "이 사람에게 되돌려줄 한두 문장. 결론을 내리지 말고, '이게 도움이 되고 있나요, 아니면 제한하고 있나요' 같은 톤의 질문으로 끝날 것.",
   "changeNote": "string 또는 null",
