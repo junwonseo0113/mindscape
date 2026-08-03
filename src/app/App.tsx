@@ -784,11 +784,25 @@ function getSpeechRecognitionCtor(): any {
   return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
 }
 
+// Rotates through the "what to talk about" hint instead of always showing
+// the same line — one of these nudges toward identity/aspiration ("누구가
+// 되고 싶은지") without a separate dedicated goal-setting flow. Whichever
+// one shows just seeds what people talk about; it's not a form field.
+const THINK_PROMPTS = [
+  "오늘 있었던 일, 갑자기 든 생각, 아직 결정하지 못한 것 — 무엇이든.",
+  "당신이 되고 싶은 사람은 어떤 모습인가요? 그런 이야기도 좋아요.",
+  "요즘 자꾸 미루고 있는 일이 있다면, 왜 그런지 편하게 말해보세요.",
+  "최근에 후회했던 선택이 있다면, 그때 무슨 생각이었나요?",
+  "지금 가장 확신이 서지 않는 게 뭔가요?",
+  "예전의 나와 지금의 나, 뭐가 달라졌다고 느끼나요?",
+];
+
 function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
   const [textMode, setTextMode] = React.useState(false);
   const [text, setText] = React.useState("");
+  const [promptHint] = React.useState(() => THINK_PROMPTS[Math.floor(Math.random() * THINK_PROMPTS.length)]);
   const [transcript, setTranscript] = React.useState("");
   const [interim, setInterim] = React.useState("");
   const voiceSupportedRef = React.useRef(!!getSpeechRecognitionCtor());
@@ -877,7 +891,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="오늘 있었던 일, 갑자기 든 생각, 아직 결정하지 못한 것 — 무엇이든 편하게 적어보세요."
+              placeholder={`${promptHint} 편하게 적어보세요.`}
               style={{
                 ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
                 backgroundColor: "transparent", color: "#F4F1EC", fontSize: 19, lineHeight: 1.7,
@@ -898,7 +912,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   편하게 말하세요.<br />정리하려 하지 않아도 됩니다.
                 </div>
                 <div style={{ ...sans, fontSize: 13, color: "#8A8590", textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                  오늘 있었던 일, 갑자기 든 생각,<br />아직 결정하지 못한 것 — 무엇이든.
+                  {promptHint}
                 </div>
                 {!voiceSupportedRef.current && (
                   <div style={{ ...sans, fontSize: 12, color: tension, textAlign: "center", marginTop: 18, lineHeight: 1.6, wordBreak: "keep-all" }}>
@@ -1804,10 +1818,9 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store?: 
 }
 
 // ── Screen 14 · Profile ────────────────────────────────────────────────────────
-function ScreenProfile({ onNavSelect, store, onSetupAspiration, onOpenSettings }: { onNavSelect?: (id: string) => void; store?: Store; onSetupAspiration?: () => void; onOpenSettings?: (screen: "notifications" | "dataPrivacy" | "help") => void }) {
+function ScreenProfile({ onNavSelect, store, onOpenSettings }: { onNavSelect?: (id: string) => void; store?: Store; onOpenSettings?: (screen: "notifications" | "dataPrivacy" | "help") => void }) {
   const live = !!store && store.entryCount > 0;
   const rows: { label: string; onClick?: () => void }[] = [
-    { label: "나의 목표", onClick: onSetupAspiration },
     { label: "알림", onClick: () => onOpenSettings?.("notifications") },
     { label: "데이터와 개인정보", onClick: () => onOpenSettings?.("dataPrivacy") },
     { label: "도움말", onClick: () => onOpenSettings?.("help") },
@@ -1979,7 +1992,6 @@ export default function App() {
   const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
-  const [aspirationReturnScreen, setAspirationReturnScreen] = React.useState("drift");
   const [thinkText, setThinkText] = React.useState("");
   const [analysis, setAnalysis] = React.useState<any>(null);
   const [analysisError, setAnalysisError] = React.useState("");
@@ -2066,16 +2078,16 @@ export default function App() {
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
     case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => { setAspirationReturnScreen("drift"); setScreen("aspirationSetup"); }} />; break;
+    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
     case "aspirationSetup": content = (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
-        onBack={() => setScreen(aspirationReturnScreen)}
+        onBack={() => setScreen("drift")}
         onSave={(value) => {
           const next: Store = { ...store, aspiration: value, aspirationSetDate: formatDateDots(new Date()) };
           setStore(next);
           saveStore(next);
-          setScreen(aspirationReturnScreen);
+          setScreen("drift");
         }}
       />
     ); break;
@@ -2109,7 +2121,6 @@ export default function App() {
       <ScreenProfile
         onNavSelect={goToTab}
         store={store}
-        onSetupAspiration={() => { setAspirationReturnScreen("profile"); setScreen("aspirationSetup"); }}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
       />
     ); break;
