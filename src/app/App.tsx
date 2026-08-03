@@ -605,11 +605,14 @@ const BELIEFS = [
   { label: "돈보다 자유가 중요하다", domain: "가치관", evidenceCount: 12, strength: 45 },
 ];
 
+// Same trigger -> interpretation shape as StoredAssumption, so the demo
+// actually demonstrates the belief/assumption distinction instead of just
+// looking like a second list of flat statements.
 const ASSUMPTIONS = [
-  { label: "불확실하면 기다리는 게 안전하다", domains: ["커리어", "관계", "투자"], count: 12 },
-  { label: "먼저 나서면 결국 손해를 본다", domains: ["관계", "협상"], count: 8 },
-  { label: "완벽히 준비된 후에만 움직여야 한다", domains: ["일", "창업"], count: 15 },
-  { label: "내 감정을 드러내면 약점이 된다", domains: ["관계", "직장"], count: 9 },
+  { trigger: "불확실함이 나타날 때", interpretation: "기다리는 게 가장 안전한 선택이라고 자동으로 생각한다", domains: ["커리어", "관계", "투자"], count: 12 },
+  { trigger: "누군가에게 먼저 다가가야 할 때", interpretation: "결국 손해를 볼 거라고 미리 판단한다", domains: ["관계", "협상"], count: 8 },
+  { trigger: "새로운 걸 시작해야 할 때", interpretation: "아직 준비가 안 됐다며 미룬다", domains: ["일", "창업"], count: 15 },
+  { trigger: "갈등이나 서운함을 느낄 때", interpretation: "드러내면 약점이 잡힌다고 생각해 감춘다", domains: ["관계", "직장"], count: 9 },
 ];
 
 const HYPOTHESES = [
@@ -1286,7 +1289,14 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         {live ? <BeliefNetworkChart beliefs={store!.beliefs} connections={store!.connections} /> : <BeliefBubbleChart />}
-        <div style={{ marginTop: 8 }}>
+
+        <div style={{ marginTop: 20 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>핵심 신념</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            상황과 관계없이, 전반적으로 사실이라고 믿고 있는 것들이에요. 원의 크기·막대 길이는 실제 근거 건수예요.
+          </div>
+        </div>
+        <div style={{ marginTop: 10 }}>
           {(live ? store!.beliefs : BELIEFS).map((b: any) => (
             <div key={live ? b.id : b.label} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1310,18 +1320,26 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store?: Store
           ))}
         </div>
 
+        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>신념과 가정, 뭐가 다른가요</div>
+          <div style={{ ...sans, fontSize: 12.5, color: inkSoft, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
+            신념은 "무엇을 사실이라고 믿는지"예요 — 늘 그렇게 작동하는 배경 같은 것. 가정은 그 신념이 특정 순간(트리거)마다 튀어나오는 실제 반응이에요. 예를 들어 위의 "{live ? store!.beliefs[0]?.statement ?? "완벽해야 시작할 수 있다" : "완벽해야 시작할 수 있다"}"는 신념이, 아래처럼 "새로운 걸 시작해야 할 때 → 아직 준비가 안 됐다며 미룬다"는 가정으로 매번 구체적으로 나타나는 식이에요.
+          </div>
+        </div>
+
         <div style={{ marginTop: 26 }}>
           <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 가정</div>
           <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            신념 자체가 아니라, 특정 상황에서 자동으로 튀어나오는 해석이에요.
+            "이런 상황에서 → 이렇게 자동으로 해석한다"는 순간들이에요. 신념보다 더 구체적이고, 트리거가 있어요.
           </div>
           <div style={{ marginTop: 12 }}>
             {assumptionItems.map((a: any, i: number) => (
-              <div key={liveAssumptions ? a.id : a.label} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: i < assumptionItems.length - 1 ? `1px solid ${hair}` : "none" }}>
+              <div key={liveAssumptions ? a.id : a.trigger} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: i < assumptionItems.length - 1 ? `1px solid ${hair}` : "none" }}>
                 <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: accent, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
                 <div>
-                  <div style={{ ...serif, fontSize: 16, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>
-                    {liveAssumptions ? <>{a.trigger} → {a.interpretation}</> : a.label}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle }}>{a.trigger}</span>
+                    <span style={{ ...serif, fontSize: 16, color: ink, lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
                   </div>
                   {!liveAssumptions && (
                     <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
