@@ -392,6 +392,20 @@ function Linku({ pose = "idle", size = 120, dark = false, rich = false }: { pose
             transition={{ duration: 2.7, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
             style={{ transformOrigin: "22px -2px" }}
           />
+          {/* "함께할 때" — a small trailing constellation beside it, like a
+              patient companion that's always just off to the side. */}
+          {[[92, 62], [102, 42], [93, 24], [110, 10], [101, -8]].map(([x, y], i, arr) => {
+            const next = arr[i + 1];
+            if (!next) return null;
+            return <line key={`trail-line-${i}`} x1={x} y1={y} x2={next[0]} y2={next[1]} stroke={accent} strokeWidth="0.8" strokeOpacity="0.3" />;
+          })}
+          {[[92, 62, 2.2], [102, 42, 1.6], [93, 24, 2.6], [110, 10, 1.7], [101, -8, 2.2]].map(([cx, cy, r], i) => (
+            <motion.circle
+              key={`trail-dot-${i}`} cx={cx} cy={cy} r={r} fill={accent}
+              animate={{ opacity: [0.25, 0.85, 0.25] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: i * 0.35 }}
+            />
+          ))}
         </>
       )}
       <ellipse cx="38" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
