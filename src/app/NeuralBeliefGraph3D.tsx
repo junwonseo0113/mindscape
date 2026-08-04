@@ -67,12 +67,12 @@ export type NeuralBeliefConnection = { a: string; b: string };
 const IS_SMALL_SCREEN = typeof window !== "undefined" && window.innerWidth < 480;
 const BRAIN_SEED = 1729;
 
-// Denser than before specifically so local gaps stop happening in the
-// first place — the bridging pass in buildProximityEdges already
-// guarantees full connectivity at any density, but more tissue means
-// fewer/shorter bridges are ever needed, and the mass reads as more
-// continuous up close.
-const BACKGROUND_COUNT = IS_SMALL_SCREEN ? 1900 : 3000;
+// Pulled back down from an even denser pass — that version stopped local
+// gaps from appearing, but on a phone-sized card it read as visually heavy
+// enough to bury the handful of neurons that actually matter (the ones a
+// real belief activated). The bridging pass in buildProximityEdges still
+// guarantees full connectivity at this density, so the silhouette holds.
+const BACKGROUND_COUNT = IS_SMALL_SCREEN ? 1300 : 2000;
 const BACKGROUND = generateBrainCloud(BACKGROUND_COUNT, BRAIN_SEED);
 const BACKGROUND_POSITIONS: Vec3[] = BACKGROUND.map((p) => p.position);
 
@@ -128,16 +128,17 @@ const DIM_TINT = new THREE.Color("#131217");
 const BRIGHT_TINT = new THREE.Color("#3C342A");
 
 // ── Single source of truth for the six cognitive regions: their permanent
-// activation color and their Korean display label. The renderer (node
-// fill/emissive, the legend, region grouping) all read from this map —
-// nothing hardcodes a region's color anywhere else.
-export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string }> = {
-  identity: { color: "#8B7CFF", label: "정체성" },
-  security: { color: "#4CAF7A", label: "안정" },
-  career: { color: "#D9A441", label: "커리어" },
-  relationships: { color: "#E88AAE", label: "관계" },
-  curiosity: { color: "#69A7FF", label: "호기심" },
-  creativity: { color: "#F4A261", label: "창의성" },
+// activation color, Korean display label, and a one-line description of
+// what the category actually means — the legend and RegionBreakdown both
+// read from this map — nothing hardcodes a region's color or meaning
+// anywhere else.
+export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string; description: string }> = {
+  identity: { color: "#8B7CFF", label: "정체성", description: "내가 누구라고 생각하는지 — 자기 인식, 자존감, 가치관에 관한 믿음" },
+  security: { color: "#4CAF7A", label: "안정", description: "위험과 변화 앞에서 안전을 지키려는 판단 기준" },
+  career: { color: "#D9A441", label: "커리어", description: "일, 성취, 능력에 대해 갖고 있는 믿음" },
+  relationships: { color: "#E88AAE", label: "관계", description: "다른 사람과의 관계에서 반복되는 생각과 태도" },
+  curiosity: { color: "#69A7FF", label: "호기심", description: "새로운 것을 탐구하고 배우는 것에 대한 태도" },
+  creativity: { color: "#F4A261", label: "창의성", description: "상상하고 표현하는 방식에 대한 믿음" },
 };
 
 // Reserved exclusively for the "this one is selected" indicator (a thin
@@ -247,9 +248,11 @@ function buildActiveNodes(beliefs: NeuralBeliefNode[]): ActiveNode[] {
     const evidenceRatio = Math.sqrt((belief.evidenceCount || 1) / maxEvidence);
     const strength = evidenceRatio * 0.7 + ((belief.confidence ?? 50) / 100) * 0.3;
     const isCore = beliefs.length > 3 && (belief.evidenceCount || 0) > 0 && (belief.evidenceCount || 0) >= coreThreshold;
-    // Only ~1.5x-2x a background neuron's own radius — a promoted neuron,
-    // not a planet dropped on top of the structure.
-    const radius = (isCore ? 0.05 : 0.038) + 0.016 * strength;
+    // A bit bigger than before (still a promoted neuron, not a planet
+    // dropped on top of the structure) — with the background field
+    // lightened, the previous size read as barely distinguishable from
+    // the surrounding dormant tissue at a glance.
+    const radius = (isCore ? 0.064 : 0.05) + 0.02 * strength;
     return {
       ...belief,
       position,
@@ -278,7 +281,7 @@ function BrainField({
 }) {
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, 0), []);
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.62, depthWrite: false, vertexColors: true, fog: true }),
+    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.46, depthWrite: false, vertexColors: true, fog: true }),
     []
   );
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -552,8 +555,8 @@ function ActiveBeliefNode({
   // Reinforcement reads continuously off `strength` (evidence + confidence)
   // rather than a single isCore step — every extra bit of evidence nudges
   // brightness/glow/size up a little, never in a big jump.
-  const baseEmissive = (0.62 + 0.5 * node.strength + (node.isCore ? 0.12 : 0)) * (isDimmed ? 0.45 : 1);
-  const baseGlowOpacity = (0.045 + 0.05 * node.strength + (node.isCore ? 0.02 : 0)) * (isDimmed ? 0.3 : 1);
+  const baseEmissive = (0.78 + 0.55 * node.strength + (node.isCore ? 0.14 : 0)) * (isDimmed ? 0.45 : 1);
+  const baseGlowOpacity = (0.07 + 0.07 * node.strength + (node.isCore ? 0.03 : 0)) * (isDimmed ? 0.3 : 1);
   // The permanent region-colored bloom stays put; this separate halo is
   // the only thing that ever turns gold, and only while selected/focused —
   // the selection indicator, never the region indicator.
@@ -748,6 +751,7 @@ export default function NeuralBeliefGraph3D({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<CognitiveRegion | null>(null);
   const controlsRef = useRef<any>(null);
   const selectedNode = selectedId ? activeNodes.find((n) => n.id === selectedId) ?? null : null;
 
@@ -780,6 +784,7 @@ export default function NeuralBeliefGraph3D({
   const resetView = () => {
     setSelectedId(null);
     setHoveredId(null);
+    setSelectedRegion(null);
     controlsRef.current?.reset?.();
   };
 
@@ -807,7 +812,7 @@ export default function NeuralBeliefGraph3D({
           connections={connections}
           selectedId={selectedId}
           hoveredId={hoveredId}
-          onSelect={setSelectedId}
+          onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
           onHover={setHoveredId}
           controlsRef={controlsRef}
           isInteracting={isInteracting}
@@ -881,6 +886,33 @@ export default function NeuralBeliefGraph3D({
         </div>
       )}
 
+      {!selectedNode && selectedRegion && (
+        <div
+          style={{
+            position: "absolute",
+            left: 14,
+            right: 14,
+            bottom: 46,
+            padding: "12px 14px",
+            borderRadius: 16,
+            background: "rgba(255,255,255,0.9)",
+            border: `1px solid ${REGION_CONFIG[selectedRegion].color}33`,
+            boxShadow: "0 12px 28px rgba(50,37,92,0.11)",
+            backdropFilter: "blur(14px)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: REGION_CONFIG[selectedRegion].color, flexShrink: 0 }} />
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11.5, fontWeight: 700, color: REGION_CONFIG[selectedRegion].color }}>
+              {REGION_CONFIG[selectedRegion].label}
+            </span>
+          </div>
+          <div style={{ marginTop: 5, fontFamily: "Inter, sans-serif", fontSize: 12, lineHeight: 1.5, color: "#403E45", wordBreak: "keep-all" }}>
+            {REGION_CONFIG[selectedRegion].description}
+          </div>
+        </div>
+      )}
+
       {!selectedNode && (
         <div
           style={{
@@ -891,18 +923,30 @@ export default function NeuralBeliefGraph3D({
             display: "flex",
             justifyContent: "center",
             flexWrap: "nowrap",
-            gap: 7,
-            pointerEvents: "none",
+            gap: 5,
           }}
         >
-          {COGNITIVE_REGIONS.map((region) => (
-            <div key={region} style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10, fontWeight: 500, color: "#847F8C", whiteSpace: "nowrap" }}>
-                {REGION_CONFIG[region].label}
-              </span>
-            </div>
-          ))}
+          {COGNITIVE_REGIONS.map((region) => {
+            const active = selectedRegion === region;
+            return (
+              <div
+                key={region}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedRegion(active ? null : region)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 3, flexShrink: 0, cursor: "pointer",
+                  padding: "3px 6px", borderRadius: 999,
+                  backgroundColor: active ? `${REGION_CONFIG[region].color}22` : "transparent",
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10, fontWeight: active ? 700 : 500, color: active ? REGION_CONFIG[region].color : "#847F8C", whiteSpace: "nowrap" }}>
+                  {REGION_CONFIG[region].label}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
