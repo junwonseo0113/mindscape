@@ -20,7 +20,7 @@ export const DEMO_STORE: Store = {
   // framework exists at all, since it's otherwise only populated by real
   // analysis.
   beliefs: [
-    { id: "demo-belief-0", domain: "전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"] },
+    { id: "demo-belief-0", domain: "삶 전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"] },
     { id: "demo-belief-1", domain: "커리어", statement: "노력하면 결국 인정받는다", confidence: 64, evidenceCount: 21, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["과잉일반화"] },
     { id: "demo-belief-2", domain: "관계", statement: "혼자 하는 게 더 낫다", confidence: 57, evidenceCount: 18, evidenceQuotes: [], status: "emerging" },
     { id: "demo-belief-3", domain: "일", statement: "완벽해야 시작할 수 있다", confidence: 71, evidenceCount: 26, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["흑백사고", "당위적 사고"] },

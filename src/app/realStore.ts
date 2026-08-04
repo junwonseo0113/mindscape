@@ -115,7 +115,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   // counts, never trusted as-is from the model's own guess.
   const rawCandidate = result?.hypothesisCandidate ?? {};
   const candidateBelief = typeof rawCandidate.candidateBelief === "string" ? rawCandidate.candidateBelief.trim() : "";
-  const candidateDomain = typeof rawCandidate.domain === "string" && rawCandidate.domain.trim() ? rawCandidate.domain.trim() : "전반";
+  const candidateDomain = typeof rawCandidate.domain === "string" && rawCandidate.domain.trim() ? rawCandidate.domain.trim() : "삶 전반";
   const reasoningSummary = typeof rawCandidate.reasoningSummary === "string" ? rawCandidate.reasoningSummary : "";
   const directness = typeof rawCandidate.directness === "number" ? rawCandidate.directness : 0.4;
   const relation: "supports" | "contradicts" = rawCandidate.relation === "contradicts" ? "contradicts" : "supports";
