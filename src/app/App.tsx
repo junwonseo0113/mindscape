@@ -1530,6 +1530,18 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
                   {analysis.connections.map((c: any, i: number) => (
                     <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
                       <ConnectionSpark aLabel={c.aLabel} bLabel={c.bLabel} />
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                        {c.aStatement && (
+                          <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                            <span style={{ fontWeight: 700, color: accent }}>{c.aLabel}</span> — "{c.aStatement}"
+                          </div>
+                        )}
+                        {c.bStatement && (
+                          <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                            <span style={{ fontWeight: 700, color: accent }}>{c.bLabel}</span> — "{c.bStatement}"
+                          </div>
+                        )}
+                      </div>
                       <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                     </div>
                   ))}
@@ -1822,6 +1834,14 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                 return (
                   <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
                     <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                        <span style={{ fontWeight: 700, color: accent }}>{from.domain}</span> — "{from.statement}"
+                      </div>
+                      <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                        <span style={{ fontWeight: 700, color: accent }}>{to.domain}</span> — "{to.statement}"
+                      </div>
+                    </div>
                     <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                   </div>
                 );
@@ -2642,6 +2662,8 @@ export default function App() {
               connections: merged.connections.map((c) => ({
                 aLabel: merged.beliefs.find((b) => b.id === c.a)?.domain ?? "?",
                 bLabel: merged.beliefs.find((b) => b.id === c.b)?.domain ?? "?",
+                aStatement: merged.beliefs.find((b) => b.id === c.a)?.statement ?? "",
+                bStatement: merged.beliefs.find((b) => b.id === c.b)?.statement ?? "",
                 note: c.note,
               })),
               reflection: result.reflection,
