@@ -666,8 +666,16 @@ function BrainScene({
   justActivatedById: Map<string, number>;
   justActivatedBgIndices: number[];
 }) {
+  // Hover still drives the visual highlight (dim/glow/edges) — that's a
+  // harmless, purely cosmetic reaction to the cursor. The camera itself
+  // used to recenter on hover too, which is what made a node feel like it
+  // "flinched away" the moment the cursor got close: moving the orbit
+  // target shifts everything on screen, including the point you were
+  // about to click. Only an actual selection (click) may now move the
+  // camera; hovering only ever changes color/glow.
   const focusId = hoveredId ?? selectedId;
   const focusNode = focusId ? activeNodes.find((n) => n.id === focusId) ?? null : null;
+  const cameraFocusNode = selectedId ? activeNodes.find((n) => n.id === selectedId) ?? null : null;
 
   const adjacency = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -680,13 +688,13 @@ function BrainScene({
     return map;
   }, [connections]);
 
-  // Re-centers the orbit target on the focused belief instead of moving
-  // the camera itself — a gentle "ease toward it" that never fights the
-  // user's own drag/zoom.
+  // Re-centers the orbit target on the *selected* belief only (never on
+  // hover) — a gentle "ease toward it" that only ever kicks in on a
+  // deliberate click, and never fights the user's own drag/zoom.
   useFrame((_, delta) => {
     const controls = controlsRef.current;
     if (!controls) return;
-    const desired = focusNode ? new THREE.Vector3(...focusNode.position) : new THREE.Vector3(0, 0, 0);
+    const desired = cameraFocusNode ? new THREE.Vector3(...cameraFocusNode.position) : new THREE.Vector3(0, 0, 0);
     const damp = 1 - Math.pow(0.0025, delta);
     controls.target.lerp(desired, damp);
   });
@@ -725,9 +733,9 @@ function BrainScene({
       <OrbitControls
         ref={controlsRef}
         enablePan={false}
-        minDistance={5.3}
+        minDistance={2.6}
         maxDistance={12.5}
-        autoRotate={!selectedId && !hoveredId && !isInteracting}
+        autoRotate={!selectedId && !isInteracting}
         autoRotateSpeed={0.16}
         dampingFactor={0.07}
         enableDamping

@@ -1523,6 +1523,9 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
             {Array.isArray(analysis.connections) && analysis.connections.length > 0 && (
               <div style={{ marginTop: 22 }}>
                 <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
+                <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                  서로 달라 보였던 두 무의식적 신념이, 사실은 같은 뿌리(근본 원인)에서 나온 것으로 보여요.
+                </div>
                 <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
                   {analysis.connections.map((c: any, i: number) => (
                     <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
@@ -1808,6 +1811,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         {store.connections.length > 0 && (
           <div style={{ marginTop: 26 }}>
             <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
+            <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              서로 달라 보였던 두 무의식적 신념이, 사실은 같은 뿌리(근본 원인)에서 나온 것으로 보여요.
+            </div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {store.connections.map((c, i) => {
                 const from = visibleBeliefs.find((b) => b.id === c.a);
@@ -2473,6 +2479,7 @@ const HELP_ITEMS = [
   { q: "무의식적 패턴은 뭔가요?", a: "당신도 미처 의식하지 못한 채 실제 결정을 이끄는 것으로 보이는 무의식적 신념을, 근거가 쌓일수록 커지는 원으로 보여줘요. 그 아래엔 '반복되는 무의식적 해석'이 있어요 — 특정 상황마다 자동으로 튀어나오는 해석이에요. 원 사이의 선은 서로 같은 뿌리에서 나온 것으로 보이는 무의식적 신념들의 연결이에요." },
   { q: "AI의 가설은 무의식적 신념과 뭐가 다른가요?", a: "무의식적 신념은 '실제 말과 행동에서 반복적으로 드러나는 것' 그 자체고, 가설은 여러 무의식적 신념/연결을 가로질러 AI가 내놓는 상위 이론이에요 (예: '이 패턴이 커리어와 관계 모두에서 같은 방식으로 나타나요'). 확정된 사실이 아니라 동의/반박하며 함께 다듬어가는 해석이에요." },
   { q: "목표와의 거리는 어떻게 계산되나요?", a: "당신이 되고 싶다고 말한 모습과, 실제로 쌓인 무의식적 신념·해석 사이의 구체적인 간극을 AI가 짚어드려요. 목표는 이 화면에서 직접 설정해요." },
+  { q: "이 분석은 무엇에 근거하나요?", a: "CBT(인지행동치료)와 ACT(수용전념치료)의 개념을 참고해요. '흑백사고', '과잉일반화' 같은 인지 왜곡 태그는 CBT에서, 목표와의 거리는 ACT의 '가치 방향' 개념에서 가져온 거예요. 한 번의 기록만으로는 신념이 만들어지지 않고, 최소 3번 이상 비슷한 패턴이 쌓여야 나타나요. 확신도는 절대 100%가 되지 않고, 상충하는 기록이 있으면 오히려 낮아져요. 다만 이건 심리 진단이나 치료가 아니라 자기성찰을 돕는 도구예요." },
 ];
 
 function ScreenHelp({ onBack }: { onBack?: () => void }) {
