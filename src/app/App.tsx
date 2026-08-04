@@ -1,13 +1,16 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import NeuralBeliefGraph3D from "./NeuralBeliefGraph3D";
+import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
+import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
+  DisagreeReasonCategory,
   Store,
   StoredAccount,
   StoredAssumption,
   StoredBelief,
   StoredConnection,
   StoredEvidenceQuote,
+  StoredHistoryEntry,
   StoredHypothesis,
   StoredSettings,
   emptyStore,
@@ -15,6 +18,7 @@ import {
 } from "./types";
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
+import { DISCLAIMER_NOTICE, matchableCandidates } from "./analysisFramework";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -55,7 +59,7 @@ function StatusBar() {
 function BottomNav({ active, onSelect }: { active: string; onSelect?: (id: string) => void }) {
   const items = [
     { id: "home", label: "홈" },
-    { id: "think", label: "말하기" },
+    { id: "analysis", label: "분석" },
     { id: "history", label: "기록" },
     { id: "profile", label: "프로필" },
   ];
@@ -526,20 +530,86 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
   );
 }
 
-function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenArtifact?: (id: string) => void; store: Store }) {
-  const hasBeliefs = store.beliefs.length > 0;
-  const hasHypotheses = store.hypotheses.length > 0;
-  const recent = [...store.history].reverse().slice(0, 4).map((h) => ({ date: h.date.slice(5), text: h.text }));
+// The one thing 오늘의 발견 can point at — either the freshest unreacted AI
+// hypothesis (index into store.hypotheses) or, when there's no hypothesis
+// yet, the strongest recurring belief (id into store.beliefs). Computed once
+// here and reused by both Home (which only ever reads `.text`) and the
+// Analysis tab (which renders the full body for whichever kind it is) —
+// so the two places can never disagree about what "today's discovery" is.
+type DiscoveryTarget = { kind: "hypothesis"; index: number; text: string } | { kind: "belief"; id: string; text: string };
+
+function computeDiscovery(store: Store): DiscoveryTarget | null {
+  const freshHypothesisIndex = store.hypotheses.findIndex((h) => h.reaction === null);
+  if (freshHypothesisIndex >= 0) {
+    return { kind: "hypothesis", index: freshHypothesisIndex, text: store.hypotheses[freshHypothesisIndex].title };
+  }
+  const topBelief = [...store.beliefs]
+    .filter((b) => b.userReaction !== "rejected")
+    .sort((a, b) => (b.lastUpdatedAt ?? "").localeCompare(a.lastUpdatedAt ?? "") || b.confidence - a.confidence)[0];
+  return topBelief ? { kind: "belief", id: topBelief.id, text: topBelief.statement } : null;
+}
+
+// A single editorial headline, not a card — kept as its own component with
+// a `headline` prop (today just the static "오늘의 발견" eyebrow) so a future
+// AI-generated title (e.g. "오늘 당신의 생각은 '안정'에 머물렀습니다.") can
+// replace it without touching ScreenHome's layout. Only ever shows the
+// one-sentence teaser — tapping it goes to the Analysis tab, where the same
+// discovery is computed again and shown in full.
+function TodaysDiscovery({ headline, discovery, onOpen }: { headline: string; discovery: { text: string } | null; onOpen?: () => void }) {
+  return (
+    <div>
+      <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>{headline}</span>
+      <motion.div
+        role="button" tabIndex={0}
+        onClick={discovery ? onOpen : undefined}
+        whileTap={discovery ? { opacity: 0.6 } : undefined}
+        style={{ marginTop: 10, cursor: discovery ? "pointer" : "default" }}
+      >
+        <div
+          style={{
+            ...serif,
+            fontSize: 19,
+            color: ink,
+            lineHeight: 1.4,
+            letterSpacing: "-0.01em",
+            wordBreak: "keep-all",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
+        </div>
+        {discovery && (
+          <div style={{ ...sans, fontSize: 12.5, fontWeight: 500, color: accent, marginTop: 8 }}>자세히 보기 →</div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Screen 4 · Home ────────────────────────────────────────────────────────────
+// Single responsibility: capture and today's highlight. Everything that
+// used to live below the fold here — recent thoughts, 무의식적 패턴, 목표와의
+// 거리 — now belongs to History or Analysis; duplicating any of it here
+// would give it two homes, which is exactly what this reorg is meant to
+// remove. See ScreenAnalysis for where all of that moved.
+function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
+  const discovery = computeDiscovery(store);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 22px 24px" }}>
+        {/* ── Hero: date, headline, brain, 생각 말하기 — nothing else. This is
+            the whole first impression: "my thoughts become this brain." ── */}
         <div style={{ ...sans, fontSize: 13, color: subtle }}>{formatDateDots(new Date())}</div>
         <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 6, lineHeight: 1.35, wordBreak: "keep-all" }}>
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
         </div>
 
         <div style={{ marginTop: 16 }}>
-          <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={280} />
+          <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={336} />
         </div>
 
         <div style={{ marginTop: 20 }}>
@@ -557,50 +627,413 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenArtifact, store }: { onNa
           </motion.div>
         </div>
 
-        <div style={{ marginTop: 28, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>지금까지 관찰된 것들</span>
-          <span style={{ ...mono, fontSize: 11, color: faint }}>대화 {store.entryCount}회</span>
-        </div>
-        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-          <ArtifactTile
-            label="무의식적 패턴"
-            teaser={hasBeliefs
-              ? `스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 ${store.beliefs.length}가지, 반복되는 해석 ${store.assumptions.length}가지가 드러났어요.`
-              : "아직 드러난 패턴이 없어요. 생각을 몇 번 남기면 여기에 나타나기 시작해요."}
-            onClick={() => onOpenArtifact?.("beliefs")}
-          />
-          <ArtifactTile
-            label="목표와의 거리"
-            teaser="되고 싶다고 말한 모습과, 실제 말과 행동에서 반복되는 패턴 사이의 거리예요."
-            onClick={() => onOpenArtifact?.("drift")}
-          />
-          <ArtifactTile
-            label="AI의 가설"
-            badge={hasHypotheses && store.hypotheses.some((h) => h.reaction === null) ? "NEW" : undefined}
-            teaser={hasHypotheses
-              ? `여러 무의식적 신념을 가로지르는 상위 이론 ${store.hypotheses.length}개 — 동의/반박하며 함께 다듬어요.`
-              : "충분한 대화가 쌓이면, AI가 발견한 상위 이론이 여기에 나타나요."}
-            onClick={() => onOpenArtifact?.("hypotheses")}
-          />
-        </div>
-
+        {/* ── One teaser insight, not a card — a single-sentence headline and
+            a quiet link to the Analysis tab, where the full picture lives. ── */}
         <div style={{ marginTop: 28 }}>
-          <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>최근 생각</span>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-            {recent.length === 0 ? (
-              <div style={{ ...sans, fontSize: 13, color: faint, padding: "12px 0" }}>아직 남긴 생각이 없어요.</div>
-            ) : (
-              recent.map((item, i) => (
-                <div key={i} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: `1px solid ${hair}` }}>
-                  <span style={{ ...mono, fontSize: 11, color: faint, flexShrink: 0, marginTop: 2 }}>{item.date}</span>
-                  <span style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.5, wordBreak: "keep-all" }}>{item.text}</span>
-                </div>
-              ))
-            )}
-          </div>
+          <TodaysDiscovery headline="오늘의 발견" discovery={discovery} onOpen={() => onNavSelect?.("analysis")} />
         </div>
       </div>
       <BottomNav active="home" onSelect={onNavSelect} />
+    </div>
+  );
+}
+
+// Per-region count of active beliefs, using the exact same region
+// classification the 3D brain itself uses (resolveRegion, exported from
+// NeuralBeliefGraph3D) — so this list can never disagree with what the
+// brain above it is actually showing.
+function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
+  const counts = new Map<CognitiveRegion, number>();
+  COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
+  beliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
+  const total = beliefs.length;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {COGNITIVE_REGIONS.map((region) => {
+        const count = counts.get(region) ?? 0;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        return (
+          <div key={region} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
+            <span style={{ ...sans, fontSize: 12.5, color: inkSoft, flex: 1 }}>{REGION_CONFIG[region].label}</span>
+            <span style={{ ...mono, fontSize: 11, color: faint }}>{count}개 · {pct}%</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// A reserved, clearly-labeled slot for an analysis module that doesn't
+// exist yet — honest about what it is instead of shipping a fake chart
+// with no real data behind it.
+function ComingSoonRow({ label, note }: { label: string; note?: string }) {
+  return (
+    <div style={{ padding: "14px 0", borderBottom: `1px solid ${hair}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: subtle }}>{label}</span>
+        {note && <span style={{ ...mono, fontSize: 10, color: faint }}>{note}</span>}
+      </div>
+      <div style={{ ...sans, fontSize: 12, color: faint, marginTop: 4 }}>곧 추가돼요.</div>
+    </div>
+  );
+}
+
+// A quiet, non-bar confidence readout — never the big ConfidenceBar
+// progress component (that one still exists and is used elsewhere); this
+// page's hero is deliberately calmer than that.
+function ConfidenceReadout({ value }: { value: number }) {
+  return <span style={{ ...mono, fontSize: 13, color: accent, letterSpacing: "0.02em" }}>{value}% 신뢰도</span>;
+}
+
+// The one shared agree/disagree control — used compactly in the hero (a
+// quick read, available before the user has even scrolled) and again in
+// the Reflection section further down (where disagreeing also asks what
+// specifically didn't land). Both touchpoints read/write the exact same
+// reaction, so they can never contradict each other about what the user
+// actually said.
+function ReactionButtons({ reaction, onReact }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void }) {
+  return (
+    <div style={{ display: "flex", gap: 10 }}>
+      <motion.div
+        role="button" tabIndex={0} onClick={() => onReact?.("agree")} whileTap={{ scale: 0.97 }}
+        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: "pointer" }}
+      >
+        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>동의해요</span>
+      </motion.div>
+      <motion.div
+        role="button" tabIndex={0} onClick={() => onReact?.("disagree")} whileTap={{ scale: 0.97 }}
+        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: "pointer" }}
+      >
+        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>아닌 것 같아요</span>
+      </motion.div>
+    </div>
+  );
+}
+
+const DISAGREE_REASON_OPTIONS: { id: DisagreeReasonCategory; label: string }[] = [
+  { id: "evidence", label: "근거" },
+  { id: "interpretation", label: "해석" },
+  { id: "conclusion", label: "결론" },
+  { id: "custom", label: "직접 입력" },
+];
+
+// The fuller reflection step — after the user has actually walked through
+// the evidence and evolution above, not the quick hero tap. Disagreeing
+// here additionally asks which part didn't land, so a rejection carries
+// more than a bare thumbs-down for whatever future analysis pass reads it.
+function DiscoveryReflection({
+  reaction,
+  reasonCategory,
+  reasonNote,
+  onReact,
+  onSetReason,
+}: {
+  reaction: "agree" | "disagree" | null | undefined;
+  reasonCategory?: DisagreeReasonCategory;
+  reasonNote?: string;
+  onReact?: (r: "agree" | "disagree") => void;
+  onSetReason?: (category: DisagreeReasonCategory, note?: string) => void;
+}) {
+  const [customNote, setCustomNote] = React.useState(reasonNote ?? "");
+  return (
+    <div>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 해석이 맞다고 생각하시나요?</div>
+      <ReactionButtons reaction={reaction} onReact={onReact} />
+
+      {reaction === "disagree" && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ ...sans, fontSize: 12.5, color: mid, lineHeight: 1.5, wordBreak: "keep-all" }}>어떤 부분이 맞지 않았나요?</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {DISAGREE_REASON_OPTIONS.map((opt) => {
+              const active = reasonCategory === opt.id;
+              return (
+                <motion.span
+                  key={opt.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+                  onClick={() => onSetReason?.(opt.id, opt.id === "custom" ? customNote : undefined)}
+                  style={{
+                    ...sans, fontSize: 12, fontWeight: 600, padding: "7px 13px", borderRadius: 999, cursor: "pointer",
+                    color: active ? "#fff" : ink,
+                    backgroundColor: active ? ink : "transparent",
+                    border: `1px solid ${active ? ink : hair}`,
+                  }}
+                >
+                  {opt.label}
+                </motion.span>
+              );
+            })}
+          </div>
+          {reasonCategory === "custom" && (
+            <textarea
+              value={customNote}
+              onChange={(e) => setCustomNote(e.target.value)}
+              onBlur={() => onSetReason?.("custom", customNote)}
+              placeholder="어떤 점이 다르게 느껴졌는지 적어주세요"
+              style={{ ...sans, width: "100%", marginTop: 10, padding: 12, borderRadius: 12, border: `1px solid ${hair}`, backgroundColor: surface, color: ink, fontSize: 13, lineHeight: 1.5, resize: "none", minHeight: 64, boxSizing: "border-box" }}
+            />
+          )}
+          {reasonCategory && (
+            <div style={{ ...sans, fontSize: 11.5, color: subtle, marginTop: 12 }}>기록했어요. 다음 분석에 반영할게요.</div>
+          )}
+        </div>
+      )}
+      {reaction === "agree" && (
+        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12 }}>기록했어요. 이 해석의 확신도가 조금 더 높아집니다.</div>
+      )}
+    </div>
+  );
+}
+
+// A vertical "watch it develop" chain — origin, current understanding,
+// and (when there's a real recorded one) an outcome — instead of a
+// side-by-side then/now comparison. Only ever built from points that
+// trace back to something actually recorded; never a fabricated midpoint.
+function EvolutionTimeline({ points }: { points: { label: string; text: string; accent?: boolean }[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {points.map((p, i) => (
+        <React.Fragment key={i}>
+          <div style={{ padding: "14px 16px", borderRadius: 12, backgroundColor: p.accent ? accentSoft : surface }}>
+            <span style={{ ...mono, fontSize: 11, color: p.accent ? accent : faint }}>{p.label}</span>
+            <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: p.accent ? ink : inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>
+              {p.text}
+            </div>
+          </div>
+          {i < points.length - 1 && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
+              <span style={{ ...sans, fontSize: 13, color: faint }}>↓</span>
+            </div>
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+// A single evidence card — the extracted quote itself carries an accent
+// left-border to read as "the relevant sentence," since the data model
+// only ever stores the already-extracted quote, not a separate full
+// original entry to highlight a sentence within.
+function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
+  return (
+    <div style={{ padding: 14, borderRadius: 12, backgroundColor: surface, borderLeft: `2px solid ${accent}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ ...mono, fontSize: 11, color: faint }}>{date}</span>
+        {domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
+      </div>
+      <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: ink, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{quote}"</div>
+    </div>
+  );
+}
+
+// ── Screen 4.5 · Analysis ─────────────────────────────────────────────────────
+// A guided conversation, not a report: the page answers exactly one
+// question — "why did the AI reach this conclusion?" — and unfolds it in
+// order, each section building on the last: Discovery → Evidence →
+// Evolution → Brain → Reflection → Explore More. No AI interpretation
+// lives anywhere else in the app now — this tab is its one home.
+function ScreenAnalysis({
+  onNavSelect,
+  store,
+  onOpenArtifact,
+  onReactHypothesis,
+  onSetHypothesisDisagreeReason,
+  onInvestigateHypothesis,
+  onReactBeliefDiscovery,
+  onSetBeliefDisagreeReason,
+}: {
+  onNavSelect?: (id: string) => void;
+  store: Store;
+  onOpenArtifact?: (id: string) => void;
+  onReactHypothesis?: (index: number, reaction: "agree" | "disagree") => void;
+  onSetHypothesisDisagreeReason?: (index: number, category: DisagreeReasonCategory, note?: string) => void;
+  onInvestigateHypothesis?: (index: number) => void;
+  onReactBeliefDiscovery?: (beliefId: string, reaction: "agree" | "disagree") => void;
+  onSetBeliefDisagreeReason?: (beliefId: string, category: DisagreeReasonCategory, note?: string) => void;
+}) {
+  const discovery = computeDiscovery(store);
+  const hasBeliefs = store.beliefs.length > 0;
+  const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
+  const h = hIndex !== null ? store.hypotheses[hIndex] : null;
+  const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
+
+  // SECTION 2 — the strongest (most recent) three, shown chronologically.
+  const rawEvidence: (StoredEvidenceQuote & { domain?: string })[] = h ? evidenceForHypothesis(h, store.beliefs) : b ? b.evidenceQuotes : [];
+  const evidence = [...rawEvidence]
+    .sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0))
+    .slice(0, 3)
+    .sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+
+  // SECTION 2, secondary — still part of "why": honest about conflicting signal.
+  const contradictoryEntries: { belief: StoredBelief; entry: StoredHistoryEntry }[] = h
+    ? h.relatedBeliefIds
+        .map((id) => store.beliefs.find((x) => x.id === id))
+        .filter((x): x is StoredBelief => !!x)
+        .flatMap((belief) => (belief.contradictoryEntryIds ?? []).map((id) => ({ belief, entry: store.history.find((e) => e.id === id) })))
+        .filter((x): x is { belief: StoredBelief; entry: StoredHistoryEntry } => !!x.entry)
+    : b
+      ? (b.contradictoryEntryIds ?? [])
+          .map((id) => store.history.find((e) => e.id === id))
+          .filter((e): e is StoredHistoryEntry => !!e)
+          .map((entry) => ({ belief: b, entry }))
+      : [];
+
+  // SECTION 3 — a real timeline: origin → today → outcome for a hypothesis
+  // with an investigate trail; earliest → latest evidence for a belief.
+  // Never invents a midpoint that isn't actually in the data.
+  const evolutionPoints: { label: string; text: string; accent?: boolean }[] = h?.investigate
+    ? [
+        { label: h.investigate.origin.date, text: h.investigate.origin.quote },
+        { label: "오늘", text: evidence[evidence.length - 1]?.quote ?? h.title },
+        { label: h.investigate.compareLabel2, text: h.investigate.compareSteps2.join(" · "), accent: true },
+      ]
+    : b && b.evidenceQuotes.length >= 2
+      ? (() => {
+          const quotes = [...b.evidenceQuotes].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
+          return [
+            { label: quotes[0].date, text: quotes[0].quote },
+            { label: quotes[quotes.length - 1].date, text: quotes[quotes.length - 1].quote, accent: true },
+          ];
+        })()
+      : [];
+
+  const reaction = h ? h.reaction : b ? b.discoveryReaction ?? null : null;
+  const reasonCategory = h ? h.disagreeReasonCategory : b?.discoveryDisagreeReasonCategory;
+  const reasonNote = h ? h.disagreeReasonNote : b?.discoveryDisagreeReasonNote;
+  const handleReact = (r: "agree" | "disagree") => {
+    if (hIndex !== null) onReactHypothesis?.(hIndex, r);
+    else if (b) onReactBeliefDiscovery?.(b.id, r);
+  };
+  const handleSetReason = (category: DisagreeReasonCategory, note?: string) => {
+    if (hIndex !== null) onSetHypothesisDisagreeReason?.(hIndex, category, note);
+    else if (b) onSetBeliefDisagreeReason?.(b.id, category, note);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 24px" }}>
+        {/* ── SECTION 1 · HERO — title, discovery, confidence, quick react.
+            Nothing else. ── */}
+        <div style={{ paddingTop: 16 }}>
+          <div style={{ ...serif, fontSize: 26, color: ink }}>분석</div>
+          <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6 }}>당신의 마음을 이해하는 과정입니다.</div>
+
+          <div style={{ marginTop: 40 }}>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>오늘의 발견</div>
+            <div style={{ ...serif, fontSize: 22, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
+            </div>
+            {discovery && (
+              <div style={{ marginTop: 14 }}>
+                <ConfidenceReadout value={h ? h.confidence : b?.confidence ?? 0} />
+              </div>
+            )}
+          </div>
+
+          {discovery && (
+            <div style={{ marginTop: 32 }}>
+              <ReactionButtons reaction={reaction} onReact={handleReact} />
+            </div>
+          )}
+        </div>
+
+        {discovery && (
+          <>
+            {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
+            <div style={{ marginTop: 8, paddingTop: 28, borderTop: `1px solid ${hair}` }}>
+              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>왜 이런 해석이 나왔나요?</div>
+              {evidence.length > 0 ? (
+                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+                  {evidence.map((e, i) => (
+                    <EvidenceQuoteCard key={i} date={e.date} quote={e.quote} domain={e.domain} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ ...sans, fontSize: 13, color: faint, marginTop: 12 }}>아직 근거로 남길 만한 기록이 없어요.</div>
+              )}
+
+              {contradictoryEntries.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                    이 결론과 다르게 나타난 기록도 있어요 — 확신도는 이걸 반영해 낮아져 있어요.
+                  </div>
+                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                    {contradictoryEntries.map(({ belief, entry }, i) => (
+                      <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface, borderLeft: `2px solid ${tension}` }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.date}</span>
+                          <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                        </div>
+                        <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── SECTION 3 · BELIEF EVOLUTION — watch the pattern develop over time. ── */}
+            {evolutionPoints.length > 0 && (
+              <div style={{ marginTop: 34 }}>
+                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 14 }}>신념의 변화</div>
+                <EvolutionTimeline points={evolutionPoints} />
+              </div>
+            )}
+
+            {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
+            <div style={{ marginTop: 34 }}>
+              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>관련 활성 뉴런</div>
+              <div style={{ marginTop: 12 }}>
+                <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={300} />
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <RegionBreakdown beliefs={store.beliefs} />
+              </div>
+            </div>
+
+            {/* ── SECTION 5 · USER REFLECTION — the considered version of the hero's quick react. ── */}
+            <div style={{ marginTop: 34 }}>
+              <DiscoveryReflection
+                reaction={reaction}
+                reasonCategory={reasonCategory}
+                reasonNote={reasonNote}
+                onReact={handleReact}
+                onSetReason={handleSetReason}
+              />
+              {h?.investigate && hIndex !== null && (
+                <div style={{ marginTop: 12 }}>
+                  <GhostBtn onClick={() => onInvestigateHypothesis?.(hIndex)}>더 깊이 알아보기</GhostBtn>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── SECTION 6 · EXPLORE MORE — secondary analysis, each its own independent page. ── */}
+        <div style={{ marginTop: 34 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>더 깊이 보기</div>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <ArtifactTile
+              label="무의식적 패턴"
+              teaser={hasBeliefs
+                ? `스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 ${store.beliefs.length}가지, 반복되는 해석 ${store.assumptions.length}가지가 드러났어요.`
+                : "아직 드러난 패턴이 없어요. 생각을 몇 번 남기면 여기에 나타나기 시작해요."}
+              onClick={() => onOpenArtifact?.("beliefs")}
+            />
+            <ArtifactTile
+              label="목표와의 거리"
+              teaser="되고 싶다고 말한 모습과, 실제 말과 행동에서 반복되는 패턴 사이의 거리예요."
+              onClick={() => onOpenArtifact?.("drift")}
+            />
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <ComingSoonRow label="가치 변화" />
+            <ComingSoonRow label="감정 분포" />
+            <ComingSoonRow label="사고 패턴" note="CBT" />
+          </div>
+        </div>
+      </div>
+      <BottomNav active="analysis" onSelect={onNavSelect} />
     </div>
   );
 }
@@ -962,7 +1395,25 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
-function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration, onDone, onError }: { text?: string; priorBeliefs?: Pick<StoredBelief, "domain" | "statement" | "confidence" | "evidenceCount">[]; priorAssumptions?: StoredAssumption[]; priorConnections?: { aStatement: string; bStatement: string; note: string }[]; aspiration?: string | null; onDone?: (result: any | null) => void; onError?: (message: string) => void }) {
+function ScreenProcessing({
+  text,
+  matchableBeliefs,
+  matchablePending,
+  priorAssumptions,
+  priorConnections,
+  aspiration,
+  onDone,
+  onError,
+}: {
+  text?: string;
+  matchableBeliefs?: Pick<StoredBelief, "id" | "domain" | "statement" | "confidence">[];
+  matchablePending?: { id: string; domain: string; statement: string }[];
+  priorAssumptions?: StoredAssumption[];
+  priorConnections?: { aStatement: string; bStatement: string; note: string }[];
+  aspiration?: string | null;
+  onDone?: (result: any | null) => void;
+  onError?: (message: string) => void;
+}) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
   const [step, setStep] = React.useState(0);
 
@@ -983,7 +1434,7 @@ function ScreenProcessing({ text, priorBeliefs, priorAssumptions, priorConnectio
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, priorBeliefs, priorAssumptions, priorConnections, aspiration }),
+      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -1245,9 +1696,10 @@ function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[];
 // a belief ("안전이 최우선이다") and an assumption ("불확실할 때 → 기다리는
 //게 안전하다") are the same kind of thing at different specificity — one
 // screen now, sectioned, instead of two nearly-redundant ones.
-function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store: Store }) {
+function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => void; store: Store; onRejectBelief?: (beliefId: string) => void }) {
   const hasBeliefs = store.beliefs.length > 0;
   const hasAssumptions = store.assumptions.length > 0;
+  const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -1256,28 +1708,42 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store: Store 
         <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           {hasBeliefs ? "당신이 스스로 안다고 생각하지 못한 채, 실제 말과 행동에서 반복적으로 드러난 것들이에요." : "아직 발견된 패턴이 없어요. '생각 말하기'로 첫 생각을 남겨보세요 — 여기서부터 패턴을 찾아드릴게요."}
         </div>
+        <div style={{ ...sans, fontSize: 11, color: faint, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          {DISCLAIMER_NOTICE}
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ marginTop: 20 }}>
           <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>핵심 무의식적 신념</div>
           <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            "이렇게 믿는다"고 스스로 말하는 게 아니라, 상황과 관계없이 실제 선택과 말에서 반복적으로 드러나는 배경이에요. 원의 크기·막대 길이는 실제 근거 건수예요.
+            "이렇게 믿는다"고 스스로 말하는 게 아니라, 상황과 관계없이 실제 선택과 말에서 반복적으로 드러나는 배경이에요. 원의 크기·막대 길이는 실제 근거 건수예요. 최소 3번 이상 비슷한 기록이 쌓여야 여기 나타나요 — 한 번의 기록만으로는 만들어지지 않아요.
           </div>
         </div>
         <div style={{ marginTop: 10 }}>
-          {!hasBeliefs ? (
+          {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: faint, padding: "12px 0" }}>아직 발견된 무의식적 신념이 없어요.</div>
           ) : (
-            store.beliefs.map((b) => (
+            visibleBeliefs.map((b) => (
               <div key={b.id} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{b.domain}</span>
-                  <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {b.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: tension }}>상충하는 기록 있음</span>}
+                    {b.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: accent }}>반복적으로 확인됨</span>}
+                    <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
+                  </div>
                 </div>
                 <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</div>
                 <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
                   <div style={{ height: "100%", width: `${b.confidence}%`, borderRadius: 2, backgroundColor: accent }} />
                 </div>
+                {b.possibleCognitivePatterns && b.possibleCognitivePatterns.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    {b.possibleCognitivePatterns.map((p) => (
+                      <span key={p} style={{ ...sans, fontSize: 10.5, color: accent, backgroundColor: accentSoft, padding: "3px 8px", borderRadius: 999 }}>{p}</span>
+                    ))}
+                  </div>
+                )}
                 {b.evidenceQuotes.length > 0 && (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                     {[...b.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
@@ -1287,6 +1753,14 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store: Store 
                     ))}
                   </div>
                 )}
+                {onRejectBelief && (
+                  <motion.span
+                    role="button" tabIndex={0} onClick={() => onRejectBelief(b.id)} whileTap={{ opacity: 0.6 }}
+                    style={{ ...sans, fontSize: 11.5, color: faint, marginTop: 10, display: "inline-block", cursor: "pointer" }}
+                  >
+                    이 관찰, 내 생각과 달라요
+                  </motion.span>
+                )}
               </div>
             ))
           )}
@@ -1295,7 +1769,7 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store: Store 
         <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>무의식적 신념과 해석, 뭐가 다른가요</div>
           <div style={{ ...sans, fontSize: 12.5, color: inkSoft, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            무의식적 신념은 스스로 자각하지 못한 채 늘 배경에서 작동하는 것이고, 무의식적 해석은 그게 특정 순간(트리거)마다 실제 말과 행동으로 튀어나오는 구체적인 반응이에요. 무의식적 신념은 "왜 그런지"이고, 무의식적 해석은 "그게 실제로 벌어지는 순간"인 셈이에요. 예를 들어 위의 "{store.beliefs[0]?.statement ?? "완벽해야 시작할 수 있다"}"는 무의식적 신념이, 아래처럼 "새로운 걸 시작해야 할 때 → 아직 준비가 안 됐다며 미룬다"는 무의식적 해석으로 매번 구체적인 행동에 나타나는 식이에요.
+            무의식적 신념은 스스로 자각하지 못한 채 늘 배경에서 작동하는 것이고, 무의식적 해석은 그게 특정 순간(트리거)마다 실제 말과 행동으로 튀어나오는 구체적인 반응이에요. 무의식적 신념은 "왜 그런지"이고, 무의식적 해석은 "그게 실제로 벌어지는 순간"인 셈이에요. 예를 들어 위의 "{visibleBeliefs[0]?.statement ?? "완벽해야 시작할 수 있다"}"는 무의식적 신념이, 아래처럼 "새로운 걸 시작해야 할 때 → 아직 준비가 안 됐다며 미룬다"는 무의식적 해석으로 매번 구체적인 행동에 나타나는 식이에요.
           </div>
         </div>
 
@@ -1336,8 +1810,8 @@ function ScreenBeliefMap({ onBack, store }: { onBack?: () => void; store: Store 
             <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {store.connections.map((c, i) => {
-                const from = store.beliefs.find((b) => b.id === c.a);
-                const to = store.beliefs.find((b) => b.id === c.b);
+                const from = visibleBeliefs.find((b) => b.id === c.a);
+                const to = visibleBeliefs.find((b) => b.id === c.b);
                 if (!from || !to) return null;
                 return (
                   <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
@@ -1544,71 +2018,152 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
 }
 
 // ── Screen 12 · Hypothesis detail ─────────────────────────────────────────────
-function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }: { index: number; onBack?: () => void; onInvestigate?: () => void; onReact?: (reaction: "agree" | "disagree") => void; store: Store }) {
-  const h = store.hypotheses[index] ?? store.hypotheses[0];
-  if (!h) return null;
+// The full "오늘의 발견" experience for a hypothesis-sourced discovery —
+// everything the old standalone "AI의 가설" detail page showed, plus the
+// related-neurons/contradictory-evidence/evolution sections. Extracted so
+// it can render identically whether it's reached through the legacy
+// ScreenHypothesisDetail wrapper (back button + this body) or embedded
+// inline as Analysis's first section (no wrapper, no back button — it's
+// already inside a tab).
+function HypothesisDiscoveryBody({ h, store, onReact, onInvestigate }: { h: StoredHypothesis; store: Store; onReact?: (reaction: "agree" | "disagree") => void; onInvestigate?: () => void }) {
   const reaction = h.reaction;
   const question = h.question ?? GENERIC_HYPOTHESIS_QUESTION;
   const evidence = evidenceForHypothesis(h, store.beliefs);
+
+  // The beliefs this hypothesis actually crosses — reused for both the
+  // "related activated neurons" mini-brain and the contradictory-evidence
+  // list below, so both sections stay honest to the same underlying data
+  // instead of inventing a separate notion of "related."
+  const relatedBeliefs = h.relatedBeliefIds
+    .map((id) => store.beliefs.find((b) => b.id === id))
+    .filter((b): b is StoredBelief => !!b);
+  const relatedBeliefIds = new Set(relatedBeliefs.map((b) => b.id));
+  const relatedConnections = store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
+  const contradictoryEntries = relatedBeliefs
+    .flatMap((b) => (b.contradictoryEntryIds ?? []).map((id) => ({ belief: b, entry: store.history.find((e) => e.id === id) })))
+    .filter((x): x is { belief: StoredBelief; entry: StoredHistoryEntry } => !!x.entry);
+
+  return (
+    <div>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>오늘의 발견</div>
+      <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
+      <div style={{ marginTop: 18 }}><ConfidenceBar value={h.confidence} /></div>
+      <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+        {h.domains.map((d: string) => (<span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>))}
+      </div>
+
+      {evidence.length > 0 && (
+        <div style={{ marginTop: 26 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>근거가 된 대화들</div>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            {evidence.map((e, i) => (
+              <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</span>
+                  {e.domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>}
+                </div>
+                <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {relatedBeliefs.length > 0 && (
+        <div style={{ marginTop: 26 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>관련된 활성 뉴런</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} />
+          </div>
+        </div>
+      )}
+
+      {contradictoryEntries.length > 0 && (
+        <div style={{ marginTop: 26 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>상충하는 기록</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            이 결론과 다르게 나타난 기록도 있어요 — 확신도는 이걸 반영해 낮아져 있어요.
+          </div>
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+            {contradictoryEntries.map(({ belief, entry }, i) => (
+              <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface, borderLeft: `2px solid ${tension}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.date}</span>
+                  <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                </div>
+                <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {h.investigate && (
+        <div style={{ marginTop: 26 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>신념의 변화</div>
+          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            {h.investigate.originNote}
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <AlignedRowCompare
+              rows={[
+                { label: h.investigate.compareLabel1, steps: h.investigate.compareSteps1 },
+                { label: h.investigate.compareLabel2, steps: h.investigate.compareSteps2, accent: true },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{question}</div>
+      </div>
+
+      <div style={{ marginTop: 26 }}>
+        <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 가설, 어떻게 생각하세요?</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <motion.div
+            role="button" tabIndex={0} onClick={() => onReact?.("agree")} whileTap={{ scale: 0.97 }}
+            style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: "pointer" }}
+          >
+            <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>동의해요</span>
+          </motion.div>
+          <motion.div
+            role="button" tabIndex={0} onClick={() => onReact?.("disagree")} whileTap={{ scale: 0.97 }}
+            style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: "pointer" }}
+          >
+            <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>아닌 것 같아요</span>
+          </motion.div>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          {h.investigate && <GhostBtn onClick={onInvestigate}>더 깊이 알아보기</GhostBtn>}
+        </div>
+        {reaction && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
+            {reaction === "agree" ? "기록했어요. 이 가설의 확신도가 조금 더 높아집니다." : "기록했어요. 다음 대화에서 다시 살펴볼게요."}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Legacy standalone route (reached only via the still-intact ScreenHypotheses
+// list, no longer linked from Home) — same body, just wrapped with its own
+// back button and page chrome.
+function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }: { index: number; onBack?: () => void; onInvestigate?: () => void; onReact?: (reaction: "agree" | "disagree") => void; store: Store }) {
+  const h = store.hypotheses[index] ?? store.hypotheses[0];
+  if (!h) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>AI의 가설</div>
-        <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
-        <div style={{ marginTop: 18 }}><ConfidenceBar value={h.confidence} /></div>
-        <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-          {h.domains.map((d: string) => (<span key={d} style={{ ...sans, fontSize: 11, color: mid, backgroundColor: surface, padding: "3px 9px", borderRadius: 999 }}>{d}</span>))}
-        </div>
-
-        {evidence.length > 0 && (
-          <div style={{ marginTop: 26 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>근거가 된 대화들</div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-              {evidence.map((e, i) => (
-                <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ ...mono, fontSize: 11, color: faint }}>{e.date}</span>
-                    {e.domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>}
-                  </div>
-                  <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{question}</div>
-        </div>
-
-        <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 가설, 어떻게 생각하세요?</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <motion.div
-              role="button" tabIndex={0} onClick={() => onReact?.("agree")} whileTap={{ scale: 0.97 }}
-              style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: "pointer" }}
-            >
-              <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>동의해요</span>
-            </motion.div>
-            <motion.div
-              role="button" tabIndex={0} onClick={() => onReact?.("disagree")} whileTap={{ scale: 0.97 }}
-              style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: "pointer" }}
-            >
-              <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>아닌 것 같아요</span>
-            </motion.div>
-          </div>
-          <div style={{ marginTop: 10 }}>
-            {h.investigate && <GhostBtn onClick={onInvestigate}>더 깊이 알아보기</GhostBtn>}
-          </div>
-          {reaction && (
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
-              {reaction === "agree" ? "기록했어요. 이 가설의 확신도가 조금 더 높아집니다." : "기록했어요. 다음 대화에서 다시 살펴볼게요."}
-            </motion.div>
-          )}
-        </div>
+        <HypothesisDiscoveryBody h={h} store={store} onReact={onReact} onInvestigate={onInvestigate} />
       </div>
     </div>
   );
@@ -1946,6 +2501,10 @@ function ScreenHelp({ onBack }: { onBack?: () => void }) {
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
+  // Investigate is reachable from two places now — the legacy standalone
+  // hypothesisDetail screen, and the Analysis tab's inline discovery body —
+  // so its back button needs to know which one to return to.
+  const [investigateReturnTo, setInvestigateReturnTo] = React.useState<"hypothesisDetail" | "analysis">("hypothesisDetail");
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysis, setAnalysis] = React.useState<any>(null);
@@ -1959,6 +2518,43 @@ export default function App() {
   const { isDemoMode, setIsDemoMode, store, updateStore, realStore, updateRealStore } = useAppData();
 
   const goToTab = (id: string) => setScreen(id);
+
+  // Shared by both the legacy hypothesisDetail screen and the Analysis
+  // tab's inline discovery body, so agree/disagree behaves identically no
+  // matter which one the user reached it through.
+  const reactToHypothesis = (index: number, r: "agree" | "disagree") => {
+    updateStore((prev) => ({
+      ...prev,
+      hypotheses: prev.hypotheses.map((h, i) => (i === index ? { ...h, reaction: r } : h)),
+    }));
+  };
+  const rejectBelief = (beliefId: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, userReaction: "rejected" as const } : b)),
+    }));
+  };
+  const setHypothesisDisagreeReason = (index: number, category: DisagreeReasonCategory, note?: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      hypotheses: prev.hypotheses.map((h, i) => (i === index ? { ...h, disagreeReasonCategory: category, disagreeReasonNote: note } : h)),
+    }));
+  };
+  // Distinct from rejectBelief above: reacting to a belief as "오늘의
+  // 발견" never hides it from 무의식적 패턴 — only the dedicated reject
+  // link there does that.
+  const reactToBeliefDiscovery = (beliefId: string, r: "agree" | "disagree") => {
+    updateStore((prev) => ({
+      ...prev,
+      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, discoveryReaction: r } : b)),
+    }));
+  };
+  const setBeliefDisagreeReason = (beliefId: string, category: DisagreeReasonCategory, note?: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, discoveryDisagreeReasonCategory: category, discoveryDisagreeReasonNote: note } : b)),
+    }));
+  };
 
   let content: React.ReactNode = null;
   switch (screen) {
@@ -1993,12 +2589,35 @@ export default function App() {
         }}
       />
     ); break;
-    case "home": content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />; break;
+    case "home": content = (
+      <ScreenHome
+        onNavSelect={goToTab}
+        onStartThink={() => setScreen("think")}
+        store={store}
+      />
+    ); break;
+    case "analysis": content = (
+      <ScreenAnalysis
+        onNavSelect={goToTab}
+        store={store}
+        onOpenArtifact={(id) => setScreen(id)}
+        onReactHypothesis={reactToHypothesis}
+        onSetHypothesisDisagreeReason={setHypothesisDisagreeReason}
+        onInvestigateHypothesis={(index) => {
+          setHypothesisIndex(index);
+          setInvestigateReturnTo("analysis");
+          setScreen("investigate");
+        }}
+        onReactBeliefDiscovery={reactToBeliefDiscovery}
+        onSetBeliefDisagreeReason={setBeliefDisagreeReason}
+      />
+    ); break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
     case "processing": content = (
       <ScreenProcessing
         text={thinkText}
-        priorBeliefs={store.beliefs.map(({ domain, statement, confidence, evidenceCount }) => ({ domain, statement, confidence, evidenceCount }))}
+        matchableBeliefs={matchableCandidates(store).beliefs}
+        matchablePending={matchableCandidates(store).pending}
         priorAssumptions={store.assumptions}
         priorConnections={store.connections.map((c) => ({
           aStatement: store.beliefs.find((b) => b.id === c.a)?.statement ?? "",
@@ -2032,9 +2651,9 @@ export default function App() {
       />
     ); break;
     case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
-    case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
+    case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />; break;
     case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "drift": content = <ScreenDrift onBack={() => setScreen("home")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
+    case "drift": content = <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
     case "aspirationSetup": content = (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
@@ -2051,19 +2670,17 @@ export default function App() {
         index={hypothesisIndex}
         store={store}
         onBack={() => setScreen("hypotheses")}
-        onInvestigate={() => setScreen("investigate")}
-        onReact={(r) => {
-          updateStore((prev) => ({
-            ...prev,
-            hypotheses: prev.hypotheses.map((h, i) => (i === hypothesisIndex ? { ...h, reaction: r } : h)),
-          }));
+        onInvestigate={() => {
+          setInvestigateReturnTo("hypothesisDetail");
+          setScreen("investigate");
         }}
+        onReact={(r) => reactToHypothesis(hypothesisIndex, r)}
       />
     ); break;
     case "investigate": {
       const investigatedHypothesis = store.hypotheses[hypothesisIndex] ?? store.hypotheses[0];
       content = investigatedHypothesis?.investigate ? (
-        <ScreenInvestigate investigate={investigatedHypothesis.investigate} onBack={() => setScreen("hypothesisDetail")} />
+        <ScreenInvestigate investigate={investigatedHypothesis.investigate} onBack={() => setScreen(investigateReturnTo)} />
       ) : (
         <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />
       );
@@ -2104,7 +2721,7 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenArtifact={(id) => setScreen(id)} store={store} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} store={store} />;
   }
 
   const showStatusBar = !["splash"].includes(screen);

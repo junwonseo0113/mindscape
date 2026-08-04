@@ -50,7 +50,10 @@ function mapDomainToCognitiveRegion(domain: string): CognitiveRegion {
   return COGNITIVE_REGIONS[hashString(domain) % COGNITIVE_REGIONS.length];
 }
 
-function resolveRegion(belief: NeuralBeliefNode): CognitiveRegion {
+// Exported so pages outside the canvas (the Analysis tab's region
+// breakdown) can classify the same belief into the same cognitive region
+// without duplicating this lookup — it's pure and needs no 3D state.
+export function resolveRegion(belief: NeuralBeliefNode): CognitiveRegion {
   return belief.region ?? mapDomainToCognitiveRegion(belief.domain);
 }
 
@@ -64,7 +67,12 @@ export type NeuralBeliefConnection = { a: string; b: string };
 const IS_SMALL_SCREEN = typeof window !== "undefined" && window.innerWidth < 480;
 const BRAIN_SEED = 1729;
 
-const BACKGROUND_COUNT = IS_SMALL_SCREEN ? 1050 : 1500;
+// Denser than before specifically so local gaps stop happening in the
+// first place — the bridging pass in buildProximityEdges already
+// guarantees full connectivity at any density, but more tissue means
+// fewer/shorter bridges are ever needed, and the mass reads as more
+// continuous up close.
+const BACKGROUND_COUNT = IS_SMALL_SCREEN ? 1900 : 3000;
 const BACKGROUND = generateBrainCloud(BACKGROUND_COUNT, BRAIN_SEED);
 const BACKGROUND_POSITIONS: Vec3[] = BACKGROUND.map((p) => p.position);
 
@@ -123,7 +131,7 @@ const BRIGHT_TINT = new THREE.Color("#3C342A");
 // activation color and their Korean display label. The renderer (node
 // fill/emissive, the legend, region grouping) all read from this map —
 // nothing hardcodes a region's color anywhere else.
-const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string }> = {
+export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string }> = {
   identity: { color: "#8B7CFF", label: "정체성" },
   security: { color: "#4CAF7A", label: "안정" },
   career: { color: "#D9A441", label: "커리어" },
@@ -553,7 +561,13 @@ function ActiveBeliefNode({
 
   useFrame(({ clock }, delta) => {
     if (!ref.current) return;
-    const pulse = 1 + Math.sin(clock.elapsedTime * pulseSpeed + phase) * (0.06 + recency * 0.04);
+    // One shared phase drives scale, emissive brightness, and glow together
+    // so every activated (region-colored) neuron reads as a clear, cohesive
+    // pulse — not just a faint size wobble. Background/dormant neurons never
+    // run this at all; they're a separate instanced field.
+    const wave = Math.sin(clock.elapsedTime * pulseSpeed + phase);
+    const pulse = 1 + wave * (0.14 + recency * 0.1);
+    const emissivePulse = 1 + wave * (0.35 + recency * 0.2);
     const target = isSelected ? 1.5 : isFocused ? 1.22 : 1;
     springScale.current += (target - springScale.current) * Math.min(1, delta * 7);
 
@@ -568,12 +582,12 @@ function ActiveBeliefNode({
 
     ref.current.scale.setScalar(pulse * springScale.current * (1 + flash * 1.6));
     const mat = ref.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = baseEmissive * (1 + flash * 2.4);
+    mat.emissiveIntensity = baseEmissive * emissivePulse * (1 + flash * 2.4);
 
     if (glowRef.current) {
       const glowMat = glowRef.current.material as THREE.MeshBasicMaterial;
-      glowMat.opacity = baseGlowOpacity + flash * 0.5;
-      glowRef.current.scale.setScalar(1.55 * (1 + flash * 0.9));
+      glowMat.opacity = baseGlowOpacity * emissivePulse + flash * 0.5;
+      glowRef.current.scale.setScalar(1.55 * pulse * (1 + flash * 0.9));
     }
 
     if (haloRef.current) {
@@ -784,7 +798,7 @@ export default function NeuralBeliefGraph3D({
     >
       <Canvas
         dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
-        camera={{ position: [0, 0, 8.5], fov: 44 }}
+        camera={{ position: [0, 0, 7.2], fov: 44 }}
         gl={{ antialias: true, alpha: true }}
         onPointerMissed={() => setSelectedId(null)}
       >

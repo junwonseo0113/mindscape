@@ -11,6 +11,72 @@
 
 export type StoredEvidenceQuote = { date: string; quote: string };
 
+// ── The app's default psychological analysis framework ──────────────────────
+// Per-entry extraction, grounded in CBT (situation → automatic thought →
+// cognitive pattern) and ACT (values direction), with Schema Therapy used
+// only as an optional, secondary label on well-established longitudinal
+// patterns — see src/app/analysisFramework.ts for the actual rules
+// (evidence thresholds, confidence math, rejection handling). This is a
+// self-reflection aid, not a diagnostic instrument: nothing here infers
+// trauma, attachment style, personality disorder, or unconscious motive.
+
+export type EmotionRating = { label: string; intensity: number };
+
+export type ThoughtObservation = {
+  situation: string;
+  automaticThought: string;
+  emotions: EmotionRating[];
+  actionUrge: string;
+};
+
+export type ValueDirection = {
+  relatedValues: string[];
+  towardOrAway: "toward" | "away" | "unclear";
+  explanation: string;
+};
+
+export type ThoughtInterpretation = {
+  possibleCognitivePatterns: string[];
+  valueDirection: ValueDirection;
+};
+
+export type HypothesisStatus = "insufficient_data" | "emerging" | "supported" | "conflicted";
+
+// The per-entry read on whether this thought supports a recurring pattern —
+// never a claim that the pattern IS real ("candidate", never "confirmed
+// belief"). Whether it actually becomes a visible, recurring StoredBelief
+// is decided separately by analysisFramework.ts's evidence threshold.
+export type ThoughtHypothesisNote = {
+  candidateBelief: string;
+  confidence: number;
+  status: HypothesisStatus;
+  supportingEntryIds: string[];
+  contradictoryEntryIds: string[];
+  reasoningSummary: string;
+};
+
+export type EntryAnalysis = {
+  observation: ThoughtObservation;
+  interpretation: ThoughtInterpretation;
+  hypothesis: ThoughtHypothesisNote;
+};
+
+// A recurring pattern that hasn't yet cleared the evidence bar to become a
+// visible StoredBelief (see MIN_SUPPORTING_ENTRIES_FOR_BELIEF) — tracked so
+// the second and third similar entries can find and reinforce it, but
+// intentionally not surfaced in the belief map/brain graph until then. One
+// entry is never enough to hypothesize a pattern.
+export type PendingBeliefCandidate = {
+  id: string;
+  domain: string;
+  statement: string;
+  supportingEntryIds: string[];
+  contradictoryEntryIds: string[];
+  possibleCognitivePatterns: string[];
+  reasoningSummary: string;
+  lastUpdatedAt: string;
+};
+
 export type StoredBelief = {
   id: string;
   domain: string;
@@ -18,6 +84,32 @@ export type StoredBelief = {
   confidence: number;
   evidenceCount: number;
   evidenceQuotes: StoredEvidenceQuote[];
+  // Evidence-framework fields (optional so demo data and any legacy belief
+  // objects without them still render fine — the belief map/brain graph
+  // never required these). Once present, they're what the framework itself
+  // relies on: which entries actually support or contradict this belief,
+  // its status per those rules, and whether the user has explicitly
+  // accepted or rejected it. A rejected belief is excluded from future
+  // matching — see analysisFramework.ts — so new entries can't silently
+  // keep reinforcing something the user said wasn't accurate; only an
+  // independently-accumulated new pattern (3 fresh entries of its own) can
+  // re-establish it.
+  status?: HypothesisStatus;
+  supportingEntryIds?: string[];
+  contradictoryEntryIds?: string[];
+  possibleCognitivePatterns?: string[];
+  lastUpdatedAt?: string;
+  userReaction?: "accepted" | "rejected" | null;
+  // Optional, secondary, longitudinal-only Schema Therapy taxonomy label —
+  // never set from a single entry, and never framed as a diagnosis.
+  schemaDomainLabel?: string;
+  // Separate from userReaction above: this tracks agreement with this
+  // belief specifically when it surfaces as "오늘의 발견" (the Analysis
+  // page's reflection step), not the permanent "reject from 무의식적 패턴"
+  // action — a belief can be disagreed with here without being hidden.
+  discoveryReaction?: "agree" | "disagree" | null;
+  discoveryDisagreeReasonCategory?: DisagreeReasonCategory;
+  discoveryDisagreeReasonNote?: string;
 };
 
 export type StoredAssumption = {
@@ -33,10 +125,21 @@ export type StoredAssumption = {
 export type StoredConnection = { a: string; b: string; note: string };
 
 export type StoredHistoryEntry = {
+  // Stable id, independent of array position or date — this is what
+  // supportingEntryIds/contradictoryEntryIds reference, and what lets a
+  // rejected belief's future matching exclude exactly the entries it was
+  // built from without disturbing anything else.
+  id: string;
   date: string;
   text: string;
   // Only demo entries carry a recorded duration today.
   duration?: string;
+  // The raw entry and the AI's read on it are stored side by side but kept
+  // conceptually separate: `text` is exactly what the person said, never
+  // edited by analysis; `analysis` is the AI's observation/interpretation/
+  // hypothesis for this entry, correctable/rejectable independent of the
+  // raw text itself.
+  analysis?: EntryAnalysis;
 };
 
 // The "investigate" deep-dive is its own optional sub-object rather than a
@@ -52,6 +155,11 @@ export type StoredHypothesisInvestigation = {
   related: string;
 };
 
+// What specifically didn't land, when a user disagrees with a discovery —
+// captured so a future analysis pass has something more useful to learn
+// from than a bare thumbs-down. "custom" pairs with a free-text note.
+export type DisagreeReasonCategory = "evidence" | "interpretation" | "conclusion" | "custom";
+
 export type StoredHypothesis = {
   id: string;
   title: string;
@@ -66,6 +174,9 @@ export type StoredHypothesis = {
   question?: string;
   evidence?: StoredEvidenceQuote[];
   investigate?: StoredHypothesisInvestigation;
+  // Only ever set alongside reaction === "disagree".
+  disagreeReasonCategory?: DisagreeReasonCategory;
+  disagreeReasonNote?: string;
 };
 
 export type StoredDriftNote = { date: string; note: string };
@@ -105,6 +216,10 @@ export type Store = {
   settings: StoredSettings;
   account: StoredAccount | null;
   entryCount: number;
+  // Candidate recurring patterns below the visibility threshold — see
+  // PendingBeliefCandidate. Internal bookkeeping only; no screen renders
+  // this directly.
+  pendingBeliefCandidates?: PendingBeliefCandidate[];
 };
 
 export function formatDateDots(d: Date) {

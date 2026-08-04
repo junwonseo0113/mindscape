@@ -44,9 +44,9 @@ export const DEMO_STORE: Store = {
   ],
 
   history: [
-    { date: "2026.07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다...", duration: "4분 12초" },
-    { date: "2026.07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다...", duration: "2분 40초" },
-    { date: "2026.07.21", text: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다...", duration: "6분 05초" },
+    { id: "demo-entry-0", date: "2026.07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다...", duration: "4분 12초" },
+    { id: "demo-entry-1", date: "2026.07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다...", duration: "2분 40초" },
+    { id: "demo-entry-2", date: "2026.07.21", text: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다...", duration: "6분 05초" },
   ],
 
   hypotheses: [
@@ -62,7 +62,11 @@ export const DEMO_STORE: Store = {
       domains: ["커리어", "관계", "투자"],
       reaction: null,
       createdDate: "2026.07.02",
-      relatedBeliefIds: [],
+      // The investigate walkthrough below already names these two beliefs
+      // as connected ("'완벽해야 시작할 수 있다'는 무의식적 신념과도
+      // 연결돼 보여요") — wired here so "관련된 활성 뉴런" and "상충하는
+      // 기록" have something real to show, not an empty section.
+      relatedBeliefIds: ["demo-belief-0", "demo-belief-3"],
       evidence: [
         { date: "2026.07.02", quote: "이직 제안은 왔는데, 조금 더 지켜보고 싶어. 아직 확신이 안 서." },
         { date: "2026.06.14", quote: "그 사람한테 먼저 연락할까 하다가, 좀 더 기다려보기로 했어." },
@@ -86,7 +90,7 @@ export const DEMO_STORE: Store = {
       domains: ["커리어", "자아"],
       reaction: null,
       createdDate: "2026.06.30",
-      relatedBeliefIds: [],
+      relatedBeliefIds: ["demo-belief-1"],
       evidence: [
         { date: "2026.06.30", quote: "발표가 별로였나봐. 준비를 더 했어야 했는데." },
         { date: "2026.05.10", quote: "승진 안 된 거 보면, 내가 아직 부족한 게 맞는 것 같아." },
@@ -109,7 +113,7 @@ export const DEMO_STORE: Store = {
       domains: ["가치관", "결정"],
       reaction: null,
       createdDate: "2026.07.10",
-      relatedBeliefIds: [],
+      relatedBeliefIds: ["demo-belief-0", "demo-belief-4"],
       evidence: [
         { date: "2026.07.10", quote: "프리랜서 하고 싶다고 했었는데, 이번에도 정규직 제안을 골랐어." },
         { date: "2026.04.22", quote: "자유롭게 살고 싶다니까. 근데 이 안정적인 자리를 놓치기는 아깝잖아." },
