@@ -179,15 +179,15 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: 
 
 // ── Confidence bar — the one recurring data visualization: always a real
 // 0-100 number backing an AI hypothesis, never decorative. ───────────────────
-function ConfidenceBar({ value }: { value: number }) {
+function ConfidenceBar({ value, dark }: { value: number; dark?: boolean }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>확신도</span>
-        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: accent }}>{value}%</span>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: dark ? dkBody : subtle, letterSpacing: "0.04em" }}>확신도</span>
+        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: dark ? dkAccent : accent }}>{value}%</span>
       </div>
-      <div style={{ height: 5, borderRadius: 3, backgroundColor: hair, marginTop: 6 }}>
-        <div style={{ height: "100%", width: `${value}%`, backgroundColor: accent, borderRadius: 3 }} />
+      <div style={{ height: 5, borderRadius: 3, backgroundColor: dark ? dkTrack : hair, marginTop: 6 }}>
+        <div style={{ height: "100%", width: `${value}%`, backgroundColor: dark ? dkAccent : accent, borderRadius: 3 }} />
       </div>
     </div>
   );
@@ -603,17 +603,20 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
 
 
 // ── Screen 4 · Home ───────────────────────────────────────────────────────────
+// Dark theme (see dk* tokens) — exclusively used by ScreenAnalysis, which
+// is fully dark per the imported design spec, so this restyles in place
+// rather than taking a `dark` prop.
 function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser: string; badge?: string; onClick?: () => void }) {
   return (
     <motion.div
       role="button" tabIndex={0} onClick={onClick} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ padding: 16, borderRadius: 16, backgroundColor: page, boxShadow: cardShadow, cursor: "pointer" }}
+      style={{ flex: 1, padding: "18px 16px", borderRadius: 20, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, boxShadow: dkCardShadow, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ink }}>{label}</span>
-        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: accent, backgroundColor: accentSoft, padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
+        <span style={{ ...sans, fontSize: 13.5, fontWeight: 600, color: dkHeading }}>{label}</span>
+        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: dkAccentLight, backgroundColor: dkAccentSoft, padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
       </div>
-      <div style={{ ...sans, fontSize: 12, color: mid, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
+      <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
     </motion.div>
   );
 }
@@ -709,27 +712,22 @@ function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
   beliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
   const total = beliefs.length;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {COGNITIVE_REGIONS.map((region) => {
         const count = counts.get(region) ?? 0;
         const pct = total > 0 ? Math.round((count / total) * 100) : 0;
         return (
           <div key={region} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
-            <span style={{ ...sans, fontSize: 12.5, color: inkSoft, flex: 1 }}>{REGION_CONFIG[region].label}</span>
-            <span style={{ ...mono, fontSize: 11, color: faint }}>{count}개 · {pct}%</span>
+            <span style={{ ...sans, fontSize: 13.5, color: dkBodyLight, flex: 1 }}>{REGION_CONFIG[region].label}</span>
+            <span style={{ ...mono, fontSize: 12, color: dkBody }}>{count}개</span>
+            <span style={{ ...mono, fontSize: 12, color: dkAccent, width: 36, textAlign: "right" }}>{pct}%</span>
           </div>
         );
       })}
     </div>
   );
 }
-
-// A small fixed palette cycled by rank rather than tied to any fixed
-// emotion→color mapping — emotion labels are open-ended (whatever the
-// model names per entry), unlike the six fixed cognitive regions above,
-// so there's no stable label to hang a color on ahead of time.
-const EMOTION_BAR_COLORS = ["#5B4B8A", "#7C6BAE", "#B5533C", "#8A9A6B", "#C99A4A", "#6B8FA3"];
 
 // Every recorded entry's emotions, averaged by label across however many
 // times each has shown up, ranked strongest first — the only distribution
@@ -752,20 +750,20 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
     .slice(0, 6);
 
   if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: faint }}>아직 감정 데이터가 없어요. 생각을 몇 번 남기면 여기에 나타나요.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: dkBody }}>아직 감정 데이터가 없어요. 생각을 몇 번 남기면 여기에 나타나요.</div>;
   }
 
   const maxAvg = rows[0].avg || 1;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {rows.map((r, i) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {rows.map((r) => (
         <div key={r.label}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-            <span style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: inkSoft }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 11, color: faint }}>{r.avg} · {r.count}회</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+            <span style={{ ...sans, fontSize: 13, color: dkBodyLight }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: dkBody }}>{r.avg} · {r.count}회</span>
           </div>
-          <div style={{ height: 6, borderRadius: 3, backgroundColor: hair, marginTop: 6 }}>
-            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 3, backgroundColor: EMOTION_BAR_COLORS[i % EMOTION_BAR_COLORS.length] }} />
+          <div style={{ height: 7, borderRadius: 4, backgroundColor: dkTrack, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 4, backgroundColor: dkAccent }} />
           </div>
         </div>
       ))}
@@ -776,14 +774,11 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
 // A reserved, clearly-labeled slot for an analysis module that doesn't
 // exist yet — honest about what it is instead of shipping a fake chart
 // with no real data behind it.
-function ComingSoonRow({ label, note, last }: { label: string; note?: string; last?: boolean }) {
+function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
   return (
-    <div style={{ padding: "14px 0", borderBottom: last ? "none" : `1px solid ${hair}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: subtle }}>{label}</span>
-        {note && <span style={{ ...mono, fontSize: 10, color: faint }}>{note}</span>}
-      </div>
-      <div style={{ ...sans, fontSize: 12, color: faint, marginTop: 4 }}>곧 추가돼요.</div>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${dkDivider}` }}>
+      <span style={{ ...sans, fontSize: 13.5, color: "#5C5474" }}>{label}</span>
+      <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: "#746C90", backgroundColor: "#201933", padding: "3px 9px", borderRadius: 999 }}>곧 추가돼요</span>
     </div>
   );
 }
@@ -794,7 +789,25 @@ function ComingSoonRow({ label, note, last }: { label: string; note?: string; la
 // specifically didn't land). Both touchpoints read/write the exact same
 // reaction, so they can never contradict each other about what the user
 // actually said.
-function ReactionButtons({ reaction, onReact, disabled }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void; disabled?: boolean }) {
+function ReactionButtons({ reaction, onReact, disabled, dark }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void; disabled?: boolean; dark?: boolean }) {
+  if (dark) {
+    return (
+      <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
+        <motion.div
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, backgroundColor: dkAccent, cursor: disabled ? "default" : "pointer" }}
+        >
+          <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: "#fff" }}>동의해요</span>
+        </motion.div>
+        <motion.div
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${dkCardBorder}`, backgroundColor: dkTrack, cursor: disabled ? "default" : "pointer" }}
+        >
+          <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: dkBodyLight }}>아닌 것 같아요</span>
+        </motion.div>
+      </div>
+    );
+  }
   return (
     <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
       <motion.div
@@ -839,30 +852,30 @@ function DiscoveryReflection({
   const settled = reaction === "agree" || exhausted;
   return (
     <div>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>이 관찰이 지금 당신의 경험과 맞아떨어지나요?</div>
+      <p style={{ ...sans, fontSize: 15, color: dkBodyLight, margin: "0 0 6px", lineHeight: 1.5 }}>이 관찰이 지금 당신의 경험과 맞아떨어지나요?</p>
       {/* Observer-self framing (ACT: self-as-context) — agree/disagree here
           isn't a verdict on whether the thought is true, just whether this
           reading of it matches what was actually noticed. */}
-      <div style={{ ...serif, fontSize: 12.5, fontStyle: "italic", color: subtle, marginTop: 6, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
-        이 생각을 믿을지 말지를 정하는 자리가 아니에요. 그냥 바라보는 것만으로 충분해요.
-      </div>
-      {!settled && (
-        <>
-          <ReactionButtons reaction={reaction} onReact={onReact} disabled={reinterpreting} />
-          {reinterpreting && (
-            <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>다른 해석을 찾는 중…</div>
-          )}
-        </>
-      )}
-      {settled && exhausted && (
-        <div style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
-          같은 근거로 더 다르게 볼 수 있는 해석은 없는 것 같아요. 새로운 기록이 쌓이면 다시 살펴볼게요.
+      <p style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: "#948CB0", margin: "0 0 16px", lineHeight: 1.5, wordBreak: "keep-all" }}>
+        이 생각을 믿을지 말지를 정하는 자리가 아니에요. 그저 지금의 나와 맞는지 살펴보는 거예요.
+      </p>
+      {reinterpreting && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0" }}>
+          <motion.div
+            animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+            style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: dkAccent }}
+          />
+          <span style={{ ...sans, fontSize: 13, color: dkBody }}>다시 생각해보는 중이에요...</span>
         </div>
       )}
-      {settled && !exhausted && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0" }}>
-          <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: ink, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>✓</span>
-          <span style={{ ...sans, fontSize: 12, color: subtle }}>기록했어요. 이 해석의 확신도가 조금 더 높아집니다.</span>
+      {!settled && !reinterpreting && <ReactionButtons reaction={reaction} onReact={onReact} dark />}
+      {settled && exhausted && (
+        <p style={{ ...sans, fontSize: 13, color: dkBody, margin: "0 0 12px" }}>더 이상 새로운 해석을 만들어낼 수 없어요. 다음에 다시 살펴볼게요.</p>
+      )}
+      {settled && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
+          <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: dkAccent, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✓</span>
+          <span style={{ ...sans, fontSize: 13.5, color: dkBodyLight }}>{exhausted ? "지금은 여기까지 살펴봤어요." : "이 관찰을 받아들였어요."}</span>
         </div>
       )}
     </div>
@@ -876,21 +889,21 @@ function DiscoveryReflection({
 function EvolutionTimeline({ points }: { points: { label: string; text: string; accent?: boolean }[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      {points.map((p, i) => (
-        <React.Fragment key={i}>
-          <div style={{ padding: "14px 16px", borderRadius: 12, backgroundColor: p.accent ? accentSoft : surface }}>
-            <span style={{ ...mono, fontSize: 11, color: p.accent ? accent : faint }}>{p.label}</span>
-            <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: p.accent ? ink : inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>
-              {p.text}
+      {points.map((p, i) => {
+        const hasNext = i < points.length - 1;
+        return (
+          <div key={i} style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14, flexShrink: 0 }}>
+              <div style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: p.accent ? dkAccent : "#3A3350", flexShrink: 0, marginTop: 3 }} />
+              {hasNext && <div style={{ width: 2, flex: 1, backgroundColor: dkDivider, minHeight: 28 }} />}
+            </div>
+            <div style={{ paddingBottom: 20 }}>
+              <div style={{ ...mono, fontSize: 10.5, color: dkBody, marginBottom: 3 }}>{p.label}</div>
+              <p style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: dkBodyLight, margin: 0, lineHeight: 1.4, wordBreak: "keep-all" }}>{p.text}</p>
             </div>
           </div>
-          {i < points.length - 1 && (
-            <div style={{ display: "flex", justifyContent: "center", padding: "4px 0" }}>
-              <span style={{ ...sans, fontSize: 13, color: faint }}>↓</span>
-            </div>
-          )}
-        </React.Fragment>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -901,12 +914,12 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
 // original entry to highlight a sentence within.
 function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
   return (
-    <div style={{ padding: 14, borderRadius: 12, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ ...mono, fontSize: 11, color: faint }}>{date}</span>
-        {domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: "#fff", padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
+    <div style={{ backgroundColor: dkAccentSoft, borderLeft: `3px solid ${dkAccent}`, borderRadius: 8, padding: "12px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ ...mono, fontSize: 11, color: dkBody }}>{date}</span>
+        {domain && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: dkAccentTagText, backgroundColor: dkAccentTag, padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
       </div>
-      <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: ink, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{quote}"</div>
+      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{quote}"</p>
     </div>
   );
 }
@@ -919,10 +932,10 @@ function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: strin
 // distinct, scannable groups rather than one continuous flow of text.
 function SectionCard({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div style={{ backgroundColor: page, borderRadius: 20, padding: 20, boxShadow: cardShadow }}>
-      {title && <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: ink, letterSpacing: "0.01em" }}>{title}</div>}
-      {subtitle && <div style={{ ...sans, fontSize: 12.5, color: mid, marginTop: 5, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
-      <div style={{ marginTop: title ? 14 : 0 }}>{children}</div>
+    <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "22px 20px", boxShadow: dkCardShadow }}>
+      {title && <div style={{ ...serif, fontSize: 19, color: dkHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
+      {subtitle && <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginBottom: 16, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
+      {children}
     </div>
   );
 }
@@ -1046,47 +1059,50 @@ function ScreenAnalysis({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: surface }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 18px 24px" }}>
-        {/* ── PAGE HEADER — plain, on the surface background, not a card;
-            everything below this is a raised SectionCard. ── */}
-        <div style={{ padding: "20px 4px 0" }}>
-          <div style={{ ...serif, fontSize: 28, color: ink }}>분석</div>
-          <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6 }}>당신의 마음을 이해하는 과정입니다.</div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
+        <div style={{ padding: "8px 4px 20px" }}>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>분석</div>
+          <div style={{ ...sans, fontSize: 13, color: dkBody }}>당신의 마음을 이해하는 과정입니다.</div>
         </div>
 
-        {/* ── SECTION 1 · HERO — title, discovery, confidence. Nothing else. ── */}
-        <div style={{ marginTop: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* ── SECTION 1 · HERO — title, discovery, confidence. Nothing else. ── */}
           <SectionCard>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.05em" }}>오늘의 발견</div>
-            {!discovery && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
-                <Mindy size={72} expression="curious" />
-              </div>
-            )}
-            {/* Defusion reframe, read first — "a thought showed up again"
-                before the thought's actual content, so the content itself
-                doesn't land as a flat first-person fact. */}
-            {discovery && (h?.thoughtLabel || b?.thoughtLabel) && (
-              <div style={{ ...serif, fontSize: 13, fontStyle: "italic", color: accent, marginTop: 12 }}>
-                '{h?.thoughtLabel || b?.thoughtLabel}'이 또 나타났어요
-              </div>
-            )}
-            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: discovery && (h?.thoughtLabel || b?.thoughtLabel) ? 6 : 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
-              {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
-            </div>
-            {discovery && (
-              <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
-                <ConfidenceBar value={h ? h.confidence : b?.confidence ?? 0} />
+            {discovery ? (
+              <>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccent, letterSpacing: "0.04em", marginBottom: 10 }}>오늘의 발견</div>
+                {(h?.thoughtLabel || b?.thoughtLabel) && (
+                  <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: "#9B8FC7", margin: "0 0 8px" }}>
+                    '{h?.thoughtLabel || b?.thoughtLabel}' 생각이 또 나타났어요
+                  </p>
+                )}
+                <p style={{ ...serif, fontSize: 24, lineHeight: 1.4, color: dkHeading, margin: "0 0 18px", wordBreak: "keep-all" }}>{discovery.text}</p>
+                <div style={{ height: 1, backgroundColor: dkDivider, margin: "0 0 14px" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ ...sans, fontSize: 12, fontWeight: 500, color: dkBody }}>확신도</span>
+                  <span style={{ ...mono, fontSize: 13, fontWeight: 500, color: dkAccent }}>{h ? h.confidence : b?.confidence ?? 0}%</span>
+                </div>
+                <div style={{ height: 6, borderRadius: 3, backgroundColor: dkTrack, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${h ? h.confidence : b?.confidence ?? 0}%`, borderRadius: 3, backgroundColor: dkAccent }} />
+                </div>
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 10px 8px", gap: 14 }}>
+                <svg width="96" height="96" viewBox="0 0 96 96">
+                  <circle cx="48" cy="48" r="44" fill="rgba(123,92,240,.16)" />
+                  <circle cx="34" cy="44" r="5" fill={dkAccent} />
+                  <circle cx="62" cy="44" r="5" fill={dkAccent} />
+                  <path d="M36 60 Q48 68 60 60" stroke={dkAccent} strokeWidth="3" fill="none" strokeLinecap="round" />
+                </svg>
+                <p style={{ ...sans, fontSize: 14, color: dkBody, lineHeight: 1.6, margin: 0, maxWidth: 260 }}>아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요.</p>
               </div>
             )}
           </SectionCard>
-        </div>
 
-        {discovery && (
-          <>
-            {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
-            <div style={{ marginTop: 14 }}>
+          {discovery && (
+            <>
+              {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
               <SectionCard title="왜 이런 해석이 나왔나요?" subtitle="당신이 실제로 이렇게 말한 부분들이에요.">
                 {evidence.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1095,54 +1111,46 @@ function ScreenAnalysis({
                     ))}
                   </div>
                 ) : (
-                  <div style={{ ...sans, fontSize: 13, color: faint }}>아직 근거로 남길 만한 기록이 없어요.</div>
+                  <div style={{ ...sans, fontSize: 13, color: dkBody }}>아직 근거로 남길 만한 기록이 없어요.</div>
                 )}
 
                 {contradictoryEntries.length > 0 && (
-                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
-                    <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: tension, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                      ⚠ 이 결론과 다르게 나타난 기록도 있어요
+                  <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${dkDivider}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                      <span style={{ fontSize: 13 }}>⚠</span>
+                      <span style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: dkWarnLabel }}>다른 방향의 기록도 있어요</span>
                     </div>
-                    <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                      확신도는 이걸 반영해 낮아져 있어요.
-                    </div>
-                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {contradictoryEntries.map(({ belief, entry }, i) => (
-                        <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: tensionSoft, borderLeft: `2px solid ${tension}` }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.date}</span>
-                            <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: "#fff", padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                        <div key={i} style={{ backgroundColor: dkWarnSoft, borderLeft: `3px solid ${dkWarn}`, borderRadius: 8, padding: "12px 14px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <span style={{ ...mono, fontSize: 11, color: dkBody }}>{entry.date}</span>
+                            <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: dkWarnTagText, backgroundColor: dkWarnTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
                           </div>
-                          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
+                          <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
               </SectionCard>
-            </div>
 
-            {/* ── SECTION 3 · BELIEF EVOLUTION — watch the pattern develop over time. ── */}
-            {evolutionPoints.length > 0 && (
-              <div style={{ marginTop: 14 }}>
+              {/* ── SECTION 3 · BELIEF EVOLUTION — watch the pattern develop over time. ── */}
+              {evolutionPoints.length > 0 && (
                 <SectionCard title="신념의 변화">
                   <EvolutionTimeline points={evolutionPoints} />
                 </SectionCard>
-              </div>
-            )}
+              )}
 
-            {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
-            <div style={{ marginTop: 14 }}>
-              <SectionCard title="관련 활성 뉴런" subtitle="이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.">
+              {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
+              <SectionCard title="관련 활성 뉴런">
                 <NeuralBeliefGraph3D beliefs={relatedBrainBeliefs} connections={relatedBrainConnections} clusters={relatedBrainClusters} height={280} />
-                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${dkDivider}` }}>
                   <RegionBreakdown beliefs={relatedBrainBeliefs} />
                 </div>
               </SectionCard>
-            </div>
 
-            {/* ── SECTION 5 · USER REFLECTION — the considered version of the hero's quick react. ── */}
-            <div style={{ marginTop: 14 }}>
+              {/* ── SECTION 5 · USER REFLECTION — the considered version of the hero's quick react. ── */}
               <SectionCard>
                 <DiscoveryReflection
                   reaction={reaction}
@@ -1151,46 +1159,43 @@ function ScreenAnalysis({
                   onReact={handleReact}
                 />
                 {h?.investigate && hIndex !== null && (
-                  <div style={{ marginTop: 12 }}>
-                    <GhostBtn onClick={() => onInvestigateHypothesis?.(hIndex)}>더 깊이 알아보기</GhostBtn>
-                  </div>
+                  <motion.div
+                    role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} whileTap={{ opacity: 0.6 }}
+                    style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: "1.5px solid rgba(123,92,240,.35)", color: dkAccentLight, borderRadius: 12, padding: 12, ...sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    더 깊이 알아보기
+                  </motion.div>
                 )}
               </SectionCard>
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {/* ── SECTION 6 · EXPLORE MORE — secondary analysis, each its own independent page. ── */}
-        <div style={{ marginTop: 22 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: ink, letterSpacing: "0.05em", padding: "0 4px" }}>더 깊이 보기</div>
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* ── SECTION 6 · EXPLORE MORE — secondary analysis, each its own independent page. ── */}
+          <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: dkBody, letterSpacing: "0.03em", padding: "6px 4px 2px" }}>더 깊이 보기</div>
+          <div style={{ display: "flex", gap: 12 }}>
             <ArtifactTile
               label="무의식적 패턴"
-              teaser={hasBeliefs
-                ? `스스로 의식하지 못한 채 반복되는 것 — 무의식적 신념 ${store.beliefs.length}가지, 반복되는 해석 ${store.assumptions.length}가지가 드러났어요.`
-                : "아직 드러난 패턴이 없어요. 생각을 몇 번 남기면 여기에 나타나기 시작해요."}
+              teaser={hasBeliefs ? "당신의 신념 지도를 살펴보세요" : "아직 드러난 패턴이 없어요."}
               onClick={() => onOpenArtifact?.("beliefs")}
             />
             <ArtifactTile
               label="목표와의 거리"
-              teaser="되고 싶다고 말한 모습과, 실제 말과 행동에서 반복되는 패턴 사이의 거리예요."
+              teaser="지금의 나와 원하는 나 사이"
               onClick={() => onOpenArtifact?.("drift")}
             />
           </div>
-          <div style={{ marginTop: 10 }}>
-            <SectionCard title="감정 분포" subtitle="말할 때 함께 기록된 감정을, 평균 강도가 강한 순서로 보여줘요.">
-              <EmotionDistribution history={store.history} />
-            </SectionCard>
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <SectionCard>
-              <ComingSoonRow label="가치 변화" />
-              <ComingSoonRow label="사고 패턴" note="CBT" last />
-            </SectionCard>
-          </div>
+
+          <SectionCard title="감정 분포" subtitle="기록된 감정들의 평균 강도예요.">
+            <EmotionDistribution history={store.history} />
+          </SectionCard>
+
+          <SectionCard>
+            <ComingSoonRow label="가치 변화" />
+            <ComingSoonRow label="사고 패턴 (CBT)" last />
+          </SectionCard>
         </div>
       </div>
-      <BottomNav active="analysis" onSelect={onNavSelect} />
+      <BottomNav active="analysis" onSelect={onNavSelect} dark />
     </div>
   );
 }
