@@ -646,6 +646,8 @@ function TodaysDiscovery({ headline, discovery, onOpen }: { headline: string; di
 // remove. See ScreenAnalysis for where all of that moved.
 function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
   const discovery = computeDiscovery(store);
+  const brainBeliefs = React.useMemo(() => withBrainExtras(store.beliefs, store.history), [store.beliefs, store.history]);
+  const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
@@ -658,7 +660,7 @@ function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: s
         </div>
 
         <div style={{ marginTop: 16 }}>
-          <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={336} />
+          <NeuralBeliefGraph3D beliefs={brainBeliefs} connections={store.connections} clusters={brainClusters} height={336} />
         </div>
 
         <div style={{ marginTop: 20 }}>
@@ -948,6 +950,8 @@ function ScreenAnalysis({
   const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const hasBeliefs = store.beliefs.length > 0;
+  const brainBeliefs = React.useMemo(() => withBrainExtras(store.beliefs, store.history), [store.beliefs, store.history]);
+  const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
   const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
   const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
@@ -1095,7 +1099,7 @@ function ScreenAnalysis({
             {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
             <div style={{ marginTop: 14 }}>
               <SectionCard title="관련 활성 뉴런">
-                <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={280} />
+                <NeuralBeliefGraph3D beliefs={brainBeliefs} connections={store.connections} clusters={brainClusters} height={280} />
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
                   <RegionBreakdown beliefs={store.beliefs} />
                 </div>
@@ -1844,6 +1848,23 @@ function dominantEmotion(entryIds: string[] | undefined, history: StoredHistoryE
   return Array.from(totals.entries()).sort((a, b) => b[1] - a[1])[0][0];
 }
 
+// Whether at least one of a belief's own supporting entries carries a full
+// situation→thought→emotion→action chain — shared by BeliefCard's "이
+// 패턴이 왜 반복되는지 보기" toggle and the 3D brain's Level-2 self-loop
+// ring (NeuralBeliefGraph3D), so both agree on exactly which beliefs get
+// to offer the loop experience at all.
+function hasFunctionalLoopData(belief: Pick<StoredBelief, "supportingEntryIds">, history: StoredHistoryEntry[]): boolean {
+  return (belief.supportingEntryIds ?? []).some((id) => history.find((e) => e.id === id)?.analysis?.observation.situation);
+}
+
+// Augments beliefs with the two extra fields NeuralBeliefGraph3D reads for
+// Level 2/4 (hasLoop, lastUpdatedAt is already on StoredBelief and passes
+// through as-is) — a thin wrapper so every call site sends the same shape
+// instead of repeating the .map inline.
+function withBrainExtras(beliefs: StoredBelief[], history: StoredHistoryEntry[]) {
+  return beliefs.map((b) => ({ ...b, hasLoop: hasFunctionalLoopData(b, history) }));
+}
+
 // Longitudinal drift (Level 4) — a plain sparkline over confidenceHistory,
 // purely descriptive ("this is how it's moved"), never a forecast. Only
 // renders once there are at least two points; a single point is just the
@@ -1937,7 +1958,7 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
   const [showLoop, setShowLoop] = React.useState(false);
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
-  const hasLoopData = (belief.supportingEntryIds ?? []).some((id) => history.find((e) => e.id === id)?.analysis?.observation.situation);
+  const hasLoopData = hasFunctionalLoopData(belief, history);
   return (
     <div style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2492,7 +2513,7 @@ function HypothesisDiscoveryBody({
             이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.
           </div>
           <div style={{ marginTop: 12 }}>
-            <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} />
+            <NeuralBeliefGraph3D beliefs={withBrainExtras(relatedBeliefs, store.history)} connections={relatedConnections} height={200} />
           </div>
         </div>
       )}

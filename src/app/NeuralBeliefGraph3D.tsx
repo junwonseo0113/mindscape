@@ -24,6 +24,17 @@ export type NeuralBeliefNode = {
   // Optional 0..1 "how recent" signal — falls back to a stable per-id
   // pseudo value when the caller doesn't have one yet.
   recency?: number;
+  // "YYYY.MM.DD" (formatDateDots) — when `recency` isn't explicitly given,
+  // this drives real growth/dormancy (see recencyFromDate) instead of the
+  // stable pseudo-random fallback. Demo beliefs mostly don't set this, so
+  // they keep the old pseudo-recency look; real beliefs always do (every
+  // mergeAnalysisIntoStore update stamps it).
+  lastUpdatedAt?: string;
+  // Whether this belief's own supporting entries carry a full situation→
+  // thought→emotion→action chain (see FunctionalLoopDiagram in App.tsx) —
+  // drives whether the selected-node card offers the "재생" self-loop
+  // animation at all.
+  hasLoop?: boolean;
   // Which of the six app-defined cognitive regions this belief activates a
   // neuron in. Optional because the backend doesn't produce this yet —
   // see mapDomainToCognitiveRegion below for the fallback.
@@ -57,7 +68,28 @@ export function resolveRegion(belief: NeuralBeliefNode): CognitiveRegion {
   return belief.region ?? mapDomainToCognitiveRegion(belief.domain);
 }
 
-export type NeuralBeliefConnection = { a: string; b: string };
+// `type` mirrors StoredConnection's — "root" (mutually-reinforcing, the
+// default/undefined case) reads as a calm static line always;
+// "contradiction" gets the dashed/flickering "tension line" treatment,
+// but only while structureMode is on (see BrainScene) — in the calm
+// default view every connection looks the same.
+export type NeuralBeliefConnection = { a: string; b: string; type?: "root" | "contradiction" };
+
+// Real recency from a "YYYY.MM.DD" date (formatDateDots format), decaying
+// smoothly rather than in visible steps — exponential with a ~3-week time
+// constant, floored well above zero so an old-but-real belief still reads
+// as present tissue, just quieter, never mistaken for background noise
+// (the metaphor is dormancy/pruning-adjacent dimming, not deletion).
+function recencyFromDate(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const parts = dateStr.split(".").map((s) => parseInt(s, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, m, d] = parts;
+  const then = new Date(y, m - 1, d).getTime();
+  if (Number.isNaN(then)) return null;
+  const days = Math.max(0, (Date.now() - then) / (1000 * 60 * 60 * 24));
+  return Math.max(0.15, Math.min(1, Math.exp(-days / 21)));
+}
 
 // ── Permanent neural structure — generated once at module load, not from
 // props, and never regenerated on refresh (same seed every time). Real
@@ -203,6 +235,10 @@ type ActiveNode = NeuralBeliefNode & {
   isCore: boolean;
   strength: number;
   bgIndex: number;
+  // 0..1, real (from lastUpdatedAt) when available, else the old stable
+  // pseudo-value — never lets a belief's *evidence-based* strength/isCore
+  // classification be affected, only how vividly it's currently rendered.
+  vitality: number;
 };
 
 // A little per-neuron richness jitter on top of the region's own color —
@@ -253,6 +289,7 @@ function buildActiveNodes(beliefs: NeuralBeliefNode[]): ActiveNode[] {
     // lightened, the previous size read as barely distinguishable from
     // the surrounding dormant tissue at a glance.
     const radius = (isCore ? 0.064 : 0.05) + 0.02 * strength;
+    const vitality = belief.recency ?? recencyFromDate(belief.lastUpdatedAt) ?? stableUnit(`${belief.id}-recency`);
     return {
       ...belief,
       position,
@@ -262,6 +299,7 @@ function buildActiveNodes(beliefs: NeuralBeliefNode[]): ActiveNode[] {
       isCore,
       strength,
       bgIndex,
+      vitality,
     };
   });
 }
@@ -488,14 +526,52 @@ function HighlightEdges({ focusBgIndex }: { focusBgIndex: number | null }) {
   );
 }
 
+// Reused every frame inside TensionLine instead of allocating a THREE.Color
+// per connection per frame.
+const tmpColor = new THREE.Color();
+
+// Level 5 (contradiction detection) — a dashed line whose dash pattern
+// visibly creeps ("marching ants," reads as a taut, vibrating thread) and
+// which flickers briefly toward a warm red spark on a slow cycle. Only
+// rendered at all while structureMode is on — see BeliefConnectionLines —
+// so the default calm view never distinguishes a contradiction from an
+// ordinary connection.
+function TensionLine({ a, b, baseColor }: { a: Vec3; b: Vec3; baseColor: string }) {
+  const lineRef = useRef<any>(null);
+  useFrame(({ clock }, delta) => {
+    const mat = lineRef.current?.material;
+    if (!mat) return;
+    if (typeof mat.dashOffset === "number") mat.dashOffset -= delta * 0.6;
+    const spark = Math.max(0, Math.sin(clock.elapsedTime * 2.2)) ** 6;
+    mat.opacity = 0.26 + spark * 0.5;
+    tmpColor.set(baseColor).lerp(new THREE.Color("#D9694F"), spark * 0.75);
+    mat.color.copy(tmpColor);
+  });
+  return (
+    <Line
+      ref={lineRef}
+      points={[a, b]}
+      color={baseColor}
+      dashed
+      dashSize={0.045}
+      gapSize={0.045}
+      transparent
+      opacity={0.3}
+      lineWidth={1}
+    />
+  );
+}
+
 function BeliefConnectionLines({
   nodes,
   connections,
   focusId,
+  structureMode,
 }: {
   nodes: ActiveNode[];
   connections: NeuralBeliefConnection[];
   focusId: string | null;
+  structureMode: boolean;
 }) {
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   return (
@@ -505,6 +581,9 @@ function BeliefConnectionLines({
         const b = byId.get(c.b);
         if (!a || !b) return null;
         const focused = focusId === a.id || focusId === b.id;
+        if (structureMode && c.type === "contradiction") {
+          return <TensionLine key={`${c.a}-${c.b}-${i}`} a={a.position} b={b.position} baseColor={focused ? SELECTION_GOLD : "#8A6A5C"} />;
+        }
         const avgStrength = (a.strength + b.strength) / 2;
         return (
           <Line
@@ -518,6 +597,84 @@ function BeliefConnectionLines({
         );
       })}
     </>
+  );
+}
+
+// Level 2 (functional analysis) — a small ring orbited by one glowing
+// particle, drawn around a single belief's own node. This is deliberately
+// a self-loop, not a line between two different beliefs: the situation→
+// thought→emotion→action cycle FunctionalLoopDiagram (App.tsx) shows is
+// one belief reinforcing itself, not a causal claim between two distinct
+// beliefs — so the 3D echo of it has to be a loop *on* that node, not an
+// edge to another one. Only ever mounted for LOOP_PLAY_DURATION_MS after
+// the info card's "재생" button is pressed (see NeuralBeliefGraph3D) —
+// never idle, never automatic.
+const LOOP_RING_SEGMENTS = 40;
+function LoopRing({ position, radius, color }: { position: Vec3; radius: number; color: string }) {
+  const particleRef = useRef<THREE.Mesh>(null);
+  const ringRadius = radius * 3.4;
+  const ringPoints = useMemo<Vec3[]>(() => {
+    const pts: Vec3[] = [];
+    for (let i = 0; i <= LOOP_RING_SEGMENTS; i += 1) {
+      const a = (i / LOOP_RING_SEGMENTS) * Math.PI * 2;
+      pts.push([Math.cos(a) * ringRadius, Math.sin(a) * ringRadius, 0]);
+    }
+    return pts;
+  }, [ringRadius]);
+
+  useFrame(({ clock }) => {
+    if (!particleRef.current) return;
+    const t = clock.elapsedTime * 1.7;
+    particleRef.current.position.set(Math.cos(t) * ringRadius, Math.sin(t) * ringRadius, 0);
+  });
+
+  return (
+    <group position={position}>
+      <Line points={ringPoints} color={color} transparent opacity={0.4} lineWidth={1} />
+      <mesh ref={particleRef}>
+        <sphereGeometry args={[radius * 0.5, 10, 10]} />
+        <meshBasicMaterial color={SELECTION_GOLD} transparent opacity={0.95} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+// Level 3 (belief network) — a soft, low-opacity sphere spanning a
+// cluster's nodes, standing in for the "translucent haze" the design asks
+// for: reusing the scene's existing additive-glow-layer look (see
+// BrainFieldGlowLayer) rather than introducing a new visual language, so
+// it reads as "a denser patch of the same tissue," not a foreign overlay.
+// Only rendered while structureMode is on.
+function ClusterHaze({ nodes }: { nodes: ActiveNode[] }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const { center, radius } = useMemo(() => {
+    const c: Vec3 = [0, 0, 0];
+    nodes.forEach((n) => {
+      c[0] += n.position[0];
+      c[1] += n.position[1];
+      c[2] += n.position[2];
+    });
+    c[0] /= nodes.length;
+    c[1] /= nodes.length;
+    c[2] /= nodes.length;
+    const maxDist = Math.max(
+      ...nodes.map((n) => Math.hypot(n.position[0] - c[0], n.position[1] - c[1], n.position[2] - c[2]))
+    );
+    return { center: c, radius: maxDist + 0.24 };
+  }, [nodes]);
+
+  useFrame(({ clock }) => {
+    const mat = ref.current?.material as THREE.MeshBasicMaterial | undefined;
+    if (!mat) return;
+    mat.opacity = 0.05 + Math.sin(clock.elapsedTime * 0.35) * 0.015;
+  });
+
+  if (nodes.length === 0) return null;
+  return (
+    <mesh ref={ref} position={center}>
+      <sphereGeometry args={[radius, 20, 20]} />
+      <meshBasicMaterial color={nodes[0].color} transparent opacity={0.055} depthWrite={false} fog />
+    </mesh>
   );
 }
 
@@ -547,8 +704,11 @@ function ActiveBeliefNode({
   const glowRef = useRef<THREE.Mesh>(null);
   const haloRef = useRef<THREE.Mesh>(null);
   const springScale = useRef(1);
+  const vitalitySmooth = useRef(node.vitality);
+  const baseColorObj = useMemo(() => new THREE.Color(node.color), [node.color]);
+  const blendedColor = useMemo(() => new THREE.Color(node.color), [node.color]);
   const phase = useMemo(() => stableUnit(`${node.id}-phase`) * Math.PI * 2, [node.id]);
-  const recency = node.recency ?? stableUnit(`${node.id}-recency`);
+  const recency = node.vitality;
   const pulseSpeed = 0.5 + recency * 1.2;
 
   const opacity = isSelected ? 1 : isDimmed ? 0.38 : 0.95;
@@ -564,6 +724,14 @@ function ActiveBeliefNode({
 
   useFrame(({ clock }, delta) => {
     if (!ref.current) return;
+    // Growth/dormancy (Level 4): vitality (real recency when the caller
+    // provides lastUpdatedAt, else the old stable pseudo-value) eases in
+    // slowly — over seconds, not the sub-second springs above — since it
+    // represents weeks of real time, not something that should visibly
+    // "snap" if a belief's data updates while this view happens to be open.
+    vitalitySmooth.current += (node.vitality - vitalitySmooth.current) * Math.min(1, delta * 0.6);
+    const vitalityScale = 0.55 + 0.45 * vitalitySmooth.current;
+
     // One shared phase drives scale, emissive brightness, and glow together
     // so every activated (region-colored) neuron reads as a clear, cohesive
     // pulse — not just a faint size wobble. Background/dormant neurons never
@@ -583,14 +751,21 @@ function ActiveBeliefNode({
       if (t >= 0 && t < 1) flash = Math.exp(-t * 6.5) * (1 - t);
     }
 
-    ref.current.scale.setScalar(pulse * springScale.current * (1 + flash * 1.6));
+    ref.current.scale.setScalar(pulse * springScale.current * vitalityScale * (1 + flash * 1.6));
     const mat = ref.current.material as THREE.MeshStandardMaterial;
-    mat.emissiveIntensity = baseEmissive * emissivePulse * (1 + flash * 2.4);
+    mat.emissiveIntensity = baseEmissive * emissivePulse * (0.5 + 0.5 * vitalitySmooth.current) * (1 + flash * 2.4);
+    // A long-dormant belief's color itself dulls toward the tissue's dim
+    // tone, not just its brightness — that's what makes it read as
+    // "settling back into the background" rather than just "a smaller
+    // bright dot."
+    blendedColor.copy(baseColorObj).lerp(DIM_TINT, (1 - vitalitySmooth.current) * 0.5);
+    mat.color.copy(blendedColor);
+    mat.emissive.copy(blendedColor);
 
     if (glowRef.current) {
       const glowMat = glowRef.current.material as THREE.MeshBasicMaterial;
-      glowMat.opacity = baseGlowOpacity * emissivePulse + flash * 0.5;
-      glowRef.current.scale.setScalar(1.55 * pulse * (1 + flash * 0.9));
+      glowMat.opacity = baseGlowOpacity * emissivePulse * (0.4 + 0.6 * vitalitySmooth.current) + flash * 0.5;
+      glowRef.current.scale.setScalar(1.55 * pulse * vitalityScale * (1 + flash * 0.9));
     }
 
     if (haloRef.current) {
@@ -652,6 +827,9 @@ function BrainScene({
   onInteractEnd,
   justActivatedById,
   justActivatedBgIndices,
+  structureMode,
+  clusters,
+  loopPlayingId,
 }: {
   activeNodes: ActiveNode[];
   connections: NeuralBeliefConnection[];
@@ -665,6 +843,9 @@ function BrainScene({
   onInteractEnd: () => void;
   justActivatedById: Map<string, number>;
   justActivatedBgIndices: number[];
+  structureMode: boolean;
+  clusters: string[][];
+  loopPlayingId: string | null;
 }) {
   // Hover still drives the visual highlight (dim/glow/edges) — that's a
   // harmless, purely cosmetic reaction to the cursor. The camera itself
@@ -715,7 +896,14 @@ function BrainScene({
       <BrainField focusPosition={focusNode?.position ?? null} focusRadius={0.7} justActivatedBgIndices={justActivatedBgIndices} />
       <BrainEdges />
       <HighlightEdges focusBgIndex={focusNode?.bgIndex ?? null} />
-      <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} />
+      <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} structureMode={structureMode} />
+
+      {/* Level 3 — cluster haze, structure-mode only. */}
+      {structureMode &&
+        clusters.map((clusterIds, ci) => {
+          const clusterNodes = clusterIds.map((id) => activeNodes.find((n) => n.id === id)).filter((n): n is ActiveNode => !!n);
+          return clusterNodes.length >= 3 ? <ClusterHaze key={ci} nodes={clusterNodes} /> : null;
+        })}
 
       {activeNodes.map((node) => (
         <ActiveBeliefNode
@@ -729,6 +917,12 @@ function BrainScene({
           onHoverChange={(hovering) => onHover(hovering ? node.id : null)}
         />
       ))}
+
+      {/* Level 2 — self-loop flowing light, only while a play has been requested. */}
+      {structureMode && loopPlayingId && (() => {
+        const loopNode = activeNodes.find((n) => n.id === loopPlayingId);
+        return loopNode ? <LoopRing position={loopNode.position} radius={loopNode.radius} color={loopNode.color} /> : null;
+      })()}
 
       <OrbitControls
         ref={controlsRef}
@@ -746,13 +940,23 @@ function BrainScene({
   );
 }
 
+// How long a Level-2 self-loop play lasts once requested — long enough to
+// watch the particle go around a couple of times, short enough that it
+// clearly reads as "a moment you asked to see," not a new ambient loop.
+const LOOP_PLAY_DURATION_MS = 4200;
+
 export default function NeuralBeliefGraph3D({
   beliefs,
   connections,
+  clusters = [],
   height = 360,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
+  // Level 3 belief-network clusters (3+ mutually-reinforcing belief ids) —
+  // see analysisFramework's findBeliefClusters. Purely additive: omitting
+  // it just means no cluster haze, never an error.
+  clusters?: string[][];
   height?: number;
 }) {
   const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
@@ -760,8 +964,35 @@ export default function NeuralBeliefGraph3D({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<CognitiveRegion | null>(null);
+  // Everything gated behind this (cluster haze, tension lines, the loop
+  // play button) is real structure the data already supports — just kept
+  // off by default so the first impression stays the calm "quiet tissue"
+  // read the piece is built around, not a data-dense diagram.
+  const [structureMode, setStructureMode] = useState(false);
+  const [loopPlayingId, setLoopPlayingId] = useState<string | null>(null);
   const controlsRef = useRef<any>(null);
   const selectedNode = selectedId ? activeNodes.find((n) => n.id === selectedId) ?? null : null;
+
+  useEffect(() => {
+    if (!loopPlayingId) return;
+    const t = setTimeout(() => setLoopPlayingId(null), LOOP_PLAY_DURATION_MS);
+    return () => clearTimeout(t);
+  }, [loopPlayingId]);
+
+  // Cluster membership + contradiction partner for whichever node is
+  // selected — cheap to recompute per selection, no need to precompute
+  // for every node up front.
+  const selectedCluster = useMemo(() => {
+    if (!selectedNode) return null;
+    return clusters.find((c) => c.includes(selectedNode.id)) ?? null;
+  }, [selectedNode, clusters]);
+  const selectedContradiction = useMemo(() => {
+    if (!selectedNode) return null;
+    const link = connections.find((c) => c.type === "contradiction" && (c.a === selectedNode.id || c.b === selectedNode.id));
+    if (!link) return null;
+    const partnerId = link.a === selectedNode.id ? link.b : link.a;
+    return activeNodes.find((n) => n.id === partnerId) ?? null;
+  }, [selectedNode, connections, activeNodes]);
 
   // Claims each newly-seen belief's flash exactly once (mutating the
   // module-level set is what makes that permanent for this page load),
@@ -793,6 +1024,7 @@ export default function NeuralBeliefGraph3D({
     setSelectedId(null);
     setHoveredId(null);
     setSelectedRegion(null);
+    setLoopPlayingId(null);
     controlsRef.current?.reset?.();
   };
 
@@ -828,6 +1060,9 @@ export default function NeuralBeliefGraph3D({
           onInteractEnd={() => setIsInteracting(false)}
           justActivatedById={justActivatedById}
           justActivatedBgIndices={justActivatedBgIndices}
+          structureMode={structureMode}
+          clusters={clusters}
+          loopPlayingId={loopPlayingId}
         />
       </Canvas>
 
@@ -846,26 +1081,42 @@ export default function NeuralBeliefGraph3D({
         드래그해서 회전 · 스크롤해서 확대
       </div>
 
-      <button
-        onClick={resetView}
-        style={{
-          position: "absolute",
-          right: 14,
-          top: 11,
-          fontFamily: "Inter, sans-serif",
-          fontSize: 10.5,
-          fontWeight: 600,
-          color: "#6E6B74",
-          background: "rgba(255,255,255,0.7)",
-          border: "1px solid rgba(91,75,138,0.14)",
-          borderRadius: 999,
-          padding: "5px 10px",
-          cursor: "pointer",
-          backdropFilter: "blur(6px)",
-        }}
-      >
-        초기화
-      </button>
+      <div style={{ position: "absolute", right: 14, top: 11, display: "flex", gap: 6 }}>
+        <button
+          onClick={() => setStructureMode((v) => !v)}
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: 10.5,
+            fontWeight: 600,
+            color: structureMode ? "#fff" : "#6E6B74",
+            background: structureMode ? "#5B4B8A" : "rgba(255,255,255,0.7)",
+            border: `1px solid ${structureMode ? "#5B4B8A" : "rgba(91,75,138,0.14)"}`,
+            borderRadius: 999,
+            padding: "5px 10px",
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          구조 보기
+        </button>
+        <button
+          onClick={resetView}
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: 10.5,
+            fontWeight: 600,
+            color: "#6E6B74",
+            background: "rgba(255,255,255,0.7)",
+            border: "1px solid rgba(91,75,138,0.14)",
+            borderRadius: 999,
+            padding: "5px 10px",
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          초기화
+        </button>
+      </div>
 
       {selectedNode && (
         <div
@@ -891,6 +1142,37 @@ export default function NeuralBeliefGraph3D({
           <div style={{ marginTop: 6, fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 17, lineHeight: 1.35, color: "#1C1B1F", wordBreak: "keep-all" }}>
             {selectedNode.statement}
           </div>
+
+          {structureMode && selectedCluster && selectedCluster.length >= 3 && (
+            <div style={{ marginTop: 8, fontFamily: "Inter, sans-serif", fontSize: 11.5, color: "#5B4B8A", lineHeight: 1.5, wordBreak: "keep-all" }}>
+              다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요.
+            </div>
+          )}
+
+          {structureMode && selectedContradiction && (
+            <div style={{ marginTop: 8, fontFamily: "Inter, sans-serif", fontSize: 11.5, color: "#B5533C", lineHeight: 1.5, wordBreak: "keep-all" }}>
+              "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
+            </div>
+          )}
+
+          {structureMode && selectedNode.hasLoop && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#6E6B74", lineHeight: 1.4, wordBreak: "keep-all" }}>
+                이 흐름이 반복되고 있어요
+              </span>
+              <button
+                onClick={() => setLoopPlayingId(loopPlayingId === selectedNode.id ? null : selectedNode.id)}
+                style={{
+                  fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 700,
+                  color: loopPlayingId === selectedNode.id ? "#fff" : "#5B4B8A",
+                  background: loopPlayingId === selectedNode.id ? "#5B4B8A" : "rgba(91,75,138,0.1)",
+                  border: "none", borderRadius: 999, padding: "5px 12px", cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                {loopPlayingId === selectedNode.id ? "재생 중 ⟳" : "재생 ▶"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
