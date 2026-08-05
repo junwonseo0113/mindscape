@@ -188,65 +188,95 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
 }
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
-// ── Linku — the app's mascot. A quiet, faceless little companion whose one
-// visual trick is a small constellation on it — antenna filaments ending
-// in glowing dots, and (in "connecting" pose) the same three-dot triangle
-// as the app's own "연결한다" icon, lit up on its chest. Used only where
-// the moment is actually about connecting/observing (splash, processing) —
-// not stamped on every screen.
-function Linku({ pose = "idle", size = 120, dark = false, rich = false }: { pose?: "idle" | "connecting"; size?: number; dark?: boolean; rich?: boolean }) {
+// ── Mindy (마인디) — the app's mascot. A quiet little companion defined by
+// two things: the antenna (it's always listening) and the cape (it's
+// always quietly working in the background). Same soft body language
+// everywhere it appears — round head, dot eyes, no mouth by default — so
+// it reads as one consistent character whether it's greeting someone at
+// Splash or holding the "brain" steady while an entry is being analyzed.
+// `dark` swaps its palette for dark (ink) backgrounds; left default for
+// warm/cream/white ones — always call it with whichever matches the
+// screen it's placed on, never mix.
+function Mindy({
+  pose = "idle",
+  size = 120,
+  dark = false,
+  holding = false,
+  expression = "neutral",
+}: {
+  pose?: "idle" | "connecting";
+  size?: number;
+  dark?: boolean;
+  holding?: boolean;
+  expression?: "neutral" | "happy" | "curious";
+}) {
   const stroke = dark ? "#8A8590" : ink;
   const body = dark ? "#F4F1EC" : "#fff";
   const eye = dark ? "#403E45" : ink;
+  const cape = dark ? "#463A63" : "#332A4D";
   return (
     <svg width={size} height={size * 1.3} viewBox="-14 -22 128 140" style={{ overflow: "visible" }}>
-      <line x1="50" y1="18" x2="36" y2="-10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="50" y1="18" x2="50" y2="-10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
       <motion.circle
-        cx="36" cy="-10" r="3.2" fill={accent}
-        animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.15, 0.9] }}
+        cx="50" cy="-10" r="3.6" fill={accent}
+        animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.2, 0.9] }}
         transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        style={{ transformOrigin: "36px -10px" }}
+        style={{ transformOrigin: "50px -10px" }}
       />
-      {rich && (
-        <>
-          <path d="M 52 20 Q 66 8 74 -6" fill="none" stroke={stroke} strokeWidth="1.2" strokeLinecap="round" />
-          <motion.circle
-            cx="74" cy="-6" r="2.3" fill={accent}
-            animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.8, 1.1, 0.8] }}
-            transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-            style={{ transformOrigin: "74px -6px" }}
-          />
-          <path d="M 46 20 Q 30 14 22 -2" fill="none" stroke={stroke} strokeWidth="1" strokeLinecap="round" strokeOpacity="0.7" />
-          <motion.circle
-            cx="22" cy="-2" r="1.8" fill={accent}
-            animate={{ opacity: [0.2, 0.8, 0.2], scale: [0.8, 1.1, 0.8] }}
-            transition={{ duration: 2.7, repeat: Infinity, ease: "easeInOut", delay: 0.9 }}
-            style={{ transformOrigin: "22px -2px" }}
-          />
-          {/* "함께할 때" — a small trailing constellation beside it, like a
-              patient companion that's always just off to the side. */}
-          {[[92, 62], [102, 42], [93, 24], [110, 10], [101, -8]].map(([x, y], i, arr) => {
-            const next = arr[i + 1];
-            if (!next) return null;
-            return <line key={`trail-line-${i}`} x1={x} y1={y} x2={next[0]} y2={next[1]} stroke={accent} strokeWidth="0.8" strokeOpacity="0.3" />;
-          })}
-          {[[92, 62, 2.2], [102, 42, 1.6], [93, 24, 2.6], [110, 10, 1.7], [101, -8, 2.2]].map(([cx, cy, r], i) => (
-            <motion.circle
-              key={`trail-dot-${i}`} cx={cx} cy={cy} r={r} fill={accent}
-              animate={{ opacity: [0.25, 0.85, 0.25] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: i * 0.35 }}
-            />
-          ))}
-        </>
-      )}
+
+      {/* Cape — drawn behind the body so it just peeks out at the shoulders
+          and below the feet, its one signature accessory. */}
+      <path
+        d="M 24 58 Q 6 96 16 128 Q 50 116 84 128 Q 94 96 76 58 Q 50 70 24 58 Z"
+        fill={cape}
+        stroke={dark ? "#5F517F" : "none"}
+        strokeWidth={dark ? 1 : 0}
+        opacity={dark ? 0.95 : 0.92}
+      />
+
       <ellipse cx="38" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="62" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="18" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="82" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
       <ellipse cx="50" cy="78" rx="27" ry="30" fill={body} stroke={stroke} strokeWidth="1.5" />
       <circle cx="50" cy="34" r="30" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <ellipse cx="40" cy="34" rx="2.2" ry="4" fill={eye} />
-      <ellipse cx="60" cy="34" rx="2.2" ry="4" fill={eye} />
+
+      {expression === "happy" ? (
+        <>
+          <path d="M 36 33 Q 40 28 44 33" fill="none" stroke={eye} strokeWidth="2" strokeLinecap="round" />
+          <path d="M 56 33 Q 60 28 64 33" fill="none" stroke={eye} strokeWidth="2" strokeLinecap="round" />
+          <path d="M 45 44 Q 50 48 55 44" fill="none" stroke={eye} strokeWidth="1.6" strokeLinecap="round" />
+        </>
+      ) : expression === "curious" ? (
+        <>
+          <ellipse cx="40" cy="35" rx="2.2" ry="4" fill={eye} />
+          <ellipse cx="60" cy="32" rx="2.2" ry="4" fill={eye} />
+        </>
+      ) : (
+        <>
+          <ellipse cx="40" cy="34" rx="2.2" ry="4" fill={eye} />
+          <ellipse cx="60" cy="34" rx="2.2" ry="4" fill={eye} />
+        </>
+      )}
+
+      {/* Holding pose — a small glowing "brain" cradled at chest height,
+          used while an entry is actively being analyzed. */}
+      {holding && (
+        <>
+          <motion.circle
+            cx="50" cy="76" r="11" fill={accent} opacity={0.18}
+            animate={{ scale: [0.9, 1.15, 0.9] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            style={{ transformOrigin: "50px 76px" }}
+          />
+          <motion.circle
+            cx="50" cy="76" r="5.5" fill={accent}
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </>
+      )}
+
       {pose === "connecting" && (
         <>
           {[["44,74", "58,84"], ["58,84", "48,68"], ["48,68", "44,74"]].map(([a, b], i) => {
@@ -282,7 +312,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <Linku dark rich size={92} />
+        <Mindy dark size={92} />
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#8A8590", textAlign: "center", letterSpacing: "0.02em", marginTop: 18 }}>
           미정
         </div>
@@ -906,7 +936,12 @@ function ScreenAnalysis({
 
           <div style={{ marginTop: 40 }}>
             <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>오늘의 발견</div>
-            <div style={{ ...serif, fontSize: 22, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            {!discovery && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                <Mindy size={72} expression="curious" />
+              </div>
+            )}
+            <div style={{ ...serif, fontSize: 22, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
               {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
             </div>
             {discovery && (
@@ -1436,7 +1471,7 @@ function ScreenProcessing({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: ink, padding: 32 }}>
-      <Linku dark size={110} pose={step === 1 ? "connecting" : "idle"} />
+      <Mindy dark size={110} holding={step >= 1} />
       <div style={{ ...sans, fontSize: 14, color: "#C7C2CE", marginTop: 22 }}>{STEPS[step]}</div>
     </div>
   );
@@ -1699,7 +1734,12 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
         <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 10 }}>무의식적 패턴</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        {!hasBeliefs && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+            <Mindy size={68} expression="happy" />
+          </div>
+        )}
+        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "당신이 스스로 안다고 생각하지 못한 채, 실제 말과 행동에서 반복적으로 드러난 것들이에요." : "아직 발견된 패턴이 없어요. '생각 말하기'로 첫 생각을 남겨보세요 — 여기서부터 패턴을 찾아드릴게요."}
         </div>
         <div style={{ ...sans, fontSize: 11, color: faint, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
