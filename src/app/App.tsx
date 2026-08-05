@@ -35,6 +35,11 @@ const page = "#FFFFFF";
 const accent = "#5B4B8A";
 const accentSoft = "#F0EDF8";
 const tension = "#B5533C";
+const tensionSoft = "rgba(181,83,60,0.08)";
+// Apple-style "grouped list" elevation for cards sitting on the surface-tinted
+// Analysis screen — a soft two-layer shadow instead of a border, so cards
+// read as raised without needing a harder edge.
+const cardShadow = "0 1px 2px rgba(28,27,31,0.05), 0 6px 18px rgba(28,27,31,0.045)";
 
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
@@ -548,7 +553,7 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
   return (
     <motion.div
       role="button" tabIndex={0} onClick={onClick} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ padding: 16, borderRadius: 16, border: `1px solid ${hair}`, backgroundColor: surface, cursor: "pointer" }}
+      style={{ padding: 16, borderRadius: 16, backgroundColor: page, boxShadow: cardShadow, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ink }}>{label}</span>
@@ -711,9 +716,9 @@ function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
 // A reserved, clearly-labeled slot for an analysis module that doesn't
 // exist yet — honest about what it is instead of shipping a fake chart
 // with no real data behind it.
-function ComingSoonRow({ label, note }: { label: string; note?: string }) {
+function ComingSoonRow({ label, note, last }: { label: string; note?: string; last?: boolean }) {
   return (
-    <div style={{ padding: "14px 0", borderBottom: `1px solid ${hair}` }}>
+    <div style={{ padding: "14px 0", borderBottom: last ? "none" : `1px solid ${hair}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: subtle }}>{label}</span>
         {note && <span style={{ ...mono, fontSize: 10, color: faint }}>{note}</span>}
@@ -721,13 +726,6 @@ function ComingSoonRow({ label, note }: { label: string; note?: string }) {
       <div style={{ ...sans, fontSize: 12, color: faint, marginTop: 4 }}>곧 추가돼요.</div>
     </div>
   );
-}
-
-// A quiet, non-bar confidence readout — never the big ConfidenceBar
-// progress component (that one still exists and is used elsewhere); this
-// page's hero is deliberately calmer than that.
-function ConfidenceReadout({ value }: { value: number }) {
-  return <span style={{ ...mono, fontSize: 13, color: accent, letterSpacing: "0.02em" }}>{value}% 신뢰도</span>;
 }
 
 // The one shared agree/disagree control — used compactly in the hero (a
@@ -824,12 +822,28 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
 // original entry to highlight a sentence within.
 function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
   return (
-    <div style={{ padding: 14, borderRadius: 12, backgroundColor: surface, borderLeft: `2px solid ${accent}` }}>
+    <div style={{ padding: 14, borderRadius: 12, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...mono, fontSize: 11, color: faint }}>{date}</span>
-        {domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
+        {domain && <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: "#fff", padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
       </div>
       <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: ink, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{quote}"</div>
+    </div>
+  );
+}
+
+// The Analysis tab's one layout primitive — a raised white card on the
+// screen's surface-tinted background (see ScreenAnalysis), Apple grouped-
+// list style: elevation instead of a border does the work a thin `hair`
+// divider used to (and couldn't, since surface-on-page is barely visible).
+// Every section from "why" onward is one of these, so the page reads as
+// distinct, scannable groups rather than one continuous flow of text.
+function SectionCard({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ backgroundColor: page, borderRadius: 20, padding: 20, boxShadow: cardShadow }}>
+      {title && <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: ink, letterSpacing: "0.01em" }}>{title}</div>}
+      {subtitle && <div style={{ ...sans, fontSize: 12.5, color: mid, marginTop: 5, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
+      <div style={{ marginTop: title ? 14 : 0 }}>{children}</div>
     </div>
   );
 }
@@ -926,107 +940,116 @@ function ScreenAnalysis({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 22px 24px" }}>
-        {/* ── SECTION 1 · HERO — title, discovery, confidence, quick react.
-            Nothing else. ── */}
-        <div style={{ paddingTop: 16 }}>
-          <div style={{ ...serif, fontSize: 26, color: ink }}>분석</div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: surface }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 18px 24px" }}>
+        {/* ── PAGE HEADER — plain, on the surface background, not a card;
+            everything below this is a raised SectionCard. ── */}
+        <div style={{ padding: "20px 4px 0" }}>
+          <div style={{ ...serif, fontSize: 28, color: ink }}>분석</div>
           <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6 }}>당신의 마음을 이해하는 과정입니다.</div>
+        </div>
 
-          <div style={{ marginTop: 40 }}>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>오늘의 발견</div>
+        {/* ── SECTION 1 · HERO — title, discovery, confidence. Nothing else. ── */}
+        <div style={{ marginTop: 18 }}>
+          <SectionCard>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: accent, letterSpacing: "0.05em" }}>오늘의 발견</div>
             {!discovery && (
-              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
                 <Mindy size={72} expression="curious" />
               </div>
             )}
-            <div style={{ ...serif, fontSize: 22, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
+            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
               {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
             </div>
             {discovery && (
-              <div style={{ marginTop: 14 }}>
-                <ConfidenceReadout value={h ? h.confidence : b?.confidence ?? 0} />
+              <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
+                <ConfidenceBar value={h ? h.confidence : b?.confidence ?? 0} />
               </div>
             )}
-          </div>
+          </SectionCard>
         </div>
 
         {discovery && (
           <>
             {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
-            <div style={{ marginTop: 8, paddingTop: 28, borderTop: `1px solid ${hair}` }}>
-              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>왜 이런 해석이 나왔나요?</div>
-              {evidence.length > 0 ? (
-                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-                  {evidence.map((e, i) => (
-                    <EvidenceQuoteCard key={i} date={e.date} quote={e.quote} domain={e.domain} />
-                  ))}
-                </div>
-              ) : (
-                <div style={{ ...sans, fontSize: 13, color: faint, marginTop: 12 }}>아직 근거로 남길 만한 기록이 없어요.</div>
-              )}
-
-              {contradictoryEntries.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                    이 결론과 다르게 나타난 기록도 있어요 — 확신도는 이걸 반영해 낮아져 있어요.
-                  </div>
-                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-                    {contradictoryEntries.map(({ belief, entry }, i) => (
-                      <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface, borderLeft: `2px solid ${tension}` }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.date}</span>
-                          <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: accentSoft, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
-                        </div>
-                        <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
-                      </div>
+            <div style={{ marginTop: 14 }}>
+              <SectionCard title="왜 이런 해석이 나왔나요?">
+                {evidence.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {evidence.map((e, i) => (
+                      <EvidenceQuoteCard key={i} date={e.date} quote={e.quote} domain={e.domain} />
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ ...sans, fontSize: 13, color: faint }}>아직 근거로 남길 만한 기록이 없어요.</div>
+                )}
+
+                {contradictoryEntries.length > 0 && (
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
+                    <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: tension, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                      ⚠ 이 결론과 다르게 나타난 기록도 있어요
+                    </div>
+                    <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                      확신도는 이걸 반영해 낮아져 있어요.
+                    </div>
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                      {contradictoryEntries.map(({ belief, entry }, i) => (
+                        <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: tensionSoft, borderLeft: `2px solid ${tension}` }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ ...mono, fontSize: 11, color: faint }}>{entry.date}</span>
+                            <span style={{ ...sans, fontSize: 10, color: mid, backgroundColor: "#fff", padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                          </div>
+                          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: inkSoft, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
             </div>
 
             {/* ── SECTION 3 · BELIEF EVOLUTION — watch the pattern develop over time. ── */}
             {evolutionPoints.length > 0 && (
-              <div style={{ marginTop: 34 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 14 }}>신념의 변화</div>
-                <EvolutionTimeline points={evolutionPoints} />
+              <div style={{ marginTop: 14 }}>
+                <SectionCard title="신념의 변화">
+                  <EvolutionTimeline points={evolutionPoints} />
+                </SectionCard>
               </div>
             )}
 
             {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
-            <div style={{ marginTop: 34 }}>
-              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>관련 활성 뉴런</div>
-              <div style={{ marginTop: 12 }}>
-                <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={300} />
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <RegionBreakdown beliefs={store.beliefs} />
-              </div>
+            <div style={{ marginTop: 14 }}>
+              <SectionCard title="관련 활성 뉴런">
+                <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} height={280} />
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
+                  <RegionBreakdown beliefs={store.beliefs} />
+                </div>
+              </SectionCard>
             </div>
 
             {/* ── SECTION 5 · USER REFLECTION — the considered version of the hero's quick react. ── */}
-            <div style={{ marginTop: 34 }}>
-              <DiscoveryReflection
-                reaction={reaction}
-                reinterpreting={reinterpreting}
-                exhausted={exhausted}
-                onReact={handleReact}
-              />
-              {h?.investigate && hIndex !== null && (
-                <div style={{ marginTop: 12 }}>
-                  <GhostBtn onClick={() => onInvestigateHypothesis?.(hIndex)}>더 깊이 알아보기</GhostBtn>
-                </div>
-              )}
+            <div style={{ marginTop: 14 }}>
+              <SectionCard>
+                <DiscoveryReflection
+                  reaction={reaction}
+                  reinterpreting={reinterpreting}
+                  exhausted={exhausted}
+                  onReact={handleReact}
+                />
+                {h?.investigate && hIndex !== null && (
+                  <div style={{ marginTop: 12 }}>
+                    <GhostBtn onClick={() => onInvestigateHypothesis?.(hIndex)}>더 깊이 알아보기</GhostBtn>
+                  </div>
+                )}
+              </SectionCard>
             </div>
           </>
         )}
 
         {/* ── SECTION 6 · EXPLORE MORE — secondary analysis, each its own independent page. ── */}
-        <div style={{ marginTop: 34 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>더 깊이 보기</div>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ marginTop: 22 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: ink, letterSpacing: "0.05em", padding: "0 4px" }}>더 깊이 보기</div>
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
             <ArtifactTile
               label="무의식적 패턴"
               teaser={hasBeliefs
@@ -1041,9 +1064,11 @@ function ScreenAnalysis({
             />
           </div>
           <div style={{ marginTop: 10 }}>
-            <ComingSoonRow label="가치 변화" />
-            <ComingSoonRow label="감정 분포" />
-            <ComingSoonRow label="사고 패턴" note="CBT" />
+            <SectionCard>
+              <ComingSoonRow label="가치 변화" />
+              <ComingSoonRow label="감정 분포" />
+              <ComingSoonRow label="사고 패턴" note="CBT" last />
+            </SectionCard>
           </div>
         </div>
       </div>
@@ -2409,12 +2434,28 @@ function ScreenProfile({
           </div>
         </div>
 
+        {/* Introduces the mascot by name once, here — nowhere else in the
+            app names it or explains it, so someone who's only seen it
+            silently holding the "brain" on the processing screen has a
+            place to learn who it is. */}
+        <div style={{ marginTop: 28, padding: 16, borderRadius: 16, backgroundColor: surface, display: "flex", gap: 14, alignItems: "center" }}>
+          <div style={{ flexShrink: 0 }}>
+            <Mindy size={52} expression="happy" />
+          </div>
+          <div>
+            <div style={{ ...serif, fontSize: 15, color: ink }}>마인디</div>
+            <div style={{ ...sans, fontSize: 12, color: mid, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              정리하지 않아도 괜찮아요. 마인디가 당신의 생각을 받아주고, 그 속에 숨겨진 패턴을 함께 찾아줄게요.
+            </div>
+          </div>
+        </div>
+
         {/* Design/dev affordance: instantly switches the whole app between
             curated demo content and a real, on-device, initially-empty
             store — see src/app/dataProvider.ts. Not something a real end
             user would normally touch, but there's no separate build
             target to hide it behind. */}
-        <div style={{ marginTop: 28 }}>
+        <div style={{ marginTop: 16 }}>
           <SettingsToggle
             label="데모 모드"
             note="켜면 예시 데이터로 화면을 둘러볼 수 있어요. 끄면 실제 내 기록만 보여요 — 새 계정은 빈 상태로 시작해요."
