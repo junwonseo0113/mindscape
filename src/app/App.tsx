@@ -903,11 +903,36 @@ function ScreenAnalysis({
   const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const hasBeliefs = store.beliefs.length > 0;
-  const brainBeliefs = React.useMemo(() => withBrainExtras(store.beliefs, store.history), [store.beliefs, store.history]);
-  const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
   const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
   const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
+
+  // SECTION 4's "관련 활성 뉴런" — literally the beliefs related to *this*
+  // discovery, not the whole brain (Home already shows that). A hypothesis
+  // names its own relatedBeliefIds; a belief-kind discovery's "related"
+  // set is itself plus anything connected to it. Falls back to the full
+  // brain only if that set somehow comes up empty, so the card is never
+  // just a blank field.
+  const relatedBeliefIds = React.useMemo(() => {
+    if (h) return new Set(h.relatedBeliefIds);
+    if (b) {
+      const linked = store.connections.filter((c) => c.a === b.id || c.b === b.id).map((c) => (c.a === b.id ? c.b : c.a));
+      return new Set([b.id, ...linked]);
+    }
+    return new Set<string>();
+  }, [h, b, store.connections]);
+  const relatedBrainBeliefs = React.useMemo(() => {
+    const filtered = store.beliefs.filter((belief) => relatedBeliefIds.has(belief.id));
+    return withBrainExtras(filtered.length > 0 ? filtered : store.beliefs, store.history);
+  }, [store.beliefs, store.history, relatedBeliefIds]);
+  const relatedBrainConnections = React.useMemo(() => {
+    if (relatedBeliefIds.size === 0) return store.connections;
+    return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
+  }, [store.connections, relatedBeliefIds]);
+  const relatedBrainClusters = React.useMemo(
+    () => findBeliefClusters(relatedBrainBeliefs, relatedBrainConnections),
+    [relatedBrainBeliefs, relatedBrainConnections]
+  );
 
   // SECTION 2 — the strongest (most recent) three, shown chronologically.
   const rawEvidence: (StoredEvidenceQuote & { domain?: string })[] = h ? evidenceForHypothesis(h, store.beliefs) : b ? b.evidenceQuotes : [];
@@ -1051,10 +1076,10 @@ function ScreenAnalysis({
 
             {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
             <div style={{ marginTop: 14 }}>
-              <SectionCard title="관련 활성 뉴런">
-                <NeuralBeliefGraph3D beliefs={brainBeliefs} connections={store.connections} clusters={brainClusters} height={280} />
+              <SectionCard title="관련 활성 뉴런" subtitle="이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.">
+                <NeuralBeliefGraph3D beliefs={relatedBrainBeliefs} connections={relatedBrainConnections} clusters={relatedBrainClusters} height={280} />
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${hair}` }}>
-                  <RegionBreakdown beliefs={store.beliefs} />
+                  <RegionBreakdown beliefs={relatedBrainBeliefs} />
                 </div>
               </SectionCard>
             </div>
