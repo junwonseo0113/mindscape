@@ -68,6 +68,31 @@ export const COGNITIVE_PATTERN_DESCRIPTIONS: Record<(typeof COGNITIVE_PATTERN_LA
   "긍정 축소": "잘한 일이나 좋은 결과를 '별거 아니었다'며 깎아내리는 흔한 사고 습관이에요.",
 };
 
+// A balanced, standard CBT reframe of each named pattern (ported from a
+// parallel session, odysseyof26's 8580f53) — most cognitive habits started
+// as something adaptive, not just a flaw to correct. Always paired
+// (benefit alongside caution), never a diagnosis, never presented as a
+// unique insight about any one person — the same reframe every time that
+// pattern is tagged, grounded in the pattern itself, not the user.
+export const COGNITIVE_PATTERN_REFLECTIONS: Record<(typeof COGNITIVE_PATTERN_LABELS)[number], { benefit: string; caution: string }> = {
+  흑백사고: { benefit: "빠르고 명확하게 판단할 수 있게 해줘요.", caution: "상황의 중간 지점을 놓칠 때가 있어요." },
+  과잉일반화: { benefit: "한 번의 경험에서 빠르게 규칙을 찾아내는 힘이에요.", caution: "한 번의 일이 항상 반복될 거라 단정할 때가 있어요." },
+  재앙화: { benefit: "위험을 미리 대비하게 해주는 신중함이에요.", caution: "실제보다 상황을 더 심각하게 느낄 때가 있어요." },
+  개인화: { benefit: "책임감 있게 상황을 받아들이는 태도예요.", caution: "내 탓이 아닌 것까지 떠안을 때가 있어요." },
+  "감정적 추론": { benefit: "감정에 솔직하게 반응하는 힘이에요.", caution: "그 순간의 느낌을 사실로 믿게 될 때가 있어요." },
+  "당위적 사고": { benefit: "스스로에게 높은 기준을 두는 태도예요.", caution: "기준에 못 미칠 때 스스로를 몰아세울 수 있어요." },
+  "정신적 여과": { benefit: "중요한 디테일을 놓치지 않는 집중력이에요.", caution: "긍정적인 부분을 자연스럽게 지나칠 때가 있어요." },
+  "성급한 결론": { benefit: "빠르게 상황을 파악하고 결정하는 힘이에요.", caution: "충분한 근거 없이 결론에 도달할 때가 있어요." },
+  "긍정 축소": { benefit: "겸손하게 스스로를 돌아보는 태도예요.", caution: "잘한 부분까지 스스로 인정하지 않을 때가 있어요." },
+};
+
+// When no specific pattern is tagged — still a paired, honest reframe,
+// just not tied to one named distortion.
+export const GENERIC_PATTERN_REFLECTION = {
+  benefit: "이 반응은 지금까지 당신을 지켜온 방식일 수 있어요.",
+  caution: "가끔은 다른 선택지를 가려버릴 때도 있어요.",
+};
+
 // Suggested ACT life-domain vocabulary for valueDirection.relatedValues —
 // a starting point, not a closed list.
 export const VALUE_DOMAIN_LABELS = [

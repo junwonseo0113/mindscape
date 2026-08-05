@@ -17,7 +17,7 @@ import {
 } from "./types";
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
-import { COGNITIVE_PATTERN_DESCRIPTIONS, DISCLAIMER_NOTICE, findBeliefClusters, findContradictionPairs, matchableCandidates } from "./analysisFramework";
+import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, matchableCandidates } from "./analysisFramework";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -97,6 +97,23 @@ function StatusBar() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Same parallel-session port as NavIcon below — a small waveform glyph for
+// Home's "생각 말하기" button, replacing the plain dot with something that
+// actually reads as "speak/record."
+function WaveformIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <g stroke={color} strokeWidth="2" strokeLinecap="round">
+        <path d="M4 10v4" />
+        <path d="M8 7v10" />
+        <path d="M12 4v16" />
+        <path d="M16 7v10" />
+        <path d="M20 10v4" />
+      </g>
+    </svg>
   );
 }
 
@@ -744,7 +761,7 @@ function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: s
             style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: dkCardShadow }}
           >
             <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#2A2144", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: dkAccentLight, boxShadow: `0 0 10px ${dkAccent}` }} />
+              <WaveformIcon color={dkAccentLight} />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>생각 말하기</span>
@@ -1991,7 +2008,18 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
       )}
       {openPattern && (
         <div style={{ ...sans, fontSize: 12, color: inkSoft, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all", padding: 10, borderRadius: 10, backgroundColor: accentSoft }}>
-          {COGNITIVE_PATTERN_DESCRIPTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ""}
+          <div>{COGNITIVE_PATTERN_DESCRIPTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ""}</div>
+          {/* Balanced reframe (ported from a parallel session) — most
+              cognitive habits started as adaptive, not just a flaw. */}
+          {(() => {
+            const r = COGNITIVE_PATTERN_REFLECTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_REFLECTIONS] ?? GENERIC_PATTERN_REFLECTION;
+            return (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${hair}`, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div><span style={{ fontWeight: 700, color: accent }}>도움이 되는 점</span> · {r.benefit}</div>
+                <div><span style={{ fontWeight: 700, color: tension }}>주의할 점</span> · {r.caution}</div>
+              </div>
+            );
+          })()}
         </div>
       )}
       {belief.evidenceQuotes.length > 0 && (
