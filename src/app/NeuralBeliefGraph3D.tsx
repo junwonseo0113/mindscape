@@ -1022,197 +1022,186 @@ export default function NeuralBeliefGraph3D({
     controlsRef.current?.reset?.();
   };
 
+  // Dark container + info-card treatment ported from the imported design
+  // spec's NeuralBeliefGraph3D.dc.html — that file reimplements this whole
+  // component as a 2D-canvas fake-3D projection rather than truly
+  // "importing" the WebGL one, so what's actually portable from it is the
+  // visual language (colors, layout, button order), not the renderer.
+  // Kept the real Three.js scene; every detail below (background gradient,
+  // card styling, button order, caption, legend position) now matches it.
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height,
-        borderRadius: 26,
-        overflow: "hidden",
-        background: "radial-gradient(circle at 50% 45%, rgba(237,232,252,0.96) 0%, rgba(249,247,252,0.98) 52%, #FFFFFF 100%)",
-        border: "1px solid rgba(91,75,138,0.08)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9), 0 18px 50px rgba(76,58,122,0.08)",
-      }}
-    >
-      <Canvas
-        dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
-        camera={{ position: [0, 0, 7.2], fov: 44 }}
-        gl={{ antialias: true, alpha: true }}
-        onPointerMissed={() => setSelectedId(null)}
-      >
-        <BrainScene
-          activeNodes={activeNodes}
-          connections={connections}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
-          onHover={setHoveredId}
-          controlsRef={controlsRef}
-          isInteracting={isInteracting}
-          onInteractStart={() => setIsInteracting(true)}
-          onInteractEnd={() => setIsInteracting(false)}
-          justActivatedById={justActivatedById}
-          justActivatedBgIndices={justActivatedBgIndices}
-          structureMode={structureMode}
-          clusters={clusters}
-        />
-      </Canvas>
-
+    <div>
       <div
         style={{
-          position: "absolute",
-          left: 14,
-          top: 13,
-          fontFamily: "Inter, sans-serif",
-          fontSize: 10.5,
-          color: "#93909B",
-          letterSpacing: "0.02em",
-          pointerEvents: "none",
+          position: "relative",
+          width: "100%",
+          height,
+          borderRadius: 26,
+          overflow: "hidden",
+          background: "radial-gradient(circle at 50% 32%, #161029 0%, #0a0716 55%, #050308 100%)",
+          border: "1px solid rgba(150,120,255,0.14)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35), inset 0 0 60px rgba(90,60,180,0.08)",
         }}
       >
-        드래그해서 회전 · 스크롤해서 확대
-      </div>
-
-      <div style={{ position: "absolute", right: 14, top: 11, display: "flex", gap: 6 }}>
-        <button
-          onClick={() => setStructureMode((v) => !v)}
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: 10.5,
-            fontWeight: 600,
-            color: structureMode ? "#fff" : "#6E6B74",
-            background: structureMode ? "#5B4B8A" : "rgba(255,255,255,0.7)",
-            border: `1px solid ${structureMode ? "#5B4B8A" : "rgba(91,75,138,0.14)"}`,
-            borderRadius: 999,
-            padding: "5px 10px",
-            cursor: "pointer",
-            backdropFilter: "blur(6px)",
-          }}
+        <Canvas
+          dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
+          camera={{ position: [0, 0, 7.2], fov: 44 }}
+          gl={{ antialias: true, alpha: true }}
+          onPointerMissed={() => setSelectedId(null)}
         >
-          구조 보기
-        </button>
-        <button
-          onClick={resetView}
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: 10.5,
-            fontWeight: 600,
-            color: "#6E6B74",
-            background: "rgba(255,255,255,0.7)",
-            border: "1px solid rgba(91,75,138,0.14)",
-            borderRadius: 999,
-            padding: "5px 10px",
-            cursor: "pointer",
-            backdropFilter: "blur(6px)",
-          }}
-        >
-          초기화
-        </button>
-      </div>
+          <BrainScene
+            activeNodes={activeNodes}
+            connections={connections}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
+            onHover={setHoveredId}
+            controlsRef={controlsRef}
+            isInteracting={isInteracting}
+            onInteractStart={() => setIsInteracting(true)}
+            onInteractEnd={() => setIsInteracting(false)}
+            justActivatedById={justActivatedById}
+            justActivatedBgIndices={justActivatedBgIndices}
+            structureMode={structureMode}
+            clusters={clusters}
+          />
+        </Canvas>
 
-      {selectedNode && (
-        <div
-          style={{
-            position: "absolute",
-            left: 14,
-            right: 14,
-            bottom: 14,
-            padding: "13px 14px",
-            borderRadius: 16,
-            background: "rgba(255,255,255,0.88)",
-            border: "1px solid rgba(91,75,138,0.12)",
-            boxShadow: "0 12px 28px rgba(50,37,92,0.11)",
-            backdropFilter: "blur(14px)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 700, color: selectedNode.color }}>{selectedNode.domain}</span>
-            <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#93909B" }}>
-              {selectedNode.evidenceCount}건 · {selectedNode.confidence}%
-            </span>
-          </div>
-          <div style={{ marginTop: 6, fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 17, lineHeight: 1.35, color: "#1C1B1F", wordBreak: "keep-all" }}>
-            {selectedNode.statement}
-          </div>
-
-          {structureMode && selectedCluster && selectedCluster.length >= 3 && (
-            <div style={{ marginTop: 8, fontFamily: "Inter, sans-serif", fontSize: 11.5, color: "#5B4B8A", lineHeight: 1.5, wordBreak: "keep-all" }}>
-              다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요.
-            </div>
-          )}
-
-          {structureMode && selectedContradiction && (
-            <div style={{ marginTop: 8, fontFamily: "Inter, sans-serif", fontSize: 11.5, color: "#B5533C", lineHeight: 1.5, wordBreak: "keep-all" }}>
-              "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
-            </div>
-          )}
-        </div>
-      )}
-
-      {!selectedNode && selectedRegion && (
-        <div
-          style={{
-            position: "absolute",
-            left: 14,
-            right: 14,
-            bottom: 46,
-            padding: "12px 14px",
-            borderRadius: 16,
-            background: "rgba(255,255,255,0.9)",
-            border: `1px solid ${REGION_CONFIG[selectedRegion].color}33`,
-            boxShadow: "0 12px 28px rgba(50,37,92,0.11)",
-            backdropFilter: "blur(14px)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: REGION_CONFIG[selectedRegion].color, flexShrink: 0 }} />
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11.5, fontWeight: 700, color: REGION_CONFIG[selectedRegion].color }}>
-              {REGION_CONFIG[selectedRegion].label}
-            </span>
-          </div>
-          <div style={{ marginTop: 5, fontFamily: "Inter, sans-serif", fontSize: 12, lineHeight: 1.5, color: "#403E45", wordBreak: "keep-all" }}>
+        {!selectedNode && selectedRegion && (
+          <div
+            style={{
+              position: "absolute",
+              left: 10,
+              right: 10,
+              top: 10,
+              background: "rgba(31,27,22,0.9)",
+              color: "#fff",
+              fontSize: 11.5,
+              fontFamily: "Inter, sans-serif",
+              padding: "8px 12px",
+              borderRadius: 10,
+              wordBreak: "keep-all",
+            }}
+          >
             {REGION_CONFIG[selectedRegion].description}
           </div>
-        </div>
-      )}
+        )}
 
-      {!selectedNode && (
         <div
           style={{
             position: "absolute",
-            left: 8,
-            right: 8,
-            bottom: 12,
-            display: "flex",
-            justifyContent: "center",
-            flexWrap: "nowrap",
-            gap: 5,
+            left: 12,
+            bottom: 10,
+            fontFamily: "Inter, sans-serif",
+            fontSize: 10,
+            color: "rgba(255,255,255,0.35)",
+            pointerEvents: "none",
           }}
         >
-          {COGNITIVE_REGIONS.map((region) => {
-            const active = selectedRegion === region;
-            return (
-              <div
-                key={region}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedRegion(active ? null : region)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 3, flexShrink: 0, cursor: "pointer",
-                  padding: "3px 6px", borderRadius: 999,
-                  backgroundColor: active ? `${REGION_CONFIG[region].color}22` : "transparent",
-                }}
-              >
-                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
-                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10, fontWeight: active ? 700 : 500, color: active ? REGION_CONFIG[region].color : "#847F8C", whiteSpace: "nowrap" }}>
-                  {REGION_CONFIG[region].label}
-                </span>
-              </div>
-            );
-          })}
+          드래그로 회전 · 탭하여 선택
         </div>
-      )}
+
+        <div style={{ position: "absolute", right: 10, top: 10, display: "flex", gap: 8 }}>
+          <button
+            onClick={resetView}
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 11,
+              fontWeight: 600,
+              color: "rgba(255,255,255,0.85)",
+              background: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 999,
+              padding: "6px 12px",
+              cursor: "pointer",
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            초기화
+          </button>
+          <button
+            onClick={() => setStructureMode((v) => !v)}
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: 11,
+              fontWeight: 600,
+              color: structureMode ? "#fff" : "rgba(255,255,255,0.85)",
+              background: structureMode ? "#7B5CF0" : "rgba(255,255,255,0.1)",
+              border: `1px solid ${structureMode ? "#7B5CF0" : "rgba(255,255,255,0.12)"}`,
+              borderRadius: 999,
+              padding: "6px 12px",
+              cursor: "pointer",
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            구조 보기
+          </button>
+        </div>
+
+        {selectedNode && (
+          <div
+            style={{
+              position: "absolute",
+              left: 10,
+              right: 10,
+              bottom: 36,
+              background: "rgba(20,15,35,0.92)",
+              border: "1px solid rgba(170,140,255,0.2)",
+              backdropFilter: "blur(8px)",
+              borderRadius: 14,
+              padding: "14px 16px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
+              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
+              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>확신도 {selectedNode.confidence}%</span>
+            </div>
+            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
+              {selectedNode.statement}
+            </div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>근거 {selectedNode.evidenceCount}개</div>
+
+            {structureMode && selectedCluster && selectedCluster.length >= 3 && (
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요
+              </div>
+            )}
+            {structureMode && selectedContradiction && (
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Region legend — outside the canvas card, per spec, not overlaid on it. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+        {COGNITIVE_REGIONS.map((region) => {
+          const active = selectedRegion === region;
+          return (
+            <div
+              key={region}
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedRegion(active ? null : region)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                background: active ? `${REGION_CONFIG[region].color}22` : "rgba(150,120,255,0.1)",
+                border: `1px solid ${active ? REGION_CONFIG[region].color : "rgba(150,120,255,0.16)"}`,
+                color: active ? REGION_CONFIG[region].color : "#D6C8FF",
+                fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: active ? 700 : 500,
+                padding: "6px 10px", borderRadius: 999,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
+              <span>{REGION_CONFIG[region].label}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -41,12 +41,11 @@ const tensionSoft = "rgba(181,83,60,0.08)";
 // read as raised without needing a harder edge.
 const cardShadow = "0 1px 2px rgba(28,27,31,0.05), 0 6px 18px rgba(28,27,31,0.045)";
 
-// ── Dark theme — Home and Analysis only, per the imported design spec
-// (claude.ai/design project "Design spec for analysis page", 홈 화면.dc.html
-// + 분석 화면.dc.html). Every other screen still uses the light palette
-// above, so navigating away from these two tabs currently looks
-// inconsistent — that's a known consequence of only these two screens
-// being in-scope for the spec, not an oversight.
+// ── Dark theme — Home, Analysis, History, Profile, per the imported
+// design spec (claude.ai/design project "Design spec for analysis page":
+// 홈/분석/기록/프로필 화면.dc.html). Every other screen (온보딩, 로그인,
+// 생각 말하기, etc.) still uses the light palette above — those weren't
+// part of this import.
 const dkBg = "#0a0716";
 const dkCard = "#14101f";
 const dkCardBorder = "rgba(150,120,255,0.10)";
@@ -66,6 +65,22 @@ const dkWarnTag = "rgba(224,138,74,0.22)";
 const dkWarnTagText = "#F0B78A";
 const dkWarnLabel = "#B5652E";
 const dkDivider = "rgba(150,120,255,0.14)";
+// 기록/프로필 only — a faint scattered-star texture behind the flat dark
+// background, straight from those two files' <style> block.
+const dkStarfield: React.CSSProperties = {
+  backgroundColor: dkBg,
+  backgroundImage: [
+    "radial-gradient(1.4px 1.4px at 12% 18%, rgba(255,255,255,.55), transparent 60%)",
+    "radial-gradient(1px 1px at 32% 68%, rgba(255,255,255,.35), transparent 60%)",
+    "radial-gradient(1.6px 1.6px at 55% 12%, rgba(200,180,255,.5), transparent 60%)",
+    "radial-gradient(1px 1px at 72% 45%, rgba(255,255,255,.4), transparent 60%)",
+    "radial-gradient(1.3px 1.3px at 88% 78%, rgba(180,150,255,.45), transparent 60%)",
+    "radial-gradient(1px 1px at 8% 82%, rgba(255,255,255,.3), transparent 60%)",
+    "radial-gradient(1.2px 1.2px at 95% 22%, rgba(255,255,255,.4), transparent 60%)",
+  ].join(","),
+  backgroundSize: "420px 420px",
+  backgroundRepeat: "repeat",
+};
 
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
@@ -2637,34 +2652,126 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
   );
 }
 
+// Parses "YYYY.MM.DD" (formatDateDots) into a local Date at midnight, or
+// null if it doesn't parse — shared by the streak calculator and history
+// grouping below so both agree on exactly what counts as "the same day."
+function parseDotDate(dateStr: string): Date | null {
+  const parts = dateStr.split(".").map((s) => parseInt(s, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, m, d] = parts;
+  const dt = new Date(y, m - 1, d);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+// "오늘"/"어제" relative to now, else the raw date — matches 기록 화면.dc.html's
+// group headers without fabricating anything the date itself doesn't say.
+function relativeDayLabel(dateStr: string): string {
+  const d = parseDotDate(dateStr);
+  if (!d) return dateStr;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "오늘";
+  if (diffDays === 1) return "어제";
+  return dateStr;
+}
+
+// The design spec colors each history entry by domain, which this app's
+// entries don't carry directly (only beliefs have a domain) — so this
+// looks up whichever belief this entry actually supported, and borrows
+// its domain + region color. Entries that never matched a pattern (most
+// early ones) simply render without a domain badge, never a fabricated one.
+function findEntryDomain(entryId: string, beliefs: StoredBelief[]): { domain: string; color: string } | null {
+  const match = beliefs.find((b) => (b.supportingEntryIds ?? []).includes(entryId));
+  if (!match) return null;
+  return { domain: match.domain, color: REGION_CONFIG[resolveRegion(match)].color };
+}
+
+// Longest run of consecutive calendar days (ending at the most recent
+// entry, not necessarily today — a real gap shouldn't quietly read as an
+// active streak) with at least one entry — real data only, no rounding up.
+function computeStreak(history: StoredHistoryEntry[]): number {
+  const days = new Set<string>();
+  history.forEach((e) => {
+    const d = parseDotDate(e.date);
+    if (d) days.add(d.toDateString());
+  });
+  if (days.size === 0) return 0;
+  const sorted = Array.from(days)
+    .map((s) => new Date(s))
+    .sort((a, b) => b.getTime() - a.getTime());
+  let streak = 1;
+  for (let i = 1; i < sorted.length; i += 1) {
+    const diff = Math.round((sorted[i - 1].getTime() - sorted[i].getTime()) / (1000 * 60 * 60 * 24));
+    if (diff === 1) streak += 1;
+    else break;
+  }
+  return streak;
+}
+
 // ── Screen 13 · History ───────────────────────────────────────────────────────
+// Dark theme + starfield background, ported from 기록 화면.dc.html. Entries
+// grouped by day (오늘/어제/date), each carrying whatever real domain/tag
+// data can be honestly derived (see findEntryDomain above) — never invented.
 function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
   const items = [...store.history].reverse();
+  const groups = React.useMemo(() => {
+    const map = new Map<string, { label: string; entries: { index: number; entry: StoredHistoryEntry }[] }>();
+    items.forEach((entry, index) => {
+      const label = relativeDayLabel(entry.date);
+      const bucket = map.get(entry.date);
+      if (bucket) bucket.entries.push({ index, entry });
+      else map.set(entry.date, { label, entries: [{ index, entry }] });
+    });
+    return Array.from(map.values());
+  }, [items]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <div style={{ ...serif, fontSize: 26, color: ink }}>기록</div>
-        <div style={{ ...sans, fontSize: 13, color: mid, marginTop: 6 }}>지금까지 나눈 생각들이에요.</div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", ...dkStarfield }}>
+      <div style={{ padding: "24px 16px 8px", flexShrink: 0 }}>
+        <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>기록</div>
+        <div style={{ ...sans, fontSize: 13, color: dkBody }}>지금까지 남긴 생각들이에요.</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {items.length === 0 ? (
-          <div style={{ ...sans, fontSize: 13, color: faint, padding: "12px 0" }}>아직 기록된 생각이 없습니다.</div>
+          <div style={{ ...sans, fontSize: 13, color: dkBody, padding: "12px 0" }}>아직 기록된 생각이 없습니다.</div>
         ) : (
-          items.map((h, i) => (
-            <motion.div
-              key={`${h.date}-${i}`} role="button" tabIndex={0} onClick={() => onOpenEntry?.(i)} whileTap={{ opacity: 0.6 }}
-              style={{ padding: "16px 0", borderBottom: `1px solid ${hair}`, cursor: "pointer" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ ...mono, fontSize: 12, color: faint }}>{h.date}</span>
-                {h.duration && <span style={{ ...mono, fontSize: 11, color: faint }}>{h.duration}</span>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {groups.map((grp) => (
+              <div key={grp.label + grp.entries[0].entry.id}>
+                <div style={{ ...mono, fontSize: 11, color: "#726A8A", marginBottom: 10, letterSpacing: "0.03em" }}>{grp.label}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {grp.entries.map(({ index, entry }) => {
+                    const domainInfo = findEntryDomain(entry.id, store.beliefs);
+                    const status = entry.analysis?.hypothesis?.status;
+                    const tag = status === "supported" || status === "emerging" ? "반복되는 생각" : null;
+                    return (
+                      <motion.div
+                        key={entry.id} role="button" tabIndex={0} onClick={() => onOpenEntry?.(index)} whileTap={{ opacity: 0.6 }}
+                        style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 16, padding: "16px 18px", boxShadow: "0 8px 20px rgba(0,0,0,0.3)", cursor: "pointer" }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          {domainInfo && (
+                            <>
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: domainInfo.color, flexShrink: 0 }} />
+                              <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: domainInfo.color }}>{domainInfo.domain}</span>
+                            </>
+                          )}
+                          {entry.duration && <span style={{ ...mono, fontSize: 10.5, color: "#726A8A", marginLeft: "auto" }}>{entry.duration}</span>}
+                        </div>
+                        <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
+                        {tag && (
+                          <div style={{ marginTop: 10, display: "inline-block", ...sans, fontSize: 10.5, color: dkBody, backgroundColor: "rgba(150,120,255,0.08)", padding: "3px 10px", borderRadius: 999 }}>{tag}</div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </div>
-              <div style={{ ...sans, fontSize: 14, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{h.text}</div>
-            </motion.div>
-          ))
+            ))}
+          </div>
         )}
       </div>
-      <BottomNav active="history" onSelect={onNavSelect} />
+      <BottomNav active="history" onSelect={onNavSelect} dark />
     </div>
   );
 }
@@ -2706,34 +2813,59 @@ function ScreenProfile({
   isDemoMode: boolean;
   onToggleDemoMode: (v: boolean) => void;
 }) {
-  const rows: { label: string; onClick?: () => void }[] = [
-    { label: "알림", onClick: () => onOpenSettings?.("notifications") },
-    { label: "데이터와 개인정보", onClick: () => onOpenSettings?.("dataPrivacy") },
-    { label: "도움말", onClick: () => onOpenSettings?.("help") },
-    { label: "로그아웃", onClick: onNavSelect ? () => onNavSelect("auth") : undefined },
+  const name = store.account?.name || "익명의 관찰자";
+  const initial = name.charAt(0);
+  const firstEntryDate = [...store.history].sort((a, b) => a.date.localeCompare(b.date))[0]?.date;
+  const stats = [
+    { value: String(store.entryCount), label: "남긴 생각" },
+    { value: String(store.beliefs.length), label: "발견된 신념" },
+    { value: `${computeStreak(store.history)}일`, label: "연속 기록" },
+  ];
+  const rows: { label: string; color: string; onClick?: () => void }[] = [
+    { label: "알림", color: dkAccent, onClick: () => onOpenSettings?.("notifications") },
+    { label: "데이터와 개인정보", color: "#4A90D9", onClick: () => onOpenSettings?.("dataPrivacy") },
+    { label: "도움말", color: "#34B27B", onClick: () => onOpenSettings?.("help") },
+    { label: "로그아웃", color: "#726A8A", onClick: onNavSelect ? () => onNavSelect("auth") : undefined },
   ];
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "28px 22px 24px" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: surface }} />
-          <div style={{ ...serif, fontSize: 20, color: ink, marginTop: 12 }}>{store.account?.name || "익명의 관찰자"}</div>
-          <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4 }}>
-            {store.account?.email ? `${store.account.email} · ` : ""}대화 {store.entryCount}회
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", ...dkStarfield }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
+        <div style={{ padding: "8px 4px 24px" }}>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>프로필</div>
+          <div style={{ ...sans, fontSize: 13, color: dkBody }}>당신의 여정을 기록해왔어요.</div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 16, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: 20, boxShadow: dkCardShadow, marginBottom: 14 }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "radial-gradient(circle at 38% 32%, #4C3B8C, #241a44)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: dkAccentTagText }}>
+            {initial}
           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ ...sans, fontSize: 17, fontWeight: 700, color: dkHeading }}>{name}</span>
+            {firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: "#726A8A" }}>{firstEntryDate}부터 함께하고 있어요</span>}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+          {stats.map((s) => (
+            <div key={s.label} style={{ flex: 1, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }}>
+              <div style={{ ...mono, fontSize: 22, color: dkAccentTagText, marginBottom: 4 }}>{s.value}</div>
+              <div style={{ ...sans, fontSize: 11, color: dkBody }}>{s.label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Introduces the mascot by name once, here — nowhere else in the
             app names it or explains it, so someone who's only seen it
             silently holding the "brain" on the processing screen has a
-            place to learn who it is. */}
-        <div style={{ marginTop: 28, padding: 16, borderRadius: 16, backgroundColor: surface, display: "flex", gap: 14, alignItems: "center" }}>
+            place to learn who it is. Not part of the imported spec, kept
+            from before and restyled to match. */}
+        <div style={{ marginBottom: 14, padding: 16, borderRadius: 16, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, display: "flex", gap: 14, alignItems: "center" }}>
           <div style={{ flexShrink: 0 }}>
-            <Mindy size={52} expression="happy" />
+            <Mindy size={52} expression="happy" dark />
           </div>
           <div>
-            <div style={{ ...serif, fontSize: 15, color: ink }}>마인디</div>
-            <div style={{ ...sans, fontSize: 12, color: mid, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <div style={{ ...serif, fontSize: 15, color: dkHeading }}>마인디</div>
+            <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
               정리하지 않아도 괜찮아요. 마인디가 당신의 생각을 받아주고, 그 속에 숨겨진 패턴을 함께 찾아줄게요.
             </div>
           </div>
@@ -2744,43 +2876,45 @@ function ScreenProfile({
             store — see src/app/dataProvider.ts. Not something a real end
             user would normally touch, but there's no separate build
             target to hide it behind. */}
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginBottom: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "0 18px", boxShadow: dkCardShadow }}>
           <SettingsToggle
             label="데모 모드"
             note="켜면 예시 데이터로 화면을 둘러볼 수 있어요. 끄면 실제 내 기록만 보여요 — 새 계정은 빈 상태로 시작해요."
             value={isDemoMode}
             onChange={onToggleDemoMode}
+            dark
           />
         </div>
 
-        <div style={{ marginTop: 4 }}>
+        <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, overflow: "hidden", boxShadow: dkCardShadow }}>
           {rows.map((r, i) => (
             <motion.div
               key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: i < rows.length - 1 ? `1px solid ${hair}` : "none", cursor: "pointer" }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${dkDivider}` : "none" }}
             >
-              <span style={{ ...sans, fontSize: 15, color: r.label === "로그아웃" ? tension : inkSoft }}>{r.label}</span>
-              <span style={{ ...sans, fontSize: 14, color: faint }}>›</span>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: r.color, flexShrink: 0 }} />
+              <span style={{ ...sans, fontSize: 14, color: dkBodyLight, flex: 1 }}>{r.label}</span>
+              <span style={{ color: "#4A4460", fontSize: 15 }}>›</span>
             </motion.div>
           ))}
         </div>
       </div>
-      <BottomNav active="profile" onSelect={onNavSelect} />
+      <BottomNav active="profile" onSelect={onNavSelect} dark />
     </div>
   );
 }
 
 // ── Screen 14.1 · Notification settings ───────────────────────────────────────
-function SettingsToggle({ label, note, value, onChange }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void }) {
+function SettingsToggle({ label, note, value, onChange, dark }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void; dark?: boolean }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${hair}` }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dark ? dkDivider : hair}` }}>
       <div style={{ paddingRight: 16 }}>
-        <div style={{ ...sans, fontSize: 15, color: ink }}>{label}</div>
-        {note && <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
+        <div style={{ ...sans, fontSize: 15, color: dark ? dkBodyLight : ink }}>{label}</div>
+        {note && <div style={{ ...sans, fontSize: 12, color: dark ? dkBody : subtle, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
       </div>
       <motion.div
         role="button" tabIndex={0} onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
-        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? accent : hair, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
+        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? dkAccent : dark ? dkTrack : hair, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
       >
         <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff" }} />
       </motion.div>
