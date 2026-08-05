@@ -605,7 +605,6 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
 // would give it two homes, which is exactly what this reorg is meant to
 // remove. See ScreenAnalysis for where all of that moved.
 function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
-  const brainBeliefs = React.useMemo(() => withBrainExtras(store.beliefs, store.history), [store.beliefs, store.history]);
   const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
 
   return (
@@ -619,7 +618,7 @@ function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: s
         </div>
 
         <div style={{ marginTop: 16 }}>
-          <NeuralBeliefGraph3D beliefs={brainBeliefs} connections={store.connections} clusters={brainClusters} height={336} />
+          <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} clusters={brainClusters} height={336} />
         </div>
 
         <div style={{ marginTop: 20 }}>
@@ -923,8 +922,8 @@ function ScreenAnalysis({
   }, [h, b, store.connections]);
   const relatedBrainBeliefs = React.useMemo(() => {
     const filtered = store.beliefs.filter((belief) => relatedBeliefIds.has(belief.id));
-    return withBrainExtras(filtered.length > 0 ? filtered : store.beliefs, store.history);
-  }, [store.beliefs, store.history, relatedBeliefIds]);
+    return filtered.length > 0 ? filtered : store.beliefs;
+  }, [store.beliefs, relatedBeliefIds]);
   const relatedBrainConnections = React.useMemo(() => {
     if (relatedBeliefIds.size === 0) return store.connections;
     return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
@@ -1729,20 +1728,10 @@ function dominantEmotion(entryIds: string[] | undefined, history: StoredHistoryE
 }
 
 // Whether at least one of a belief's own supporting entries carries a full
-// situation→thought→emotion→action chain — shared by BeliefCard's "이
-// 패턴이 왜 반복되는지 보기" toggle and the 3D brain's Level-2 self-loop
-// ring (NeuralBeliefGraph3D), so both agree on exactly which beliefs get
-// to offer the loop experience at all.
+// situation→thought→emotion→action chain — powers BeliefCard's "이 패턴이
+// 왜 반복되는지 보기" toggle.
 function hasFunctionalLoopData(belief: Pick<StoredBelief, "supportingEntryIds">, history: StoredHistoryEntry[]): boolean {
   return (belief.supportingEntryIds ?? []).some((id) => history.find((e) => e.id === id)?.analysis?.observation.situation);
-}
-
-// Augments beliefs with the two extra fields NeuralBeliefGraph3D reads for
-// Level 2/4 (hasLoop, lastUpdatedAt is already on StoredBelief and passes
-// through as-is) — a thin wrapper so every call site sends the same shape
-// instead of repeating the .map inline.
-function withBrainExtras(beliefs: StoredBelief[], history: StoredHistoryEntry[]) {
-  return beliefs.map((b) => ({ ...b, hasLoop: hasFunctionalLoopData(b, history) }));
 }
 
 // Longitudinal drift (Level 4) — a plain sparkline over confidenceHistory,
@@ -2393,7 +2382,7 @@ function HypothesisDiscoveryBody({
             이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.
           </div>
           <div style={{ marginTop: 12 }}>
-            <NeuralBeliefGraph3D beliefs={withBrainExtras(relatedBeliefs, store.history)} connections={relatedConnections} height={200} />
+            <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} />
           </div>
         </div>
       )}

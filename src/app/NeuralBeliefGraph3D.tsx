@@ -30,11 +30,6 @@ export type NeuralBeliefNode = {
   // they keep the old pseudo-recency look; real beliefs always do (every
   // mergeAnalysisIntoStore update stamps it).
   lastUpdatedAt?: string;
-  // Whether this belief's own supporting entries carry a full situation→
-  // thought→emotion→action chain (see FunctionalLoopDiagram in App.tsx) —
-  // drives whether the selected-node card offers the "재생" self-loop
-  // animation at all.
-  hasLoop?: boolean;
   // Which of the six app-defined cognitive regions this belief activates a
   // neuron in. Optional because the backend doesn't produce this yet —
   // see mapDomainToCognitiveRegion below for the fallback.
@@ -308,18 +303,22 @@ function buildActiveNodes(beliefs: NeuralBeliefNode[]): ActiveNode[] {
 // frame for the slow drift/breathing (cheap: a few thousand scalar sines,
 // no per-neuron React component), colors only touched when focus changes
 // or a ripple is passing through a handful of them.
+const BACKGROUND_FIELD_OPACITY = 0.46;
+
 function BrainField({
   focusPosition,
   focusRadius,
   justActivatedBgIndices,
+  hideBackground,
 }: {
   focusPosition: Vec3 | null;
   focusRadius: number;
   justActivatedBgIndices: number[];
+  hideBackground: boolean;
 }) {
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, 0), []);
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.46, depthWrite: false, vertexColors: true, fog: true }),
+    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: BACKGROUND_FIELD_OPACITY, depthWrite: false, vertexColors: true, fog: true }),
     []
   );
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -373,11 +372,18 @@ function BrainField({
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [focusPosition, focusRadius, baseColors]);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
     frameCounter.current += 1;
     const t = clock.elapsedTime;
+
+    // Selecting a belief fades the whole dormant field out — not just the
+    // unrelated active neurons — so a selection reads as "here's the
+    // structure," not "here's one bright dot in a sea of noise."
+    const mat = material as THREE.MeshBasicMaterial;
+    const targetOpacity = hideBackground ? 0 : BACKGROUND_FIELD_OPACITY;
+    mat.opacity += (targetOpacity - mat.opacity) * Math.min(1, delta * 5);
 
     if (frameCounter.current % frameSkip === 0) {
       for (let i = 0; i < BACKGROUND_POSITIONS.length; i += 1) {
@@ -459,7 +465,7 @@ function BrainField({
 // around every one of them is what makes densely-packed neurons visually
 // melt into one continuous, organic mass instead of reading as separate
 // specks, especially where many overlap near the core.
-function BrainFieldGlowLayer({ scale, opacity, color }: { scale: number; opacity: number; color: string }) {
+function BrainFieldGlowLayer({ scale, opacity, color, hideBackground }: { scale: number; opacity: number; color: string; hideBackground: boolean }) {
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, 0), []);
   const material = useMemo(
     () => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, fog: true }),
@@ -480,6 +486,12 @@ function BrainFieldGlowLayer({ scale, opacity, color }: { scale: number; opacity
     });
     mesh.instanceMatrix.needsUpdate = true;
   }, [dummy, scale]);
+
+  useFrame((_, delta) => {
+    const mat = material as THREE.MeshBasicMaterial;
+    const target = hideBackground ? 0 : opacity;
+    mat.opacity += (target - mat.opacity) * Math.min(1, delta * 5);
+  });
 
   return <instancedMesh ref={meshRef} args={[geometry, material, BACKGROUND_POSITIONS.length]} frustumCulled={false} />;
 }
@@ -612,45 +624,6 @@ function BeliefConnectionLines({
         );
       })}
     </>
-  );
-}
-
-// Level 2 (functional analysis) — a small ring orbited by one glowing
-// particle, drawn around a single belief's own node. This is deliberately
-// a self-loop, not a line between two different beliefs: the situation→
-// thought→emotion→action cycle FunctionalLoopDiagram (App.tsx) shows is
-// one belief reinforcing itself, not a causal claim between two distinct
-// beliefs — so the 3D echo of it has to be a loop *on* that node, not an
-// edge to another one. Only ever mounted for LOOP_PLAY_DURATION_MS after
-// the info card's "재생" button is pressed (see NeuralBeliefGraph3D) —
-// never idle, never automatic.
-const LOOP_RING_SEGMENTS = 40;
-function LoopRing({ position, radius, color }: { position: Vec3; radius: number; color: string }) {
-  const particleRef = useRef<THREE.Mesh>(null);
-  const ringRadius = radius * 3.4;
-  const ringPoints = useMemo<Vec3[]>(() => {
-    const pts: Vec3[] = [];
-    for (let i = 0; i <= LOOP_RING_SEGMENTS; i += 1) {
-      const a = (i / LOOP_RING_SEGMENTS) * Math.PI * 2;
-      pts.push([Math.cos(a) * ringRadius, Math.sin(a) * ringRadius, 0]);
-    }
-    return pts;
-  }, [ringRadius]);
-
-  useFrame(({ clock }) => {
-    if (!particleRef.current) return;
-    const t = clock.elapsedTime * 1.7;
-    particleRef.current.position.set(Math.cos(t) * ringRadius, Math.sin(t) * ringRadius, 0);
-  });
-
-  return (
-    <group position={position}>
-      <Line points={ringPoints} color={color} transparent opacity={0.4} lineWidth={1} />
-      <mesh ref={particleRef}>
-        <sphereGeometry args={[radius * 0.5, 10, 10]} />
-        <meshBasicMaterial color={SELECTION_GOLD} transparent opacity={0.95} depthWrite={false} />
-      </mesh>
-    </group>
   );
 }
 
@@ -857,7 +830,6 @@ function BrainScene({
   justActivatedBgIndices,
   structureMode,
   clusters,
-  loopPlayingId,
 }: {
   activeNodes: ActiveNode[];
   connections: NeuralBeliefConnection[];
@@ -873,7 +845,6 @@ function BrainScene({
   justActivatedBgIndices: number[];
   structureMode: boolean;
   clusters: string[][];
-  loopPlayingId: string | null;
 }) {
   // Hover still drives the visual highlight (dim/glow/edges) — that's a
   // harmless, purely cosmetic reaction to the cursor. The camera itself
@@ -915,15 +886,23 @@ function BrainScene({
       <pointLight position={[4, 5, 6]} intensity={16} color="#E8DEFF" />
       <pointLight position={[-5, -3, -4]} intensity={7} color="#DCE8FF" />
 
+      {/* 구조 보기 (structureMode): the dormant tissue — dust field, its
+          glow layers, and the faint tissue-edge lines — fades out
+          entirely, leaving just the real belief network (nodes + every
+          connection, root and contradiction alike) visible at a glance. */}
       {!IS_SMALL_SCREEN && (
         <>
-          <BrainFieldGlowLayer scale={4.4} opacity={0.018} color="#1C1A1F" />
-          <BrainFieldGlowLayer scale={2.1} opacity={0.045} color="#221F26" />
+          <BrainFieldGlowLayer scale={4.4} opacity={0.018} color="#1C1A1F" hideBackground={structureMode} />
+          <BrainFieldGlowLayer scale={2.1} opacity={0.045} color="#221F26" hideBackground={structureMode} />
         </>
       )}
-      <BrainField focusPosition={focusNode?.position ?? null} focusRadius={0.7} justActivatedBgIndices={justActivatedBgIndices} />
-      <BrainEdges />
-      <HighlightEdges focusBgIndex={focusNode?.bgIndex ?? null} />
+      <BrainField focusPosition={focusNode?.position ?? null} focusRadius={0.7} justActivatedBgIndices={justActivatedBgIndices} hideBackground={structureMode} />
+      {!structureMode && (
+        <>
+          <BrainEdges />
+          <HighlightEdges focusBgIndex={focusNode?.bgIndex ?? null} />
+        </>
+      )}
       <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} selectedId={selectedId} structureMode={structureMode} />
 
       {/* Level 3 — cluster haze, structure-mode only. */}
@@ -952,12 +931,6 @@ function BrainScene({
         />
       ))}
 
-      {/* Level 2 — self-loop flowing light, only while a play has been requested. */}
-      {structureMode && loopPlayingId && (() => {
-        const loopNode = activeNodes.find((n) => n.id === loopPlayingId);
-        return loopNode ? <LoopRing position={loopNode.position} radius={loopNode.radius} color={loopNode.color} /> : null;
-      })()}
-
       <OrbitControls
         ref={controlsRef}
         enablePan={false}
@@ -973,11 +946,6 @@ function BrainScene({
     </>
   );
 }
-
-// How long a Level-2 self-loop play lasts once requested — long enough to
-// watch the particle go around a couple of times, short enough that it
-// clearly reads as "a moment you asked to see," not a new ambient loop.
-const LOOP_PLAY_DURATION_MS = 4200;
 
 export default function NeuralBeliefGraph3D({
   beliefs,
@@ -998,20 +966,13 @@ export default function NeuralBeliefGraph3D({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [isInteracting, setIsInteracting] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<CognitiveRegion | null>(null);
-  // Everything gated behind this (cluster haze, tension lines, the loop
-  // play button) is real structure the data already supports — just kept
-  // off by default so the first impression stays the calm "quiet tissue"
-  // read the piece is built around, not a data-dense diagram.
+  // Everything gated behind this (dormant-tissue fade, cluster haze,
+  // tension lines) is real structure the data already supports — just
+  // kept off by default so the first impression stays the calm "quiet
+  // tissue" read the piece is built around, not a data-dense diagram.
   const [structureMode, setStructureMode] = useState(false);
-  const [loopPlayingId, setLoopPlayingId] = useState<string | null>(null);
   const controlsRef = useRef<any>(null);
   const selectedNode = selectedId ? activeNodes.find((n) => n.id === selectedId) ?? null : null;
-
-  useEffect(() => {
-    if (!loopPlayingId) return;
-    const t = setTimeout(() => setLoopPlayingId(null), LOOP_PLAY_DURATION_MS);
-    return () => clearTimeout(t);
-  }, [loopPlayingId]);
 
   // Cluster membership + contradiction partner for whichever node is
   // selected — cheap to recompute per selection, no need to precompute
@@ -1058,7 +1019,6 @@ export default function NeuralBeliefGraph3D({
     setSelectedId(null);
     setHoveredId(null);
     setSelectedRegion(null);
-    setLoopPlayingId(null);
     controlsRef.current?.reset?.();
   };
 
@@ -1096,7 +1056,6 @@ export default function NeuralBeliefGraph3D({
           justActivatedBgIndices={justActivatedBgIndices}
           structureMode={structureMode}
           clusters={clusters}
-          loopPlayingId={loopPlayingId}
         />
       </Canvas>
 
@@ -1186,25 +1145,6 @@ export default function NeuralBeliefGraph3D({
           {structureMode && selectedContradiction && (
             <div style={{ marginTop: 8, fontFamily: "Inter, sans-serif", fontSize: 11.5, color: "#B5533C", lineHeight: 1.5, wordBreak: "keep-all" }}>
               "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
-            </div>
-          )}
-
-          {structureMode && selectedNode.hasLoop && (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#6E6B74", lineHeight: 1.4, wordBreak: "keep-all" }}>
-                이 흐름이 반복되고 있어요
-              </span>
-              <button
-                onClick={() => setLoopPlayingId(loopPlayingId === selectedNode.id ? null : selectedNode.id)}
-                style={{
-                  fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 700,
-                  color: loopPlayingId === selectedNode.id ? "#fff" : "#5B4B8A",
-                  background: loopPlayingId === selectedNode.id ? "#5B4B8A" : "rgba(91,75,138,0.1)",
-                  border: "none", borderRadius: 999, padding: "5px 12px", cursor: "pointer", flexShrink: 0,
-                }}
-              >
-                {loopPlayingId === selectedNode.id ? "재생 중 ⟳" : "재생 ▶"}
-              </button>
             </div>
           )}
         </div>
