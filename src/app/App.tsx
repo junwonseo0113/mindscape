@@ -17,7 +17,7 @@ import {
 } from "./types";
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
-import { DISCLAIMER_NOTICE, matchableCandidates } from "./analysisFramework";
+import { COGNITIVE_PATTERN_DESCRIPTIONS, DISCLAIMER_NOTICE, matchableCandidates } from "./analysisFramework";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -827,7 +827,13 @@ function DiscoveryReflection({
   const settled = reaction === "agree" || exhausted;
   return (
     <div>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 해석이 맞다고 생각하시나요?</div>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>이 관찰이 지금 당신의 경험과 맞아떨어지나요?</div>
+      {/* Observer-self framing (ACT: self-as-context) — agree/disagree here
+          isn't a verdict on whether the thought is true, just whether this
+          reading of it matches what was actually noticed. */}
+      <div style={{ ...serif, fontSize: 12.5, fontStyle: "italic", color: subtle, marginTop: 6, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        이 생각을 믿을지 말지를 정하는 자리가 아니에요. 그냥 바라보는 것만으로 충분해요.
+      </div>
       {!settled && (
         <>
           <ReactionButtons reaction={reaction} onReact={onReact} disabled={reinterpreting} />
@@ -1019,7 +1025,15 @@ function ScreenAnalysis({
                 <Mindy size={72} expression="curious" />
               </div>
             )}
-            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
+            {/* Defusion reframe, read first — "a thought showed up again"
+                before the thought's actual content, so the content itself
+                doesn't land as a flat first-person fact. */}
+            {discovery && (h?.thoughtLabel || b?.thoughtLabel) && (
+              <div style={{ ...serif, fontSize: 13, fontStyle: "italic", color: accent, marginTop: 12 }}>
+                '{h?.thoughtLabel || b?.thoughtLabel}'이 또 나타났어요
+              </div>
+            )}
+            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: discovery && (h?.thoughtLabel || b?.thoughtLabel) ? 6 : 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: discovery ? "left" : "center" }}>
               {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
             </div>
             {discovery && (
@@ -1034,7 +1048,7 @@ function ScreenAnalysis({
           <>
             {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
             <div style={{ marginTop: 14 }}>
-              <SectionCard title="왜 이런 해석이 나왔나요?">
+              <SectionCard title="왜 이런 해석이 나왔나요?" subtitle="당신이 실제로 이렇게 말한 부분들이에요.">
                 {evidence.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {evidence.map((e, i) => (
@@ -1811,6 +1825,97 @@ function BeliefNetworkChart({ beliefs, connections }: { beliefs: StoredBelief[];
   );
 }
 
+// Affect labeling — naming an emotion is itself the intervention (Lieberman
+// et al.: putting a feeling into words measurably calms the reaction to it),
+// so this just surfaces whichever emotion showed up most, weighted by
+// intensity, across the entries that actually support this belief. Not a
+// claim that the belief "causes" the emotion — just what tended to be
+// nearby when it did.
+function dominantEmotion(entryIds: string[] | undefined, history: StoredHistoryEntry[]): string | null {
+  if (!entryIds || entryIds.length === 0) return null;
+  const totals = new Map<string, number>();
+  entryIds.forEach((id) => {
+    const entry = history.find((e) => e.id === id);
+    entry?.analysis?.observation.emotions.forEach((em) => {
+      totals.set(em.label, (totals.get(em.label) ?? 0) + em.intensity);
+    });
+  });
+  if (totals.size === 0) return null;
+  return Array.from(totals.entries()).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+// One belief's full card — its own component (rather than inlined in the
+// map below) so each can hold its own "which pattern tag is expanded" state
+// without the cards interfering with each other.
+function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; history: StoredHistoryEntry[]; onReject?: (id: string) => void }) {
+  const [openPattern, setOpenPattern] = React.useState<string | null>(null);
+  const emotion = dominantEmotion(belief.supportingEntryIds, history);
+  const patterns = belief.possibleCognitivePatterns ?? [];
+  return (
+    <div style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{belief.domain}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: tension }}>상충하는 기록 있음</span>}
+          {belief.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: accent }}>반복적으로 확인됨</span>}
+          <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {belief.evidenceCount}건</span>
+        </div>
+      </div>
+      {/* Defusion reframe (ACT: "naming the thought") — a recurring visitor,
+          not a fact about the person, shown just above the statement it
+          reframes so the two read together. */}
+      {belief.thoughtLabel && (
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: accent, marginTop: 8 }}>'{belief.thoughtLabel}'이 반복해서 나타나요</div>
+      )}
+      <div style={{ ...serif, fontSize: 18, color: ink, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
+        <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: accent }} />
+      </div>
+      {(patterns.length > 0 || emotion) && (
+        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+          {emotion && (
+            <span style={{ ...sans, fontSize: 10.5, color: mid, backgroundColor: surface, padding: "3px 8px", borderRadius: 999 }}>주로 느낀 감정 · {emotion}</span>
+          )}
+          {patterns.map((p) => {
+            const active = openPattern === p;
+            return (
+              <motion.span
+                key={p} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+                onClick={() => setOpenPattern(active ? null : p)}
+                style={{ ...sans, fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? "#fff" : accent, backgroundColor: active ? accent : accentSoft, padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
+              >
+                {p}
+              </motion.span>
+            );
+          })}
+        </div>
+      )}
+      {openPattern && (
+        <div style={{ ...sans, fontSize: 12, color: inkSoft, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all", padding: 10, borderRadius: 10, backgroundColor: accentSoft }}>
+          {COGNITIVE_PATTERN_DESCRIPTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ""}
+        </div>
+      )}
+      {belief.evidenceQuotes.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          {[...belief.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
+            <div key={qi} style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              <span style={{ ...mono, fontSize: 10.5, color: faint }}>{q.date}</span> · "{q.quote}"
+            </div>
+          ))}
+        </div>
+      )}
+      {onReject && (
+        <motion.span
+          role="button" tabIndex={0} onClick={() => onReject(belief.id)} whileTap={{ opacity: 0.6 }}
+          style={{ ...sans, fontSize: 11.5, color: faint, marginTop: 10, display: "inline-block", cursor: "pointer" }}
+        >
+          이 관찰, 내 생각과 달라요
+        </motion.span>
+      )}
+    </div>
+  );
+}
+
 // Belief Map and Recurring Assumptions used to be two separate screens, but
 // a belief ("안전이 최우선이다") and an assumption ("불확실할 때 → 기다리는
 //게 안전하다") are the same kind of thing at different specificity — one
@@ -1848,44 +1953,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
             <div style={{ ...sans, fontSize: 13, color: faint, padding: "12px 0" }}>아직 발견된 무의식적 신념이 없어요.</div>
           ) : (
             visibleBeliefs.map((b) => (
-              <div key={b.id} style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: subtle, letterSpacing: "0.04em" }}>{b.domain}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {b.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: tension }}>상충하는 기록 있음</span>}
-                    {b.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: accent }}>반복적으로 확인됨</span>}
-                    <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>
-                  </div>
-                </div>
-                <div style={{ ...serif, fontSize: 18, color: ink, marginTop: 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</div>
-                <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
-                  <div style={{ height: "100%", width: `${b.confidence}%`, borderRadius: 2, backgroundColor: accent }} />
-                </div>
-                {b.possibleCognitivePatterns && b.possibleCognitivePatterns.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                    {b.possibleCognitivePatterns.map((p) => (
-                      <span key={p} style={{ ...sans, fontSize: 10.5, color: accent, backgroundColor: accentSoft, padding: "3px 8px", borderRadius: 999 }}>{p}</span>
-                    ))}
-                  </div>
-                )}
-                {b.evidenceQuotes.length > 0 && (
-                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                    {[...b.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
-                      <div key={qi} style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ ...mono, fontSize: 10.5, color: faint }}>{q.date}</span> · "{q.quote}"
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {onRejectBelief && (
-                  <motion.span
-                    role="button" tabIndex={0} onClick={() => onRejectBelief(b.id)} whileTap={{ opacity: 0.6 }}
-                    style={{ ...sans, fontSize: 11.5, color: faint, marginTop: 10, display: "inline-block", cursor: "pointer" }}
-                  >
-                    이 관찰, 내 생각과 달라요
-                  </motion.span>
-                )}
-              </div>
+              <BeliefCard key={b.id} belief={b} history={store.history} onReject={onRejectBelief} />
             ))
           )}
         </div>

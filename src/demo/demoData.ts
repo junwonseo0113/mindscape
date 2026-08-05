@@ -20,11 +20,11 @@ export const DEMO_STORE: Store = {
   // framework exists at all, since it's otherwise only populated by real
   // analysis.
   beliefs: [
-    { id: "demo-belief-0", domain: "삶 전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"] },
-    { id: "demo-belief-1", domain: "커리어", statement: "노력하면 결국 인정받는다", confidence: 64, evidenceCount: 21, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["과잉일반화"] },
-    { id: "demo-belief-2", domain: "관계", statement: "혼자 하는 게 더 낫다", confidence: 57, evidenceCount: 18, evidenceQuotes: [], status: "emerging" },
-    { id: "demo-belief-3", domain: "일", statement: "완벽해야 시작할 수 있다", confidence: 71, evidenceCount: 26, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["흑백사고", "당위적 사고"] },
-    { id: "demo-belief-4", domain: "가치관", statement: "돈보다 자유가 중요하다", confidence: 45, evidenceCount: 12, evidenceQuotes: [], status: "conflicted" },
+    { id: "demo-belief-0", domain: "삶 전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"], thoughtLabel: "안전 추구 생각", supportingEntryIds: ["demo-entry-0"] },
+    { id: "demo-belief-1", domain: "커리어", statement: "노력하면 결국 인정받는다", confidence: 64, evidenceCount: 21, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["과잉일반화"], thoughtLabel: "인정 욕구 생각", supportingEntryIds: ["demo-entry-1"] },
+    { id: "demo-belief-2", domain: "관계", statement: "혼자 하는 게 더 낫다", confidence: 57, evidenceCount: 18, evidenceQuotes: [], status: "emerging", thoughtLabel: "거리두기 생각", supportingEntryIds: ["demo-entry-2"] },
+    { id: "demo-belief-3", domain: "일", statement: "완벽해야 시작할 수 있다", confidence: 71, evidenceCount: 26, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["흑백사고", "당위적 사고"], thoughtLabel: "완벽주의 생각" },
+    { id: "demo-belief-4", domain: "가치관", statement: "돈보다 자유가 중요하다", confidence: 45, evidenceCount: 12, evidenceQuotes: [], status: "conflicted", thoughtLabel: "자유-안정 갈등 생각" },
   ],
 
   // Same trigger -> interpretation shape as real StoredAssumption, so the
@@ -121,6 +121,7 @@ export const DEMO_STORE: Store = {
     {
       id: "demo-hyp-0",
       title: "불확실함이 나타날 때마다, 기다리는 것이 가장 안전한 선택이라고 자동으로 해석하는 경향이 있습니다.",
+      thoughtLabel: "기다림 생각",
       // The closing line is the whole point of this screen, almost verbatim
       // from the product brief's own example — the AI never states a
       // verdict ("이건 당신에게 안 좋은 습관이에요"), it hands the
@@ -153,6 +154,7 @@ export const DEMO_STORE: Store = {
     {
       id: "demo-hyp-1",
       title: "성과를 인정받지 못하면, 노력 자체가 부족했다고 스스로를 탓하는 패턴이 있습니다.",
+      thoughtLabel: "자책 생각",
       question: "이 해석은 발표, 승진, 그리고 관계에서의 실망까지 — 결과가 안 좋을 때마다 똑같은 방식으로 나타났어요. 정말 매번 노력이 부족했던 걸까요, 아니면 이게 그냥 익숙한 설명일 뿐일까요?",
       confidence: 64,
       domains: ["커리어", "자아"],
@@ -176,6 +178,7 @@ export const DEMO_STORE: Store = {
     {
       id: "demo-hyp-2",
       title: "'자유를 중시한다'고 말하지만, 실제 선택은 안정성을 우선하는 방향으로 반복됩니다.",
+      thoughtLabel: "자유-안정 갈등 생각",
       question: "말하는 가치와 실제 선택 사이에 이 간격이 세 번 연속 나타났어요. 자유가 정말 당신이 원하는 것이 맞나요, 아니면 그렇게 믿고 싶은 이야기에 가까울까요?",
       confidence: 52,
       domains: ["가치관", "결정"],

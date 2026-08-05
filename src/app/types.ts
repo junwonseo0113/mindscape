@@ -122,6 +122,12 @@ export type StoredBelief = {
   rejectedStatements?: string[];
   discoveryExhausted?: boolean;
   discoveryInterpretationOverride?: string;
+  // An ACT-style "defusion" label — a short noun phrase naming the thought
+  // as a recurring visitor ("완벽주의 생각") rather than restating it as a
+  // first-person fact. Purely a display reframe alongside `statement`,
+  // never a replacement for it — nothing downstream (matching, confidence,
+  // evidence) reads this field.
+  thoughtLabel?: string;
 };
 
 export type StoredAssumption = {
@@ -186,6 +192,9 @@ export type StoredHypothesis = {
   // belief's statement — see analysisFramework's reinterpret endpoint.
   rejectedTitles?: string[];
   exhausted?: boolean;
+  // Same defusion reframe as StoredBelief.thoughtLabel, applied to this
+  // hypothesis's title.
+  thoughtLabel?: string;
 };
 
 export type StoredDriftNote = { date: string; note: string };

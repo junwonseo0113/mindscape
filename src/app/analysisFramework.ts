@@ -52,6 +52,22 @@ export const COGNITIVE_PATTERN_LABELS = [
   "긍정 축소", // discounting the positive
 ] as const;
 
+// Shown when a user taps a pattern tag — deliberately worded as "this is a
+// common, nameable habit of thought" rather than "this is wrong, fix it."
+// Reflect, don't correct: naming the pattern is the entire intervention;
+// there's no prescription attached.
+export const COGNITIVE_PATTERN_DESCRIPTIONS: Record<(typeof COGNITIVE_PATTERN_LABELS)[number], string> = {
+  "흑백사고": "'항상', '전혀', '완전히' 같은 표현처럼, 상황을 두 극단으로만 나눠서 보는 흔한 사고 습관이에요.",
+  "과잉일반화": "한두 번 있었던 일을 '매번', '누구나 다' 같은 표현으로 넓혀서 보는 흔한 사고 습관이에요.",
+  "재앙화": "일어날 수 있는 가장 나쁜 결과부터 먼저 떠올리는 흔한 사고 습관이에요.",
+  "개인화": "함께 작용한 다른 원인들이 있는데도, 일어난 일의 원인을 자기 자신에게서만 찾는 흔한 사고 습관이에요.",
+  "감정적 추론": "'이렇게 느껴지니까 분명 사실일 거야'처럼, 감정을 근거 삼아 결론을 내리는 흔한 사고 습관이에요.",
+  "당위적 사고": "'반드시', '~해야 한다' 같은 표현처럼, 스스로에게 엄격한 기준을 강제하는 흔한 사고 습관이에요.",
+  "정신적 여과": "잘된 부분은 지나치고 아쉬웠던 한 부분에만 계속 머무르는 흔한 사고 습관이에요.",
+  "성급한 결론": "충분한 근거 없이, 상대의 생각이나 앞으로의 결과를 미리 단정하는 흔한 사고 습관이에요.",
+  "긍정 축소": "잘한 일이나 좋은 결과를 '별거 아니었다'며 깎아내리는 흔한 사고 습관이에요.",
+};
+
 // Suggested ACT life-domain vocabulary for valueDirection.relatedValues —
 // a starting point, not a closed list.
 export const VALUE_DOMAIN_LABELS = [
