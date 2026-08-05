@@ -108,8 +108,20 @@ export type StoredBelief = {
   // page's reflection step), not the permanent "reject from 무의식적 패턴"
   // action — a belief can be disagreed with here without being hidden.
   discoveryReaction?: "agree" | "disagree" | null;
-  discoveryDisagreeReasonCategory?: DisagreeReasonCategory;
-  discoveryDisagreeReasonNote?: string;
+  // Disagreeing as "오늘의 발견" now actually asks the model for a genuinely
+  // different reading of the same evidence instead of just recording a
+  // reason — these track that loop. rejectedStatements accumulates every
+  // interpretation the user has already said no to (so the model never
+  // repeats one), and discoveryExhausted flips true once the model says
+  // there's no meaningfully different interpretation left to offer.
+  // discoveryInterpretationOverride is deliberately separate from
+  // `statement`: `statement` is the belief's canonical wording, referenced
+  // everywhere else (belief map, 3D brain, connections) and backed by its
+  // full evidence history, so a disagreement on today's discovery framing
+  // reframes only what the discovery card shows, never the belief itself.
+  rejectedStatements?: string[];
+  discoveryExhausted?: boolean;
+  discoveryInterpretationOverride?: string;
 };
 
 export type StoredAssumption = {
@@ -155,11 +167,6 @@ export type StoredHypothesisInvestigation = {
   related: string;
 };
 
-// What specifically didn't land, when a user disagrees with a discovery —
-// captured so a future analysis pass has something more useful to learn
-// from than a bare thumbs-down. "custom" pairs with a free-text note.
-export type DisagreeReasonCategory = "evidence" | "interpretation" | "conclusion" | "custom";
-
 export type StoredHypothesis = {
   id: string;
   title: string;
@@ -174,9 +181,11 @@ export type StoredHypothesis = {
   question?: string;
   evidence?: StoredEvidenceQuote[];
   investigate?: StoredHypothesisInvestigation;
-  // Only ever set alongside reaction === "disagree".
-  disagreeReasonCategory?: DisagreeReasonCategory;
-  disagreeReasonNote?: string;
+  // Same reinterpretation loop as StoredBelief.rejectedStatements/
+  // discoveryExhausted, applied to a hypothesis's title instead of a
+  // belief's statement — see analysisFramework's reinterpret endpoint.
+  rejectedTitles?: string[];
+  exhausted?: boolean;
 };
 
 export type StoredDriftNote = { date: string; note: string };

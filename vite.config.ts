@@ -1,10 +1,122 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Extracts the "===JSON===" marker convention shared by both endpoints —
+// the model reasons in prose first, then the marker, then the final
+// object; reading from after the marker (falling back to brace-matching
+// the whole response if it's ever missing) means a stray brace inside the
+// reasoning text can't confuse extraction.
+function extractJsonAfterMarker(rawText: string): any | null {
+  const markerIdx = rawText.indexOf('===JSON===')
+  const jsonSource = markerIdx >= 0 ? rawText.slice(markerIdx + '===JSON==='.length) : rawText
+  const jsonMatch = jsonSource.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return null
+  return JSON.parse(jsonMatch[0])
+}
+
 function analyzeApiPlugin(env: Record<string, string>): Plugin {
   return {
     name: 'analyze-api',
     configureServer(server) {
+      // Powers the "disagree -> give me a genuinely different reading of
+      // the same evidence" loop: takes the interpretation the user just
+      // rejected plus everything already rejected before it, and either
+      // returns a real alternative or explicitly says there isn't one
+      // (exhausted) instead of inventing a cosmetic rewording.
+      server.middlewares.use('/api/reinterpret', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        const apiKey = env.ANTHROPIC_API_KEY
+        if (!apiKey) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY가 설정되어 있지 않아요. 프로젝트 루트에 .env 파일을 만들고 키를 넣은 뒤 서버를 다시 시작하세요.' }))
+          return
+        }
+
+        let raw = ''
+        req.on('data', (chunk) => { raw += chunk })
+        req.on('end', async () => {
+          try {
+            const { currentText, evidenceQuotes, rejectedTexts } = JSON.parse(raw || '{}')
+            if (!currentText || typeof currentText !== 'string' || !currentText.trim()) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: '재해석할 대상이 없습니다.' }))
+              return
+            }
+            const quotes: string[] = Array.isArray(evidenceQuotes) ? evidenceQuotes.filter((q: any) => typeof q === 'string') : []
+            const rejected: string[] = Array.isArray(rejectedTexts) ? rejectedTexts.filter((t: any) => typeof t === 'string') : []
+
+            const prompt = `당신은 CBT(인지행동치료)와 ACT(수용전념치료)의 개념을 참고한 자기성찰 도구입니다. 사용자가 다음 해석에 동의하지 않았습니다.
+
+방금 거부된 해석: "${currentText}"
+${rejected.length > 0 ? `이전에 이미 거부된 해석들 (절대 반복하지 마세요): ${JSON.stringify(rejected)}` : ""}
+
+이 해석의 근거가 된 실제 기록:
+${quotes.length > 0 ? quotes.map((q) => `- "${q}"`).join("\n") : "(근거 기록 없음)"}
+
+[규칙]
+- 같은 근거를 놓고, 방금 거부된 해석 및 이전에 거부된 모든 해석과 실질적으로 다른 해석이 있다면 제시하세요. 단어만 바꾼 재탕, 같은 의미를 다르게 표현한 것은 안 됩니다 — 근본적으로 다른 관점이어야 합니다.
+- 억지로 새 해석을 지어내지 마세요. 근거에서 정말로 나올 수 있는, 의미 있게 다른 해석이 더 이상 없다면 exhausted를 true로 하고 interpretation/confidence는 null로 두세요.
+- 진단하거나 결론을 내리지 마세요. "~인 것 같습니다" 같은 조심스러운 어조를 유지하세요. 3인칭 관찰자 시점으로 서술하세요 (사용자가 스스로 말할 법한 1인칭 문장이 아닐 것).
+
+"===JSON===" 한 줄을 쓰고, 그 아래에 최종 결과 JSON만 출력하세요. 그 외 설명이나 코드블록은 없어야 합니다.
+
+{
+  "interpretation": "string 또는 null (exhausted가 true면 null)",
+  "confidence": "정수 30-65 또는 null (exhausted가 true면 null)",
+  "exhausted": "boolean",
+  "note": "사용자에게 보여줄 한 문장 — 왜 이 해석이 이전과 다른지, 또는 exhausted라면 왜 더 없는지"
+}`
+
+            const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-5',
+                max_tokens: 1024,
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            })
+
+            if (!apiRes.ok) {
+              const errText = await apiRes.text()
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: `AI 호출에 실패했어요 (${apiRes.status}): ${errText.slice(0, 300)}` }))
+              return
+            }
+
+            const data: any = await apiRes.json()
+            const block = data.content?.find((c: any) => c.type === 'text')
+            const parsed = extractJsonAfterMarker(block?.text ?? '')
+            if (!parsed) {
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'AI 응답을 해석하지 못했어요.' }))
+              return
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(parsed))
+          } catch (err: any) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err?.message ?? '알 수 없는 오류가 발생했어요.' }))
+          }
+        })
+      })
+
       server.middlewares.use('/api/analyze', async (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -166,23 +278,14 @@ ${text.trim()}
 
             const data: any = await apiRes.json()
             const block = data.content?.find((c: any) => c.type === 'text')
-            const rawText: string = block?.text ?? ''
-            // The model reasons in prose first, then a "===JSON===" marker,
-            // then the final object — prefer the text after that marker so
-            // a stray brace inside the reasoning can't confuse extraction;
-            // fall back to brace-matching the whole response if the marker
-            // is missing for some reason.
-            const markerIdx = rawText.indexOf('===JSON===')
-            const jsonSource = markerIdx >= 0 ? rawText.slice(markerIdx + '===JSON==='.length) : rawText
-            const jsonMatch = jsonSource.match(/\{[\s\S]*\}/)
-            if (!jsonMatch) {
+            const parsed = extractJsonAfterMarker(block?.text ?? '')
+            if (!parsed) {
               res.statusCode = 502
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ error: 'AI 응답을 해석하지 못했어요.' }))
               return
             }
 
-            const parsed = JSON.parse(jsonMatch[0])
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify(parsed))

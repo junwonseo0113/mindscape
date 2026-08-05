@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "motion/react";
 import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
-  DisagreeReasonCategory,
   Store,
   StoredAccount,
   StoredAssumption,
@@ -546,7 +545,22 @@ function computeDiscovery(store: Store): DiscoveryTarget | null {
   const topBelief = [...store.beliefs]
     .filter((b) => b.userReaction !== "rejected")
     .sort((a, b) => (b.lastUpdatedAt ?? "").localeCompare(a.lastUpdatedAt ?? "") || b.confidence - a.confidence)[0];
-  return topBelief ? { kind: "belief", id: topBelief.id, text: topBelief.statement } : null;
+  return topBelief ? { kind: "belief", id: topBelief.id, text: topBelief.discoveryInterpretationOverride ?? topBelief.statement } : null;
+}
+
+// Re-derives a pinned DiscoveryTarget's display text from the live store
+// (title/statement may have changed under a reinterpretation loop) without
+// letting the identity itself drift — see ScreenAnalysis's `pinnedDiscovery`.
+// Used so a discovery doesn't get silently swapped out mid-conversation the
+// instant its reaction flips away from null (e.g. once reinterpretation is
+// exhausted), which computeDiscovery's fresh-lookup alone would do.
+function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): DiscoveryTarget | null {
+  if (pinned.kind === "hypothesis") {
+    const h = store.hypotheses[pinned.index];
+    return h ? { kind: "hypothesis", index: pinned.index, text: h.title } : null;
+  }
+  const b = store.beliefs.find((x) => x.id === pinned.id);
+  return b ? { kind: "belief", id: pinned.id, text: b.discoveryInterpretationOverride ?? b.statement } : null;
 }
 
 // A single editorial headline, not a card — kept as its own component with
@@ -692,18 +706,18 @@ function ConfidenceReadout({ value }: { value: number }) {
 // specifically didn't land). Both touchpoints read/write the exact same
 // reaction, so they can never contradict each other about what the user
 // actually said.
-function ReactionButtons({ reaction, onReact }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void }) {
+function ReactionButtons({ reaction, onReact, disabled }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void; disabled?: boolean }) {
   return (
-    <div style={{ display: "flex", gap: 10 }}>
+    <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
       <motion.div
-        role="button" tabIndex={0} onClick={() => onReact?.("agree")} whileTap={{ scale: 0.97 }}
-        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: "pointer" }}
+        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>동의해요</span>
       </motion.div>
       <motion.div
-        role="button" tabIndex={0} onClick={() => onReact?.("disagree")} whileTap={{ scale: 0.97 }}
-        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: "pointer" }}
+        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+        style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>아닌 것 같아요</span>
       </motion.div>
@@ -711,73 +725,37 @@ function ReactionButtons({ reaction, onReact }: { reaction: "agree" | "disagree"
   );
 }
 
-const DISAGREE_REASON_OPTIONS: { id: DisagreeReasonCategory; label: string }[] = [
-  { id: "evidence", label: "근거" },
-  { id: "interpretation", label: "해석" },
-  { id: "conclusion", label: "결론" },
-  { id: "custom", label: "직접 입력" },
-];
-
-// The fuller reflection step — after the user has actually walked through
-// the evidence and evolution above, not the quick hero tap. Disagreeing
-// here additionally asks which part didn't land, so a rejection carries
-// more than a bare thumbs-down for whatever future analysis pass reads it.
+// The single interactive agree/disagree point for a discovery (the hero
+// above just shows a static preview — see ScreenAnalysis). Disagreeing
+// doesn't just record a reason anymore: it asks the model for a genuinely
+// different reading of the same evidence and swaps the discovery's text
+// in place, looping until the user agrees or the model has nothing more to
+// offer (reinterpreting/exhausted, driven by rejectedStatements/
+// rejectedTitles — see analysisFramework's /api/reinterpret).
 function DiscoveryReflection({
   reaction,
-  reasonCategory,
-  reasonNote,
+  reinterpreting,
+  exhausted,
   onReact,
-  onSetReason,
 }: {
   reaction: "agree" | "disagree" | null | undefined;
-  reasonCategory?: DisagreeReasonCategory;
-  reasonNote?: string;
+  reinterpreting?: boolean;
+  exhausted?: boolean;
   onReact?: (r: "agree" | "disagree") => void;
-  onSetReason?: (category: DisagreeReasonCategory, note?: string) => void;
 }) {
-  const [customNote, setCustomNote] = React.useState(reasonNote ?? "");
   return (
     <div>
       <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 해석이 맞다고 생각하시나요?</div>
-      <ReactionButtons reaction={reaction} onReact={onReact} />
-
-      {reaction === "disagree" && (
-        <div style={{ marginTop: 18 }}>
-          <div style={{ ...sans, fontSize: 12.5, color: mid, lineHeight: 1.5, wordBreak: "keep-all" }}>어떤 부분이 맞지 않았나요?</div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            {DISAGREE_REASON_OPTIONS.map((opt) => {
-              const active = reasonCategory === opt.id;
-              return (
-                <motion.span
-                  key={opt.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                  onClick={() => onSetReason?.(opt.id, opt.id === "custom" ? customNote : undefined)}
-                  style={{
-                    ...sans, fontSize: 12, fontWeight: 600, padding: "7px 13px", borderRadius: 999, cursor: "pointer",
-                    color: active ? "#fff" : ink,
-                    backgroundColor: active ? ink : "transparent",
-                    border: `1px solid ${active ? ink : hair}`,
-                  }}
-                >
-                  {opt.label}
-                </motion.span>
-              );
-            })}
-          </div>
-          {reasonCategory === "custom" && (
-            <textarea
-              value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              onBlur={() => onSetReason?.("custom", customNote)}
-              placeholder="어떤 점이 다르게 느껴졌는지 적어주세요"
-              style={{ ...sans, width: "100%", marginTop: 10, padding: 12, borderRadius: 12, border: `1px solid ${hair}`, backgroundColor: surface, color: ink, fontSize: 13, lineHeight: 1.5, resize: "none", minHeight: 64, boxSizing: "border-box" }}
-            />
-          )}
-          {reasonCategory && (
-            <div style={{ ...sans, fontSize: 11.5, color: subtle, marginTop: 12 }}>기록했어요. 다음 분석에 반영할게요.</div>
-          )}
+      <ReactionButtons reaction={exhausted ? "disagree" : reaction} onReact={onReact} disabled={reinterpreting || exhausted} />
+      {reinterpreting && (
+        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>다른 해석을 찾는 중…</div>
+      )}
+      {!reinterpreting && exhausted && (
+        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
+          같은 근거로 더 다르게 볼 수 있는 해석은 없는 것 같아요. 새로운 기록이 쌓이면 다시 살펴볼게요.
         </div>
       )}
-      {reaction === "agree" && (
+      {!reinterpreting && !exhausted && reaction === "agree" && (
         <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12 }}>기록했어요. 이 해석의 확신도가 조금 더 높아집니다.</div>
       )}
     </div>
@@ -836,22 +814,28 @@ function ScreenAnalysis({
   onNavSelect,
   store,
   onOpenArtifact,
-  onReactHypothesis,
-  onSetHypothesisDisagreeReason,
+  onAgreeHypothesis,
+  onDisagreeHypothesis,
   onInvestigateHypothesis,
-  onReactBeliefDiscovery,
-  onSetBeliefDisagreeReason,
+  onAgreeBeliefDiscovery,
+  onDisagreeBeliefDiscovery,
+  reinterpretingKey,
 }: {
   onNavSelect?: (id: string) => void;
   store: Store;
   onOpenArtifact?: (id: string) => void;
-  onReactHypothesis?: (index: number, reaction: "agree" | "disagree") => void;
-  onSetHypothesisDisagreeReason?: (index: number, category: DisagreeReasonCategory, note?: string) => void;
+  onAgreeHypothesis?: (index: number) => void;
+  onDisagreeHypothesis?: (index: number) => void;
   onInvestigateHypothesis?: (index: number) => void;
-  onReactBeliefDiscovery?: (beliefId: string, reaction: "agree" | "disagree") => void;
-  onSetBeliefDisagreeReason?: (beliefId: string, category: DisagreeReasonCategory, note?: string) => void;
+  onAgreeBeliefDiscovery?: (beliefId: string) => void;
+  onDisagreeBeliefDiscovery?: (beliefId: string) => void;
+  reinterpretingKey?: string | null;
 }) {
-  const discovery = computeDiscovery(store);
+  // Pinned once per visit to this screen so the discovery being discussed
+  // never gets silently swapped out mid-conversation — see
+  // resolveDiscoveryTarget.
+  const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
+  const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const hasBeliefs = store.beliefs.length > 0;
   const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
@@ -898,15 +882,17 @@ function ScreenAnalysis({
       : [];
 
   const reaction = h ? h.reaction : b ? b.discoveryReaction ?? null : null;
-  const reasonCategory = h ? h.disagreeReasonCategory : b?.discoveryDisagreeReasonCategory;
-  const reasonNote = h ? h.disagreeReasonNote : b?.discoveryDisagreeReasonNote;
+  const exhausted = h ? !!h.exhausted : b ? !!b.discoveryExhausted : false;
+  const thisKey = hIndex !== null ? `hyp:${hIndex}` : b ? `belief:${b.id}` : null;
+  const reinterpreting = !!thisKey && reinterpretingKey === thisKey;
   const handleReact = (r: "agree" | "disagree") => {
-    if (hIndex !== null) onReactHypothesis?.(hIndex, r);
-    else if (b) onReactBeliefDiscovery?.(b.id, r);
-  };
-  const handleSetReason = (category: DisagreeReasonCategory, note?: string) => {
-    if (hIndex !== null) onSetHypothesisDisagreeReason?.(hIndex, category, note);
-    else if (b) onSetBeliefDisagreeReason?.(b.id, category, note);
+    if (r === "agree") {
+      if (hIndex !== null) onAgreeHypothesis?.(hIndex);
+      else if (b) onAgreeBeliefDiscovery?.(b.id);
+    } else {
+      if (hIndex !== null) onDisagreeHypothesis?.(hIndex);
+      else if (b) onDisagreeBeliefDiscovery?.(b.id);
+    }
   };
 
   return (
@@ -929,12 +915,6 @@ function ScreenAnalysis({
               </div>
             )}
           </div>
-
-          {discovery && (
-            <div style={{ marginTop: 32 }}>
-              <ReactionButtons reaction={reaction} onReact={handleReact} />
-            </div>
-          )}
         </div>
 
         {discovery && (
@@ -995,10 +975,9 @@ function ScreenAnalysis({
             <div style={{ marginTop: 34 }}>
               <DiscoveryReflection
                 reaction={reaction}
-                reasonCategory={reasonCategory}
-                reasonNote={reasonNote}
+                reinterpreting={reinterpreting}
+                exhausted={exhausted}
                 onReact={handleReact}
-                onSetReason={handleSetReason}
               />
               {h?.investigate && hIndex !== null && (
                 <div style={{ marginTop: 12 }}>
@@ -2051,8 +2030,23 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
 // ScreenHypothesisDetail wrapper (back button + this body) or embedded
 // inline as Analysis's first section (no wrapper, no back button — it's
 // already inside a tab).
-function HypothesisDiscoveryBody({ h, store, onReact, onInvestigate }: { h: StoredHypothesis; store: Store; onReact?: (reaction: "agree" | "disagree") => void; onInvestigate?: () => void }) {
+function HypothesisDiscoveryBody({
+  h,
+  store,
+  onAgree,
+  onDisagree,
+  reinterpreting,
+  onInvestigate,
+}: {
+  h: StoredHypothesis;
+  store: Store;
+  onAgree?: () => void;
+  onDisagree?: () => void;
+  reinterpreting?: boolean;
+  onInvestigate?: () => void;
+}) {
   const reaction = h.reaction;
+  const exhausted = !!h.exhausted;
   const question = h.question ?? GENERIC_HYPOTHESIS_QUESTION;
   const evidence = evidenceForHypothesis(h, store.beliefs);
 
@@ -2150,26 +2144,27 @@ function HypothesisDiscoveryBody({ h, store, onReact, onInvestigate }: { h: Stor
 
       <div style={{ marginTop: 26 }}>
         <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 가설, 어떻게 생각하세요?</div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <motion.div
-            role="button" tabIndex={0} onClick={() => onReact?.("agree")} whileTap={{ scale: 0.97 }}
-            style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: "pointer" }}
-          >
-            <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>동의해요</span>
-          </motion.div>
-          <motion.div
-            role="button" tabIndex={0} onClick={() => onReact?.("disagree")} whileTap={{ scale: 0.97 }}
-            style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: "pointer" }}
-          >
-            <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>아닌 것 같아요</span>
-          </motion.div>
-        </div>
+        <ReactionButtons
+          reaction={exhausted ? "disagree" : reaction}
+          onReact={(r) => (r === "agree" ? onAgree?.() : onDisagree?.())}
+          disabled={reinterpreting || exhausted}
+        />
         <div style={{ marginTop: 10 }}>
           {h.investigate && <GhostBtn onClick={onInvestigate}>더 깊이 알아보기</GhostBtn>}
         </div>
-        {reaction && (
+        {reinterpreting && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
-            {reaction === "agree" ? "기록했어요. 이 가설의 확신도가 조금 더 높아집니다." : "기록했어요. 다음 대화에서 다시 살펴볼게요."}
+            다른 해석을 찾는 중…
+          </motion.div>
+        )}
+        {!reinterpreting && exhausted && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
+            같은 근거로 더 다르게 볼 수 있는 해석은 없는 것 같아요. 새로운 기록이 쌓이면 다시 살펴볼게요.
+          </motion.div>
+        )}
+        {!reinterpreting && !exhausted && reaction === "agree" && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
+            기록했어요. 이 가설의 확신도가 조금 더 높아집니다.
           </motion.div>
         )}
       </div>
@@ -2180,7 +2175,23 @@ function HypothesisDiscoveryBody({ h, store, onReact, onInvestigate }: { h: Stor
 // Legacy standalone route (reached only via the still-intact ScreenHypotheses
 // list, no longer linked from Home) — same body, just wrapped with its own
 // back button and page chrome.
-function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }: { index: number; onBack?: () => void; onInvestigate?: () => void; onReact?: (reaction: "agree" | "disagree") => void; store: Store }) {
+function ScreenHypothesisDetail({
+  index,
+  onBack,
+  onInvestigate,
+  onAgree,
+  onDisagree,
+  reinterpreting,
+  store,
+}: {
+  index: number;
+  onBack?: () => void;
+  onInvestigate?: () => void;
+  onAgree?: () => void;
+  onDisagree?: () => void;
+  reinterpreting?: boolean;
+  store: Store;
+}) {
   const h = store.hypotheses[index] ?? store.hypotheses[0];
   if (!h) return null;
   return (
@@ -2189,7 +2200,7 @@ function ScreenHypothesisDetail({ index, onBack, onInvestigate, onReact, store }
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: subtle, cursor: "pointer" }}>← 뒤로</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <HypothesisDiscoveryBody h={h} store={store} onReact={onReact} onInvestigate={onInvestigate} />
+        <HypothesisDiscoveryBody h={h} store={store} onAgree={onAgree} onDisagree={onDisagree} reinterpreting={reinterpreting} onInvestigate={onInvestigate} />
       </div>
     </div>
   );
@@ -2549,10 +2560,10 @@ export default function App() {
   // Shared by both the legacy hypothesisDetail screen and the Analysis
   // tab's inline discovery body, so agree/disagree behaves identically no
   // matter which one the user reached it through.
-  const reactToHypothesis = (index: number, r: "agree" | "disagree") => {
+  const agreeToHypothesis = (index: number) => {
     updateStore((prev) => ({
       ...prev,
-      hypotheses: prev.hypotheses.map((h, i) => (i === index ? { ...h, reaction: r } : h)),
+      hypotheses: prev.hypotheses.map((h, i) => (i === index ? { ...h, reaction: "agree" as const } : h)),
     }));
   };
   const rejectBelief = (beliefId: string) => {
@@ -2561,26 +2572,97 @@ export default function App() {
       beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, userReaction: "rejected" as const } : b)),
     }));
   };
-  const setHypothesisDisagreeReason = (index: number, category: DisagreeReasonCategory, note?: string) => {
-    updateStore((prev) => ({
-      ...prev,
-      hypotheses: prev.hypotheses.map((h, i) => (i === index ? { ...h, disagreeReasonCategory: category, disagreeReasonNote: note } : h)),
-    }));
-  };
   // Distinct from rejectBelief above: reacting to a belief as "오늘의
   // 발견" never hides it from 무의식적 패턴 — only the dedicated reject
   // link there does that.
-  const reactToBeliefDiscovery = (beliefId: string, r: "agree" | "disagree") => {
+  const agreeToBeliefDiscovery = (beliefId: string) => {
     updateStore((prev) => ({
       ...prev,
-      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, discoveryReaction: r } : b)),
+      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, discoveryReaction: "agree" as const } : b)),
     }));
   };
-  const setBeliefDisagreeReason = (beliefId: string, category: DisagreeReasonCategory, note?: string) => {
-    updateStore((prev) => ({
-      ...prev,
-      beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, discoveryDisagreeReasonCategory: category, discoveryDisagreeReasonNote: note } : b)),
-    }));
+
+  // Disagreeing with a discovery no longer just records a reason — it asks
+  // the model for a genuinely different reading of the same evidence and
+  // loops (see /api/reinterpret in vite.config.ts). reinterpretingKey scopes
+  // the in-flight request to exactly one hypothesis/belief so two discovery
+  // surfaces can never race each other.
+  const [reinterpretingKey, setReinterpretingKey] = React.useState<string | null>(null);
+
+  async function requestReinterpretation(currentText: string, evidenceQuotes: string[], rejectedTexts: string[]) {
+    const res = await fetch("/api/reinterpret", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ currentText, evidenceQuotes, rejectedTexts }),
+    });
+    const data: any = await res.json().catch(() => null);
+    if (!res.ok || !data) throw new Error(data?.error || "다른 해석을 가져오지 못했어요.");
+    return data as { interpretation: string | null; confidence: number | null; exhausted: boolean; note?: string };
+  }
+
+  const disagreeWithHypothesis = async (index: number) => {
+    const key = `hyp:${index}`;
+    if (reinterpretingKey) return;
+    const h = store.hypotheses[index];
+    if (!h) return;
+    setReinterpretingKey(key);
+    try {
+      const quotes = evidenceForHypothesis(h, store.beliefs).map((e) => e.quote);
+      const result = await requestReinterpretation(h.title, quotes, h.rejectedTitles ?? []);
+      updateStore((prev) => ({
+        ...prev,
+        hypotheses: prev.hypotheses.map((x, i) => {
+          if (i !== index) return x;
+          if (result.exhausted || !result.interpretation) {
+            return { ...x, reaction: "disagree" as const, exhausted: true };
+          }
+          return {
+            ...x,
+            title: result.interpretation as string,
+            confidence: typeof result.confidence === "number" ? result.confidence : x.confidence,
+            rejectedTitles: [...(x.rejectedTitles ?? []), x.title],
+            reaction: null,
+          };
+        }),
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setReinterpretingKey(null);
+    }
+  };
+
+  const disagreeWithBeliefDiscovery = async (beliefId: string) => {
+    const key = `belief:${beliefId}`;
+    if (reinterpretingKey) return;
+    const b = store.beliefs.find((x) => x.id === beliefId);
+    if (!b) return;
+    setReinterpretingKey(key);
+    try {
+      const currentText = b.discoveryInterpretationOverride ?? b.statement;
+      const quotes = b.evidenceQuotes.map((q) => q.quote);
+      const result = await requestReinterpretation(currentText, quotes, b.rejectedStatements ?? []);
+      updateStore((prev) => ({
+        ...prev,
+        beliefs: prev.beliefs.map((x) => {
+          if (x.id !== beliefId) return x;
+          if (result.exhausted || !result.interpretation) {
+            return { ...x, discoveryReaction: "disagree" as const, discoveryExhausted: true };
+          }
+          const previousText = x.discoveryInterpretationOverride ?? x.statement;
+          return {
+            ...x,
+            discoveryInterpretationOverride: result.interpretation as string,
+            rejectedStatements: [...(x.rejectedStatements ?? []), previousText],
+            discoveryReaction: null,
+          };
+        }),
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setReinterpretingKey(null);
+    }
   };
 
   let content: React.ReactNode = null;
@@ -2628,15 +2710,16 @@ export default function App() {
         onNavSelect={goToTab}
         store={store}
         onOpenArtifact={(id) => setScreen(id)}
-        onReactHypothesis={reactToHypothesis}
-        onSetHypothesisDisagreeReason={setHypothesisDisagreeReason}
+        onAgreeHypothesis={agreeToHypothesis}
+        onDisagreeHypothesis={disagreeWithHypothesis}
         onInvestigateHypothesis={(index) => {
           setHypothesisIndex(index);
           setInvestigateReturnTo("analysis");
           setScreen("investigate");
         }}
-        onReactBeliefDiscovery={reactToBeliefDiscovery}
-        onSetBeliefDisagreeReason={setBeliefDisagreeReason}
+        onAgreeBeliefDiscovery={agreeToBeliefDiscovery}
+        onDisagreeBeliefDiscovery={disagreeWithBeliefDiscovery}
+        reinterpretingKey={reinterpretingKey}
       />
     ); break;
     case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
@@ -2703,7 +2786,9 @@ export default function App() {
           setInvestigateReturnTo("hypothesisDetail");
           setScreen("investigate");
         }}
-        onReact={(r) => reactToHypothesis(hypothesisIndex, r)}
+        onAgree={() => agreeToHypothesis(hypothesisIndex)}
+        onDisagree={() => disagreeWithHypothesis(hypothesisIndex)}
+        reinterpreting={reinterpretingKey === `hyp:${hypothesisIndex}`}
       />
     ); break;
     case "investigate": {
