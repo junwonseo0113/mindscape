@@ -713,6 +713,54 @@ function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
   );
 }
 
+// A small fixed palette cycled by rank rather than tied to any fixed
+// emotion→color mapping — emotion labels are open-ended (whatever the
+// model names per entry), unlike the six fixed cognitive regions above,
+// so there's no stable label to hang a color on ahead of time.
+const EMOTION_BAR_COLORS = ["#5B4B8A", "#7C6BAE", "#B5533C", "#8A9A6B", "#C99A4A", "#6B8FA3"];
+
+// Every recorded entry's emotions, averaged by label across however many
+// times each has shown up, ranked strongest first — the only distribution
+// this can honestly show, since intensity is a per-entry 0–100 rating, not
+// a running total. Entries without analysis yet (real data still catching
+// up, or an entry that predates this field) are simply skipped.
+function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
+  const totals = new Map<string, { sum: number; count: number }>();
+  history.forEach((entry) => {
+    entry.analysis?.observation.emotions.forEach((em) => {
+      const cur = totals.get(em.label) ?? { sum: 0, count: 0 };
+      cur.sum += em.intensity;
+      cur.count += 1;
+      totals.set(em.label, cur);
+    });
+  });
+  const rows = Array.from(totals.entries())
+    .map(([label, { sum, count }]) => ({ label, avg: Math.round(sum / count), count }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 6);
+
+  if (rows.length === 0) {
+    return <div style={{ ...sans, fontSize: 13, color: faint }}>아직 감정 데이터가 없어요. 생각을 몇 번 남기면 여기에 나타나요.</div>;
+  }
+
+  const maxAvg = rows[0].avg || 1;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {rows.map((r, i) => (
+        <div key={r.label}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <span style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: inkSoft }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11, color: faint }}>{r.avg} · {r.count}회</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, backgroundColor: hair, marginTop: 6 }}>
+            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 3, backgroundColor: EMOTION_BAR_COLORS[i % EMOTION_BAR_COLORS.length] }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // A reserved, clearly-labeled slot for an analysis module that doesn't
 // exist yet — honest about what it is instead of shipping a fake chart
 // with no real data behind it.
@@ -771,20 +819,33 @@ function DiscoveryReflection({
   exhausted?: boolean;
   onReact?: (r: "agree" | "disagree") => void;
 }) {
+  // Once a discovery is settled — agreed with, or reinterpretation
+  // exhausted — there's nothing left to press, so the buttons themselves
+  // go away instead of sitting there disabled. Only the still-open states
+  // (fresh, or a reinterpretation in flight that might still land on
+  // something to react to) keep showing them.
+  const settled = reaction === "agree" || exhausted;
   return (
     <div>
       <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 해석이 맞다고 생각하시나요?</div>
-      <ReactionButtons reaction={exhausted ? "disagree" : reaction} onReact={onReact} disabled={reinterpreting || exhausted} />
-      {reinterpreting && (
-        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>다른 해석을 찾는 중…</div>
+      {!settled && (
+        <>
+          <ReactionButtons reaction={reaction} onReact={onReact} disabled={reinterpreting} />
+          {reinterpreting && (
+            <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>다른 해석을 찾는 중…</div>
+          )}
+        </>
       )}
-      {!reinterpreting && exhausted && (
-        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
+      {settled && exhausted && (
+        <div style={{ ...sans, fontSize: 12, color: subtle, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
           같은 근거로 더 다르게 볼 수 있는 해석은 없는 것 같아요. 새로운 기록이 쌓이면 다시 살펴볼게요.
         </div>
       )}
-      {!reinterpreting && !exhausted && reaction === "agree" && (
-        <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12 }}>기록했어요. 이 해석의 확신도가 조금 더 높아집니다.</div>
+      {settled && !exhausted && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0" }}>
+          <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: ink, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>✓</span>
+          <span style={{ ...sans, fontSize: 12, color: subtle }}>기록했어요. 이 해석의 확신도가 조금 더 높아집니다.</span>
+        </div>
       )}
     </div>
   );
@@ -1064,9 +1125,13 @@ function ScreenAnalysis({
             />
           </div>
           <div style={{ marginTop: 10 }}>
+            <SectionCard title="감정 분포" subtitle="말할 때 함께 기록된 감정을, 평균 강도가 강한 순서로 보여줘요.">
+              <EmotionDistribution history={store.history} />
+            </SectionCard>
+          </div>
+          <div style={{ marginTop: 10 }}>
             <SectionCard>
               <ComingSoonRow label="가치 변화" />
-              <ComingSoonRow label="감정 분포" />
               <ComingSoonRow label="사고 패턴" note="CBT" last />
             </SectionCard>
           </div>
@@ -2112,6 +2177,7 @@ function HypothesisDiscoveryBody({
 }) {
   const reaction = h.reaction;
   const exhausted = !!h.exhausted;
+  const settled = reaction === "agree" || exhausted;
   const question = h.question ?? GENERIC_HYPOTHESIS_QUESTION;
   const evidence = evidenceForHypothesis(h, store.beliefs);
 
@@ -2209,27 +2275,32 @@ function HypothesisDiscoveryBody({
 
       <div style={{ marginTop: 26 }}>
         <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em", marginBottom: 12 }}>이 가설, 어떻게 생각하세요?</div>
-        <ReactionButtons
-          reaction={exhausted ? "disagree" : reaction}
-          onReact={(r) => (r === "agree" ? onAgree?.() : onDisagree?.())}
-          disabled={reinterpreting || exhausted}
-        />
-        <div style={{ marginTop: 10 }}>
+        {!settled && (
+          <>
+            <ReactionButtons
+              reaction={reaction}
+              onReact={(r) => (r === "agree" ? onAgree?.() : onDisagree?.())}
+              disabled={reinterpreting}
+            />
+            {reinterpreting && (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
+                다른 해석을 찾는 중…
+              </motion.div>
+            )}
+          </>
+        )}
+        <div style={{ marginTop: settled ? 0 : 10 }}>
           {h.investigate && <GhostBtn onClick={onInvestigate}>더 깊이 알아보기</GhostBtn>}
         </div>
-        {reinterpreting && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
-            다른 해석을 찾는 중…
-          </motion.div>
-        )}
-        {!reinterpreting && exhausted && (
+        {settled && exhausted && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
             같은 근거로 더 다르게 볼 수 있는 해석은 없는 것 같아요. 새로운 기록이 쌓이면 다시 살펴볼게요.
           </motion.div>
         )}
-        {!reinterpreting && !exhausted && reaction === "agree" && (
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: subtle, marginTop: 12, textAlign: "center" }}>
-            기록했어요. 이 가설의 확신도가 조금 더 높아집니다.
+        {settled && !exhausted && (
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: ink, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>✓</span>
+            <span style={{ ...sans, fontSize: 12, color: subtle }}>기록했어요. 이 가설의 확신도가 조금 더 높아집니다.</span>
           </motion.div>
         )}
       </div>

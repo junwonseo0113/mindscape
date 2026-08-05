@@ -48,10 +48,73 @@ export const DEMO_STORE: Store = {
     { a: "demo-belief-1", b: "demo-belief-3", note: "노력했는데도 인정받지 못할까 봐, 완벽해질 때까지 시작을 미루는 것으로 보여요." },
   ],
 
+  // Each entry's `analysis` is what powers 감정 분포 (emotion distribution)
+  // in the Analysis tab's "더 깊이 보기" section — without these, Demo Mode
+  // would show an empty chart even though the feature exists.
   history: [
-    { id: "demo-entry-0", date: "2026.07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다...", duration: "4분 12초" },
-    { id: "demo-entry-1", date: "2026.07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다...", duration: "2분 40초" },
-    { id: "demo-entry-2", date: "2026.07.21", text: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다...", duration: "6분 05초" },
+    {
+      id: "demo-entry-0", date: "2026.07.28", text: "이직 제안이 왔는데 좀 더 지켜보고 싶다는 생각이 들었다...", duration: "4분 12초",
+      analysis: {
+        observation: {
+          situation: "이직 제안을 받음",
+          automaticThought: "좀 더 지켜보고 나서 결정하는 게 안전하다",
+          emotions: [{ label: "불안", intensity: 58 }, { label: "기대", intensity: 34 }],
+          actionUrge: "결정을 미루고 조금 더 지켜본다",
+        },
+        interpretation: {
+          possibleCognitivePatterns: ["당위적 사고"],
+          valueDirection: { relatedValues: ["안정"], towardOrAway: "toward", explanation: "안정을 지키려는 방향으로 움직인 선택이에요." },
+        },
+        hypothesis: {
+          candidateBelief: "불확실할 때는 기다리는 것이 가장 안전하다",
+          confidence: 78, status: "supported",
+          supportingEntryIds: ["demo-entry-0"], contradictoryEntryIds: [],
+          reasoningSummary: "결정을 미루는 선택이 반복적으로 나타났어요.",
+        },
+      },
+    },
+    {
+      id: "demo-entry-1", date: "2026.07.25", text: "발표 끝나고 계속 아쉬운 부분만 곱씹게 됐다...", duration: "2분 40초",
+      analysis: {
+        observation: {
+          situation: "발표를 마침",
+          automaticThought: "준비를 더 했어야 했는데",
+          emotions: [{ label: "아쉬움", intensity: 62 }, { label: "자책감", intensity: 45 }],
+          actionUrge: "잘된 부분보다 아쉬운 부분을 계속 곱씹는다",
+        },
+        interpretation: {
+          possibleCognitivePatterns: ["정신적 여과"],
+          valueDirection: { relatedValues: ["성장"], towardOrAway: "away", explanation: "실수에 집중하느라 잘한 부분은 보지 못했어요." },
+        },
+        hypothesis: {
+          candidateBelief: "성과를 인정받지 못하면 노력이 부족했다고 스스로를 탓한다",
+          confidence: 64, status: "supported",
+          supportingEntryIds: ["demo-entry-1"], contradictoryEntryIds: [],
+          reasoningSummary: "결과가 안 좋을 때 원인을 스스로에게서 찾는 패턴이 반복돼요.",
+        },
+      },
+    },
+    {
+      id: "demo-entry-2", date: "2026.07.21", text: "요즘 혼자 결정하는 게 편한 건지, 그냥 익숙해서 그런 건지 헷갈린다...", duration: "6분 05초",
+      analysis: {
+        observation: {
+          situation: "혼자 결정을 내리는 상황을 돌아봄",
+          automaticThought: "이게 편해서인지 익숙해서인지 잘 모르겠다",
+          emotions: [{ label: "혼란", intensity: 50 }, { label: "외로움", intensity: 30 }],
+          actionUrge: "답을 미루고 계속 스스로에게 되묻는다",
+        },
+        interpretation: {
+          possibleCognitivePatterns: ["성급한 결론"],
+          valueDirection: { relatedValues: ["연결"], towardOrAway: "unclear", explanation: "혼자와 함께 사이에서 어느 쪽이 진짜 원하는 방향인지 아직 분명하지 않아요." },
+        },
+        hypothesis: {
+          candidateBelief: "혼자 하는 게 더 낫다",
+          confidence: 57, status: "emerging",
+          supportingEntryIds: ["demo-entry-2"], contradictoryEntryIds: [],
+          reasoningSummary: "편함과 익숙함을 구분하지 못한 채 혼자를 택하는 경우가 나타났어요.",
+        },
+      },
+    },
   ],
 
   hypotheses: [
