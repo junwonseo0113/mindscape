@@ -41,6 +41,32 @@ const tensionSoft = "rgba(181,83,60,0.08)";
 // read as raised without needing a harder edge.
 const cardShadow = "0 1px 2px rgba(28,27,31,0.05), 0 6px 18px rgba(28,27,31,0.045)";
 
+// ── Dark theme — Home and Analysis only, per the imported design spec
+// (claude.ai/design project "Design spec for analysis page", 홈 화면.dc.html
+// + 분석 화면.dc.html). Every other screen still uses the light palette
+// above, so navigating away from these two tabs currently looks
+// inconsistent — that's a known consequence of only these two screens
+// being in-scope for the spec, not an oversight.
+const dkBg = "#0a0716";
+const dkCard = "#14101f";
+const dkCardBorder = "rgba(150,120,255,0.10)";
+const dkCardShadow = "0 8px 24px rgba(0,0,0,0.35)";
+const dkHeading = "#F2EEFA";
+const dkBody = "#8b83a3";
+const dkBodyLight = "#E8E3F5";
+const dkAccent = "#7B5CF0";
+const dkAccentLight = "#B39CFF";
+const dkAccentSoft = "rgba(123,92,240,0.14)";
+const dkAccentTag = "rgba(123,92,240,0.22)";
+const dkAccentTagText = "#D6C8FF";
+const dkTrack = "#241c38";
+const dkWarn = "#D98A4A";
+const dkWarnSoft = "rgba(224,138,74,0.14)";
+const dkWarnTag = "rgba(224,138,74,0.22)";
+const dkWarnTagText = "#F0B78A";
+const dkWarnLabel = "#B5652E";
+const dkDivider = "rgba(150,120,255,0.14)";
+
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
 const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
@@ -60,13 +86,41 @@ function StatusBar() {
 }
 
 // ── Bottom navigation ─────────────────────────────────────────────────────────
-function BottomNav({ active, onSelect }: { active: string; onSelect?: (id: string) => void }) {
+// `dark` matches the imported design spec's nav (rounded-square icon swatch +
+// label, blurred near-black bar) — only Home/Analysis pass it; every other
+// screen keeps the light dot-indicator style.
+function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id: string) => void; dark?: boolean }) {
   const items = [
     { id: "home", label: "홈" },
     { id: "analysis", label: "분석" },
     { id: "history", label: "기록" },
     { id: "profile", label: "프로필" },
   ];
+  if (dark) {
+    return (
+      <div style={{ position: "sticky", bottom: 0, backgroundColor: "rgba(10,7,22,0.85)", backdropFilter: "blur(12px)", borderTop: `1px solid ${dkDivider}`, flexShrink: 0 }}>
+        <div style={{ display: "flex", padding: "8px 10px 10px" }}>
+          {items.map((item) => {
+            const isActive = active === item.id;
+            return (
+              <motion.div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect?.(item.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
+                whileTap={{ opacity: 0.6 }}
+                style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "6px 0", cursor: "pointer" }}
+              >
+                <div style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: isActive ? dkAccent : "#3A3350" }} />
+                <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? 600 : 500, color: isActive ? dkAccentLight : "#726A8A" }}>{item.label}</span>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ display: "flex", borderTop: `1px solid ${hair}`, backgroundColor: page, flexShrink: 0 }}>
       {items.map((item) => {
@@ -604,39 +658,43 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
 // 거리 — now belongs to History or Analysis; duplicating any of it here
 // would give it two homes, which is exactly what this reorg is meant to
 // remove. See ScreenAnalysis for where all of that moved.
+//
+// Dark theme, ported directly from the claude.ai/design spec (홈 화면.dc.html)
+// — see the dk* tokens near the top of the file. The 3D brain's own card
+// styling is left untouched (that component wasn't part of this import).
 function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
   const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 22px 24px" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 20px 24px" }}>
         {/* ── Hero: date, headline, brain, 생각 말하기 — nothing else. This is
             the whole first impression: "my thoughts become this brain." ── */}
-        <div style={{ ...sans, fontSize: 13, color: subtle }}>{formatDateDots(new Date())}</div>
-        <div style={{ ...serif, fontSize: 26, color: ink, marginTop: 6, lineHeight: 1.35, wordBreak: "keep-all" }}>
+        <div style={{ ...mono, fontSize: 12, color: "#7A7290" }}>{formatDateDots(new Date())}</div>
+        <div style={{ ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: dkHeading, marginTop: 14, wordBreak: "keep-all" }}>
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
         </div>
 
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 28 }}>
           <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} clusters={brainClusters} height={336} />
         </div>
 
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 16 }}>
           <motion.div
             role="button" tabIndex={0} onClick={onStartThink} whileTap={{ scale: 0.98, opacity: 0.92 }}
-            style={{ padding: "20px 18px", borderRadius: 18, backgroundColor: ink, cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}
+            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: dkCardShadow }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#33313A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <div style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: "#fff" }} />
+            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#2A2144", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: dkAccentLight, boxShadow: `0 0 10px ${dkAccent}` }} />
             </div>
-            <div>
-              <div style={{ ...sans, fontSize: 15, fontWeight: 600, color: "#fff" }}>생각 말하기</div>
-              <div style={{ ...sans, fontSize: 12, color: "#A8A5A0", marginTop: 2 }}>정리하지 않아도 괜찮아요</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>생각 말하기</span>
+              <span style={{ ...sans, fontSize: 12, color: "#8E85A6" }}>정리하지 않아도 괜찮아요</span>
             </div>
           </motion.div>
         </div>
       </div>
-      <BottomNav active="home" onSelect={onNavSelect} />
+      <BottomNav active="home" onSelect={onNavSelect} dark />
     </div>
   );
 }
