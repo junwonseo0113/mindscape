@@ -100,46 +100,78 @@ function StatusBar() {
   );
 }
 
-// ── Bottom navigation ─────────────────────────────────────────────────────────
-// `dark` matches the imported design spec's nav (rounded-square icon swatch +
-// label, blurred near-black bar) — only Home/Analysis pass it; every other
-// screen keeps the light dot-indicator style.
-function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id: string) => void; dark?: boolean }) {
-  const items = [
-    { id: "home", label: "홈" },
-    { id: "analysis", label: "분석" },
-    { id: "history", label: "기록" },
-    { id: "profile", label: "프로필" },
-  ];
-  if (dark) {
+// Real line icons for the bottom nav, ported from the friend's parallel
+// session (odysseyof26's 8580f53) — a clear upgrade over the earlier
+// colored-square/dot placeholders, with no functional conflict, so it's
+// merged in on its own rather than picking one whole branch over the other.
+function NavIcon({ id, color, size = 23 }: { id: string; color: string; size?: number }) {
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  if (id === "home") {
     return (
-      <div style={{ position: "sticky", bottom: 0, backgroundColor: "rgba(10,7,22,0.85)", backdropFilter: "blur(12px)", borderTop: `1px solid ${dkDivider}`, flexShrink: 0 }}>
-        <div style={{ display: "flex", padding: "8px 10px 10px" }}>
-          {items.map((item) => {
-            const isActive = active === item.id;
-            return (
-              <motion.div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onSelect?.(item.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
-                whileTap={{ opacity: 0.6 }}
-                style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "6px 0", cursor: "pointer" }}
-              >
-                <div style={{ width: 20, height: 20, borderRadius: 6, backgroundColor: isActive ? dkAccent : "#3A3350" }} />
-                <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? 600 : 500, color: isActive ? dkAccentLight : "#726A8A" }}>{item.label}</span>
-              </motion.div>
-            );
-          })}
-        </div>
-      </div>
+      <svg {...common}>
+        <path d="M4 11.5 12 4l8 7.5" />
+        <path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
+      </svg>
+    );
+  }
+  if (id === "analysis") {
+    return (
+      <svg {...common}>
+        <circle cx="7" cy="7" r="2.1" />
+        <circle cx="17.5" cy="6" r="2.1" />
+        <circle cx="12" cy="18.5" r="2.1" />
+        <path d="M8.6 8.6 10.3 16.3M15.6 7.6 13.7 16.5M8.9 6.3l6.6-0.4" />
+      </svg>
+    );
+  }
+  if (id === "history") {
+    return (
+      <svg {...common}>
+        <path d="M12 5.2c-1.5-1-3.6-1.5-5.5-1.2-.7.1-1.2.7-1.2 1.4v11.4c0 .9.8 1.5 1.6 1.4 1.8-.3 3.8.1 5.1 1 1.3-.9 3.3-1.3 5.1-1 .9.1 1.6-.5 1.6-1.4V5.4c0-.7-.5-1.3-1.2-1.4-1.9-.3-4 .2-5.5 1.2Z" />
+        <path d="M12 5.2v12.6" />
+      </svg>
     );
   }
   return (
-    <div style={{ display: "flex", borderTop: `1px solid ${hair}`, backgroundColor: page, flexShrink: 0 }}>
+    <svg {...common}>
+      <circle cx="12" cy="8.3" r="3.3" />
+      <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
+    </svg>
+  );
+}
+
+// ── Bottom navigation ─────────────────────────────────────────────────────────
+// `dark` matches the imported design spec's nav (blurred near-black bar) —
+// only Home/Analysis pass it; every other screen keeps the light bar. Both
+// variants share the ported NavIcon set and the animated sliding selection
+// pill (also from the friend's parallel session) instead of each having
+// their own placeholder indicator.
+function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id: string) => void; dark?: boolean }) {
+  const items = [
+    { id: "home", label: "홈" },
+    { id: "analysis", label: "마인드" },
+    { id: "history", label: "기록" },
+    { id: "profile", label: "프로필" },
+  ];
+  const activeColor = dark ? dkAccentLight : "#6B6EF6";
+  const inactiveColor = dark ? "#726A8A" : "#8B8A92";
+  const pillColor = dark ? "rgba(123,92,240,0.16)" : "#F0EEFF";
+  return (
+    <div
+      style={{
+        position: dark ? "sticky" : "static",
+        bottom: dark ? 0 : undefined,
+        display: "flex",
+        borderTop: `1px solid ${dark ? dkDivider : hair}`,
+        backgroundColor: dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
+        backdropFilter: "blur(12px)",
+        padding: "8px 10px",
+        flexShrink: 0,
+      }}
+    >
       {items.map((item) => {
         const isActive = active === item.id;
+        const color = isActive ? activeColor : inactiveColor;
         return (
           <motion.div
             key={item.id}
@@ -147,11 +179,20 @@ function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id:
             tabIndex={0}
             onClick={() => onSelect?.(item.id)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
-            whileTap={{ opacity: 0.6 }}
-            style={{ flex: 1, padding: "10px 0 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer" }}
+            whileTap={{ opacity: 0.7 }}
+            style={{ flex: 1, position: "relative", display: "flex", justifyContent: "center", padding: "2px 4px", cursor: "pointer" }}
           >
-            <div style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: isActive ? accent : "transparent" }} />
-            <span style={{ ...sans, fontSize: 11, fontWeight: isActive ? 600 : 400, color: isActive ? ink : subtle }}>{item.label}</span>
+            {isActive && (
+              <motion.div
+                layoutId={`navSelectedPill-${dark ? "dark" : "light"}`}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                style={{ position: "absolute", inset: "0 6px", borderRadius: 18, backgroundColor: pillColor, zIndex: 0 }}
+              />
+            )}
+            <div style={{ position: "relative", zIndex: 1, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+              <NavIcon id={item.id} color={color} />
+              <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? 600 : 400, color }}>{item.label}</span>
+            </div>
           </motion.div>
         );
       })}
@@ -1077,8 +1118,8 @@ function ScreenAnalysis({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
         <div style={{ padding: "8px 4px 20px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>분석</div>
-          <div style={{ ...sans, fontSize: 13, color: dkBody }}>당신의 마음을 이해하는 과정입니다.</div>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>마인드</div>
+          <div style={{ ...sans, fontSize: 13, color: dkBody }}>AI가 지금까지 당신에 대해 알아낸 것들이에요 — 오늘 하루가 아니라, 쌓여온 시간 전체예요.</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
