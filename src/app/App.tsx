@@ -598,46 +598,6 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
   return b ? { kind: "belief", id: pinned.id, text: b.discoveryInterpretationOverride ?? b.statement } : null;
 }
 
-// A single editorial headline, not a card — kept as its own component with
-// a `headline` prop (today just the static "오늘의 발견" eyebrow) so a future
-// AI-generated title (e.g. "오늘 당신의 생각은 '안정'에 머물렀습니다.") can
-// replace it without touching ScreenHome's layout. Only ever shows the
-// one-sentence teaser — tapping it goes to the Analysis tab, where the same
-// discovery is computed again and shown in full.
-function TodaysDiscovery({ headline, discovery, onOpen }: { headline: string; discovery: { text: string } | null; onOpen?: () => void }) {
-  return (
-    <div>
-      <span style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>{headline}</span>
-      <motion.div
-        role="button" tabIndex={0}
-        onClick={discovery ? onOpen : undefined}
-        whileTap={discovery ? { opacity: 0.6 } : undefined}
-        style={{ marginTop: 10, cursor: discovery ? "pointer" : "default" }}
-      >
-        <div
-          style={{
-            ...serif,
-            fontSize: 19,
-            color: ink,
-            lineHeight: 1.4,
-            letterSpacing: "-0.01em",
-            wordBreak: "keep-all",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {discovery ? discovery.text : "아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요."}
-        </div>
-        {discovery && (
-          <div style={{ ...sans, fontSize: 12.5, fontWeight: 500, color: accent, marginTop: 8 }}>자세히 보기 →</div>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
 // ── Screen 4 · Home ────────────────────────────────────────────────────────────
 // Single responsibility: capture and today's highlight. Everything that
 // used to live below the fold here — recent thoughts, 무의식적 패턴, 목표와의
@@ -645,7 +605,6 @@ function TodaysDiscovery({ headline, discovery, onOpen }: { headline: string; di
 // would give it two homes, which is exactly what this reorg is meant to
 // remove. See ScreenAnalysis for where all of that moved.
 function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
-  const discovery = computeDiscovery(store);
   const brainBeliefs = React.useMemo(() => withBrainExtras(store.beliefs, store.history), [store.beliefs, store.history]);
   const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
 
@@ -676,12 +635,6 @@ function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: s
               <div style={{ ...sans, fontSize: 12, color: "#A8A5A0", marginTop: 2 }}>정리하지 않아도 괜찮아요</div>
             </div>
           </motion.div>
-        </div>
-
-        {/* ── One teaser insight, not a card — a single-sentence headline and
-            a quiet link to the Analysis tab, where the full picture lives. ── */}
-        <div style={{ marginTop: 28 }}>
-          <TodaysDiscovery headline="오늘의 발견" discovery={discovery} onOpen={() => onNavSelect?.("analysis")} />
         </div>
       </div>
       <BottomNav active="home" onSelect={onNavSelect} />
@@ -1586,10 +1539,14 @@ function ScreenProcessing({
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; error?: string; onDone?: () => void }) {
+// Only reached now when there's nothing to show in the Analysis tab yet —
+// a real result routes straight to "analysis" instead (see the app
+// shell's onDone for the "processing" screen). Just the error state and a
+// quiet fallback acknowledgment.
+function ScreenThinkComplete({ error, onDone }: { error?: string; onDone?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: page }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: error || analysis ? "flex-start" : "center", padding: analysis ? "44px 28px 24px" : "0 28px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         {error ? (
           <>
             <div style={{ ...serif, fontSize: 21, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -1599,102 +1556,6 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
               {error}
             </div>
           </>
-        ) : analysis ? (
-          <>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>방금 남긴 생각에서</div>
-            <div style={{ ...serif, fontSize: 21, color: ink, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>잘 들었습니다.</div>
-
-            {analysis.changeNote && (
-              <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: accent, marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                {analysis.changeNote}
-              </div>
-            )}
-
-            {Array.isArray(analysis.beliefs) && analysis.beliefs.length > 0 && (
-              <div style={{ marginTop: 26 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>지금까지 쌓인 무의식적 신념</div>
-                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                  {analysis.beliefs.map((b: any, i: number) => (
-                    <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: surface }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mid }}>{b.domain}</span>
-                        {typeof b.evidenceCount === "number" && <span style={{ ...mono, fontSize: 11, color: faint }}>근거 {b.evidenceCount}건</span>}
-                      </div>
-                      <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{b.statement}</div>
-                      {typeof b.confidence === "number" && <div style={{ marginTop: 10 }}><ConfidenceBar value={b.confidence} /></div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {Array.isArray(analysis.assumptions) && analysis.assumptions.length > 0 && (
-              <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>반복되는 무의식적 해석</div>
-                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                  {analysis.assumptions.map((a: any, i: number) => (
-                    <div key={i} style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                      <span style={{ color: subtle }}>{a.trigger}</span> → {a.interpretation}
-                      {typeof a.count === "number" && <span style={{ ...mono, fontSize: 11, color: faint }}> · {a.count}회</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {Array.isArray(analysis.connections) && analysis.connections.length > 0 && (
-              <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>발견된 연결</div>
-                <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  서로 달라 보였던 두 무의식적 신념이, 사실은 같은 뿌리(근본 원인)에서 나온 것으로 보여요.
-                </div>
-                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                  {analysis.connections.map((c: any, i: number) => (
-                    <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: accentSoft }}>
-                      <ConnectionSpark aLabel={c.aLabel} bLabel={c.bLabel} />
-                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                        {c.aStatement && (
-                          <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                            <span style={{ fontWeight: 700, color: accent }}>{c.aLabel}</span> — "{c.aStatement}"
-                          </div>
-                        )}
-                        {c.bStatement && (
-                          <div style={{ ...sans, fontSize: 12.5, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                            <span style={{ fontWeight: 700, color: accent }}>{c.bLabel}</span> — "{c.bStatement}"
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ ...sans, fontSize: 13, color: inkSoft, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {analysis.metaInsight && (
-              <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>패턴이 쌓이면서 보이는 것</div>
-                <div style={{ marginTop: 8, padding: 16, borderRadius: 14, backgroundColor: ink }}>
-                  <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#F4F1EC", lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.metaInsight}</div>
-                </div>
-              </div>
-            )}
-
-            {analysis.driftNote && (
-              <div style={{ marginTop: 22 }}>
-                <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>되고 싶은 모습과의 거리</div>
-                <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: surface }}>
-                  <div style={{ ...sans, fontSize: 13, color: inkSoft, lineHeight: 1.6, wordBreak: "keep-all" }}>{analysis.driftNote}</div>
-                </div>
-              </div>
-            )}
-
-            {analysis.reflection && (
-              <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: ink, lineHeight: 1.65, wordBreak: "keep-all" }}>{analysis.reflection}</div>
-              </div>
-            )}
-          </>
         ) : (
           <>
             <div style={{ ...serif, fontSize: 22, color: ink, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -1702,12 +1563,6 @@ function ScreenThinkComplete({ analysis, error, onDone }: { analysis?: any; erro
             </div>
             <div style={{ ...sans, fontSize: 14, color: mid, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
               오늘 이야기도 기록에 더해졌어요. 판단하거나 정리하지 않습니다 — 그냥 조용히 쌓아둡니다.
-            </div>
-            <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
-              <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>가볍게 눈에 띈 것</div>
-              <div style={{ ...serif, fontSize: 15, color: ink, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                "좀 더 지켜보고 싶다"는 표현, 최근 몇 번 더 나왔었어요.
-              </div>
             </div>
           </>
         )}
@@ -2983,7 +2838,6 @@ export default function App() {
   const [investigateReturnTo, setInvestigateReturnTo] = React.useState<"hypothesisDetail" | "analysis">("hypothesisDetail");
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
-  const [analysis, setAnalysis] = React.useState<any>(null);
   const [analysisError, setAnalysisError] = React.useState("");
   // The one data provider: `store` is whichever dataset is currently active
   // (curated demo content, or the real on-device store — see
@@ -3160,7 +3014,7 @@ export default function App() {
         reinterpretingKey={reinterpretingKey}
       />
     ); break;
-    case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysis(null); setAnalysisError(""); setScreen("processing"); }} />; break;
+    case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysisError(""); setScreen("processing"); }} />; break;
     case "processing": content = (
       <ScreenProcessing
         text={thinkText}
@@ -3177,30 +3031,19 @@ export default function App() {
           if (result) {
             const merged = mergeAnalysisIntoStore(store, result, thinkText);
             updateStore(() => merged);
-            setAnalysis({
-              beliefs: merged.beliefs,
-              assumptions: merged.assumptions,
-              connections: merged.connections.map((c) => ({
-                aLabel: merged.beliefs.find((b) => b.id === c.a)?.domain ?? "?",
-                bLabel: merged.beliefs.find((b) => b.id === c.b)?.domain ?? "?",
-                aStatement: merged.beliefs.find((b) => b.id === c.a)?.statement ?? "",
-                bStatement: merged.beliefs.find((b) => b.id === c.b)?.statement ?? "",
-                note: c.note,
-              })),
-              reflection: result.reflection,
-              changeNote: result.changeNote,
-              metaInsight: result.metaInsight,
-              driftNote: result.driftNote,
-            });
+            // A real analysis landed — go straight to the Analysis tab
+            // instead of a separate results-summary screen; computeDiscovery
+            // will pick up whatever this entry just created/reinforced as
+            // "오늘의 발견" on its own.
+            setScreen("analysis");
           } else {
-            setAnalysis(null);
+            setScreen("thinkComplete");
           }
-          setScreen("thinkComplete");
         }}
         onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }}
       />
     ); break;
-    case "thinkComplete": content = <ScreenThinkComplete analysis={analysis} error={analysisError} onDone={() => setScreen("home")} />; break;
+    case "thinkComplete": content = <ScreenThinkComplete error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />; break;
     case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
     case "drift": content = <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
