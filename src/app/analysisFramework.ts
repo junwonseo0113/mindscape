@@ -24,7 +24,7 @@
 //     independently-accumulated new candidate (its own fresh 3 entries)
 //     can re-establish the pattern.
 
-import { HypothesisStatus, PendingBeliefCandidate, Store, StoredBelief } from "./types";
+import { HypothesisStatus, PendingBeliefCandidate, Store, StoredBelief, StoredConnection } from "./types";
 
 export const DISCLAIMER_NOTICE =
   "이 분석은 CBT와 ACT의 개념을 참고한 자기성찰 도구이며, 심리 진단이나 치료를 대체하지 않습니다.";
@@ -143,4 +143,63 @@ export function matchableCandidates(store: Store): {
       .map((b) => ({ id: b.id, domain: b.domain, statement: b.statement, confidence: b.confidence })),
     pending: (store.pendingBeliefCandidates ?? []).map((p) => ({ id: p.id, domain: p.domain, statement: p.statement })),
   };
+}
+
+// ── Belief network mapping (Level 3) ─────────────────────────────────────────
+// A core belief is rarely alone — usually several mutually-reinforcing
+// beliefs prop each other up. This finds the connected components among
+// "root" (mutually-reinforcing) connections only — "contradiction"-type
+// connections represent tension, not reinforcement, so they're excluded
+// here (see findContradictionPairs below for those). Only components with
+// 3+ members are returned: a pair is just "a connection," already shown
+// elsewhere — a genuine *network* is what's structurally new to point out.
+export function findBeliefClusters(beliefs: StoredBelief[], connections: StoredConnection[]): string[][] {
+  const validIds = new Set(beliefs.filter((b) => b.userReaction !== "rejected").map((b) => b.id));
+  const adjacency = new Map<string, Set<string>>();
+  connections
+    .filter((c) => (c.type ?? "root") === "root" && validIds.has(c.a) && validIds.has(c.b))
+    .forEach((c) => {
+      if (!adjacency.has(c.a)) adjacency.set(c.a, new Set());
+      if (!adjacency.has(c.b)) adjacency.set(c.b, new Set());
+      adjacency.get(c.a)!.add(c.b);
+      adjacency.get(c.b)!.add(c.a);
+    });
+
+  const seen = new Set<string>();
+  const clusters: string[][] = [];
+  for (const start of adjacency.keys()) {
+    if (seen.has(start)) continue;
+    const component: string[] = [];
+    const queue = [start];
+    seen.add(start);
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      component.push(id);
+      for (const neighbor of adjacency.get(id) ?? []) {
+        if (!seen.has(neighbor)) {
+          seen.add(neighbor);
+          queue.push(neighbor);
+        }
+      }
+    }
+    if (component.length >= 3) clusters.push(component);
+  }
+  return clusters;
+}
+
+// ── Contradiction pairs (Level 5) ────────────────────────────────────────────
+// Just the "contradiction"-type connections, paired with their actual
+// belief objects — presented side-by-side, without judgment, elsewhere in
+// the UI (motivational interviewing's "discrepancy" technique: naming the
+// tension is the entire intervention, no resolution offered).
+export function findContradictionPairs(beliefs: StoredBelief[], connections: StoredConnection[]): { a: StoredBelief; b: StoredBelief; note: string }[] {
+  const byId = new Map(beliefs.filter((b) => b.userReaction !== "rejected").map((b) => [b.id, b]));
+  return connections
+    .filter((c) => c.type === "contradiction")
+    .map((c) => {
+      const a = byId.get(c.a);
+      const b = byId.get(c.b);
+      return a && b ? { a, b, note: c.note } : null;
+    })
+    .filter((x): x is { a: StoredBelief; b: StoredBelief; note: string } => !!x);
 }

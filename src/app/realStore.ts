@@ -129,6 +129,13 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     typeof rawCandidate.schemaDomainLabelSuggestion === "string" && rawCandidate.schemaDomainLabelSuggestion.trim()
       ? rawCandidate.schemaDomainLabelSuggestion.trim()
       : null;
+  // ACT-style defusion label ("완벽주의 생각") — see analysisFramework's
+  // thoughtLabel field doc. Purely a display reframe, so it's fine to just
+  // take the model's suggestion as-is rather than re-deriving it.
+  const thoughtLabelSuggestion: string | null =
+    typeof rawCandidate.thoughtLabelSuggestion === "string" && rawCandidate.thoughtLabelSuggestion.trim()
+      ? rawCandidate.thoughtLabelSuggestion.trim()
+      : null;
   const quoteSource = (observation.automaticThought || rawText).trim();
   const quote = quoteSource ? quoteSource.slice(0, 160) : null;
 
@@ -148,6 +155,12 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
       const confidence = nextConfidence(matchedBelief.confidence, relation, directness);
       const status = deriveStatus(supportingEntryIds.length, contradictoryEntryIds.length);
       const evidenceQuotes = quote ? [...matchedBelief.evidenceQuotes, { date: today, quote }].slice(-4) : matchedBelief.evidenceQuotes;
+      // Longitudinal drift (Level 4) — only append when confidence actually
+      // moved, so the history reads as real change points, not one per
+      // entry regardless of whether anything shifted.
+      const confidenceHistory = confidence !== matchedBelief.confidence
+        ? [...(matchedBelief.confidenceHistory ?? []), { date: today, value: confidence }].slice(-30)
+        : matchedBelief.confidenceHistory;
       beliefs = beliefs.map((b) =>
         b.id === matchedBelief.id
           ? {
@@ -161,6 +174,8 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
               possibleCognitivePatterns: interpretation.possibleCognitivePatterns.length > 0 ? interpretation.possibleCognitivePatterns : b.possibleCognitivePatterns,
               lastUpdatedAt: today,
               schemaDomainLabel: schemaDomainLabelSuggestion ?? b.schemaDomainLabel,
+              thoughtLabel: thoughtLabelSuggestion ?? b.thoughtLabel,
+              confidenceHistory,
             }
           : b
       );
@@ -181,11 +196,12 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
         // visible belief. Keeps the pending candidate's id so it doesn't
         // read as a disconnected, brand-new object.
         const status = deriveStatus(supportingEntryIds.length, contradictoryEntryIds.length);
+        const promotedConfidence = initialConfidenceOnPromotion(directness);
         const promoted: StoredBelief = {
           id: matchedPending.id,
           domain: matchedPending.domain,
           statement: matchedPending.statement,
-          confidence: initialConfidenceOnPromotion(directness),
+          confidence: promotedConfidence,
           evidenceCount: supportingEntryIds.length,
           evidenceQuotes: quote ? [{ date: today, quote }] : [],
           status,
@@ -194,6 +210,10 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
           possibleCognitivePatterns: interpretation.possibleCognitivePatterns,
           lastUpdatedAt: today,
           userReaction: null,
+          thoughtLabel: thoughtLabelSuggestion ?? undefined,
+          // First point on this belief's drift history — its very first
+          // confidence value, the moment it became visible at all.
+          confidenceHistory: [{ date: today, value: promotedConfidence }],
         };
         beliefs = [promoted, ...beliefs];
         pendingBeliefCandidates = pendingBeliefCandidates.filter((p) => p.id !== matchedPending.id);
@@ -282,7 +302,12 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   const idByStatement = new Map(beliefs.map((b) => [b.statement, b.id]));
   const rawConnections: any[] = Array.isArray(result?.connections) ? result.connections : [];
   const newConnections: StoredConnection[] = rawConnections
-    .map((c) => ({ a: idByStatement.get(c.aStatement) ?? "", b: idByStatement.get(c.bStatement) ?? "", note: c.note ?? "" }))
+    .map((c) => ({
+      a: idByStatement.get(c.aStatement) ?? "",
+      b: idByStatement.get(c.bStatement) ?? "",
+      note: c.note ?? "",
+      type: c.type === "contradiction" ? ("contradiction" as const) : ("root" as const),
+    }))
     .filter((c) => c.a && c.b && c.a !== c.b);
 
   const stillValidIds = new Set(beliefs.map((b) => b.id));
@@ -322,6 +347,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
           reaction: null,
           createdDate: today,
           relatedBeliefIds,
+          thoughtLabel: typeof result?.metaInsightThoughtLabel === "string" && result.metaInsightThoughtLabel.trim() ? result.metaInsightThoughtLabel.trim() : undefined,
         },
         ...prev.hypotheses,
       ].slice(0, 8);

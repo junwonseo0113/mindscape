@@ -20,8 +20,14 @@ export const DEMO_STORE: Store = {
   // framework exists at all, since it's otherwise only populated by real
   // analysis.
   beliefs: [
-    { id: "demo-belief-0", domain: "삶 전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"], thoughtLabel: "안전 추구 생각", supportingEntryIds: ["demo-entry-0"] },
-    { id: "demo-belief-1", domain: "커리어", statement: "노력하면 결국 인정받는다", confidence: 64, evidenceCount: 21, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["과잉일반화"], thoughtLabel: "인정 욕구 생각", supportingEntryIds: ["demo-entry-1"] },
+    {
+      id: "demo-belief-0", domain: "삶 전반", statement: "안전이 최우선이다", confidence: 82, evidenceCount: 34, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["당위적 사고"], thoughtLabel: "안전 추구 생각", supportingEntryIds: ["demo-entry-0"],
+      confidenceHistory: [{ date: "2026.02.10", value: 58 }, { date: "2026.04.02", value: 68 }, { date: "2026.05.20", value: 74 }, { date: "2026.07.28", value: 82 }],
+    },
+    {
+      id: "demo-belief-1", domain: "커리어", statement: "노력하면 결국 인정받는다", confidence: 64, evidenceCount: 21, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["과잉일반화"], thoughtLabel: "인정 욕구 생각", supportingEntryIds: ["demo-entry-1"],
+      confidenceHistory: [{ date: "2026.03.05", value: 70 }, { date: "2026.05.14", value: 66 }, { date: "2026.07.25", value: 64 }],
+    },
     { id: "demo-belief-2", domain: "관계", statement: "혼자 하는 게 더 낫다", confidence: 57, evidenceCount: 18, evidenceQuotes: [], status: "emerging", thoughtLabel: "거리두기 생각", supportingEntryIds: ["demo-entry-2"] },
     { id: "demo-belief-3", domain: "일", statement: "완벽해야 시작할 수 있다", confidence: 71, evidenceCount: 26, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["흑백사고", "당위적 사고"], thoughtLabel: "완벽주의 생각" },
     { id: "demo-belief-4", domain: "가치관", statement: "돈보다 자유가 중요하다", confidence: 45, evidenceCount: 12, evidenceQuotes: [], status: "conflicted", thoughtLabel: "자유-안정 갈등 생각" },
@@ -40,11 +46,16 @@ export const DEMO_STORE: Store = {
   // The same five links ScreenHome used to hand-wire for the 3D brain graph,
   // now with real notes so the Belief Map's "발견된 연결" section (which
   // used to only ever appear for real data) works identically in demo mode.
+  // `type` left implicit ("root") on shared-cause pairs; the 0↔4 pair is
+  // marked "contradiction" — belief 0 and belief 4 point opposite
+  // directions (안전 vs 자유), which is exactly what ContradictionSection
+  // (Level 5) is meant to surface side-by-side, not fold into the "shared
+  // root cause" framing the others use.
   connections: [
     { a: "demo-belief-0", b: "demo-belief-1", note: "두 신념 모두 '검증된 길을 따라야 안전하다'는 배경을 공유하는 것으로 보여요." },
     { a: "demo-belief-0", b: "demo-belief-2", note: "안전을 우선하는 태도가, 타인에게 기대는 위험을 피하려는 쪽으로도 이어지는 것 같아요." },
     { a: "demo-belief-0", b: "demo-belief-3", note: "확신이 설 때까지 기다리는 패턴이, 시작 자체를 미루는 무의식적 신념과 맞닿아 있어요." },
-    { a: "demo-belief-0", b: "demo-belief-4", note: "말로는 자유를 중시한다고 하지만, 실제 선택은 안전 쪽으로 기우는 것으로 보여요." },
+    { a: "demo-belief-0", b: "demo-belief-4", type: "contradiction", note: "말로는 자유를 중시한다고 하지만, 실제 선택은 안전 쪽으로 기우는 것으로 보여요." },
     { a: "demo-belief-1", b: "demo-belief-3", note: "노력했는데도 인정받지 못할까 봐, 완벽해질 때까지 시작을 미루는 것으로 보여요." },
   ],
 

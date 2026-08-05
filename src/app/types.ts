@@ -128,6 +128,11 @@ export type StoredBelief = {
   // never a replacement for it — nothing downstream (matching, confidence,
   // evidence) reads this field.
   thoughtLabel?: string;
+  // Longitudinal drift tracking — one point appended every time confidence
+  // actually changes (see mergeAnalysisIntoStore), never backfilled or
+  // interpolated. Purely observational ("this is how your confidence in
+  // this pattern has moved"), not a trend the app claims to predict.
+  confidenceHistory?: { date: string; value: number }[];
 };
 
 export type StoredAssumption = {
@@ -140,7 +145,13 @@ export type StoredAssumption = {
   domains?: string[];
 };
 
-export type StoredConnection = { a: string; b: string; note: string };
+// `type` defaults to "root" (mutually-reinforcing, same underlying cause)
+// when absent — every connection created before this field existed reads
+// as "root". "contradiction" is a distinct relationship (belief-network
+// Level 5): two beliefs in real tension, shown side-by-side without
+// judgment (motivational interviewing's "discrepancy" technique) rather
+// than folded into the "shares a root cause" narrative.
+export type StoredConnection = { a: string; b: string; note: string; type?: "root" | "contradiction" };
 
 export type StoredHistoryEntry = {
   // Stable id, independent of array position or date — this is what

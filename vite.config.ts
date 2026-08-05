@@ -203,13 +203,17 @@ ${historyBlock}${aspirationBlock}
 - assumptions는 이 사람이 특정 상황(trigger)에서 자동으로 하게 되는 해석(interpretation)입니다. 기존 목록과 같은 trigger/interpretation이 다시 나타나면 count만 1 늘리고, 새로운 것이면 count 1로 추가하세요. 최대 4개까지만 남기세요.
 
 [연결 — 패턴들 사이의 관계]
-- matchableBeliefs 중 서로 같은 뿌리(근본 원인·근본 두려움·근본 욕구)에서 나온 것으로 보이는 쌍이 있다면 connections에 추가하세요. 단순히 같은 주제라는 이유만으로는 연결하지 마세요 — 근본 원인이 실제로 같아야 합니다.
-- 이미 기존 연결에 있는 쌍은 다시 만들지 마세요. note는 왜 연결되는지 한 문장으로, 막연한 말 없이 구체적으로.
+- matchableBeliefs 중 서로 같은 뿌리(근본 원인·근본 두려움·근본 욕구)에서 나온 것으로 보이는 쌍이 있다면 connections에 type "root"로 추가하세요. 단순히 같은 주제라는 이유만으로는 연결하지 마세요 — 근본 원인이 실제로 같아야 합니다.
+- matchableBeliefs 중 서로 실제로 긴장·모순 관계인 쌍(예: 말로는 A를 중요하게 여긴다면서 실제 반복되는 선택은 정반대인 경우)이 있다면 type "contradiction"으로 추가하세요. 이건 판단이 아니라 "당신은 이렇게도 말했고, 저렇게도 말했다"는 사실을 나란히 보여주기 위한 것입니다 — 어느 쪽이 맞는지 결론 내리지 마세요.
+- 이미 기존 연결에 있는 쌍은 다시 만들지 마세요. note는 왜 연결되는지(root) 또는 어떤 긴장이 있는지(contradiction) 한 문장으로, 막연한 말 없이 구체적으로.
 - 근거가 부족하면 connections는 빈 배열로 두세요.
+
+[생각에 이름 붙이기 — thoughtLabelSuggestion]
+- hypothesisCandidate.candidateBelief가 빈 문자열이 아니라면, 그 생각을 짧은 명사구로 이름 붙이세요 (예: "완벽주의 생각", "안전 추구 생각", "자책 생각"). 이건 "이 사람이 무능하다"처럼 그 사람 자체에 대한 판단이 아니라, "무능감 생각"처럼 그 생각을 스쳐 지나가는 하나의 사건으로 거리를 두고 부르는 이름입니다. candidateBelief가 빈 문자열이면 null.
 
 [메타 통찰 — 패턴이 쌓일수록 깊어짐]
 - 확인된 패턴 수 + 기존 연결 수가 지금까지 ${networkSize}개였습니다. 확인된 패턴이 4개 이상이고 연결이 2개 이상일 때만, 여러 패턴을 가로지르는 더 높은 차원의 관찰이 있다면 metaInsight에 담으세요 — 반드시 "이런 가능성이 있습니다" 톤을 유지하세요. 조건을 만족하지 않으면 metaInsight는 반드시 null로 두세요.
-- metaInsight가 null이 아니면 metaInsightConfidence(정수 0-100), metaInsightDomains(관련 영역 단어 2~3개), metaInsightBeliefStatements(근거가 된 matchableBeliefs의 statement를 정확히 그대로 2~4개)도 함께 채우세요. null이면 셋 다 null.
+- metaInsight가 null이 아니면 metaInsightConfidence(정수 0-100), metaInsightDomains(관련 영역 단어 2~3개), metaInsightBeliefStatements(근거가 된 matchableBeliefs의 statement를 정확히 그대로 2~4개), metaInsightThoughtLabel(위 [생각에 이름 붙이기] 방식으로 이 통찰 전체에 붙이는 짧은 명사구)도 함께 채우세요. null이면 넷 다 null.
 
 ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- 이 사람이 되고 싶다고 말한 모습과, 확인된 패턴에 드러난 실제 경향을 비교하세요. 구체적인 행동상의 간극이 보이면 driftNote에 한두 문장으로, "말한 것"과 "실제로 반복되는 패턴" 사이의 눈에 보이는 차이만 조심스럽게 짚으세요. 판단하기 어려우면 null.\n` : '- 이번 요청에는 "되고 싶은 모습"이 설정되어 있지 않으므로 driftNote는 항상 null로 두세요.\n'}
 [기타]
@@ -236,16 +240,18 @@ ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- �
     "domain": "한 단어 영역",
     "directness": "0.0-1.0",
     "reasoningSummary": "2~4문장, 위 [중립적 표현] 중 하나 이상 포함",
-    "schemaDomainLabelSuggestion": "matchedCandidateKind가 belief일 때만, 위 [참고용 장기 패턴 분류] 중 하나 또는 null"
+    "schemaDomainLabelSuggestion": "matchedCandidateKind가 belief일 때만, 위 [참고용 장기 패턴 분류] 중 하나 또는 null",
+    "thoughtLabelSuggestion": "위 [생각에 이름 붙이기] 방식의 짧은 명사구, candidateBelief가 빈 문자열이면 null"
   },
   "assumptions": [ { "trigger": "짧게", "interpretation": "한 문장", "count": "정수" } ],
-  "connections": [ { "aStatement": "matchableBeliefs의 statement와 정확히 동일", "bStatement": "matchableBeliefs의 statement와 정확히 동일", "note": "한 문장" } ],
+  "connections": [ { "aStatement": "matchableBeliefs의 statement와 정확히 동일", "bStatement": "matchableBeliefs의 statement와 정확히 동일", "type": "root | contradiction", "note": "한 문장" } ],
   "reflection": "이 사람에게 되돌려줄 한두 문장. 결론을 내리지 말고 질문 톤으로 끝날 것.",
   "changeNote": "string 또는 null",
   "metaInsight": "string 또는 null",
   "metaInsightConfidence": "정수 0-100 또는 null",
   "metaInsightDomains": "string[] 또는 null",
   "metaInsightBeliefStatements": "string[] 또는 null",
+  "metaInsightThoughtLabel": "string 또는 null",
   "driftNote": "string 또는 null"
 }
 

@@ -17,7 +17,7 @@ import {
 } from "./types";
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
-import { COGNITIVE_PATTERN_DESCRIPTIONS, DISCLAIMER_NOTICE, matchableCandidates } from "./analysisFramework";
+import { COGNITIVE_PATTERN_DESCRIPTIONS, DISCLAIMER_NOTICE, findBeliefClusters, findContradictionPairs, matchableCandidates } from "./analysisFramework";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -1844,13 +1844,100 @@ function dominantEmotion(entryIds: string[] | undefined, history: StoredHistoryE
   return Array.from(totals.entries()).sort((a, b) => b[1] - a[1])[0][0];
 }
 
+// Longitudinal drift (Level 4) — a plain sparkline over confidenceHistory,
+// purely descriptive ("this is how it's moved"), never a forecast. Only
+// renders once there are at least two points; a single point is just the
+// belief's current confidence, already shown by the bar above it.
+function ConfidenceTrend({ history }: { history: { date: string; value: number }[] }) {
+  if (history.length < 2) return null;
+  const w = 240;
+  const h = 32;
+  const pad = 3;
+  const values = history.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = history
+    .map((p, i) => {
+      const x = pad + (i / (history.length - 1)) * (w - pad * 2);
+      const y = h - pad - ((p.value - min) / range) * (h - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+  const delta = history[history.length - 1].value - history[0].value;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: subtle }}>확신도 변화 · {history.length}회 기록</span>
+        <span style={{ ...mono, fontSize: 10.5, color: delta > 0 ? accent : delta < 0 ? tension : faint }}>{delta > 0 ? "+" : ""}{delta}</span>
+      </div>
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 4, display: "block" }}>
+        <polyline points={points} fill="none" stroke={accent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+// Functional analysis (Level 2) — reads the situation → automatic thought →
+// emotion → action chain straight off the belief's own supporting entries
+// (already recorded per-entry, see ThoughtObservation) and closes the loop
+// with a plain-language note about the action feeding back into a similar
+// situation. No new extraction, no claim beyond what one real entry already
+// showed — just naming the cycle instead of leaving it implicit.
+function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; history: StoredHistoryEntry[] }) {
+  const candidateEntries = (belief.supportingEntryIds ?? [])
+    .map((id) => history.find((e) => e.id === id))
+    .filter((e): e is StoredHistoryEntry => !!e && !!e.analysis?.observation.situation);
+  const entry = candidateEntries[candidateEntries.length - 1];
+  if (!entry?.analysis) {
+    return <div style={{ ...sans, fontSize: 12, color: faint }}>이 신념의 순환 구조를 보여줄 만한 상세 기록이 아직 없어요.</div>;
+  }
+  const obs = entry.analysis.observation;
+  const topEmotion = [...obs.emotions].sort((a, b) => b.intensity - a.intensity)[0];
+  const steps = [
+    { label: "상황", text: obs.situation },
+    { label: "자동적 사고", text: obs.automaticThought },
+    { label: "감정", text: topEmotion ? `${topEmotion.label} (강도 ${topEmotion.intensity})` : "기록 없음" },
+    { label: "행동", text: obs.actionUrge },
+  ];
+  return (
+    <div>
+      <div style={{ ...sans, fontSize: 12, color: subtle, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        {entry.date}의 기록에서, 이 신념이 실제로 어떻게 이어졌는지를 순서대로 짚어본 거예요.
+      </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {steps.map((s, i) => (
+          <React.Fragment key={s.label}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: accentSoft, color: accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1, paddingBottom: 4 }}>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mid, letterSpacing: "0.04em" }}>{s.label}</div>
+                <div style={{ ...serif, fontSize: 14, color: ink, marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
+              </div>
+            </div>
+            {i < steps.length - 1 && <div style={{ marginLeft: 9, width: 1, height: 14, backgroundColor: hair }} />}
+          </React.Fragment>
+        ))}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, marginLeft: 32 }}>
+          <span style={{ ...sans, fontSize: 15, color: accent, lineHeight: 1 }}>↺</span>
+          <span style={{ ...sans, fontSize: 11.5, color: subtle, fontStyle: "italic", lineHeight: 1.5, wordBreak: "keep-all" }}>
+            이 행동이 다시 비슷한 상황을 만들고, 같은 생각이 또 나타나는 식으로 이어지는 것으로 보여요.
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
 function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; history: StoredHistoryEntry[]; onReject?: (id: string) => void }) {
   const [openPattern, setOpenPattern] = React.useState<string | null>(null);
+  const [showLoop, setShowLoop] = React.useState(false);
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
+  const hasLoopData = (belief.supportingEntryIds ?? []).some((id) => history.find((e) => e.id === id)?.analysis?.observation.situation);
   return (
     <div style={{ padding: "16px 0", borderBottom: `1px solid ${hair}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1871,6 +1958,9 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
       <div style={{ height: 4, borderRadius: 2, backgroundColor: hair, marginTop: 10 }}>
         <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: accent }} />
       </div>
+      {/* Longitudinal drift (Level 4) — how this belief's confidence has
+          actually moved, not just where it stands right now. */}
+      {belief.confidenceHistory && <ConfidenceTrend history={belief.confidenceHistory} />}
       {(patterns.length > 0 || emotion) && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {emotion && (
@@ -1904,6 +1994,21 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
           ))}
         </div>
       )}
+      {hasLoopData && (
+        <div style={{ marginTop: 10 }}>
+          <motion.span
+            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => setShowLoop((v) => !v)}
+            style={{ ...sans, fontSize: 11.5, color: accent, fontWeight: 600, cursor: "pointer", display: "inline-block" }}
+          >
+            {showLoop ? "반복 구조 접기 ↑" : "이 패턴이 왜 반복되는지 보기 ↓"}
+          </motion.span>
+          {showLoop && (
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: surface }}>
+              <FunctionalLoopDiagram belief={belief} history={history} />
+            </div>
+          )}
+        </div>
+      )}
       {onReject && (
         <motion.span
           role="button" tabIndex={0} onClick={() => onReject(belief.id)} whileTap={{ opacity: 0.6 }}
@@ -1912,6 +2017,95 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
           이 관찰, 내 생각과 달라요
         </motion.span>
       )}
+    </div>
+  );
+}
+
+// A small circular node/edge diagram for one cluster — deliberately not
+// force-directed (that needs real layout math for a payoff mainly visible
+// with many nodes; a 3-6 node cluster reads just as clearly evenly spaced
+// on a circle) so every pair gets a visible edge with no overlap.
+function BeliefClusterDiagram({ count }: { count: number }) {
+  const size = 96;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 14;
+  const positions = Array.from({ length: count }, (_, i) => {
+    const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+  });
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      {positions.map((p1, i) =>
+        positions.slice(i + 1).map((p2, j) => (
+          <line key={`${i}-${i + 1 + j}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={accent} strokeOpacity={0.3} strokeWidth={1} />
+        ))
+      )}
+      {positions.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={8} fill={accentSoft} stroke={accent} strokeWidth={1.4} />
+      ))}
+    </svg>
+  );
+}
+
+// Belief network mapping (Level 3) — a core belief rarely stands alone;
+// this surfaces the connected clusters findBeliefClusters finds among
+// "root" connections (3+ mutually-reinforcing beliefs), which the flat
+// pairwise "발견된 연결" list elsewhere never states as a single structure.
+function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[]; connections: StoredConnection[] }) {
+  const clusters = findBeliefClusters(beliefs, connections);
+  if (clusters.length === 0) return null;
+  const byId = new Map(beliefs.map((b) => [b.id, b]));
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>서로 지지하는 신념들</div>
+      <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        핵심 신념은 보통 하나가 아니라, 여러 개가 서로를 지탱하는 구조로 함께 나타나요.
+      </div>
+      {clusters.map((clusterIds, ci) => {
+        const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
+        if (clusterBeliefs.length === 0) return null;
+        return (
+          <div key={ci} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: surface, display: "flex", gap: 14, alignItems: "center" }}>
+            <BeliefClusterDiagram count={clusterBeliefs.length} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: ink }}>신념 {clusterBeliefs.length}가지가 서로를 지탱하고 있어요</div>
+              <div style={{ ...sans, fontSize: 11.5, color: subtle, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                {clusterBeliefs.map((b) => `'${b.statement}'`).join(", ")}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Contradiction detection (Level 5) — just lays the two statements side by
+// side and stops there; no verdict on which one is "true." This is the
+// motivational-interviewing "discrepancy" technique — naming the tension
+// out loud is the entire intervention.
+function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[]; connections: StoredConnection[] }) {
+  const pairs = findContradictionPairs(beliefs, connections);
+  if (pairs.length === 0) return null;
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mid, letterSpacing: "0.06em" }}>말과 말 사이의 긴장</div>
+      <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        어느 쪽이 맞는지는 정하지 않아요. 두 말을 나란히 보여드릴 뿐이에요.
+      </div>
+      {pairs.map((p, i) => (
+        <div key={i} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: surface }}>
+          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: ink, lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
+          <div style={{ ...sans, fontSize: 11, color: faint, margin: "8px 0", textAlign: "center" }}>그리고</div>
+          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: ink, lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
+          {p.note && (
+            <div style={{ ...sans, fontSize: 12, color: subtle, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${hair}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              {p.note}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1957,6 +2151,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
             ))
           )}
         </div>
+
+        <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
+        <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
         <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: accentSoft, borderLeft: `2px solid ${accent}` }}>
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: accent, letterSpacing: "0.04em" }}>무의식적 신념과 해석, 뭐가 다른가요</div>
