@@ -566,11 +566,13 @@ function BeliefConnectionLines({
   nodes,
   connections,
   focusId,
+  selectedId,
   structureMode,
 }: {
   nodes: ActiveNode[];
   connections: NeuralBeliefConnection[];
   focusId: string | null;
+  selectedId: string | null;
   structureMode: boolean;
 }) {
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
@@ -581,7 +583,20 @@ function BeliefConnectionLines({
         const b = byId.get(c.b);
         if (!a || !b) return null;
         const focused = focusId === a.id || focusId === b.id;
-        if (structureMode && c.type === "contradiction") {
+        const touchesSelection = selectedId != null && (selectedId === a.id || selectedId === b.id);
+        // Isolation: once a node is selected, only the connections that
+        // actually reach it stay — everything else is hidden along with
+        // the now-invisible nodes it would otherwise draw toward (see
+        // ActiveBeliefNode's isHiddenBySelection).
+        if (selectedId != null && !touchesSelection) return null;
+
+        // A contradiction connection always gets the distinct dashed/
+        // sparking treatment once it's actually touching whatever's
+        // focused — you shouldn't need "구조 보기" on just to tell, when
+        // you've selected a belief, whether its neighbor supports or
+        // contradicts it. Structure mode still controls whether it looks
+        // different at rest, with nothing selected.
+        if (c.type === "contradiction" && (structureMode || focused)) {
           return <TensionLine key={`${c.a}-${c.b}-${i}`} a={a.position} b={b.position} baseColor={focused ? SELECTION_GOLD : "#8A6A5C"} />;
         }
         const avgStrength = (a.strength + b.strength) / 2;
@@ -688,6 +703,7 @@ function ActiveBeliefNode({
   isSelected,
   isFocused,
   isDimmed,
+  isHiddenBySelection,
   justActivatedAt,
   onSelect,
   onHoverChange,
@@ -696,6 +712,7 @@ function ActiveBeliefNode({
   isSelected: boolean;
   isFocused: boolean;
   isDimmed: boolean;
+  isHiddenBySelection: boolean;
   justActivatedAt: number | null;
   onSelect: () => void;
   onHoverChange: (hovering: boolean) => void;
@@ -705,6 +722,9 @@ function ActiveBeliefNode({
   const haloRef = useRef<THREE.Mesh>(null);
   const springScale = useRef(1);
   const vitalitySmooth = useRef(node.vitality);
+  // Click-to-isolate fade — smooth ("싸아악"), not an instant cut, and
+  // fast enough to feel responsive (~0.4s) without being jarring.
+  const visibility = useRef(1);
   const baseColorObj = useMemo(() => new THREE.Color(node.color), [node.color]);
   const blendedColor = useMemo(() => new THREE.Color(node.color), [node.color]);
   const phase = useMemo(() => stableUnit(`${node.id}-phase`) * Math.PI * 2, [node.id]);
@@ -724,6 +744,9 @@ function ActiveBeliefNode({
 
   useFrame(({ clock }, delta) => {
     if (!ref.current) return;
+    visibility.current += ((isHiddenBySelection ? 0 : 1) - visibility.current) * Math.min(1, delta * 6);
+    ref.current.visible = visibility.current > 0.01;
+
     // Growth/dormancy (Level 4): vitality (real recency when the caller
     // provides lastUpdatedAt, else the old stable pseudo-value) eases in
     // slowly — over seconds, not the sub-second springs above — since it
@@ -751,9 +774,14 @@ function ActiveBeliefNode({
       if (t >= 0 && t < 1) flash = Math.exp(-t * 6.5) * (1 - t);
     }
 
-    ref.current.scale.setScalar(pulse * springScale.current * vitalityScale * (1 + flash * 1.6));
+    // Shrinking slightly as it fades (not just going transparent) is what
+    // sells "싸아악 사라짐" — a dot that's both vanishing and receding,
+    // not a sphere suddenly turning to glass in place.
+    const visibilityScale = 0.4 + 0.6 * visibility.current;
+    ref.current.scale.setScalar(pulse * springScale.current * vitalityScale * visibilityScale * (1 + flash * 1.6));
     const mat = ref.current.material as THREE.MeshStandardMaterial;
     mat.emissiveIntensity = baseEmissive * emissivePulse * (0.5 + 0.5 * vitalitySmooth.current) * (1 + flash * 2.4);
+    mat.opacity = opacity * visibility.current;
     // A long-dormant belief's color itself dulls toward the tissue's dim
     // tone, not just its brightness — that's what makes it read as
     // "settling back into the background" rather than just "a smaller
@@ -764,8 +792,8 @@ function ActiveBeliefNode({
 
     if (glowRef.current) {
       const glowMat = glowRef.current.material as THREE.MeshBasicMaterial;
-      glowMat.opacity = baseGlowOpacity * emissivePulse * (0.4 + 0.6 * vitalitySmooth.current) + flash * 0.5;
-      glowRef.current.scale.setScalar(1.55 * pulse * vitalityScale * (1 + flash * 0.9));
+      glowMat.opacity = (baseGlowOpacity * emissivePulse * (0.4 + 0.6 * vitalitySmooth.current) + flash * 0.5) * visibility.current;
+      glowRef.current.scale.setScalar(1.55 * pulse * vitalityScale * visibilityScale * (1 + flash * 0.9));
     }
 
     if (haloRef.current) {
@@ -896,7 +924,7 @@ function BrainScene({
       <BrainField focusPosition={focusNode?.position ?? null} focusRadius={0.7} justActivatedBgIndices={justActivatedBgIndices} />
       <BrainEdges />
       <HighlightEdges focusBgIndex={focusNode?.bgIndex ?? null} />
-      <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} structureMode={structureMode} />
+      <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} selectedId={selectedId} structureMode={structureMode} />
 
       {/* Level 3 — cluster haze, structure-mode only. */}
       {structureMode &&
@@ -912,6 +940,12 @@ function BrainScene({
           isSelected={selectedId === node.id}
           isFocused={focusId === node.id}
           isDimmed={!!focusId && focusId !== node.id && !adjacency.get(focusId)?.has(node.id)}
+          // Click-to-isolate: once something's selected, every OTHER belief
+          // fades fully out unless it's connected to the selected one —
+          // support or contradiction both count as "related," only
+          // genuinely unconnected beliefs vanish. Hover alone never does
+          // this (see isDimmed above) — only a deliberate click.
+          isHiddenBySelection={!!selectedId && selectedId !== node.id && !adjacency.get(selectedId)?.has(node.id)}
           justActivatedAt={justActivatedById.get(node.id) ?? null}
           onSelect={() => onSelect(selectedId === node.id ? null : node.id)}
           onHoverChange={(hovering) => onHover(hovering ? node.id : null)}
