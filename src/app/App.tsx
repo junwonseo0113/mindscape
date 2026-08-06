@@ -1958,15 +1958,15 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
-function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; history: StoredHistoryEntry[]; onReject?: (id: string) => void }) {
+function BeliefCard({ belief, history, onReject, isLast }: { belief: StoredBelief; history: StoredHistoryEntry[]; onReject?: (id: string) => void; isLast?: boolean }) {
   const [openPattern, setOpenPattern] = React.useState<string | null>(null);
   const [showLoop, setShowLoop] = React.useState(false);
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
   const hasLoopData = hasFunctionalLoopData(belief, history);
   return (
-    <div style={{ padding: "16px 0", borderBottom: `1px solid ${dkDivider}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${dkDivider}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: dkBody, letterSpacing: "0.04em" }}>{belief.domain}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: dkWarn }}>상충하는 기록 있음</span>}
@@ -1983,6 +1983,9 @@ function BeliefCard({ belief, history, onReject }: { belief: StoredBelief; histo
       <div style={{ ...serif, fontSize: 18, color: dkHeading, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
       <div style={{ height: 4, borderRadius: 2, backgroundColor: dkTrack, marginTop: 10 }}>
         <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: dkAccent }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        <span style={{ ...mono, fontSize: 10.5, color: "#726A8A" }}>확신도 {belief.confidence}%</span>
       </div>
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
@@ -2183,9 +2186,11 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: "#726A8A", padding: "12px 0" }}>아직 발견된 무의식적 신념이 없어요.</div>
           ) : (
-            visibleBeliefs.map((b) => (
-              <BeliefCard key={b.id} belief={b} history={store.history} onReject={onRejectBelief} />
-            ))
+            <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 18, overflow: "hidden" }}>
+              {visibleBeliefs.map((b, i) => (
+                <BeliefCard key={b.id} belief={b} history={store.history} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
+              ))}
+            </div>
           )}
         </div>
 
@@ -2208,25 +2213,27 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
             {!hasAssumptions ? (
               <div style={{ ...sans, fontSize: 13, color: "#726A8A", padding: "12px 0" }}>아직 발견된 무의식적 해석이 없어요.</div>
             ) : (
-              store.assumptions.map((a, i) => (
-                <div key={a.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: i < store.assumptions.length - 1 ? `1px solid ${dkDivider}` : "none" }}>
-                  <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: dkAccentLight, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
-                  <div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: dkBody }}>{a.trigger}</span>
-                      <span style={{ ...serif, fontSize: 16, color: dkHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
-                    </div>
-                    {a.domains && a.domains.length > 0 && (
-                      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                        {a.domains.map((d: string) => (
-                          <span key={d} style={{ ...sans, fontSize: 11, color: dkBody, backgroundColor: dkTrack, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
-                        ))}
+              <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 18, overflow: "hidden" }}>
+                {store.assumptions.map((a, i) => (
+                  <div key={a.id} style={{ display: "flex", gap: 14, padding: 18, borderBottom: i < store.assumptions.length - 1 ? `1px solid ${dkDivider}` : "none" }}>
+                    <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: dkAccentLight, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
+                    <div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: dkBody }}>{a.trigger}</span>
+                        <span style={{ ...serif, fontSize: 16, color: dkHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
                       </div>
-                    )}
-                    <div style={{ ...sans, fontSize: 11, color: "#726A8A", marginTop: 8 }}>{a.count}번의 대화에서 발견</div>
+                      {a.domains && a.domains.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                          {a.domains.map((d: string) => (
+                            <span key={d} style={{ ...sans, fontSize: 11, color: dkBody, backgroundColor: dkTrack, padding: "3px 9px", borderRadius: 999 }}>{d}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ ...sans, fontSize: 11, color: "#726A8A", marginTop: 8 }}>{a.count}번의 대화에서 발견</div>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
         </div>
