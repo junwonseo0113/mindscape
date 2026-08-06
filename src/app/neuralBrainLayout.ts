@@ -1,15 +1,13 @@
 // Deterministic generator for an abstract, brain-shaped neural node cloud.
 // The brain shape comes entirely from *where nodes are allowed to land* —
-// a metaball-style union of a dozen overlapping 3D ellipsoid "lobes",
-// relaxed into a more even fill — never from a mesh, texture, or the
-// user's actual belief count. Every cortical/cerebellar lobe is a real
-// bilateral pair straddling the z axis (left/right hemisphere), so the
-// volume has genuine structure along all three axes and reads as a brain
-// from any viewing angle — front, top, or side — not just from one profile
-// with a flat extrusion behind it. That's what keeps it abstract up close
-// (just dots and lines) while still reading as a brain silhouette from a
-// normal viewing distance, at densities (800-1500 points) where a naive
-// O(n²) neighbor search would be too slow to run even once.
+// a hollow bilateral-hemisphere SHELL (two mirrored ellipsoid shells for
+// left/right cortex, an ellipsoid shell for the cerebellum, a solid box for
+// the stem), sampled by plain rejection sampling — never from a mesh,
+// texture, or the user's actual belief count. This is a direct port of the
+// reference Brain Node Map design's own `inBrainShell` test, kept
+// byte-for-byte identical in its math so the point cloud's actual
+// *formation* — not just its color — matches that reference from every
+// viewing angle, not an approximation of it.
 
 export type Vec3 = [number, number, number];
 export type BrainPoint = { position: Vec3; region: string };
@@ -42,123 +40,43 @@ export function stableUnit(seedStr: string) {
   return x - Math.floor(x);
 }
 
-type Blob = { cx: number; cy: number; cz: number; rx: number; ry: number; rz: number; name: string };
+// Which structural part a shell-test hit belongs to — anatomical labeling
+// only (used for nothing but a possible future tint-by-part), completely
+// separate from the app's own six *cognitive* regions, which are computed
+// purely from finished (x, z) position via cognitiveRegionForPosition below
+// and never touch this.
+type BrainShellPart = "cortex" | "cerebellum" | "stem";
 
-// A true 3D volume, not a flat silhouette extruded in z: every cortical
-// lobe exists as a bilateral PAIR straddling the z axis (left/right
-// hemisphere), plus a handful of midline structures gluing the two halves
-// together. That's what makes the union read as a brain from the front
-// and top — not just from the side — since each viewing angle now cuts
-// through genuinely different, asymmetric lobe bulges instead of a single
-// blob that only has silhouette detail in the x/y plane.
-const HEMI = 0.44; // how far each paired lobe sits from the midline
+// Byte-for-byte the reference file's own `inBrainShell` test: two mirrored
+// ellipsoid SHELLS (0.5 < d < 1.0, i.e. hollow — points land on the surface
+// band, not filled solid) for the left/right cortex with a midline gap cut
+// out of the top, one ellipsoid shell for the cerebellum, and a solid box
+// for the stem. Unlike the old metaball union, this never blends adjacent
+// lobes into each other — it's exactly this test, nothing smoothed on top.
+function classifyBrainShell(x: number, y: number, z: number): BrainShellPart | null {
+  const a = 0.62, b = 0.78, c = 1.05;
+  const hx = Math.abs(x) - 0.5;
+  const nx = hx / a, ny = (y - 0.05) / b, nz = z / c;
+  const d = nx * nx + ny * ny + nz * nz;
+  const gap = Math.abs(x) < 0.07 && y > 0.1;
+  const hemiShell = d > 0.5 && d < 1.0 && !gap && hx > -0.35;
+  if (hemiShell) return "cortex";
 
-const BLOBS: Blob[] = [
-  // Bilateral cortical lobes (each mirrored at ±z).
-  { name: "frontal", cx: 1.05, cy: 0.26, cz: HEMI, rx: 0.7, ry: 0.6, rz: 0.6 },
-  { name: "frontal", cx: 1.05, cy: 0.26, cz: -HEMI, rx: 0.7, ry: 0.6, rz: 0.6 },
-  { name: "parietal", cx: 0.12, cy: 0.58, cz: HEMI * 0.95, rx: 0.66, ry: 0.55, rz: 0.6 },
-  { name: "parietal", cx: 0.12, cy: 0.58, cz: -HEMI * 0.95, rx: 0.66, ry: 0.55, rz: 0.6 },
-  { name: "temporal", cx: 0.32, cy: -0.3, cz: HEMI * 1.18, rx: 0.72, ry: 0.46, rz: 0.65 },
-  { name: "temporal", cx: 0.32, cy: -0.3, cz: -HEMI * 1.18, rx: 0.72, ry: 0.46, rz: 0.65 },
-  { name: "occipital", cx: -0.86, cy: 0.14, cz: HEMI * 0.9, rx: 0.6, ry: 0.53, rz: 0.58 },
-  { name: "occipital", cx: -0.86, cy: 0.14, cz: -HEMI * 0.9, rx: 0.6, ry: 0.53, rz: 0.58 },
-  // Central connective mass — spans both hemispheres at a lower z-radius
-  // so it fills the gap between the paired lobes without erasing the
-  // midline groove between them near the top surface.
-  { name: "core", cx: 0.05, cy: 0.28, cz: 0, rx: 1.1, ry: 0.8, rz: 0.48 },
-  // Cerebellum: paired hemispheres plus a small midline vermis, same
-  // bilateral logic as the cortex above, just smaller and lower/further
-  // back.
-  { name: "cerebellum", cx: -0.7, cy: -0.48, cz: 0.3, rx: 0.5, ry: 0.42, rz: 0.44 },
-  { name: "cerebellum", cx: -0.7, cy: -0.48, cz: -0.3, rx: 0.5, ry: 0.42, rz: 0.44 },
-  { name: "cerebellum", cx: -0.7, cy: -0.44, cz: 0, rx: 0.32, ry: 0.36, rz: 0.4 },
-  // Stem: single narrow midline column.
-  { name: "stem", cx: -0.15, cy: -0.78, cz: 0, rx: 0.25, ry: 0.42, rz: 0.25 },
-];
+  const cx = x, cy = y + 0.62, cz = z + 0.92;
+  const cd = (cx * cx) / (0.42 * 0.42) + (cy * cy) / (0.34 * 0.34) + (cz * cz) / (0.4 * 0.4);
+  if (cd > 0.5 && cd < 1.0) return "cerebellum";
 
-const BRAIN_SCALE = 1.75;
-// The lobe weights above sit slightly up-and-right of the origin; shifting
-// by their approximate centroid before scaling keeps the finished cloud
-// visually centered in the card instead of drifting toward one corner.
-const CENTER_OFFSET: [number, number] = [0.15, 0.16];
+  const stem = Math.abs(x) < 0.13 && y < -0.55 && y > -0.98 && Math.abs(z + 0.3) < 0.2;
+  if (stem) return "stem";
 
-const ISO_LEVEL = 0.42;
-const BOUNDS = { x: 1.8, y: 1.45, z: 1.15 };
-
-// A soft density dip along the midline, but only near the top/outer
-// surface — this is what reads as the longitudinal fissure separating the
-// two hemispheres when viewed from above, without ever cutting a hard
-// seam through the whole volume.
-function grooveSuppression(y: number, z: number) {
-  const zFalloff = Math.exp(-(z * z) / (2 * 0.1 * 0.1));
-  const yFalloff = Math.max(0, Math.min(1, (y + 0.05) / 0.35));
-  return zFalloff * yFalloff;
+  return null;
 }
 
-// Distance-from-center falloff (normalized to the brain's own elongated
-// proportions, not a plain sphere) — this is the main lever that makes the
-// core read as almost solid while the outer shell thins out gradually.
-// It only ever scales how likely an already-inside point is to be kept, so
-// the iso-surface boundary/silhouette itself never moves; the *edge* of
-// that boundary just gets softer.
-const RADIAL_NORM = { x: 1.55, y: 1.15, z: 1.0 };
-const RADIAL_SIGMA = 0.6;
-function radialDensity(x: number, y: number, z: number) {
-  const rx = (x - CENTER_OFFSET[0]) / RADIAL_NORM.x;
-  const ry = (y - CENTER_OFFSET[1]) / RADIAL_NORM.y;
-  const rz = z / RADIAL_NORM.z;
-  const r2 = rx * rx + ry * ry + rz * rz;
-  return Math.exp(-r2 / (2 * RADIAL_SIGMA * RADIAL_SIGMA));
-}
-
-function fieldAt(x: number, y: number, z: number): { value: number; blob: string } {
-  let total = 0;
-  let bestBlob = BLOBS[0].name;
-  let bestTerm = -Infinity;
-  for (const b of BLOBS) {
-    const dx = (x - b.cx) / b.rx;
-    const dy = (y - b.cy) / b.ry;
-    const dz = (z - b.cz) / b.rz;
-    const d2 = dx * dx + dy * dy + dz * dz;
-    if (d2 < 1) {
-      const term = (1 - d2) * (1 - d2);
-      total += term;
-      if (term > bestTerm) {
-        bestTerm = term;
-        bestBlob = b.name;
-      }
-    }
-  }
-  return { value: total - grooveSuppression(y, z) * 0.32, blob: bestBlob };
-}
-
-// Rejection-samples a point inside the blob union. Two independent signals
-// set the keep-chance: how far past the iso threshold the point sits
-// (local — this is what fills in the seams *between* adjacent lobes so
-// they blend instead of reading as separate clusters) and how far the
-// point sits from the brain's overall center (global — a soft gaussian
-// that makes the core read as almost solid while the outer shell thins
-// out gradually, per lobe geometry never changes, only how densely each
-// spot gets populated).
-function sampleOne(rand: () => number): BrainPoint | null {
-  const x = (rand() * 2 - 1) * BOUNDS.x;
-  const y = (rand() * 2 - 1) * BOUNDS.y;
-  const z = (rand() * 2 - 1) * BOUNDS.z;
-  const { value, blob } = fieldAt(x, y, z);
-  if (value <= ISO_LEVEL) return null;
-  const depth = Math.min(1, (value - ISO_LEVEL) / 0.6);
-  const depthKeep = 0.5 + 0.5 * depth;
-  const centerKeep = 0.12 + 0.88 * radialDensity(x, y, z);
-  const keepChance = depthKeep * centerKeep;
-  if (rand() >= keepChance) return null;
-  const position: Vec3 = [
-    (x - CENTER_OFFSET[0]) * BRAIN_SCALE,
-    (y - CENTER_OFFSET[1]) * BRAIN_SCALE,
-    z * BRAIN_SCALE,
-  ];
-  return { position, region: blob };
-}
+// Same bounding box and post-scale as the reference file's own generator
+// loop — this is what actually fixes the cloud's proportions/silhouette to
+// match, not just the shell test in isolation.
+const SHELL_BOUNDS = { x: 1.3, y: 1.05, z: 1.35 };
+const SHELL_SCALE = 1.15;
 
 function cellKey(x: number, y: number, z: number, cellSize: number) {
   return `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}:${Math.floor(z / cellSize)}`;
@@ -175,75 +93,54 @@ function buildGrid(positions: Vec3[], cellSize: number) {
   return grid;
 }
 
-// A handful of short-range repulsion passes so the raw rejection-sampled
-// cloud fills in as one continuous mass instead of leaving random gaps and
-// clumps — each point is only ever pulled back inside the silhouette, so
-// the brain outline itself never changes, just the local evenness of fill.
-function relax(points: BrainPoint[], iterations: number, repelDist: number, strength: number): BrainPoint[] {
-  let positions = points.map((p) => p.position.slice() as Vec3);
-  const repelDist2 = repelDist * repelDist;
-
-  for (let iter = 0; iter < iterations; iter += 1) {
-    const grid = buildGrid(positions, repelDist);
-    const forces: Vec3[] = positions.map(() => [0, 0, 0]);
-
-    for (let i = 0; i < positions.length; i += 1) {
-      const p = positions[i];
-      const cx = Math.floor(p[0] / repelDist);
-      const cy = Math.floor(p[1] / repelDist);
-      const cz = Math.floor(p[2] / repelDist);
-      for (let dx = -1; dx <= 1; dx += 1) {
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dz = -1; dz <= 1; dz += 1) {
-            const bucket = grid.get(`${cx + dx}:${cy + dy}:${cz + dz}`);
-            if (!bucket) continue;
-            for (const j of bucket) {
-              if (j === i) continue;
-              const q = positions[j];
-              const ddx = p[0] - q[0];
-              const ddy = p[1] - q[1];
-              const ddz = p[2] - q[2];
-              const d2 = ddx * ddx + ddy * ddy + ddz * ddz;
-              if (d2 > 0 && d2 < repelDist2) {
-                const d = Math.sqrt(d2);
-                const f = ((repelDist - d) / repelDist) * strength;
-                forces[i][0] += (ddx / d) * f;
-                forces[i][1] += (ddy / d) * f;
-                forces[i][2] += (ddz / d) * f;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    positions = positions.map((p, i) => {
-      const nx = p[0] + forces[i][0];
-      const ny = p[1] + forces[i][1];
-      const nz = p[2] + forces[i][2];
-      const backX = nx / BRAIN_SCALE + CENTER_OFFSET[0];
-      const backY = ny / BRAIN_SCALE + CENTER_OFFSET[1];
-      const backZ = nz / BRAIN_SCALE;
-      const { value } = fieldAt(backX, backY, backZ);
-      if (value <= ISO_LEVEL) return p;
-      return [nx, ny, nz] as Vec3;
-    });
-  }
-
-  return points.map((p, i) => ({ ...p, position: positions[i] }));
-}
-
+// Plain rejection sampling against the shell test — no relaxation/smoothing
+// pass on top, matching the reference generator exactly (its own cloud is
+// visibly a bit clumpy/uneven in places, e.g. the "constellation" look in
+// the reference screenshots; that unevenness is the actual reference look,
+// not a bug to smooth away).
 export function generateBrainCloud(count: number, seed: number): BrainPoint[] {
   const rand = mulberry32(seed);
   const points: BrainPoint[] = [];
   let attempts = 0;
-  const maxAttempts = count * 260;
+  const maxAttempts = count * 60;
   while (points.length < count && attempts < maxAttempts) {
     attempts += 1;
-    const p = sampleOne(rand);
-    if (p) points.push(p);
+    const x = (rand() * 2 - 1) * SHELL_BOUNDS.x;
+    const y = (rand() * 2 - 1) * SHELL_BOUNDS.y;
+    const z = (rand() * 2 - 1) * SHELL_BOUNDS.z;
+    const part = classifyBrainShell(x, y, z);
+    if (!part) continue;
+    points.push({
+      position: [x * SHELL_SCALE, y * SHELL_SCALE, z * SHELL_SCALE],
+      region: part,
+    });
   }
-  return relax(points, 4, 0.26, 0.06);
+
+  // Recenter on the cloud's own centroid. The shell test's cerebellum/stem
+  // additions sit behind and below the two cortex hemispheres with nothing
+  // mirroring them on the other side, which skews the raw point cloud's
+  // centroid off the coordinate origin (measured: ~0.07-0.08 units off on
+  // z, negligible on x/y). Every consumer (NeuralBeliefGraph3D,
+  // BrainNodeMapScreen) orbits its camera around a fixed (0,0,0) target, so
+  // that skew reads as the whole shape swinging off-center as the camera
+  // auto-rotates, not just a static framing issue.
+  let cx = 0, cy = 0, cz = 0;
+  for (const p of points) {
+    cx += p.position[0];
+    cy += p.position[1];
+    cz += p.position[2];
+  }
+  const n = points.length || 1;
+  cx /= n;
+  cy /= n;
+  cz /= n;
+  for (const p of points) {
+    p.position[0] -= cx;
+    p.position[1] -= cy;
+    p.position[2] -= cz;
+  }
+
+  return points;
 }
 
 // Real beliefs never get their own layout — they promote a handful of
@@ -414,9 +311,9 @@ function bridgeDisconnectedGroups(points: Vec3[], edges: [number, number][]): [n
 // ── Cognitive regions — an app-defined overlay, not an anatomical claim.
 // Six equal wedges swept around the vertical (y) axis, purely from each
 // neuron's own (x, z) position, so every region is a stable, contiguous
-// slice of the same generated volume. This never touches the generator
-// above (BLOBS/relax/edges); it's just a classification of the positions
-// it already produced.
+// slice of the same generated volume. This never touches the shell
+// generator above; it's just a classification of the positions it already
+// produced.
 export type CognitiveRegion = "identity" | "security" | "career" | "relationships" | "creativity" | "curiosity";
 
 export const COGNITIVE_REGIONS: CognitiveRegion[] = [

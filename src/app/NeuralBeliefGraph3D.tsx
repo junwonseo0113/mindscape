@@ -14,6 +14,7 @@ import {
   pickPromotableIndicesByRegion,
   stableUnit,
 } from "./neuralBrainLayout";
+import { StoredEvidenceQuote } from "./types";
 
 export type NeuralBeliefNode = {
   id: string;
@@ -34,6 +35,11 @@ export type NeuralBeliefNode = {
   // neuron in. Optional because the backend doesn't produce this yet —
   // see mapDomainToCognitiveRegion below for the fallback.
   region?: CognitiveRegion;
+  // Optional — only used by BrainNodeMapScreen's node-detail panel ("이
+  // 패턴을 뒷받침하는 순간들"). Always present in practice (every real
+  // StoredBelief carries its own quotes), optional here only so a caller
+  // that genuinely doesn't have quotes yet isn't forced to fake an array.
+  evidenceQuotes?: StoredEvidenceQuote[];
 };
 
 // Temporary mapping until the backend sends `region` directly: the app's
@@ -68,7 +74,7 @@ export function resolveRegion(belief: NeuralBeliefNode): CognitiveRegion {
 // "contradiction" gets the dashed/flickering "tension line" treatment,
 // but only while structureMode is on (see BrainScene) — in the calm
 // default view every connection looks the same.
-export type NeuralBeliefConnection = { a: string; b: string; type?: "root" | "contradiction" };
+export type NeuralBeliefConnection = { a: string; b: string; type?: "root" | "contradiction"; note: string };
 
 // Real recency from a "YYYY.MM.DD" date (formatDateDots format), decaying
 // smoothly rather than in visible steps — exponential with a ~3-week time

@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
+import BrainNodeMapScreen from "./BrainNodeMapScreen";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
   Store,
@@ -738,21 +739,26 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
 // Dark theme, ported directly from the claude.ai/design spec (홈 화면.dc.html)
 // — see the dk* tokens near the top of the file. The 3D brain's own card
 // styling is left untouched (that component wasn't part of this import).
-function ScreenHome({ onNavSelect, onStartThink, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; store: Store }) {
-  const brainClusters = React.useMemo(() => findBeliefClusters(store.beliefs, store.connections), [store.beliefs, store.connections]);
-
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: () => void; store: Store }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 20px 24px" }}>
         {/* ── Hero: date, headline, brain, 생각 말하기 — nothing else. This is
-            the whole first impression: "my thoughts become this brain." ── */}
+            the whole first impression: "my thoughts become this brain."
+            BrainNodeMapScreen — a dedicated full-screen "night sky" node
+            map (ported from a parallel session), embedded here as the
+            mini card with a 확대 button that opens the full-screen
+            "brainmap" route. Never swap this back to a bare
+            NeuralBeliefGraph3D call — that component still does the
+            calm/daylight card rendering used in Analysis's "관련 활성
+            뉴런" section, a different job. ── */}
         <div style={{ ...mono, fontSize: 12, color: "#7A7290" }}>{formatDateDots(new Date())}</div>
         <div style={{ ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: dkHeading, marginTop: 14, wordBreak: "keep-all" }}>
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
         </div>
 
         <div style={{ marginTop: 28 }}>
-          <NeuralBeliefGraph3D beliefs={store.beliefs} connections={store.connections} clusters={brainClusters} height={336} />
+          <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} />
         </div>
 
         <div style={{ marginTop: 16 }}>
@@ -3284,9 +3290,11 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={() => setScreen("think")}
+        onOpenBrainMap={() => setScreen("brainmap")}
         store={store}
       />
     ); break;
+    case "brainmap": content = <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} />; break;
     case "analysis": content = (
       <ScreenAnalysis
         onNavSelect={goToTab}
@@ -3406,7 +3414,7 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} store={store} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} />;
   }
 
   const showStatusBar = !["splash"].includes(screen);
