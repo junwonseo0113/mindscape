@@ -1518,7 +1518,11 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
 function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
-  const [textMode, setTextMode] = React.useState(false);
+  // Text-first: voice self-reports lower self-disclosure than text at the
+  // same response length (perceived anonymity drops with voice) — text is
+  // the default, voice is the opt-in via the toggle below, not the other
+  // way around.
+  const [textMode, setTextMode] = React.useState(true);
   const [text, setText] = React.useState("");
   const [promptHint] = React.useState(() => pickThinkPrompt());
   const [transcript, setTranscript] = React.useState("");
@@ -1535,9 +1539,6 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   }, [recording]);
 
   React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); }, []);
-
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
 
   const startRecording = () => {
     setTranscript("");
@@ -1656,8 +1657,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   transition={{ duration: 0.5, ease: "easeInOut" }}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                 >
+                  {/* No mm:ss countup here on purpose — a visible timer reads as
+                      "this is being measured," which raises self-censorship the
+                      same way a visible recording light does. `seconds` is still
+                      tracked internally (silence/auto-stop timing), just not shown. */}
                   <div style={{ ...serif, fontSize: 18, color: dkBodyLight, textAlign: "center" }}>듣고 있어요</div>
-                  <div style={{ ...mono, fontSize: 15, color: dkBody, marginTop: 10 }}>{mm}:{ss}</div>
                   <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
                     생각나는 대로 편하게 말해주세요.
                   </div>

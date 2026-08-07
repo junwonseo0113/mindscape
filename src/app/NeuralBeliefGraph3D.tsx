@@ -195,6 +195,13 @@ const BACKGROUND_MOTION: NeuronMotion[] = BACKGROUND_POSITIONS.map((_, i) => ({
 
 const FOG_COLOR = "#EEEAF8";
 
+// ClusterHaze's one color, always — never a member node's own region color.
+// A cluster can span multiple regions, and tinting the haze with whichever
+// member happens to be first in the array would read as "this cluster is
+// about that region/emotion," which isn't a claim the haze is meant to
+// make. The haze says "structure exists here," nothing about what kind.
+const CLUSTER_HAZE_COLOR = "#9D99A8";
+
 // A ripple never touches more than a handful of already-adjacent
 // background neurons (their existing tissue-edge neighbors — see
 // BACKGROUND_ADJACENCY), never a growing radius, and it's brief enough to
@@ -667,7 +674,7 @@ function ClusterHaze({ nodes }: { nodes: ActiveNode[] }) {
   return (
     <mesh ref={ref} position={center}>
       <sphereGeometry args={[radius, 20, 20]} />
-      <meshBasicMaterial color={nodes[0].color} transparent opacity={0.055} depthWrite={false} fog />
+      <meshBasicMaterial color={CLUSTER_HAZE_COLOR} transparent opacity={0.055} depthWrite={false} fog />
     </mesh>
   );
 }
@@ -836,6 +843,7 @@ function BrainScene({
   justActivatedBgIndices,
   structureMode,
   clusters,
+  contradictionPause,
 }: {
   activeNodes: ActiveNode[];
   connections: NeuralBeliefConnection[];
@@ -851,6 +859,7 @@ function BrainScene({
   justActivatedBgIndices: number[];
   structureMode: boolean;
   clusters: string[][];
+  contradictionPause: boolean;
 }) {
   // Hover still drives the visual highlight (dim/glow/edges) — that's a
   // harmless, purely cosmetic reaction to the cursor. The camera itself
@@ -942,7 +951,7 @@ function BrainScene({
         enablePan={false}
         minDistance={2.6}
         maxDistance={12.5}
-        autoRotate={!selectedId && !isInteracting}
+        autoRotate={!selectedId && !isInteracting && !contradictionPause}
         autoRotateSpeed={0.16}
         dampingFactor={0.07}
         enableDamping
@@ -994,6 +1003,20 @@ export default function NeuralBeliefGraph3D({
     const partnerId = link.a === selectedNode.id ? link.b : link.a;
     return activeNodes.find((n) => n.id === partnerId) ?? null;
   }, [selectedNode, connections, activeNodes]);
+
+  // Memory-reconsolidation framing (Level 5): the moment a contradiction
+  // surfaces is the one point discrepancy/surprise can actually register,
+  // so the always-turning background briefly holds still instead of
+  // competing for attention. Outlasts the selection itself by design — a
+  // quick deselect right after shouldn't immediately let the brain spin
+  // again mid-read.
+  const [contradictionPause, setContradictionPause] = useState(false);
+  useEffect(() => {
+    if (!selectedContradiction) return;
+    setContradictionPause(true);
+    const t = setTimeout(() => setContradictionPause(false), 1500);
+    return () => clearTimeout(t);
+  }, [selectedContradiction?.id]);
 
   // Claims each newly-seen belief's flash exactly once (mutating the
   // module-level set is what makes that permanent for this page load),
@@ -1070,6 +1093,7 @@ export default function NeuralBeliefGraph3D({
             justActivatedBgIndices={justActivatedBgIndices}
             structureMode={structureMode}
             clusters={clusters}
+            contradictionPause={contradictionPause}
           />
         </Canvas>
 
