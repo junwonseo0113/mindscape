@@ -24,7 +24,7 @@
 //     independently-accumulated new candidate (its own fresh 3 entries)
 //     can re-establish the pattern.
 
-import { HypothesisStatus, PendingBeliefCandidate, Store, StoredBelief, StoredConnection } from "./types";
+import { HypothesisStatus, PendingBeliefCandidate, Store, StoredBelief, StoredConnection, StoredHistoryEntry } from "./types";
 
 export const DISCLAIMER_NOTICE =
   "이 분석은 CBT와 ACT의 개념을 참고한 자기성찰 도구이며, 심리 진단이나 치료를 대체하지 않습니다.";
@@ -227,4 +227,55 @@ export function findContradictionPairs(beliefs: StoredBelief[], connections: Sto
       return a && b ? { a, b, note: c.note } : null;
     })
     .filter((x): x is { a: StoredBelief; b: StoredBelief; note: string } => !!x);
+}
+
+// ── Rumination-possibility signal (gap-analysis note 4 / Trapnell &
+// Campbell's reflection-vs-rumination distinction) ──────────────────────────
+// Internal-only. This function's return value must never be surfaced as a
+// label, score, or the word "반추"/"rumination" anywhere in the UI — per
+// the note's own caution, that reads as a diagnostic instrument. The three
+// signals it converges on are exactly the ones the note describes: the
+// same belief's confidence keeps climbing across 3+ sessions, it hasn't
+// picked up any new mutually-reinforcing (root) connection since that
+// climb started, and the emotions recorded alongside its most recent
+// supporting entries haven't diversified. Any single one of these is
+// unremarkable on its own; only the combination is the specific pattern
+// the self-absorption-paradox literature ties to reflection sliding into
+// rumination (reflection reliably predicts rumination; the reverse is
+// rare — so this leans toward flagging early rather than late).
+export function isLikelyRuminating(belief: StoredBelief, allConnections: StoredConnection[], history: StoredHistoryEntry[]): boolean {
+  const confHistory = belief.confidenceHistory ?? [];
+  if (confHistory.length < 3) return false;
+  const recent = confHistory.slice(-3);
+  const neverDrops = recent.every((point, i) => i === 0 || point.value >= recent[i - 1].value);
+  const actuallyRose = recent[recent.length - 1].value > recent[0].value;
+  if (!neverDrops || !actuallyRose) return false;
+
+  // "No new root connection" since the climb started — createdAt is only
+  // ever stamped on connections realStore.ts actually just created (see
+  // StoredConnection), so one predating this field simply won't match and
+  // is correctly treated as "not recent."
+  const sinceDate = recent[0].date;
+  const gainedRootConnectionRecently = allConnections.some(
+    (c) => (c.type ?? "root") === "root" && (c.a === belief.id || c.b === belief.id) && !!c.createdAt && c.createdAt >= sinceDate
+  );
+  if (gainedRootConnectionRecently) return false;
+
+  // Emotion variety across this belief's most recent supporting entries —
+  // flat or narrowing, not a single-entry snapshot (one entry alone can't
+  // show a trend).
+  const supportingEntries = (belief.supportingEntryIds ?? [])
+    .map((id) => history.find((e) => e.id === id))
+    .filter((e): e is StoredHistoryEntry => !!e)
+    .slice(-3);
+  const uniqueEmotionCounts = supportingEntries
+    .map((e) => {
+      const emotions = e.analysis?.observation.emotions;
+      return emotions && emotions.length > 0 ? new Set(emotions.map((em) => em.label)).size : null;
+    })
+    .filter((n): n is number => n !== null);
+  if (uniqueEmotionCounts.length < 2) return false;
+  const flatOrNarrowing = uniqueEmotionCounts[uniqueEmotionCounts.length - 1] <= uniqueEmotionCounts[0];
+
+  return flatOrNarrowing;
 }

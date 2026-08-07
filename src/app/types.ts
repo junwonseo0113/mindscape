@@ -151,7 +151,20 @@ export type StoredAssumption = {
 // Level 5): two beliefs in real tension, shown side-by-side without
 // judgment (motivational interviewing's "discrepancy" technique) rather
 // than folded into the "shares a root cause" narrative.
-export type StoredConnection = { a: string; b: string; note: string; type?: "root" | "contradiction" };
+export type StoredConnection = {
+  a: string;
+  b: string;
+  note: string;
+  type?: "root" | "contradiction";
+  // Stamped only when realStore.ts actually creates a new connection —
+  // never backfilled onto ones that already existed. Powers the
+  // rumination-possibility check (isLikelyRuminating in
+  // analysisFramework.ts): "no *new* root connection recently" needs to
+  // know when a connection appeared, not just whether one currently
+  // exists. Absent on any connection older than this field, which is the
+  // correct fallback (treat as "not recent").
+  createdAt?: string;
+};
 
 // Pure word-frequency counts over one session's raw text — see
 // src/app/cognitiveLexicon.ts for the actual word lists and the counting/

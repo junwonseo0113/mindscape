@@ -1821,6 +1821,43 @@ function ScreenThinkComplete({ error, onDone }: { error?: string; onDone?: () =>
 // will add an AI-written recap paragraph above this same card later; this
 // screen already reads entry.sessionSummary so nothing else needs to
 // change when that lands.
+// Feature: emotional granularity (Note 2) — how many *distinct* emotion
+// labels this session's analysis surfaced, compared to the last 3
+// sessions' average. A raw unique-label count, not the "unique / total"
+// ratio the note describes: within a single entry the model's own
+// emotions list essentially never repeats a label, so that ratio would
+// trivially read ~1.0 on every entry and say nothing — comparing the
+// count itself across sessions is what this data can actually show.
+// Never surfaced as a number anywhere in the UI — emotional-granularity
+// scores are associated with clinical instruments in the literature (see
+// the gap-analysis doc's BPD caution), so this only ever becomes a plain
+// observational sentence, same rule as the cognitive-verb trend above.
+function countUniqueEmotions(entry: StoredHistoryEntry): number | null {
+  const emotions = entry.analysis?.observation.emotions;
+  if (!emotions || emotions.length === 0) return null;
+  return new Set(emotions.map((e) => e.label)).size;
+}
+
+function buildEmotionVarietyLine(entry: StoredHistoryEntry, priorEntries: StoredHistoryEntry[]): string | null {
+  const current = countUniqueEmotions(entry);
+  if (current === null) return null;
+  const priorCounts = priorEntries
+    .slice(-3)
+    .map((e) => countUniqueEmotions(e))
+    .filter((n): n is number => n !== null);
+  if (priorCounts.length === 0) return null;
+  const avgPrior = priorCounts.reduce((sum, n) => sum + n, 0) / priorCounts.length;
+  const delta = current - avgPrior;
+  // Flat comparisons aren't reported — unlike the cognitive-verb trend,
+  // where "비슷하게 쓰셨어요" is still worth saying, a near-equal emotion
+  // count says little on its own and would just add a third near-
+  // identical trend line to every card.
+  if (Math.abs(delta) < 0.5) return null;
+  return delta > 0
+    ? "오늘은 지난 세션보다 다양한 감정 표현을 쓰셨어요."
+    : "오늘은 지난 세션보다 감정 표현의 폭이 좁혀졌어요.";
+}
+
 function buildLanguageObservationLines(entry: StoredHistoryEntry, priorObservations: LanguageObservation[]): string[] {
   const obs = entry.languageObservation;
   if (!obs) return [];
@@ -1844,11 +1881,13 @@ function buildLanguageObservationLines(entry: StoredHistoryEntry, priorObservati
 
 function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => void }) {
   const entry = store.history[store.history.length - 1] ?? null;
-  const priorObservations = store.history
-    .slice(0, -1)
+  const priorEntries = store.history.slice(0, -1);
+  const priorObservations = priorEntries
     .map((e) => e.languageObservation)
     .filter((o): o is LanguageObservation => !!o);
   const lines = entry ? buildLanguageObservationLines(entry, priorObservations) : [];
+  const emotionVarietyLine = entry ? buildEmotionVarietyLine(entry, priorEntries) : null;
+  if (emotionVarietyLine) lines.push(emotionVarietyLine);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>

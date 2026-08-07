@@ -324,7 +324,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     const pairKey = [c.a, c.b].sort().join("::");
     if (seenPairs.has(pairKey)) continue;
     seenPairs.add(pairKey);
-    connections.push(c);
+    connections.push({ ...c, createdAt: today });
   }
 
   // A metaInsight only ever appears once the belief network is big enough
