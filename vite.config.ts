@@ -302,6 +302,102 @@ ${text.trim()}
           }
         })
       })
+
+      // Feature 3 — a separate, deliberately narrow call from /api/analyze:
+      // pure restatement of what was said, no interpretation/labels (those
+      // stay in /api/analyze's own output). Called in parallel with
+      // /api/analyze from ScreenProcessing; the caller treats a failure
+      // here as "no summary this time," never as a reason to fail the
+      // whole session.
+      server.middlewares.use('/api/summarize-session', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        const apiKey = env.ANTHROPIC_API_KEY
+        if (!apiKey) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY가 설정되어 있지 않아요. 프로젝트 루트에 .env 파일을 만들고 키를 넣은 뒤 서버를 다시 시작하세요.' }))
+          return
+        }
+
+        let raw = ''
+        req.on('data', (chunk) => { raw += chunk })
+        req.on('end', async () => {
+          try {
+            const { text } = JSON.parse(raw || '{}')
+            if (!text || typeof text !== 'string' || !text.trim()) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: '요약할 텍스트가 없습니다.' }))
+              return
+            }
+
+            const prompt = `당신은 자기성찰 앱에서, 사용자가 방금 자유롭게 말한 내용을 요약하는 역할만 담당합니다. 이것은 해석이나 진단이 아니라 "정리"입니다 — 사용자가 한 말을 다시 구성해서 보여주는 것뿐입니다.
+
+[절대 원칙 — 반드시 지키세요]
+- 사용자가 실제로 한 말만 재구성하세요. 새로운 해석, 조언, 심리학적 라벨(인지왜곡 이름 등)을 추가하지 마세요 — 그건 이미 별도 분석 파이프라인에서 처리하므로 여기서 중복하지 않습니다.
+- 진단하거나 결론 내리지 마세요. "당신은 ~한 사람입니다" 같은 단정적 서술 금지.
+- 판단하지 마세요. 좋다/나쁘다, 맞다/틀리다 평가 금지.
+- 1인칭 관찰자 시점을 유지하세요 — "당신은 ~라고 말했어요" 톤으로, 사용자에게 직접 말을 거는 것처럼 서술하세요.
+- 3~5문장, 한 문단으로 작성하세요.
+
+[사용자가 방금 한 말]
+"""
+${text.trim()}
+"""
+
+"===JSON===" 한 줄을 쓰고, 그 아래에 최종 결과 JSON만 출력하세요. 그 외 설명이나 코드블록은 없어야 합니다.
+
+{
+  "summary": "3~5문장의 요약 문단"
+}`
+
+            const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-5',
+                max_tokens: 512,
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            })
+
+            if (!apiRes.ok) {
+              const errText = await apiRes.text()
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: `AI 호출에 실패했어요 (${apiRes.status}): ${errText.slice(0, 300)}` }))
+              return
+            }
+
+            const data: any = await apiRes.json()
+            const block = data.content?.find((c: any) => c.type === 'text')
+            const parsed = extractJsonAfterMarker(block?.text ?? '')
+            if (!parsed || typeof parsed.summary !== 'string') {
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'AI 응답을 해석하지 못했어요.' }))
+              return
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ summary: parsed.summary }))
+          } catch (err: any) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err?.message ?? '알 수 없는 오류가 발생했어요.' }))
+          }
+        })
+      })
     },
   }
 }

@@ -153,6 +153,21 @@ export type StoredAssumption = {
 // than folded into the "shares a root cause" narrative.
 export type StoredConnection = { a: string; b: string; note: string; type?: "root" | "contradiction" };
 
+// Pure word-frequency counts over one session's raw text — see
+// src/app/cognitiveLexicon.ts for the actual word lists and the counting/
+// trend logic. Deliberately just counts, never a score or a verdict:
+// nothing here says whether more or fewer of either category is "good."
+export type LanguageObservation = {
+  wordCount: number;
+  cognitiveVerbCount: number;
+  // Per-100-words rate, not a raw count — session length varies a lot
+  // (a 30-second entry vs. a 5-minute one), so only a normalized rate is
+  // actually comparable across sessions for the trend comparison below.
+  cognitiveVerbPerHundredWords: number;
+  firstPersonSingularCount: number;
+  collectiveOrOtherCount: number;
+};
+
 export type StoredHistoryEntry = {
   // Stable id, independent of array position or date — this is what
   // supportingEntryIds/contradictoryEntryIds reference, and what lets a
@@ -169,6 +184,19 @@ export type StoredHistoryEntry = {
   // hypothesis for this entry, correctable/rejectable independent of the
   // raw text itself.
   analysis?: EntryAnalysis;
+  // Computed locally (no LLM call) the moment the entry is recorded — see
+  // computeLanguageObservation in cognitiveLexicon.ts. Stored per-entry
+  // (not just shown once and discarded) specifically so a session-summary
+  // card can compare "this session vs. the last 3" and so a future
+  // longitudinal timeline can chart it the same way confidenceHistory does
+  // for beliefs.
+  languageObservation?: LanguageObservation;
+  // Feature 3 — a short (3-5 sentence) restatement of what was said, from
+  // a separate LLM call kept deliberately free of interpretation/labels
+  // (see analysisFramework's SESSION_SUMMARY_PROMPT). Optional because it
+  // requires its own API round trip that can fail independently of the
+  // main analysis; stored here so past-session previews can reuse it.
+  sessionSummary?: string;
 };
 
 // The "investigate" deep-dive is its own optional sub-object rather than a

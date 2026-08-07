@@ -4,6 +4,7 @@ import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion } from "./NeuralBelie
 import BrainNodeMapScreen from "./BrainNodeMapScreen";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
+  LanguageObservation,
   Store,
   StoredAccount,
   StoredAssumption,
@@ -19,6 +20,7 @@ import {
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, matchableCandidates } from "./analysisFramework";
+import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -1698,7 +1700,10 @@ function ScreenProcessing({
   priorAssumptions?: StoredAssumption[];
   priorConnections?: { aStatement: string; bStatement: string; note: string }[];
   aspiration?: string | null;
-  onDone?: (result: any | null) => void;
+  // sessionSummary is undefined whenever /api/summarize-session didn't
+  // return one (no key, network error, bad response) — a missing summary
+  // never blocks or fails the main analysis, per Feature 3's own spec.
+  onDone?: (result: any | null, sessionSummary?: string) => void;
   onError?: (message: string) => void;
 }) {
   const STEPS = ["듣고 있습니다", "기존 대화들과 연결하는 중", "패턴을 다시 확인하는 중"];
@@ -1718,6 +1723,24 @@ function ScreenProcessing({
     if (!text) return;
     let cancelled = false;
     const stepTimer = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 700);
+
+    // Feature 3 — fired alongside /api/analyze, not chained after it, so
+    // the summary doesn't add extra wait time on top of the main analysis.
+    // Deliberately swallows its own errors to undefined: a missing summary
+    // just means the session-summary card skips that paragraph, never a
+    // reason to fail the session.
+    const summaryPromise = fetch("/api/summarize-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || typeof data?.summary !== "string") return undefined;
+        return data.summary as string;
+      })
+      .catch(() => undefined);
+
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1728,11 +1751,12 @@ function ScreenProcessing({
         if (!res.ok) throw new Error(data?.error || "분석에 실패했습니다.");
         return data;
       })
-      .then((data) => {
+      .then(async (data) => {
+        const sessionSummary = await summaryPromise;
         if (cancelled) return;
         clearInterval(stepTimer);
         setStep(STEPS.length - 1);
-        setTimeout(() => { if (!cancelled) onDone?.(data); }, 500);
+        setTimeout(() => { if (!cancelled) onDone?.(data, sessionSummary); }, 500);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -1781,6 +1805,73 @@ function ScreenThinkComplete({ error, onDone }: { error?: string; onDone?: () =>
       </div>
       <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
         <PrimaryBtn onClick={onDone}>홈으로</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 6.5 · Session summary (Feature 2) ─────────────────────────────────
+// Shown once, right after a successful analysis, before landing on the
+// Analysis tab — a quiet "here's what was just observed about how you
+// talked" beat, purely descriptive (see cognitiveLexicon.ts). Feature 3
+// will add an AI-written recap paragraph above this same card later; this
+// screen already reads entry.sessionSummary so nothing else needs to
+// change when that lands.
+function buildLanguageObservationLines(entry: StoredHistoryEntry, priorObservations: LanguageObservation[]): string[] {
+  const obs = entry.languageObservation;
+  if (!obs) return [];
+  const lines: string[] = [];
+
+  const trend = compareCognitiveVerbTrend(obs, priorObservations);
+  if (trend && obs.cognitiveVerbCount > 0) {
+    const examples = extractCognitiveVerbExamples(entry.text, 2);
+    const examplePhrase = examples.length > 0 ? `${examples.map((e) => `'${e}'`).join(", ")} 같은 표현을 ` : "";
+    if (trend === "increased") lines.push(`오늘은 ${examplePhrase}지난 세션보다 더 많이 쓰셨어요.`);
+    else if (trend === "decreased") lines.push(`오늘은 ${examplePhrase}지난 세션보다 더 적게 쓰셨어요.`);
+    else lines.push(`오늘은 ${examplePhrase}지난 세션과 비슷하게 쓰셨어요.`);
+  }
+
+  const lean = comparePronounLean(obs);
+  if (lean === "firstPerson") lines.push("오늘은 '나'라는 말을 많이 쓰셨어요.");
+  else if (lean === "collectiveOrOther") lines.push("오늘은 '우리', '그들' 같은 말을 '나'보다 더 많이 쓰셨어요.");
+
+  return lines;
+}
+
+function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => void }) {
+  const entry = store.history[store.history.length - 1] ?? null;
+  const priorObservations = store.history
+    .slice(0, -1)
+    .map((e) => e.languageObservation)
+    .filter((o): o is LanguageObservation => !!o);
+  const lines = entry ? buildLanguageObservationLines(entry, priorObservations) : [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          잘 들었습니다.
+        </div>
+        {entry?.sessionSummary && (
+          <div style={{ ...sans, fontSize: 14.5, color: dkBodyLight, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
+            {entry.sessionSummary}
+          </div>
+        )}
+        {lines.length > 0 && (
+          <div style={{ marginTop: entry?.sessionSummary ? 18 : 12, display: "flex", flexDirection: "column", gap: 8, paddingTop: entry?.sessionSummary ? 16 : 0, borderTop: entry?.sessionSummary ? `1px solid ${dkDivider}` : "none" }}>
+            {lines.map((line, i) => (
+              <div key={i} style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.65, wordBreak: "keep-all" }}>{line}</div>
+            ))}
+          </div>
+        )}
+        {!entry?.sessionSummary && lines.length === 0 && (
+          <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+            오늘 이야기도 기록에 더해졌어요. 판단하거나 정리하지 않습니다 — 그냥 조용히 쌓아둡니다.
+          </div>
+        )}
+      </div>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <PrimaryBtn onClick={onDone}>이제 됐어요</PrimaryBtn>
       </div>
     </div>
   );
@@ -3375,15 +3466,16 @@ export default function App() {
           note: c.note,
         }))}
         aspiration={store.aspiration}
-        onDone={(result) => {
+        onDone={(result, sessionSummary) => {
           if (result) {
-            const merged = mergeAnalysisIntoStore(store, result, thinkText);
+            const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary);
             updateStore(() => merged);
-            // A real analysis landed — go straight to the Analysis tab
-            // instead of a separate results-summary screen; computeDiscovery
-            // will pick up whatever this entry just created/reinforced as
-            // "오늘의 발견" on its own.
-            setScreen("analysis");
+            // A real analysis landed — pass through a brief session-summary
+            // beat (Feature 2's language observation + Feature 3's AI
+            // recap, when either is available) before the Analysis tab;
+            // computeDiscovery will pick up whatever this entry just
+            // created/reinforced as "오늘의 발견" once there.
+            setScreen("sessionSummary");
           } else {
             setScreen("thinkComplete");
           }
@@ -3391,6 +3483,7 @@ export default function App() {
         onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }}
       />
     ); break;
+    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("analysis")} />; break;
     case "thinkComplete": content = <ScreenThinkComplete error={analysisError} onDone={() => setScreen("home")} />; break;
     case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />; break;
     case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;

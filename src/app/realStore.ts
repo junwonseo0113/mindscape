@@ -31,6 +31,7 @@ import {
   formatDateDots,
 } from "./types";
 import { MIN_SUPPORTING_ENTRIES_FOR_BELIEF, deriveStatus, initialConfidenceOnPromotion, nextConfidence } from "./analysisFramework";
+import { computeLanguageObservation } from "./cognitiveLexicon";
 
 const STORE_KEY = "mijeong.store.v6";
 
@@ -100,7 +101,7 @@ function parseInterpretation(raw: any): ThoughtInterpretation {
 // calls. Identity/id assignment happens here instead: exact (domain,
 // statement) match reuses the prior id (so a bubble/node keeps its identity
 // as it strengthens); anything unmatched is a genuinely new node.
-export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string): Store {
+export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string, sessionSummary?: string): Store {
   const today = formatDateDots(new Date());
   const entryId = `entry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -276,7 +277,12 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
         }
       : undefined;
 
-  const historyEntry: StoredHistoryEntry = { id: entryId, date: today, text: rawText, analysis };
+  // Feature 2 — computed locally from the raw text alone, no LLM call and
+  // no dependency on how the analysis itself turned out, so it's always
+  // available even on entries where the model found no belief/hypothesis
+  // worth recording.
+  const languageObservation = computeLanguageObservation(rawText);
+  const historyEntry: StoredHistoryEntry = { id: entryId, date: today, text: rawText, analysis, languageObservation, sessionSummary };
   const history: StoredHistoryEntry[] = [...prev.history, historyEntry].slice(-50);
 
   // ── Assumptions: unchanged mechanism — the model still returns the full
