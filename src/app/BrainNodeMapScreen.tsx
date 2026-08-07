@@ -34,24 +34,26 @@ const BRAIN_SEED = 1729; // same seed as the Home hero card — same tissue ever
 const BACKGROUND_COUNT = IS_SMALL_SCREEN ? 5000 : 8000;
 const SLOTS_PER_REGION = IS_SMALL_SCREEN ? 22 : 30;
 
-const bg = "#161826";
-const panelBg = "#232532";
-const line = "#3f424d";
-const ink = "#E9E9ED";
-const inkSoft = "rgba(233,233,237,0.85)";
-const inkMid = "rgba(233,233,237,0.5)";
-const inkFaint = "rgba(233,233,237,0.4)";
+// Dark (default) theme values — shadowed inside the component with
+// Modernist light-theme equivalents when `modernist` is true, see there.
+const bgDark = "#161826";
+const panelBgDark = "#232532";
+const lineDark = "#3f424d";
+const inkDark = "#E9E9ED";
+const inkSoftDark = "rgba(233,233,237,0.85)";
+const inkMidDark = "rgba(233,233,237,0.5)";
+const inkFaintDark = "rgba(233,233,237,0.4)";
 // Pure white — every node, dormant tissue and real belief alike. Real
 // beliefs are still distinguished from background tissue (see sizeArr
 // below), but by size/brightness only, the way an actual night sky reads —
 // not by hue. REGION_CONFIG colors are still used elsewhere (the region
 // rail's legend dots, the linked-notes chips, the detail panel's tag) —
 // just never on the 3D points themselves anymore.
-const dormantColor = new THREE.Color(0xffffff);
+const dormantColorDark = new THREE.Color(0xffffff);
 // A muted slate, used only to dim a real belief point that the current
 // search/region filter excludes — everything else on the 3D points stays
 // pure white.
-const FILTERED_OUT_TINT = new THREE.Color(0x33364a);
+const FILTERED_OUT_TINT_DARK = new THREE.Color(0x33364a);
 
 // ── "Network activation" — the node-tap interaction. Vivid ruby/crimson,
 // picked for the dramatic "a dormant circuit just came alive" feeling
@@ -252,6 +254,7 @@ export default function BrainNodeMapScreen({
   embedded = false,
   height = 480,
   onExpand,
+  modernist = false,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -269,7 +272,30 @@ export default function BrainNodeMapScreen({
   // omitted, and never shown in full-screen mode itself (nothing to expand
   // to from there).
   onExpand?: () => void;
+  // Light/red Modernist theme (per the imported claude.ai/design import) —
+  // shadows the dark module-level bg/panelBg/ink*/dormantColor/
+  // FILTERED_OUT_TINT constants below with light-theme equivalents for the
+  // rest of this closure, including the mount-once Three.js scene effect
+  // (a stable prop per mount, so no need for it in that effect's deps).
+  modernist?: boolean;
 }) {
+  const bg = modernist ? "#ffffff" : bgDark;
+  const panelBg = modernist ? "#ffffff" : panelBgDark;
+  const line = modernist ? "rgba(32,30,29,0.14)" : lineDark;
+  const ink = modernist ? "#201e1d" : inkDark;
+  const inkSoft = modernist ? "rgba(32,30,29,0.85)" : inkSoftDark;
+  const inkMid = modernist ? "rgba(32,30,29,0.6)" : inkMidDark;
+  const inkFaint = modernist ? "rgba(32,30,29,0.42)" : inkFaintDark;
+  const dormantColor = modernist ? new THREE.Color(0x201e1d) : dormantColorDark;
+  const FILTERED_OUT_TINT = modernist ? new THREE.Color(0xd7d3d3) : FILTERED_OUT_TINT_DARK;
+  // The dark theme's generic purple UI-chrome accent (search caret, 초기화/
+  // 확대 buttons, region-rail active row, panel tag pill) — swapped for the
+  // Modernist palette's own red accent, not left purple, since Modernist is
+  // explicitly mono-red ("no second accent was chosen").
+  const accentUi = modernist ? "#ec3013" : "#9184d9";
+  const accentUiSoft = modernist ? "rgba(236,48,19,0.12)" : "rgba(145,132,217,0.12)";
+  const accentUiSofter = modernist ? "rgba(236,48,19,0.16)" : "rgba(145,132,217,0.16)";
+  const mdNeutralTagLocal = "#f8f4f4";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const three = useRef<{
@@ -873,9 +899,9 @@ export default function BrainNodeMapScreen({
         )}
         <div style={{ ...sans, fontWeight: 500, fontSize: 16, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M6.5 3.2c-2 .3-3.4 2-3.3 4 .05.8-.2 1.1-.7 1.6-.9.9-.9 2.5 0 3.4.5.5.7.9.7 1.6 0 2.1 1.7 3.7 3.7 3.5" stroke="#9184d9" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M13.5 3.2c2 .3 3.4 2 3.3 4-.05.8.2 1.1.7 1.6.9.9.9 2.5 0 3.4-.5.5-.7.9-.7 1.6 0 2.1-1.7 3.7-3.7 3.5" stroke="#9184d9" strokeWidth="1.4" strokeLinecap="round" />
-            <path d="M10 3.6v13" stroke="#9184d9" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="0.2 3.2" />
+            <path d="M6.5 3.2c-2 .3-3.4 2-3.3 4 .05.8-.2 1.1-.7 1.6-.9.9-.9 2.5 0 3.4.5.5.7.9.7 1.6 0 2.1 1.7 3.7 3.7 3.5" stroke={accentUi} strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M13.5 3.2c2 .3 3.4 2 3.3 4-.05.8.2 1.1.7 1.6.9.9.9 2.5 0 3.4-.5.5-.7.9-.7 1.6 0 2.1-1.7 3.7-3.7 3.5" stroke={accentUi} strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M10 3.6v13" stroke={accentUi} strokeWidth="1.2" strokeLinecap="round" strokeDasharray="0.2 3.2" />
           </svg>
           브레인 맵
         </div>
@@ -902,9 +928,9 @@ export default function BrainNodeMapScreen({
                 font: "inherit",
                 fontSize: 12.5,
                 color: ink,
-                caretColor: "#9184d9",
+                caretColor: accentUi,
                 background: panelBg,
-                border: `1px solid rgba(233,233,237,0.16)`,
+                border: modernist ? `1px solid ${line}` : `1px solid rgba(233,233,237,0.16)`,
                 borderRadius: 8,
                 outline: "none",
               }}
@@ -919,11 +945,11 @@ export default function BrainNodeMapScreen({
             gap: 5,
             cursor: "pointer",
             fontFamily: "Inter, sans-serif",
-            fontWeight: 500,
+            fontWeight: modernist ? 800 : 500,
             fontSize: 12,
-            color: "#9184d9",
+            color: accentUi,
             background: "transparent",
-            border: "1px solid #9184d9",
+            border: `1px solid ${accentUi}`,
             padding: "6px 11px",
             borderRadius: 8,
             flexShrink: 0,
@@ -943,9 +969,9 @@ export default function BrainNodeMapScreen({
               cursor: "pointer",
               width: 30,
               height: 30,
-              color: "#9184d9",
-              background: "rgba(145,132,217,0.12)",
-              border: "1px solid #9184d9",
+              color: accentUi,
+              background: accentUiSoft,
+              border: `1px solid ${accentUi}`,
               borderRadius: 8,
               flexShrink: 0,
               padding: 0,
@@ -1000,7 +1026,7 @@ export default function BrainNodeMapScreen({
               boxShadow: `0 0 0 1px ${line}`,
             }}
           >
-            <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9184d9", marginBottom: 2 }}>영역</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accentUi, marginBottom: 2 }}>영역</div>
             {COGNITIVE_REGIONS.map((region) => {
               const active = activeRegion === region;
               return (
@@ -1017,8 +1043,8 @@ export default function BrainNodeMapScreen({
                     cursor: "pointer",
                     padding: "5px 6px",
                     borderRadius: 6,
-                    background: active ? "rgba(145,132,217,0.14)" : "transparent",
-                    boxShadow: active ? "inset 0 0 0 1px #9184d9" : "none",
+                    background: active ? accentUiSofter : "transparent",
+                    boxShadow: active ? `inset 0 0 0 1px ${accentUi}` : "none",
                   }}
                 >
                   <span style={{ width: 9, height: 9, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
@@ -1039,7 +1065,7 @@ export default function BrainNodeMapScreen({
           {totalBeliefs}개 신념 · {connectionCount}개 연결
         </div>
         {!embedded && (
-          <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 11, color: "rgba(233,233,237,0.35)" }}>
+          <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 11, color: inkFaint }}>
             드래그해서 회전 · 스크롤해서 확대 · 클릭해서 선택
           </div>
         )}
@@ -1054,7 +1080,7 @@ export default function BrainNodeMapScreen({
               transform: "translate(14px,-50%)",
               pointerEvents: "none",
               background: panelBg,
-              border: `1px solid rgba(233,233,237,0.16)`,
+              border: `1px solid ${line}`,
               borderRadius: 6,
               padding: "6px 10px",
               fontSize: 12,
@@ -1102,8 +1128,8 @@ export default function BrainNodeMapScreen({
                     textTransform: "uppercase",
                     padding: "3px 9px",
                     borderRadius: 6,
-                    background: "rgba(145,132,217,0.16)",
-                    color: REGION_CONFIG[selected.region].color,
+                    background: modernist ? mdNeutralTagLocal : "rgba(145,132,217,0.16)",
+                    color: modernist ? "#444141" : REGION_CONFIG[selected.region].color,
                   }}
                 >
                   {REGION_CONFIG[selected.region].label}
@@ -1119,7 +1145,7 @@ export default function BrainNodeMapScreen({
                 {selected.domain} · 근거 {selected.evidenceCount}건 · 확신도 {selected.confidence}%
               </div>
               <div style={{ height: 1, margin: "9px 0", background: `linear-gradient(to right, transparent, ${line} 24px, ${line} calc(100% - 24px), transparent)` }} />
-              <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: inkMid }}>왜 이 별들이 연결되어 있나요</div>
+              <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400 }}>왜 이 별들이 연결되어 있나요</div>
               {selected.linked.length === 0 ? (
                 <div style={{ fontSize: 12.5, color: inkFaint, padding: "6px 0" }}>연결된 신념이 없어요.</div>
               ) : (
@@ -1132,7 +1158,7 @@ export default function BrainNodeMapScreen({
                       style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", wordBreak: "keep-all" }}
                     >
                       <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, backgroundColor: l.color }} />
-                      <span style={{ flex: 1 }}>{l.title}</span>
+                      <span style={{ flex: 1, fontWeight: modernist ? 700 : 400 }}>{l.title}</span>
                       <span
                         style={{
                           fontSize: 9.5,
@@ -1140,8 +1166,9 @@ export default function BrainNodeMapScreen({
                           flexShrink: 0,
                           padding: "2px 7px",
                           borderRadius: 999,
-                          color: l.kind === "contradiction" ? "#ff3b57" : "#9184d9",
-                          background: l.kind === "contradiction" ? "rgba(255,59,87,0.14)" : "rgba(145,132,217,0.16)",
+                          color: l.kind === "contradiction" ? (modernist ? accentUi : "#ff3b57") : (modernist ? "#444141" : "#9184d9"),
+                          background: l.kind === "contradiction" ? (modernist ? "transparent" : "rgba(255,59,87,0.14)") : (modernist ? mdNeutralTagLocal : "rgba(145,132,217,0.16)"),
+                          border: l.kind === "contradiction" && modernist ? `1px solid ${accentUi}` : "none",
                         }}
                       >
                         {l.kind === "contradiction" ? "상충" : "기반 공유"}
@@ -1155,9 +1182,9 @@ export default function BrainNodeMapScreen({
               )}
               {selected.evidenceQuotes.length > 0 && (
                 <>
-                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: inkMid, marginTop: 14 }}>이 패턴을 뒷받침하는 순간들</div>
+                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400, marginTop: 14 }}>이 패턴을 뒷받침하는 순간들</div>
                   {selected.evidenceQuotes.map((q, i) => (
-                    <div key={i} style={{ borderLeft: `2px solid ${line}`, paddingLeft: 10, marginTop: i === 0 ? 8 : 10 }}>
+                    <div key={i} style={{ borderLeft: `2px solid ${modernist ? accentUi : line}`, paddingLeft: 10, marginTop: i === 0 ? 8 : 10 }}>
                       <div style={{ ...mono, fontSize: 10.5, color: inkMid }}>{q.date}</div>
                       <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: inkSoft, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>"{q.quote}"</div>
                     </div>

@@ -87,14 +87,42 @@ const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
 const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
 
+// ── Modernist theme — per the imported claude.ai/design "Modernist" design
+// system (project 18c81e97, 미정 - 모더니스트 리디자인.dc.html): a light,
+// architectural mono-red-on-white palette replacing the dk* dark theme.
+// Values are the design system's own CSS custom properties resolved to
+// literal strings (styles.css: --color-bg/--color-text/--color-accent and
+// their OKLCH tonal ramps) — this app has no external stylesheet, so every
+// screen reads these as plain inline-style constants instead of `.tag`/
+// `.btn` classes, same convention as the old dk* tokens.
+const mdBg = "#f3f2f2";
+const mdCard = "#ffffff";
+const mdCardShadow = "0 1px 2px rgba(45,43,43,0.14)";
+const mdCardShadowLg = "0 12px 32px rgba(45,43,43,0.22)";
+const mdHeading = "#201e1d";
+const mdBody = "rgba(32,30,29,0.62)";
+const mdBodyLight = "rgba(32,30,29,0.85)";
+const mdFaint = "rgba(32,30,29,0.42)";
+const mdAccent = "#ec3013";
+const mdAccentHover = "#dd2b0f";
+const mdAccentText = "#ae1800"; // deep ramp step — the design system's own rule for accent-colored body/paragraph text (the accent itself is only 3:1 against this ground, not enough for small text)
+const mdAccentSoft = "#fff2ef";
+const mdAccentTag = "#ffe0d9";
+const mdAccentTagText = "#7c1405";
+const mdTrack = "#d7d3d3";
+const mdDivider = "rgba(32,30,29,0.14)";
+const mdNeutralTag = "#f8f4f4";
+const mdNeutralTagText = "#444141";
+
 // ── Status bar ────────────────────────────────────────────────────────────────
-function StatusBar() {
+function StatusBar({ modernist }: { modernist?: boolean }) {
+  const color = modernist ? mdHeading : dkHeading;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 20px 4px", flexShrink: 0 }}>
-      <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: dkHeading }}>9:41</span>
+      <span style={{ ...sans, fontSize: 13, fontWeight: modernist ? 800 : 600, color }}>9:41</span>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        <div style={{ width: 16, height: 10, border: `1px solid ${dkHeading}`, borderRadius: 2, position: "relative" }}>
-          <div style={{ position: "absolute", inset: 1, right: 4, backgroundColor: dkHeading, borderRadius: 1 }} />
+        <div style={{ width: 16, height: 10, border: `1px solid ${color}`, borderRadius: 2, position: "relative" }}>
+          <div style={{ position: "absolute", inset: 1, right: 4, backgroundColor: color, borderRadius: 1 }} />
         </div>
       </div>
     </div>
@@ -164,24 +192,25 @@ function NavIcon({ id, color, size = 23 }: { id: string; color: string; size?: n
 // variants share the ported NavIcon set and the animated sliding selection
 // pill (also from the friend's parallel session) instead of each having
 // their own placeholder indicator.
-function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id: string) => void; dark?: boolean }) {
+function BottomNav({ active, onSelect, dark, modernist }: { active: string; onSelect?: (id: string) => void; dark?: boolean; modernist?: boolean }) {
   const items = [
     { id: "home", label: "홈" },
     { id: "analysis", label: "마인드" },
     { id: "history", label: "기록" },
     { id: "profile", label: "프로필" },
   ];
-  const activeColor = dark ? dkAccentLight : "#6B6EF6";
-  const inactiveColor = dark ? "#726A8A" : "#8B8A92";
-  const pillColor = dark ? "rgba(123,92,240,0.16)" : "#F0EEFF";
+  const activeColor = modernist ? mdAccentText : dark ? dkAccentLight : "#6B6EF6";
+  const inactiveColor = modernist ? "#8b8785" /* --color-neutral-600 */ : dark ? "#726A8A" : "#8B8A92";
+  const pillColor = modernist ? mdAccentSoft : dark ? "rgba(123,92,240,0.16)" : "#F0EEFF";
+  const themeKey = modernist ? "modernist" : dark ? "dark" : "light";
   return (
     <div
       style={{
-        position: dark ? "sticky" : "static",
-        bottom: dark ? 0 : undefined,
+        position: modernist || dark ? "sticky" : "static",
+        bottom: modernist || dark ? 0 : undefined,
         display: "flex",
-        borderTop: `1px solid ${dark ? dkDivider : hair}`,
-        backgroundColor: dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
+        borderTop: `1px solid ${modernist ? mdDivider : dark ? dkDivider : hair}`,
+        backgroundColor: modernist ? "rgba(255,255,255,0.82)" : dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
         backdropFilter: "blur(12px)",
         padding: "8px 10px",
         flexShrink: 0,
@@ -202,14 +231,14 @@ function BottomNav({ active, onSelect, dark }: { active: string; onSelect?: (id:
           >
             {isActive && (
               <motion.div
-                layoutId={`navSelectedPill-${dark ? "dark" : "light"}`}
+                layoutId={`navSelectedPill-${themeKey}`}
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 style={{ position: "absolute", inset: "0 6px", borderRadius: 18, backgroundColor: pillColor, zIndex: 0 }}
               />
             )}
             <div style={{ position: "relative", zIndex: 1, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
               <NavIcon id={item.id} color={color} />
-              <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? 600 : 400, color }}>{item.label}</span>
+              <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? (modernist ? 800 : 600) : (modernist ? 500 : 400), color }}>{item.label}</span>
             </div>
           </motion.div>
         );
@@ -684,13 +713,13 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
   return (
     <motion.div
       role="button" tabIndex={0} onClick={onClick} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ flex: 1, padding: "18px 16px", borderRadius: 20, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, boxShadow: dkCardShadow, cursor: "pointer" }}
+      style={{ flex: 1, padding: "18px 16px", borderRadius: 20, backgroundColor: mdCard, boxShadow: mdCardShadow, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 13.5, fontWeight: 600, color: dkHeading }}>{label}</span>
-        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: dkAccentLight, backgroundColor: dkAccentSoft, padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
+        <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: mdHeading }}>{label}</span>
+        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: mdAccentTagText, backgroundColor: mdAccentSoft, padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
       </div>
-      <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
+      <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
     </motion.div>
   );
 }
@@ -741,42 +770,41 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
 // styling is left untouched (that component wasn't part of this import).
 function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: () => void; store: Store }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 20px 24px" }}>
         {/* ── Hero: date, headline, brain, 생각 말하기 — nothing else. This is
             the whole first impression: "my thoughts become this brain."
-            BrainNodeMapScreen — a dedicated full-screen "night sky" node
-            map (ported from a parallel session), embedded here as the
-            mini card with a 확대 button that opens the full-screen
-            "brainmap" route. Never swap this back to a bare
-            NeuralBeliefGraph3D call — that component still does the
-            calm/daylight card rendering used in Analysis's "관련 활성
-            뉴런" section, a different job. ── */}
-        <div style={{ ...mono, fontSize: 12, color: "#7A7290" }}>{formatDateDots(new Date())}</div>
-        <div style={{ ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: dkHeading, marginTop: 14, wordBreak: "keep-all" }}>
+            BrainNodeMapScreen — a dedicated full-screen node map (ported
+            from a parallel session), embedded here as the mini card with
+            a 확대 button that opens the full-screen "brainmap" route.
+            Never swap this back to a bare NeuralBeliefGraph3D call — that
+            component still does the calm rendering used in Analysis's
+            "관련 활성 뉴런" section, a different job. ── */}
+        <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent }}>{formatDateDots(new Date())}</div>
+        <div style={{ ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: mdHeading, marginTop: 14, wordBreak: "keep-all" }}>
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
         </div>
 
         <div style={{ marginTop: 28 }}>
-          <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} />
+          <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} modernist />
         </div>
 
         <div style={{ marginTop: 16 }}>
           <motion.div
             role="button" tabIndex={0} onClick={onStartThink} whileTap={{ scale: 0.98, opacity: 0.92 }}
-            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: dkCardShadow }}
+            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: mdCardShadow }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#2A2144", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <WaveformIcon color={dkAccentLight} />
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: `linear-gradient(135deg, ${mdAccent}, ${mdAccentText})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <WaveformIcon color="#fff" />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>생각 말하기</span>
-              <span style={{ ...sans, fontSize: 12, color: "#8E85A6" }}>정리하지 않아도 괜찮아요</span>
+              <span style={{ ...sans, fontSize: 15, fontWeight: 800, color: mdHeading }}>생각 말하기</span>
+              <span style={{ ...sans, fontSize: 12, color: mdBody }}>정리하지 않아도 괜찮아요</span>
             </div>
           </motion.div>
         </div>
       </div>
-      <BottomNav active="home" onSelect={onNavSelect} dark />
+      <BottomNav active="home" onSelect={onNavSelect} modernist />
     </div>
   );
 }
@@ -798,9 +826,9 @@ function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
         return (
           <div key={region} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, flexShrink: 0 }} />
-            <span style={{ ...sans, fontSize: 13.5, color: dkBodyLight, flex: 1 }}>{REGION_CONFIG[region].label}</span>
-            <span style={{ ...mono, fontSize: 12, color: dkBody }}>{count}개</span>
-            <span style={{ ...mono, fontSize: 12, color: dkAccent, width: 36, textAlign: "right" }}>{pct}%</span>
+            <span style={{ ...sans, fontSize: 13.5, color: mdBodyLight, flex: 1 }}>{REGION_CONFIG[region].label}</span>
+            <span style={{ ...mono, fontSize: 12, color: mdBody }}>{count}개</span>
+            <span style={{ ...mono, fontSize: 12, color: mdAccentText, width: 36, textAlign: "right" }}>{pct}%</span>
           </div>
         );
       })}
@@ -829,7 +857,7 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
     .slice(0, 6);
 
   if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: dkBody }}>아직 감정 데이터가 없어요. 생각을 몇 번 남기면 여기에 나타나요.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: mdBody }}>아직 감정 데이터가 없어요. 생각을 몇 번 남기면 여기에 나타나요.</div>;
   }
 
   const maxAvg = rows[0].avg || 1;
@@ -838,11 +866,11 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
       {rows.map((r) => (
         <div key={r.label}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-            <span style={{ ...sans, fontSize: 13, color: dkBodyLight }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 11.5, color: dkBody }}>{r.avg} · {r.count}회</span>
+            <span style={{ ...sans, fontSize: 13, color: mdBodyLight }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: mdBody }}>{r.avg} · {r.count}회</span>
           </div>
-          <div style={{ height: 7, borderRadius: 4, backgroundColor: dkTrack, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 4, backgroundColor: dkAccent }} />
+          <div style={{ height: 7, borderRadius: 4, backgroundColor: mdTrack, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 4, backgroundColor: mdAccent }} />
           </div>
         </div>
       ))}
@@ -855,9 +883,9 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
 // with no real data behind it.
 function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${dkDivider}` }}>
-      <span style={{ ...sans, fontSize: 13.5, color: "#5C5474" }}>{label}</span>
-      <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: "#746C90", backgroundColor: "#201933", padding: "3px 9px", borderRadius: 999 }}>곧 추가돼요</span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${mdDivider}` }}>
+      <span style={{ ...sans, fontSize: 13.5, color: mdFaint }}>{label}</span>
+      <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdBody, backgroundColor: mdNeutralTag, padding: "3px 9px", borderRadius: 999 }}>곧 추가돼요</span>
     </div>
   );
 }
@@ -868,7 +896,25 @@ function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
 // specifically didn't land). Both touchpoints read/write the exact same
 // reaction, so they can never contradict each other about what the user
 // actually said.
-function ReactionButtons({ reaction, onReact, disabled, dark }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void; disabled?: boolean; dark?: boolean }) {
+function ReactionButtons({ reaction, onReact, disabled, dark, modernist }: { reaction: "agree" | "disagree" | null | undefined; onReact?: (r: "agree" | "disagree") => void; disabled?: boolean; dark?: boolean; modernist?: boolean }) {
+  if (modernist) {
+    return (
+      <div style={{ display: "flex", gap: 8, opacity: disabled ? 0.55 : 1 }}>
+        <motion.div
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, backgroundColor: mdHeading, cursor: disabled ? "default" : "pointer" }}
+        >
+          <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: "#fff" }}>동의해요</span>
+        </motion.div>
+        <motion.div
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, border: `1px solid ${mdDivider}`, backgroundColor: "transparent", cursor: disabled ? "default" : "pointer" }}
+        >
+          <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: mdHeading }}>아닌 것 같아요</span>
+        </motion.div>
+      </div>
+    );
+  }
   if (dark) {
     return (
       <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
@@ -931,30 +977,30 @@ function DiscoveryReflection({
   const settled = reaction === "agree" || exhausted;
   return (
     <div>
-      <p style={{ ...sans, fontSize: 15, color: dkBodyLight, margin: "0 0 6px", lineHeight: 1.5 }}>이 관찰이 지금 당신의 경험과 맞아떨어지나요?</p>
+      <p style={{ ...sans, fontSize: 15, color: mdBodyLight, margin: "0 0 6px", lineHeight: 1.5 }}>이 관찰이 지금 당신의 경험과 맞아떨어지나요?</p>
       {/* Observer-self framing (ACT: self-as-context) — agree/disagree here
           isn't a verdict on whether the thought is true, just whether this
           reading of it matches what was actually noticed. */}
-      <p style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: "#948CB0", margin: "0 0 16px", lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <p style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: mdFaint, margin: "0 0 16px", lineHeight: 1.5, wordBreak: "keep-all" }}>
         이 생각을 믿을지 말지를 정하는 자리가 아니에요. 그저 지금의 나와 맞는지 살펴보는 거예요.
       </p>
       {reinterpreting && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0" }}>
           <motion.div
             animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-            style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: dkAccent }}
+            style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: mdAccent }}
           />
-          <span style={{ ...sans, fontSize: 13, color: dkBody }}>다시 생각해보는 중이에요...</span>
+          <span style={{ ...sans, fontSize: 13, color: mdBody }}>다시 생각해보는 중이에요...</span>
         </div>
       )}
-      {!settled && !reinterpreting && <ReactionButtons reaction={reaction} onReact={onReact} dark />}
+      {!settled && !reinterpreting && <ReactionButtons reaction={reaction} onReact={onReact} modernist />}
       {settled && exhausted && (
-        <p style={{ ...sans, fontSize: 13, color: dkBody, margin: "0 0 12px" }}>더 이상 새로운 해석을 만들어낼 수 없어요. 다음에 다시 살펴볼게요.</p>
+        <p style={{ ...sans, fontSize: 13, color: mdBody, margin: "0 0 12px" }}>더 이상 새로운 해석을 만들어낼 수 없어요. 다음에 다시 살펴볼게요.</p>
       )}
       {settled && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-          <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: dkAccent, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✓</span>
-          <span style={{ ...sans, fontSize: 13.5, color: dkBodyLight }}>{exhausted ? "지금은 여기까지 살펴봤어요." : "이 관찰을 받아들였어요."}</span>
+          <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: mdAccent, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✓</span>
+          <span style={{ ...sans, fontSize: 13.5, color: mdBodyLight }}>{exhausted ? "지금은 여기까지 살펴봤어요." : "이 관찰을 받아들였어요."}</span>
         </div>
       )}
     </div>
@@ -973,12 +1019,12 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
         return (
           <div key={i} style={{ display: "flex", gap: 12 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14, flexShrink: 0 }}>
-              <div style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: p.accent ? dkAccent : "#3A3350", flexShrink: 0, marginTop: 3 }} />
-              {hasNext && <div style={{ width: 2, flex: 1, backgroundColor: dkDivider, minHeight: 28 }} />}
+              <div style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: p.accent ? mdAccent : mdTrack, flexShrink: 0, marginTop: 3 }} />
+              {hasNext && <div style={{ width: 2, flex: 1, backgroundColor: mdDivider, minHeight: 28 }} />}
             </div>
             <div style={{ paddingBottom: 20 }}>
-              <div style={{ ...mono, fontSize: 10.5, color: dkBody, marginBottom: 3 }}>{p.label}</div>
-              <p style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: dkBodyLight, margin: 0, lineHeight: 1.4, wordBreak: "keep-all" }}>{p.text}</p>
+              <div style={{ ...mono, fontSize: 10.5, color: mdBody, marginBottom: 3 }}>{p.label}</div>
+              <p style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: mdBodyLight, margin: 0, lineHeight: 1.4, wordBreak: "keep-all" }}>{p.text}</p>
             </div>
           </div>
         );
@@ -993,12 +1039,12 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
 // original entry to highlight a sentence within.
 function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
   return (
-    <div style={{ backgroundColor: dkAccentSoft, borderLeft: `3px solid ${dkAccent}`, borderRadius: 8, padding: "12px 14px" }}>
+    <div style={{ backgroundColor: mdAccentSoft, borderLeft: `3px solid ${mdAccent}`, borderRadius: 8, padding: "12px 14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ ...mono, fontSize: 11, color: dkBody }}>{date}</span>
-        {domain && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: dkAccentTagText, backgroundColor: dkAccentTag, padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
+        <span style={{ ...mono, fontSize: 11, color: mdBody }}>{date}</span>
+        {domain && <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdAccentTagText, backgroundColor: mdAccentTag, padding: "2px 8px", borderRadius: 999 }}>{domain}</span>}
       </div>
-      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{quote}"</p>
+      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: mdBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{quote}"</p>
     </div>
   );
 }
@@ -1011,9 +1057,9 @@ function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: strin
 // distinct, scannable groups rather than one continuous flow of text.
 function SectionCard({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "22px 20px", boxShadow: dkCardShadow }}>
-      {title && <div style={{ ...serif, fontSize: 19, color: dkHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
-      {subtitle && <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginBottom: 16, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
+    <div style={{ backgroundColor: mdCard, borderRadius: 20, padding: "22px 20px", boxShadow: mdCardShadow }}>
+      {title && <div style={{ ...serif, fontSize: 19, color: mdHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
+      {subtitle && <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginBottom: 16, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
       {children}
     </div>
   );
@@ -1138,11 +1184,11 @@ function ScreenAnalysis({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
         <div style={{ padding: "8px 4px 20px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>마인드</div>
-          <div style={{ ...sans, fontSize: 13, color: dkBody }}>AI가 지금까지 당신에 대해 알아낸 것들이에요 — 오늘 하루가 아니라, 쌓여온 시간 전체예요.</div>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>마인드</div>
+          <div style={{ ...sans, fontSize: 13, color: mdBody }}>AI가 지금까지 당신에 대해 알아낸 것들이에요 — 오늘 하루가 아니라, 쌓여온 시간 전체예요.</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1150,31 +1196,31 @@ function ScreenAnalysis({
           <SectionCard>
             {discovery ? (
               <>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccent, letterSpacing: "0.04em", marginBottom: 10 }}>오늘의 발견</div>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 800, color: mdAccent, letterSpacing: "0.04em", marginBottom: 10 }}>오늘의 발견</div>
                 {(h?.thoughtLabel || b?.thoughtLabel) && (
-                  <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: "#9B8FC7", margin: "0 0 8px" }}>
+                  <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: mdAccentText, margin: "0 0 8px" }}>
                     '{h?.thoughtLabel || b?.thoughtLabel}' 생각이 또 나타났어요
                   </p>
                 )}
-                <p style={{ ...serif, fontSize: 24, lineHeight: 1.4, color: dkHeading, margin: "0 0 18px", wordBreak: "keep-all" }}>{discovery.text}</p>
-                <div style={{ height: 1, backgroundColor: dkDivider, margin: "0 0 14px" }} />
+                <p style={{ ...serif, fontSize: 24, lineHeight: 1.4, color: mdHeading, margin: "0 0 18px", wordBreak: "keep-all" }}>{discovery.text}</p>
+                <div style={{ height: 1, backgroundColor: mdDivider, margin: "0 0 14px" }} />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ ...sans, fontSize: 12, fontWeight: 500, color: dkBody }}>확신도</span>
-                  <span style={{ ...mono, fontSize: 13, fontWeight: 500, color: dkAccent }}>{h ? h.confidence : b?.confidence ?? 0}%</span>
+                  <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: mdBody }}>확신도</span>
+                  <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: mdAccentText }}>{h ? h.confidence : b?.confidence ?? 0}%</span>
                 </div>
-                <div style={{ height: 6, borderRadius: 3, backgroundColor: dkTrack, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${h ? h.confidence : b?.confidence ?? 0}%`, borderRadius: 3, backgroundColor: dkAccent }} />
+                <div style={{ height: 6, borderRadius: 3, backgroundColor: mdTrack, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${h ? h.confidence : b?.confidence ?? 0}%`, borderRadius: 3, background: `linear-gradient(90deg, ${mdAccent}, ${mdAccentText})` }} />
                 </div>
               </>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "20px 10px 8px", gap: 14 }}>
                 <svg width="96" height="96" viewBox="0 0 96 96">
-                  <circle cx="48" cy="48" r="44" fill="rgba(123,92,240,.16)" />
-                  <circle cx="34" cy="44" r="5" fill={dkAccent} />
-                  <circle cx="62" cy="44" r="5" fill={dkAccent} />
-                  <path d="M36 60 Q48 68 60 60" stroke={dkAccent} strokeWidth="3" fill="none" strokeLinecap="round" />
+                  <circle cx="48" cy="48" r="44" fill={mdAccentSoft} />
+                  <circle cx="34" cy="44" r="5" fill={mdAccent} />
+                  <circle cx="62" cy="44" r="5" fill={mdAccent} />
+                  <path d="M36 60 Q48 68 60 60" stroke={mdAccent} strokeWidth="3" fill="none" strokeLinecap="round" />
                 </svg>
-                <p style={{ ...sans, fontSize: 14, color: dkBody, lineHeight: 1.6, margin: 0, maxWidth: 260 }}>아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요.</p>
+                <p style={{ ...sans, fontSize: 14, color: mdBody, lineHeight: 1.6, margin: 0, maxWidth: 260 }}>아직 발견된 것이 없어요. 생각을 몇 번 남기면 여기에 나타나요.</p>
               </div>
             )}
           </SectionCard>
@@ -1190,23 +1236,23 @@ function ScreenAnalysis({
                     ))}
                   </div>
                 ) : (
-                  <div style={{ ...sans, fontSize: 13, color: dkBody }}>아직 근거로 남길 만한 기록이 없어요.</div>
+                  <div style={{ ...sans, fontSize: 13, color: mdBody }}>아직 근거로 남길 만한 기록이 없어요.</div>
                 )}
 
                 {contradictoryEntries.length > 0 && (
-                  <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${dkDivider}` }}>
+                  <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${mdDivider}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                       <span style={{ fontSize: 13 }}>⚠</span>
-                      <span style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: dkWarnLabel }}>다른 방향의 기록도 있어요</span>
+                      <span style={{ ...sans, fontSize: 12.5, fontWeight: 800, color: mdAccentText }}>다른 방향의 기록도 있어요</span>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                       {contradictoryEntries.map(({ belief, entry }, i) => (
-                        <div key={i} style={{ backgroundColor: dkWarnSoft, borderLeft: `3px solid ${dkWarn}`, borderRadius: 8, padding: "12px 14px" }}>
+                        <div key={i} style={{ backgroundColor: mdAccentSoft, borderLeft: `3px solid ${mdAccent}`, borderRadius: 8, padding: "12px 14px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                            <span style={{ ...mono, fontSize: 11, color: dkBody }}>{entry.date}</span>
-                            <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: dkWarnTagText, backgroundColor: dkWarnTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                            <span style={{ ...mono, fontSize: 11, color: mdBody }}>{entry.date}</span>
+                            <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdAccentTagText, backgroundColor: mdAccentTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
                           </div>
-                          <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
+                          <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: mdBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
                         </div>
                       ))}
                     </div>
@@ -1221,10 +1267,10 @@ function ScreenAnalysis({
                 </SectionCard>
               )}
 
-              {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. ── */}
+              {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. Kept as NeuralBeliefGraph3D's own self-contained dark canvas (not part of the Modernist mockup, which drops this section) rather than reworking the WebGL scene's own palette — reads as an intentional "window into the tissue" panel, not a stray dark card. ── */}
               <SectionCard title="관련 활성 뉴런">
                 <NeuralBeliefGraph3D beliefs={relatedBrainBeliefs} connections={relatedBrainConnections} clusters={relatedBrainClusters} height={280} />
-                <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${dkDivider}` }}>
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${mdDivider}` }}>
                   <RegionBreakdown beliefs={relatedBrainBeliefs} />
                 </div>
               </SectionCard>
@@ -1240,7 +1286,7 @@ function ScreenAnalysis({
                 {h?.investigate && hIndex !== null && (
                   <motion.div
                     role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} whileTap={{ opacity: 0.6 }}
-                    style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: "1.5px solid rgba(123,92,240,.35)", color: dkAccentLight, borderRadius: 12, padding: 12, ...sans, fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+                    style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: `1.5px solid ${mdDivider}`, color: mdHeading, borderRadius: 14, padding: 12, ...sans, fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}
                   >
                     더 깊이 알아보기
                   </motion.div>
@@ -1250,7 +1296,7 @@ function ScreenAnalysis({
           )}
 
           {/* ── SECTION 6 · EXPLORE MORE — secondary analysis, each its own independent page. ── */}
-          <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: dkBody, letterSpacing: "0.03em", padding: "6px 4px 2px" }}>더 깊이 보기</div>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 800, color: mdAccent, letterSpacing: "0.1em", padding: "6px 4px 2px", textTransform: "uppercase" }}>더 깊이 보기</div>
           <div style={{ display: "flex", gap: 12 }}>
             <ArtifactTile
               label="무의식적 패턴"
@@ -1274,7 +1320,7 @@ function ScreenAnalysis({
           </SectionCard>
         </div>
       </div>
-      <BottomNav active="analysis" onSelect={onNavSelect} dark />
+      <BottomNav active="analysis" onSelect={onNavSelect} modernist />
     </div>
   );
 }
@@ -2808,19 +2854,19 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     return Array.from(map.values());
   }, [items]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", ...dkStarfield }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "24px 16px 8px", flexShrink: 0 }}>
-        <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>기록</div>
-        <div style={{ ...sans, fontSize: 13, color: dkBody }}>지금까지 남긴 생각들이에요.</div>
+        <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>기록</div>
+        <div style={{ ...sans, fontSize: 13, color: mdBody }}>지금까지 남긴 생각들이에요.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {items.length === 0 ? (
-          <div style={{ ...sans, fontSize: 13, color: dkBody, padding: "12px 0" }}>아직 기록된 생각이 없습니다.</div>
+          <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "12px 0" }}>아직 기록된 생각이 없습니다.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
             {groups.map((grp) => (
               <div key={grp.label + grp.entries[0].entry.id}>
-                <div style={{ ...mono, fontSize: 11, color: "#726A8A", marginBottom: 10, letterSpacing: "0.03em" }}>{grp.label}</div>
+                <div style={{ ...mono, fontSize: 11, fontWeight: 700, color: mdFaint, marginBottom: 10, letterSpacing: "0.03em" }}>{grp.label}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {grp.entries.map(({ index, entry }) => {
                     const domainInfo = findEntryDomain(entry.id, store.beliefs);
@@ -2829,20 +2875,20 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     return (
                       <motion.div
                         key={entry.id} role="button" tabIndex={0} onClick={() => onOpenEntry?.(index)} whileTap={{ opacity: 0.6 }}
-                        style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 16, padding: "16px 18px", boxShadow: "0 8px 20px rgba(0,0,0,0.3)", cursor: "pointer" }}
+                        style={{ backgroundColor: mdCard, borderRadius: 16, padding: "16px 18px", boxShadow: mdCardShadow, cursor: "pointer" }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                           {domainInfo && (
                             <>
                               <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: domainInfo.color, flexShrink: 0 }} />
-                              <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: domainInfo.color }}>{domainInfo.domain}</span>
+                              <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: domainInfo.color }}>{domainInfo.domain}</span>
                             </>
                           )}
-                          {entry.duration && <span style={{ ...mono, fontSize: 10.5, color: "#726A8A", marginLeft: "auto" }}>{entry.duration}</span>}
+                          {entry.duration && <span style={{ ...mono, fontSize: 10.5, color: mdFaint, marginLeft: "auto" }}>{entry.duration}</span>}
                         </div>
-                        <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: dkBodyLight, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
+                        <p style={{ ...serif, fontSize: 16, color: mdHeading, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>"{entry.text}"</p>
                         {tag && (
-                          <div style={{ marginTop: 10, display: "inline-block", ...sans, fontSize: 10.5, color: dkBody, backgroundColor: "rgba(150,120,255,0.08)", padding: "3px 10px", borderRadius: 999 }}>{tag}</div>
+                          <div style={{ marginTop: 10, display: "inline-block", ...sans, fontSize: 10.5, fontWeight: 700, color: mdAccentTagText, backgroundColor: mdAccentTag, padding: "3px 10px", borderRadius: 999 }}>{tag}</div>
                         )}
                       </motion.div>
                     );
@@ -2853,7 +2899,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           </div>
         )}
       </div>
-      <BottomNav active="history" onSelect={onNavSelect} dark />
+      <BottomNav active="history" onSelect={onNavSelect} modernist />
     </div>
   );
 }
@@ -2903,35 +2949,35 @@ function ScreenProfile({
     { value: String(store.beliefs.length), label: "발견된 신념" },
     { value: `${computeStreak(store.history)}일`, label: "연속 기록" },
   ];
-  const rows: { label: string; color: string; onClick?: () => void }[] = [
-    { label: "알림", color: dkAccent, onClick: () => onOpenSettings?.("notifications") },
-    { label: "데이터와 개인정보", color: "#4A90D9", onClick: () => onOpenSettings?.("dataPrivacy") },
-    { label: "도움말", color: "#34B27B", onClick: () => onOpenSettings?.("help") },
-    { label: "로그아웃", color: "#726A8A", onClick: onNavSelect ? () => onNavSelect("auth") : undefined },
+  const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
+    { label: "알림", onClick: () => onOpenSettings?.("notifications") },
+    { label: "데이터와 개인정보", onClick: () => onOpenSettings?.("dataPrivacy") },
+    { label: "도움말", onClick: () => onOpenSettings?.("help") },
+    { label: "로그아웃", onClick: onNavSelect ? () => onNavSelect("auth") : undefined, destructive: true },
   ];
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", ...dkStarfield }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
         <div style={{ padding: "8px 4px 24px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: dkHeading, marginBottom: 6 }}>프로필</div>
-          <div style={{ ...sans, fontSize: 13, color: dkBody }}>당신의 여정을 기록해왔어요.</div>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>프로필</div>
+          <div style={{ ...sans, fontSize: 13, color: mdBody }}>당신의 여정을 기록해왔어요.</div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: 20, boxShadow: dkCardShadow, marginBottom: 14 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "radial-gradient(circle at 38% 32%, #4C3B8C, #241a44)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: dkAccentTagText }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, backgroundColor: mdCard, borderRadius: 20, padding: 20, boxShadow: mdCardShadow, marginBottom: 14 }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: `linear-gradient(135deg, ${mdAccent}, ${mdAccentText})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: "#fff" }}>
             {initial}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ ...sans, fontSize: 17, fontWeight: 700, color: dkHeading }}>{name}</span>
-            {firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: "#726A8A" }}>{firstEntryDate}부터 함께하고 있어요</span>}
+            <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: mdHeading }}>{name}</span>
+            {firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: mdFaint }}>{firstEntryDate}부터 함께하고 있어요</span>}
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
           {stats.map((s) => (
-            <div key={s.label} style={{ flex: 1, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: "0 8px 20px rgba(0,0,0,0.3)" }}>
-              <div style={{ ...mono, fontSize: 22, color: dkAccentTagText, marginBottom: 4 }}>{s.value}</div>
-              <div style={{ ...sans, fontSize: 11, color: dkBody }}>{s.label}</div>
+            <div key={s.label} style={{ flex: 1, backgroundColor: mdCard, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: mdCardShadow }}>
+              <div style={{ ...mono, fontSize: 22, fontWeight: 700, color: mdAccentText, marginBottom: 4 }}>{s.value}</div>
+              <div style={{ ...sans, fontSize: 11, color: mdBody }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -2941,13 +2987,13 @@ function ScreenProfile({
             silently holding the "brain" on the processing screen has a
             place to learn who it is. Not part of the imported spec, kept
             from before and restyled to match. */}
-        <div style={{ marginBottom: 14, padding: 16, borderRadius: 16, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, display: "flex", gap: 14, alignItems: "center" }}>
+        <div style={{ marginBottom: 14, padding: 16, borderRadius: 16, backgroundColor: mdCard, boxShadow: mdCardShadow, display: "flex", gap: 14, alignItems: "center" }}>
           <div style={{ flexShrink: 0 }}>
-            <Mindy size={52} expression="happy" dark />
+            <Mindy size={52} expression="happy" />
           </div>
           <div>
-            <div style={{ ...serif, fontSize: 15, color: dkHeading }}>마인디</div>
-            <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <div style={{ ...serif, fontSize: 15, color: mdHeading }}>마인디</div>
+            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
               정리하지 않아도 괜찮아요. 마인디가 당신의 생각을 받아주고, 그 속에 숨겨진 패턴을 함께 찾아줄게요.
             </div>
           </div>
@@ -2958,45 +3004,49 @@ function ScreenProfile({
             store — see src/app/dataProvider.ts. Not something a real end
             user would normally touch, but there's no separate build
             target to hide it behind. */}
-        <div style={{ marginBottom: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, padding: "0 18px", boxShadow: dkCardShadow }}>
+        <div style={{ marginBottom: 14, backgroundColor: mdCard, borderRadius: 20, padding: "0 18px", boxShadow: mdCardShadow }}>
           <SettingsToggle
             label="데모 모드"
             note="켜면 예시 데이터로 화면을 둘러볼 수 있어요. 끄면 실제 내 기록만 보여요 — 새 계정은 빈 상태로 시작해요."
             value={isDemoMode}
             onChange={onToggleDemoMode}
-            dark
+            modernist
           />
         </div>
 
-        <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 20, overflow: "hidden", boxShadow: dkCardShadow }}>
+        <div style={{ backgroundColor: mdCard, borderRadius: 20, overflow: "hidden", boxShadow: mdCardShadow }}>
           {rows.map((r, i) => (
             <motion.div
               key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${dkDivider}` : "none" }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${mdDivider}` : "none" }}
             >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: r.color, flexShrink: 0 }} />
-              <span style={{ ...sans, fontSize: 14, color: dkBodyLight, flex: 1 }}>{r.label}</span>
-              <span style={{ color: "#4A4460", fontSize: 15 }}>›</span>
+              <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: r.destructive ? mdAccentText : mdHeading, flex: 1 }}>{r.label}</span>
+              <span style={{ color: mdFaint, fontSize: 15 }}>›</span>
             </motion.div>
           ))}
         </div>
       </div>
-      <BottomNav active="profile" onSelect={onNavSelect} dark />
+      <BottomNav active="profile" onSelect={onNavSelect} modernist />
     </div>
   );
 }
 
 // ── Screen 14.1 · Notification settings ───────────────────────────────────────
-function SettingsToggle({ label, note, value, onChange, dark }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void; dark?: boolean }) {
+function SettingsToggle({ label, note, value, onChange, dark, modernist }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void; dark?: boolean; modernist?: boolean }) {
+  const labelColor = modernist ? mdHeading : dark ? dkBodyLight : ink;
+  const noteColor = modernist ? mdBody : dark ? dkBody : subtle;
+  const dividerColor = modernist ? mdDivider : dark ? dkDivider : hair;
+  const trackOff = modernist ? mdTrack : dark ? dkTrack : hair;
+  const trackOn = modernist ? mdAccent : dkAccent;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dark ? dkDivider : hair}` }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dividerColor}` }}>
       <div style={{ paddingRight: 16 }}>
-        <div style={{ ...sans, fontSize: 15, color: dark ? dkBodyLight : ink }}>{label}</div>
-        {note && <div style={{ ...sans, fontSize: 12, color: dark ? dkBody : subtle, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
+        <div style={{ ...sans, fontSize: 15, fontWeight: modernist ? 800 : 400, color: labelColor }}>{label}</div>
+        {note && <div style={{ ...sans, fontSize: 12, color: noteColor, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
       </div>
       <motion.div
         role="button" tabIndex={0} onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
-        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? dkAccent : dark ? dkTrack : hair, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
+        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
       >
         <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff" }} />
       </motion.div>
@@ -3294,7 +3344,7 @@ export default function App() {
         store={store}
       />
     ); break;
-    case "brainmap": content = <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} />; break;
+    case "brainmap": content = <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />; break;
     case "analysis": content = (
       <ScreenAnalysis
         onNavSelect={goToTab}
@@ -3418,11 +3468,14 @@ export default function App() {
   }
 
   const showStatusBar = !["splash"].includes(screen);
+  // Screens ported from the Modernist (light/red) design import — every
+  // other screen keeps the dark theme, see the dk*/md* token comments.
+  const isModernistScreen = ["home", "brainmap", "analysis", "history", "profile"].includes(screen);
 
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: dkBg, display: "flex", flexDirection: "column" }}>
-        {showStatusBar && <StatusBar />}
+      <div style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column" }}>
+        {showStatusBar && <StatusBar modernist={isModernistScreen} />}
         <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
           <AnimatePresence mode="wait">
             <motion.div
