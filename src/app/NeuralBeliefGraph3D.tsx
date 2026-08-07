@@ -1170,8 +1170,38 @@ export default function NeuralBeliefGraph3D({
             <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>근거 {selectedNode.evidenceCount}개</div>
 
             {structureMode && selectedCluster && selectedCluster.length >= 3 && (
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요
+              <div style={{ marginTop: 6 }}>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
+                  다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요
+                </div>
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {selectedCluster
+                    .filter((id) => id !== selectedNode.id)
+                    .map((id) => {
+                      const member = activeNodes.find((n) => n.id === id);
+                      if (!member) return null;
+                      return (
+                        <div
+                          key={id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setSelectedId(id); }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            cursor: "pointer",
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: member.color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#E8E3F5", lineHeight: 1.4, wordBreak: "keep-all" }}>{member.statement}</span>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
             )}
             {structureMode && selectedContradiction && (
