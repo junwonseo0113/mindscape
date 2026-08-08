@@ -21,6 +21,7 @@ import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
+import { pickInputGuidance } from "./inputGuidance";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -1531,6 +1532,30 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const recognitionRef = React.useRef<any>(null);
   const micLevelRef = useMicLevel(recording);
   const manualStopRef = React.useRef(false);
+  // Authoritative running transcript, mirrors the `transcript` state but
+  // read synchronously (state set via a functional updater isn't
+  // guaranteed to be visible in the same tick, and the silence-watcher
+  // below needs the current value the instant it fires).
+  const finalTranscriptRef = React.useRef("");
+
+  // INPUT-role silence guidance (see inputGuidance.ts) — a few seconds of
+  // no new input fades in one short line. `lastActivityAt`/`latestText` are
+  // refs, not state, so the watcher interval below never closes over a
+  // stale value; `inputGuidance` itself is the only piece that needs to
+  // trigger a render.
+  const [inputGuidance, setInputGuidance] = React.useState<string | null>(null);
+  const lastActivityRef = React.useRef(Date.now());
+  const latestTextRef = React.useRef("");
+  const guidanceShownRef = React.useRef(false);
+  const guidanceDelayRef = React.useRef<any>(null);
+
+  const noteActivity = (currentText: string) => {
+    latestTextRef.current = currentText;
+    lastActivityRef.current = Date.now();
+    guidanceShownRef.current = false;
+    setInputGuidance(null);
+    if (guidanceDelayRef.current) { clearTimeout(guidanceDelayRef.current); guidanceDelayRef.current = null; }
+  };
 
   React.useEffect(() => {
     if (!recording) return;
@@ -1540,10 +1565,37 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 
   React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); }, []);
 
+  // Guidance only applies while input is actually expected — typing (text
+  // mode, whether or not anything's written yet) or actively recording.
+  // Switching modes or starting a fresh recording resets the silence clock.
+  React.useEffect(() => {
+    lastActivityRef.current = Date.now();
+    guidanceShownRef.current = false;
+    setInputGuidance(null);
+  }, [textMode, recording]);
+
+  React.useEffect(() => {
+    const active = textMode || recording;
+    if (!active) return;
+    const watcher = setInterval(() => {
+      if (guidanceShownRef.current) return;
+      if (Date.now() - lastActivityRef.current >= 5000) {
+        guidanceShownRef.current = true;
+        // Async fade-in delay — the prompt doesn't snap in the instant the
+        // threshold crosses, so it never reads as a timer going off.
+        guidanceDelayRef.current = setTimeout(() => {
+          setInputGuidance(pickInputGuidance(latestTextRef.current));
+        }, 700);
+      }
+    }, 1000);
+    return () => { clearInterval(watcher); if (guidanceDelayRef.current) clearTimeout(guidanceDelayRef.current); };
+  }, [textMode, recording]);
+
   const startRecording = () => {
     setTranscript("");
     setInterim("");
     setSeconds(0);
+    finalTranscriptRef.current = "";
     const SR = getSpeechRecognitionCtor();
     if (SR) {
       manualStopRef.current = false;
@@ -1559,8 +1611,12 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
           if (r.isFinal) finalChunk += r[0].transcript;
           else interimChunk += r[0].transcript;
         }
-        if (finalChunk) setTranscript((t) => (t ? t + " " : "") + finalChunk.trim());
+        if (finalChunk) {
+          finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + " " : "") + finalChunk.trim();
+          setTranscript(finalTranscriptRef.current);
+        }
         setInterim(interimChunk);
+        noteActivity((finalTranscriptRef.current + (interimChunk ? " " + interimChunk : "")).trim());
       };
       recognition.onerror = (e: any) => {
         // Fatal errors (mic denied, no mic, offline): stop retrying instead
@@ -1606,11 +1662,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 
       {textMode ? (
         <>
-          <div style={{ flex: 1, minHeight: 0, padding: "20px 24px 0", display: "flex" }}>
+          <div style={{ flex: 1, minHeight: 0, padding: "20px 24px 0", display: "flex", flexDirection: "column" }}>
             <textarea
               autoFocus
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => { setText(e.target.value); noteActivity(e.target.value); }}
               placeholder={`${promptHint} 편하게 적어보세요.`}
               style={{
                 ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
@@ -1618,6 +1674,20 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                 wordBreak: "keep-all", colorScheme: "dark",
               }}
             />
+            <AnimatePresence>
+              {inputGuidance && (
+                <motion.div
+                  key={inputGuidance}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  style={{ ...sans, fontSize: 12.5, color: dkBody, marginTop: 10, marginBottom: 4, lineHeight: 1.6, wordBreak: "keep-all" }}
+                >
+                  {inputGuidance}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <div style={{ padding: "0 24px 40px" }}>
             <PrimaryBtn disabled={!text.trim()} onClick={() => onDone?.(text.trim())}>다음</PrimaryBtn>
@@ -1672,6 +1742,20 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                       `transcript`/`interim` are still tracked and used once
                       recording stops; they're just not rendered while it's
                       running. */}
+                  <AnimatePresence>
+                    {inputGuidance && (
+                      <motion.div
+                        key={inputGuidance}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        style={{ ...sans, fontSize: 13, color: dkBodyLight, textAlign: "center", marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 260 }}
+                      >
+                        {inputGuidance}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
             </AnimatePresence>
