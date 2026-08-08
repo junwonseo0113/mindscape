@@ -137,6 +137,13 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     typeof rawCandidate.thoughtLabelSuggestion === "string" && rawCandidate.thoughtLabelSuggestion.trim()
       ? rawCandidate.thoughtLabelSuggestion.trim()
       : null;
+  // Distanced self-talk (Kross & Ayduk) — same pattern as thoughtLabelSuggestion:
+  // taken as-is from the model, never re-derived client-side (Korean 1st->2nd
+  // person conversion needs real conjugation, not string substitution).
+  const distancedReframeSuggestion: string | null =
+    typeof rawCandidate.distancedReframeSuggestion === "string" && rawCandidate.distancedReframeSuggestion.trim()
+      ? rawCandidate.distancedReframeSuggestion.trim()
+      : null;
   const quoteSource = (observation.automaticThought || rawText).trim();
   const quote = quoteSource ? quoteSource.slice(0, 160) : null;
 
@@ -176,6 +183,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
               lastUpdatedAt: today,
               schemaDomainLabel: schemaDomainLabelSuggestion ?? b.schemaDomainLabel,
               thoughtLabel: thoughtLabelSuggestion ?? b.thoughtLabel,
+              distancedReframe: distancedReframeSuggestion ?? b.distancedReframe,
               confidenceHistory,
             }
           : b
@@ -212,6 +220,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
           lastUpdatedAt: today,
           userReaction: null,
           thoughtLabel: thoughtLabelSuggestion ?? undefined,
+          distancedReframe: distancedReframeSuggestion ?? undefined,
           // First point on this belief's drift history — its very first
           // confidence value, the moment it became visible at all.
           confidenceHistory: [{ date: today, value: promotedConfidence }],

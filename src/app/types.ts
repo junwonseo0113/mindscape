@@ -128,6 +128,12 @@ export type StoredBelief = {
   // never a replacement for it — nothing downstream (matching, confidence,
   // evidence) reads this field.
   thoughtLabel?: string;
+  // Distanced self-talk (Kross & Ayduk) — the same belief statement restated
+  // in the person's name or 2nd person instead of 1st ("나는 결국 실패할
+  // 것이다" -> "{name}은 결국 실패할 것 같다고 느끼고 있어요"), which measurably
+  // creates emotional distance on its own. Purely a display reframe
+  // alongside `statement`, same as thoughtLabel — nothing downstream reads it.
+  distancedReframe?: string;
   // Longitudinal drift tracking — one point appended every time confidence
   // actually changes (see mergeAnalysisIntoStore), never backfilled or
   // interpolated. Purely observational ("this is how your confidence in

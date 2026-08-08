@@ -136,7 +136,7 @@ ${quotes.length > 0 ? quotes.map((q) => `- "${q}"`).join("\n") : "(근거 기록
         req.on('data', (chunk) => { raw += chunk })
         req.on('end', async () => {
           try {
-            const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration } = JSON.parse(raw || '{}')
+            const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name } = JSON.parse(raw || '{}')
             if (!text || typeof text !== 'string' || !text.trim()) {
               res.statusCode = 400
               res.setHeader('Content-Type', 'application/json')
@@ -162,6 +162,8 @@ ${quotes.length > 0 ? quotes.map((q) => `- "${q}"`).join("\n") : "(근거 기록
             const aspirationBlock = typeof aspiration === 'string' && aspiration.trim()
               ? `\n이 사람이 스스로 되고 싶다고 밝힌 모습: "${aspiration.trim()}"\n`
               : ''
+
+            const addressTerm = typeof name === 'string' && name.trim() ? name.trim() : '당신'
 
             const prompt = `당신은 CBT(인지행동치료)와 ACT(수용전념치료)의 개념을 참고해 사람들이 스스로의 사고 패턴을 관찰하도록 돕는 자기성찰 도구입니다. 이것은 치료나 진단이 아닙니다 — 조언하거나 결론을 내리지 마세요.
 
@@ -211,6 +213,12 @@ ${historyBlock}${aspirationBlock}
 [생각에 이름 붙이기 — thoughtLabelSuggestion]
 - hypothesisCandidate.candidateBelief가 빈 문자열이 아니라면, 그 생각을 짧은 명사구로 이름 붙이세요 (예: "완벽주의 생각", "안전 추구 생각", "자책 생각"). 이건 "이 사람이 무능하다"처럼 그 사람 자체에 대한 판단이 아니라, "무능감 생각"처럼 그 생각을 스쳐 지나가는 하나의 사건으로 거리를 두고 부르는 이름입니다. candidateBelief가 빈 문자열이면 null.
 
+[거리 두고 다시 말하기 — distancedReframeSuggestion]
+- hypothesisCandidate.candidateBelief가 빈 문자열이 아니라면, 그 문장을 1인칭("나는...")이 아니라 "${addressTerm}"을 주어로 삼아 다시 쓰세요. 자기 자신에게 이름이나 2인칭으로 말을 거는 것만으로 정서적 거리가 생긴다는 연구(distanced self-talk)에 기반한 장치입니다.
+  - 의미는 candidateBelief와 동일해야 합니다 — 새로운 해석이나 조언을 더하지 마세요, 그저 화자만 바꾸는 것입니다.
+  - candidateBelief와 마찬가지로 조심스러운 가정형 어조를 유지하세요 (예: candidateBelief가 "나는 결국 실패할 것이다"라면 → "${addressTerm}은 결국 실패할 것 같다고 느끼고 있어요").
+  - candidateBelief가 빈 문자열이면 null.
+
 [메타 통찰 — 패턴이 쌓일수록 깊어짐]
 - 확인된 패턴 수 + 기존 연결 수가 지금까지 ${networkSize}개였습니다. 확인된 패턴이 4개 이상이고 연결이 2개 이상일 때만, 여러 패턴을 가로지르는 더 높은 차원의 관찰이 있다면 metaInsight에 담으세요 — 반드시 "이런 가능성이 있습니다" 톤을 유지하세요. 조건을 만족하지 않으면 metaInsight는 반드시 null로 두세요.
 - metaInsight가 null이 아니면 metaInsightConfidence(정수 0-100), metaInsightDomains(관련 영역 단어 2~3개), metaInsightBeliefStatements(근거가 된 matchableBeliefs의 statement를 정확히 그대로 2~4개), metaInsightThoughtLabel(위 [생각에 이름 붙이기] 방식으로 이 통찰 전체에 붙이는 짧은 명사구)도 함께 채우세요. null이면 넷 다 null.
@@ -241,7 +249,8 @@ ${aspirationBlock ? `[되고 싶은 모습과의 거리 — Identity Drift]\n- �
     "directness": "0.0-1.0",
     "reasoningSummary": "2~4문장, 위 [중립적 표현] 중 하나 이상 포함",
     "schemaDomainLabelSuggestion": "matchedCandidateKind가 belief일 때만, 위 [참고용 장기 패턴 분류] 중 하나 또는 null",
-    "thoughtLabelSuggestion": "위 [생각에 이름 붙이기] 방식의 짧은 명사구, candidateBelief가 빈 문자열이면 null"
+    "thoughtLabelSuggestion": "위 [생각에 이름 붙이기] 방식의 짧은 명사구, candidateBelief가 빈 문자열이면 null",
+    "distancedReframeSuggestion": "위 [거리 두고 다시 말하기] 방식으로 다시 쓴 한 문장, candidateBelief가 빈 문자열이면 null"
   },
   "assumptions": [ { "trigger": "짧게", "interpretation": "한 문장", "count": "정수" } ],
   "connections": [ { "aStatement": "matchableBeliefs의 statement와 정확히 동일", "bStatement": "matchableBeliefs의 statement와 정확히 동일", "type": "root | contradiction", "note": "한 문장" } ],

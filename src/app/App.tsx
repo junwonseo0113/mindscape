@@ -1697,6 +1697,7 @@ function ScreenProcessing({
   priorAssumptions,
   priorConnections,
   aspiration,
+  name,
   onDone,
   onError,
 }: {
@@ -1706,6 +1707,9 @@ function ScreenProcessing({
   priorAssumptions?: StoredAssumption[];
   priorConnections?: { aStatement: string; bStatement: string; note: string }[];
   aspiration?: string | null;
+  // Distanced self-talk (Kross & Ayduk) needs a name or "당신" to reframe
+  // toward — undefined for guests, who get the 2nd-person fallback server-side.
+  name?: string;
   // sessionSummary is undefined whenever /api/summarize-session didn't
   // return one (no key, network error, bad response) — a missing summary
   // never blocks or fails the main analysis, per Feature 3's own spec.
@@ -1750,7 +1754,7 @@ function ScreenProcessing({
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration }),
+      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -2158,6 +2162,11 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
   // suggestion to stop or a diagnostic label — same principle as every other
   // card element here.
   const ruminationLikely = isLikelyRuminating(belief, connections, history);
+  // Distanced self-talk (Kross & Ayduk) — a literal card-flip metaphor for
+  // the reframe itself, not just an expand/collapse: the statement is a
+  // fact-in-1st-person on one face, the same meaning at 2nd-person distance
+  // on the other.
+  const [reframeFlipped, setReframeFlipped] = React.useState(false);
   return (
     <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${dkDivider}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -2174,7 +2183,42 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {belief.thoughtLabel && (
         <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: dkAccentLight, marginTop: 8 }}>'{belief.thoughtLabel}'이 반복해서 나타나요</div>
       )}
-      <div style={{ ...serif, fontSize: 18, color: dkHeading, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
+      {belief.distancedReframe ? (
+        <div style={{ marginTop: belief.thoughtLabel ? 4 : 8 }}>
+          <div style={{ perspective: 800 }}>
+            {/* Both faces share one grid cell — lets the container auto-size
+            to whichever face wraps to more lines, instead of an absolutely-
+            positioned back face clipping/overlapping the shorter front. */}
+            <motion.div
+              animate={{ rotateY: reframeFlipped ? 180 : 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              style={{ display: "grid", transformStyle: "preserve-3d" }}
+            >
+              <div style={{ ...serif, fontSize: 18, color: dkHeading, lineHeight: 1.4, wordBreak: "keep-all", gridArea: "1 / 1", backfaceVisibility: "hidden" }}>
+                {belief.statement}
+              </div>
+              <div
+                style={{
+                  ...serif, fontSize: 18, color: dkAccentLight, lineHeight: 1.4, wordBreak: "keep-all",
+                  gridArea: "1 / 1", backfaceVisibility: "hidden", transform: "rotateY(180deg)",
+                }}
+              >
+                {belief.distancedReframe}
+              </div>
+            </motion.div>
+          </div>
+          <motion.span
+            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+            onClick={() => setReframeFlipped((v) => !v)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
+            style={{ ...sans, fontSize: 10.5, color: "#726A8A", marginTop: 8, display: "inline-block", cursor: "pointer" }}
+          >
+            {reframeFlipped ? "↺ 원래 문장으로" : "거리를 두고 다시 보기 ↻"}
+          </motion.span>
+        </div>
+      ) : (
+        <div style={{ ...serif, fontSize: 18, color: dkHeading, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
+      )}
       <div style={{ height: 4, borderRadius: 2, backgroundColor: dkTrack, marginTop: 10 }}>
         <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: dkAccent }} />
       </div>
@@ -3522,6 +3566,7 @@ export default function App() {
           note: c.note,
         }))}
         aspiration={store.aspiration}
+        name={store.account?.name}
         onDone={(result, sessionSummary) => {
           if (result) {
             const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary);
