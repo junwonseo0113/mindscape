@@ -19,7 +19,7 @@ import {
 } from "./types";
 import { mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
-import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, matchableCandidates } from "./analysisFramework";
+import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -2146,12 +2146,18 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
-function BeliefCard({ belief, history, onReject, isLast }: { belief: StoredBelief; history: StoredHistoryEntry[]; onReject?: (id: string) => void; isLast?: boolean }) {
+function BeliefCard({ belief, history, connections, onReject, isLast }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; isLast?: boolean }) {
   const [openPattern, setOpenPattern] = React.useState<string | null>(null);
   const [showLoop, setShowLoop] = React.useState(false);
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
   const hasLoopData = hasFunctionalLoopData(belief, history);
+  // Rumination-vs-reflection (Trapnell & Campbell): rising confidence with no
+  // new connection and no widening emotional register reads as circling, not
+  // moving. The line stays purely observational — a frequency fact, not a
+  // suggestion to stop or a diagnostic label — same principle as every other
+  // card element here.
+  const ruminationLikely = isLikelyRuminating(belief, connections, history);
   return (
     <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${dkDivider}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
@@ -2178,6 +2184,11 @@ function BeliefCard({ belief, history, onReject, isLast }: { belief: StoredBelie
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
       {belief.confidenceHistory && <ConfidenceTrend history={belief.confidenceHistory} />}
+      {ruminationLikely && (
+        <div style={{ ...sans, fontSize: 11.5, color: dkBody, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          이 생각, 최근 세션에서 자주 다시 떠올랐어요.
+        </div>
+      )}
       {(patterns.length > 0 || emotion) && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {emotion && (
@@ -2376,7 +2387,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           ) : (
             <div style={{ backgroundColor: dkCard, border: `1px solid ${dkCardBorder}`, borderRadius: 18, overflow: "hidden" }}>
               {visibleBeliefs.map((b, i) => (
-                <BeliefCard key={b.id} belief={b} history={store.history} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
+                <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
               ))}
             </div>
           )}
