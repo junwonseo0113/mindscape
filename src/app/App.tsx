@@ -3610,24 +3610,44 @@ export default function App() {
   // other screen keeps the dark theme, see the dk*/md* token comments.
   const isModernistScreen = ["home", "brainmap", "analysis", "history", "profile"].includes(screen);
 
+  // Think is the app's one self-disclosure moment — the disinhibition-theory
+  // note this roadmap draws from asks for the whole frame to read as a
+  // slightly more private space while it's open: a faint dimming (not just
+  // ScreenThink's own already-dark background) plus a distinct threshold
+  // motion on the way in and out, instead of the plain fade every other
+  // screen uses.
+  const isThink = screen === "think";
+
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column" }}>
+      <div style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column", position: "relative" }}>
         {showStatusBar && <StatusBar modernist={isModernistScreen} />}
         <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={screen}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
+              initial={isThink ? { opacity: 0, scale: 0.97 } : { opacity: 0 }}
+              animate={isThink ? { opacity: 1, scale: 1 } : { opacity: 1 }}
+              exit={isThink ? { opacity: 0, scale: 0.97 } : { opacity: 0 }}
+              transition={isThink ? { duration: 0.5, ease: "easeInOut" } : { duration: 0.25, ease: "easeOut" }}
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
               {content}
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Session dimming — a faint scrim over the whole frame (status bar
+        included), not just ScreenThink's own dark background, so opening
+        the session reads as the room's lights dropping a notch. ~12% black,
+        within the note's 10-15% range. */}
+        <motion.div
+          aria-hidden
+          initial={false}
+          animate={{ opacity: isThink ? 1 : 0 }}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.12)", pointerEvents: "none", zIndex: 40 }}
+        />
       </div>
     </div>
   );
