@@ -41,6 +41,17 @@ export type NeuralBeliefNode = {
   // StoredBelief carries its own quotes), optional here only so a caller
   // that genuinely doesn't have quotes yet isn't forced to fake an array.
   evidenceQuotes?: StoredEvidenceQuote[];
+  // Emotional granularity (Feldman Barrett) — average distinct-emotion-label
+  // count across this belief's last few supporting entries. Purely a
+  // surface-geometry driver (see ActiveBeliefNode's facetDetail): more
+  // distinct emotions reads as a visibly faceted surface, one flat feeling
+  // reads as smooth. Never shown as a number anywhere.
+  emotionGranularity?: number;
+  // Rumination-possibility (Trapnell & Campbell) — see analysisFramework's
+  // isLikelyRuminating. Purely a visual "still circling" cue (an orbiting
+  // particle in the neuron's own color, never a warning color), never a
+  // label — same non-diagnostic rule as everywhere else this signal appears.
+  ruminationLikely?: boolean;
 };
 
 // Temporary mapping until the backend sends `region` directly: the app's
@@ -707,6 +718,8 @@ function ActiveBeliefNode({
   const ref = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const haloRef = useRef<THREE.Mesh>(null);
+  const orbitRef = useRef<THREE.Mesh>(null);
+  const orbitPhase = useMemo(() => stableUnit(`${node.id}-orbit`) * Math.PI * 2, [node.id]);
   const springScale = useRef(1);
   const vitalitySmooth = useRef(node.vitality);
   // Click-to-isolate fade — smooth ("싸아악"), not an instant cut, and
@@ -717,6 +730,11 @@ function ActiveBeliefNode({
   const phase = useMemo(() => stableUnit(`${node.id}-phase`) * Math.PI * 2, [node.id]);
   const recency = node.vitality;
   const pulseSpeed = 0.5 + recency * 1.2;
+  // Emotional granularity as surface texture: one flat feeling (or no data
+  // yet) reads as a smooth sphere; several distinct emotions read as a
+  // visibly faceted, low-poly gem. detail 0 = 20 flat faces, 2 ≈ smooth.
+  const granularity = node.emotionGranularity ?? 0;
+  const facetDetail = granularity >= 3 ? 0 : granularity >= 2 ? 1 : 2;
 
   const opacity = isSelected ? 1 : isDimmed ? 0.38 : 0.95;
   // Reinforcement reads continuously off `strength` (evidence + confidence)
@@ -788,6 +806,21 @@ function ActiveBeliefNode({
       haloMat.opacity += (haloTargetOpacity - haloMat.opacity) * Math.min(1, delta * 8);
       haloRef.current.scale.setScalar(1.95);
     }
+
+    // Rumination-possibility: a small particle still circling the neuron
+    // rather than settling — "still circling," not a warning. Orbits on a
+    // tilted ellipse so it reads as 3D rather than a flat ring.
+    if (orbitRef.current && node.ruminationLikely) {
+      const t = clock.elapsedTime * 0.7 + orbitPhase;
+      const orbitRadius = node.radius * 2.2;
+      orbitRef.current.position.set(
+        Math.cos(t) * orbitRadius,
+        Math.sin(t * 0.6) * orbitRadius * 0.35,
+        Math.sin(t) * orbitRadius
+      );
+      const orbitMat = orbitRef.current.material as THREE.MeshBasicMaterial;
+      orbitMat.opacity = 0.85 * visibility.current;
+    }
   });
 
   return (
@@ -804,7 +837,7 @@ function ActiveBeliefNode({
         }}
         onPointerOut={() => onHoverChange(false)}
       >
-        <sphereGeometry args={[node.radius, 16, 16]} />
+        <icosahedronGeometry args={[node.radius, facetDetail]} />
         <meshStandardMaterial
           color={node.color}
           emissive={node.color}
@@ -815,6 +848,12 @@ function ActiveBeliefNode({
           opacity={opacity}
         />
       </mesh>
+      {node.ruminationLikely && (
+        <mesh ref={orbitRef}>
+          <sphereGeometry args={[Math.max(node.radius * 0.16, 0.012), 8, 8]} />
+          <meshBasicMaterial color={node.color} transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
       {/* Thin gold selection halo — a separate shell so the region color
           underneath is never overwritten, only outlined. */}
       <mesh ref={haloRef} scale={1.95}>

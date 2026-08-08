@@ -1121,8 +1121,13 @@ function ScreenAnalysis({
   }, [h, b, store.connections]);
   const relatedBrainBeliefs = React.useMemo(() => {
     const filtered = store.beliefs.filter((belief) => relatedBeliefIds.has(belief.id));
-    return filtered.length > 0 ? filtered : store.beliefs;
-  }, [store.beliefs, relatedBeliefIds]);
+    const base = filtered.length > 0 ? filtered : store.beliefs;
+    return base.map((belief) => ({
+      ...belief,
+      emotionGranularity: beliefEmotionGranularity(belief, store.history),
+      ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
+    }));
+  }, [store.beliefs, store.connections, store.history, relatedBeliefIds]);
   const relatedBrainConnections = React.useMemo(() => {
     if (relatedBeliefIds.size === 0) return store.connections;
     return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
@@ -1926,6 +1931,24 @@ function countUniqueEmotions(entry: StoredHistoryEntry): number | null {
   const emotions = entry.analysis?.observation.emotions;
   if (!emotions || emotions.length === 0) return null;
   return new Set(emotions.map((e) => e.label)).size;
+}
+
+// Same underlying signal as countUniqueEmotions/buildEmotionVarietyLine
+// above, averaged over one belief's last few supporting entries instead of
+// compared session-to-session. Unlike that line, this never becomes text —
+// it only ever drives the 3D neuron's surface geometry (see
+// NeuralBeliefGraph3D's facetDetail), so the "never surface a number"
+// caution above doesn't apply the same way: nothing here is labeled,
+// scored, or shown as a figure, just a texture a viewer can't put a value on.
+function beliefEmotionGranularity(belief: StoredBelief, history: StoredHistoryEntry[]): number | undefined {
+  const counts = (belief.supportingEntryIds ?? [])
+    .map((id) => history.find((e) => e.id === id))
+    .filter((e): e is StoredHistoryEntry => !!e)
+    .slice(-3)
+    .map((e) => countUniqueEmotions(e))
+    .filter((n): n is number => n !== null);
+  if (counts.length === 0) return undefined;
+  return counts.reduce((sum, n) => sum + n, 0) / counts.length;
 }
 
 function buildEmotionVarietyLine(entry: StoredHistoryEntry, priorEntries: StoredHistoryEntry[]): string | null {
@@ -2823,7 +2846,12 @@ function HypothesisDiscoveryBody({
   // instead of inventing a separate notion of "related."
   const relatedBeliefs = h.relatedBeliefIds
     .map((id) => store.beliefs.find((b) => b.id === id))
-    .filter((b): b is StoredBelief => !!b);
+    .filter((b): b is StoredBelief => !!b)
+    .map((belief) => ({
+      ...belief,
+      emotionGranularity: beliefEmotionGranularity(belief, store.history),
+      ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
+    }));
   const relatedBeliefIds = new Set(relatedBeliefs.map((b) => b.id));
   const relatedConnections = store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
   const contradictoryEntries = relatedBeliefs
