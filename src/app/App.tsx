@@ -1665,11 +1665,13 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
                     생각나는 대로 편하게 말해주세요.
                   </div>
-                  {voiceSupportedRef.current && (transcript || interim) && (
-                    <div style={{ ...serif, fontSize: 16, color: dkBodyLight, textAlign: "center", marginTop: 24, lineHeight: 1.65, wordBreak: "keep-all" }}>
-                      {(transcript + (interim ? " " + interim : "")).trim()}
-                    </div>
-                  )}
+                  {/* No live transcript here on purpose — watching your own
+                      words appear in real time is its own kind of self-
+                      editing pressure (perceived anonymity drops sharply
+                      once you can see exactly what's being captured).
+                      `transcript`/`interim` are still tracked and used once
+                      recording stops; they're just not rendered while it's
+                      running. */}
                 </motion.div>
               )}
             </AnimatePresence>
