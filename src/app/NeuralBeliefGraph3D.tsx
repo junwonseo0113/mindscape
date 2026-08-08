@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Canvas, ThreeEvent, useFrame } from "@react-three/fiber";
 import { Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -1072,30 +1073,40 @@ export default function NeuralBeliefGraph3D({
           boxShadow: "0 10px 30px rgba(0,0,0,0.35), inset 0 0 60px rgba(90,60,180,0.08)",
         }}
       >
-        <Canvas
-          dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
-          camera={{ position: [0, 0, 7.2], fov: 44 }}
-          gl={{ antialias: true, alpha: true }}
-          onPointerMissed={() => setSelectedId(null)}
+        {/* The graph itself shrinks and settles toward the top when a node's
+        card is open, instead of the card just floating over an unchanged
+        canvas — the freed space below is what the card then slides up into,
+        so the two read as one connected motion. */}
+        <motion.div
+          animate={{ height: selectedNode ? height * 0.64 : height }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" }}
         >
-          <BrainScene
-            activeNodes={activeNodes}
-            connections={connections}
-            selectedId={selectedId}
-            hoveredId={hoveredId}
-            onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
-            onHover={setHoveredId}
-            controlsRef={controlsRef}
-            isInteracting={isInteracting}
-            onInteractStart={() => setIsInteracting(true)}
-            onInteractEnd={() => setIsInteracting(false)}
-            justActivatedById={justActivatedById}
-            justActivatedBgIndices={justActivatedBgIndices}
-            structureMode={structureMode}
-            clusters={clusters}
-            contradictionPause={contradictionPause}
-          />
-        </Canvas>
+          <Canvas
+            dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
+            camera={{ position: [0, 0, 7.2], fov: 44 }}
+            gl={{ antialias: true, alpha: true }}
+            onPointerMissed={() => setSelectedId(null)}
+          >
+            <BrainScene
+              activeNodes={activeNodes}
+              connections={connections}
+              selectedId={selectedId}
+              hoveredId={hoveredId}
+              onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
+              onHover={setHoveredId}
+              controlsRef={controlsRef}
+              isInteracting={isInteracting}
+              onInteractStart={() => setIsInteracting(true)}
+              onInteractEnd={() => setIsInteracting(false)}
+              justActivatedById={justActivatedById}
+              justActivatedBgIndices={justActivatedBgIndices}
+              structureMode={structureMode}
+              clusters={clusters}
+              contradictionPause={contradictionPause}
+            />
+          </Canvas>
+        </motion.div>
 
         {!selectedNode && selectedRegion && (
           <div
@@ -1168,8 +1179,14 @@ export default function NeuralBeliefGraph3D({
           </button>
         </div>
 
+        <AnimatePresence>
         {selectedNode && (
-          <div
+          <motion.div
+            key={selectedNode.id}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
             style={{
               position: "absolute",
               left: 10,
@@ -1233,8 +1250,9 @@ export default function NeuralBeliefGraph3D({
                 "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
               </div>
             )}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Region legend — outside the canvas card, per spec, not overlaid on it. */}
