@@ -353,122 +353,6 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
 }
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
-// ── Mindy (마인디) — the app's mascot. A quiet little companion defined by
-// two things: the antenna (it's always listening) and the cape (it's
-// always quietly working in the background). Same soft body language
-// everywhere it appears — round head, dot eyes, no mouth by default — so
-// it reads as one consistent character whether it's greeting someone at
-// Splash or holding the "brain" steady while an entry is being analyzed.
-// `dark` swaps its palette for dark (ink) backgrounds; left default for
-// warm/cream/white ones — always call it with whichever matches the
-// screen it's placed on, never mix.
-function Mindy({
-  pose = "idle",
-  size = 120,
-  dark = false,
-  holding = false,
-  expression = "neutral",
-}: {
-  pose?: "idle" | "connecting";
-  size?: number;
-  dark?: boolean;
-  holding?: boolean;
-  expression?: "neutral" | "happy" | "curious";
-}) {
-  const stroke = dark ? "#8A8590" : ink;
-  const body = dark ? "#F4F1EC" : "#fff";
-  const eye = dark ? "#403E45" : ink;
-  const cape = dark ? "#463A63" : "#332A4D";
-  return (
-    <svg width={size} height={size * 1.3} viewBox="-14 -22 128 140" style={{ overflow: "visible" }}>
-      <line x1="50" y1="18" x2="50" y2="-10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
-      <motion.circle
-        cx="50" cy="-10" r="3.6" fill={accent}
-        animate={{ opacity: [0.4, 1, 0.4], scale: [0.9, 1.2, 0.9] }}
-        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        style={{ transformOrigin: "50px -10px" }}
-      />
-
-      {/* Cape — drawn behind the body so it just peeks out at the shoulders
-          and below the feet, its one signature accessory. */}
-      <path
-        d="M 24 58 Q 6 96 16 128 Q 50 116 84 128 Q 94 96 76 58 Q 50 70 24 58 Z"
-        fill={cape}
-        stroke={dark ? "#5F517F" : "none"}
-        strokeWidth={dark ? 1 : 0}
-        opacity={dark ? 0.95 : 0.92}
-      />
-
-      <ellipse cx="38" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <ellipse cx="62" cy="108" rx="9" ry="5" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <ellipse cx="18" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <ellipse cx="82" cy="72" rx="7" ry="12" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <ellipse cx="50" cy="78" rx="27" ry="30" fill={body} stroke={stroke} strokeWidth="1.5" />
-      <circle cx="50" cy="34" r="30" fill={body} stroke={stroke} strokeWidth="1.5" />
-
-      {expression === "happy" ? (
-        <>
-          <path d="M 36 33 Q 40 28 44 33" fill="none" stroke={eye} strokeWidth="2" strokeLinecap="round" />
-          <path d="M 56 33 Q 60 28 64 33" fill="none" stroke={eye} strokeWidth="2" strokeLinecap="round" />
-          <path d="M 45 44 Q 50 48 55 44" fill="none" stroke={eye} strokeWidth="1.6" strokeLinecap="round" />
-        </>
-      ) : expression === "curious" ? (
-        <>
-          <ellipse cx="40" cy="35" rx="2.2" ry="4" fill={eye} />
-          <ellipse cx="60" cy="32" rx="2.2" ry="4" fill={eye} />
-        </>
-      ) : (
-        <>
-          <ellipse cx="40" cy="34" rx="2.2" ry="4" fill={eye} />
-          <ellipse cx="60" cy="34" rx="2.2" ry="4" fill={eye} />
-        </>
-      )}
-
-      {/* Holding pose — a small glowing "brain" cradled at chest height,
-          used while an entry is actively being analyzed. */}
-      {holding && (
-        <>
-          <motion.circle
-            cx="50" cy="76" r="11" fill={accent} opacity={0.18}
-            animate={{ scale: [0.9, 1.15, 0.9] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            style={{ transformOrigin: "50px 76px" }}
-          />
-          <motion.circle
-            cx="50" cy="76" r="5.5" fill={accent}
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </>
-      )}
-
-      {pose === "connecting" && (
-        <>
-          {[["44,74", "58,84"], ["58,84", "48,68"], ["48,68", "44,74"]].map(([a, b], i) => {
-            const [x1, y1] = a.split(",").map(Number);
-            const [x2, y2] = b.split(",").map(Number);
-            return (
-              <motion.line
-                key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={accent} strokeWidth="1"
-                animate={{ opacity: [0.2, 0.7, 0.2] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: i * 0.2 }}
-              />
-            );
-          })}
-          {[[44, 74, 2], [58, 84, 2.6], [48, 68, 1.8]].map(([cx, cy, r], i) => (
-            <motion.circle
-              key={i} cx={cx} cy={cy} r={r} fill={accent}
-              animate={{ scale: [0.8, 1.25, 0.8], opacity: [0.6, 1, 0.6] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: i * 0.25 }}
-              style={{ transformOrigin: `${cx}px ${cy}px` }}
-            />
-          ))}
-        </>
-      )}
-    </svg>
-  );
-}
-
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
   React.useEffect(() => {
     const t = setTimeout(() => onDone?.(), 2200);
@@ -477,8 +361,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: dkBg, padding: 32 }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <Mindy dark size={92} />
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkBody, textAlign: "center", letterSpacing: "0.02em", marginTop: 18 }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkBody, textAlign: "center", letterSpacing: "0.02em" }}>
           미정
         </div>
         <div style={{ ...serif, fontSize: 26, color: dkHeading, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -1867,7 +1750,11 @@ function ScreenProcessing({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: dkBg, padding: 32 }}>
-      <Mindy dark size={110} holding={step >= 1} />
+      <motion.div
+        animate={{ scale: [0.9, 1.15, 0.9], opacity: [0.55, 1, 0.55] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: dkAccent, boxShadow: `0 0 24px 6px ${dkAccentSoft}` }}
+      />
       <div style={{ ...sans, fontSize: 14, color: dkBodyLight, marginTop: 22 }}>{STEPS[step]}</div>
     </div>
   );
@@ -2513,12 +2400,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
         <div style={{ ...serif, fontSize: 26, color: dkHeading, marginTop: 10 }}>무의식적 패턴</div>
-        {!hasBeliefs && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
-            <Mindy size={68} expression="happy" dark />
-          </div>
-        )}
-        <div style={{ ...sans, fontSize: 13, color: dkBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
+        <div style={{ ...sans, fontSize: 13, color: dkBody, marginTop: hasBeliefs ? 6 : 20, lineHeight: 1.5, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "당신이 스스로 안다고 생각하지 못한 채, 실제 말과 행동에서 반복적으로 드러난 것들이에요." : "아직 발견된 패턴이 없어요. '생각 말하기'로 첫 생각을 남겨보세요 — 여기서부터 패턴을 찾아드릴게요."}
         </div>
         <div style={{ ...sans, fontSize: 11, color: "#726A8A", marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -3283,23 +3165,6 @@ function ScreenProfile({
               <div style={{ ...sans, fontSize: 11, color: mdBody }}>{s.label}</div>
             </div>
           ))}
-        </div>
-
-        {/* Introduces the mascot by name once, here — nowhere else in the
-            app names it or explains it, so someone who's only seen it
-            silently holding the "brain" on the processing screen has a
-            place to learn who it is. Not part of the imported spec, kept
-            from before and restyled to match. */}
-        <div style={{ marginBottom: 14, padding: 16, borderRadius: 16, backgroundColor: mdCard, boxShadow: mdCardShadow, display: "flex", gap: 14, alignItems: "center" }}>
-          <div style={{ flexShrink: 0 }}>
-            <Mindy size={52} expression="happy" />
-          </div>
-          <div>
-            <div style={{ ...serif, fontSize: 15, color: mdHeading }}>마인디</div>
-            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              정리하지 않아도 괜찮아요. 마인디가 당신의 생각을 받아주고, 그 속에 숨겨진 패턴을 함께 찾아줄게요.
-            </div>
-          </div>
         </div>
 
         {/* Design/dev affordance: instantly switches the whole app between
