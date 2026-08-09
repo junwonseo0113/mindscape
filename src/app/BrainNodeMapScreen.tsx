@@ -255,6 +255,7 @@ export default function BrainNodeMapScreen({
   height = 480,
   onExpand,
   modernist = false,
+  autoHighlightIds,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -278,6 +279,13 @@ export default function BrainNodeMapScreen({
   // rest of this closure, including the mount-once Three.js scene effect
   // (a stable prop per mount, so no need for it in that effect's deps).
   modernist?: boolean;
+  // Points the network-activation glow (same crimson pulse-then-steady-glow
+  // used by tapping a node) at a specific set of belief ids without a tap
+  // and without opening the detail panel — e.g. Analysis's "오늘의 발견" can
+  // point at just the belief(s) that discovery is actually about. Ignored
+  // while the user has something explicitly selected (never fights an
+  // active tap), and resumes the moment they close the panel.
+  autoHighlightIds?: string[];
 }) {
   const bg = modernist ? "#ffffff" : bgDark;
   const panelBg = modernist ? "#ffffff" : panelBgDark;
@@ -752,6 +760,21 @@ export default function BrainNodeMapScreen({
     const now = performance.now();
 
     if (!selected) {
+      if (autoHighlightIds && autoHighlightIds.length > 0) {
+        // Same dim-then-glow schedule as an explicit tap, just aimed at a
+        // caller-given set instead of a tapped node + its neighbors, and
+        // never opens the detail panel (selected stays null throughout).
+        t.focusTarget.fill(DIM_OPACITY);
+        t.activationStart.fill(-1);
+        const activateAt = now + ACTIVATION_PAUSE_MS;
+        autoHighlightIds.forEach((id) => {
+          const idx = t.indexOfBelief.get(id);
+          if (idx == null) return;
+          t.focusTarget[idx] = 1;
+          t.activationStart[idx] = activateAt;
+        });
+        return;
+      }
       // Deselected: everyone eases back to its normal resting look — full
       // opacity, no crimson.
       t.activationStart.fill(-1);
@@ -779,7 +802,8 @@ export default function BrainNodeMapScreen({
       if (idx == null) return;
       t.activationStart[idx] = activateAt;
     });
-  }, [selected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, autoHighlightIds?.join(",")]);
 
   const pickBeliefAt = (clientX: number, clientY: number): string | null => {
     const t = three.current;

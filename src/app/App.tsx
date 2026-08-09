@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
+import { REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
 import BrainNodeMapScreen from "./BrainNodeMapScreen";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
@@ -663,9 +663,10 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
             BrainNodeMapScreen — a dedicated full-screen node map (ported
             from a parallel session), embedded here as the mini card with
             a 확대 button that opens the full-screen "brainmap" route.
-            Never swap this back to a bare NeuralBeliefGraph3D call — that
-            component still does the calm rendering used in Analysis's
-            "관련 활성 뉴런" section, a different job. ── */}
+            Analysis's "관련 활성 뉴런" section now uses this same component
+            (via autoHighlightIds) rather than the separate calm-card
+            NeuralBeliefGraph3D renderer, so the brain reads as one visual
+            language everywhere it appears. ── */}
         <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent }}>{formatDateDots(new Date())}</div>
         <div style={{ ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: mdHeading, marginTop: 14, wordBreak: "keep-all" }}>
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
@@ -1011,14 +1012,16 @@ function ScreenAnalysis({
       ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
     }));
   }, [store.beliefs, store.connections, store.history, relatedBeliefIds]);
-  const relatedBrainConnections = React.useMemo(() => {
-    if (relatedBeliefIds.size === 0) return store.connections;
-    return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
-  }, [store.connections, relatedBeliefIds]);
-  const relatedBrainClusters = React.useMemo(
-    () => findBeliefClusters(relatedBrainBeliefs, relatedBrainConnections),
-    [relatedBrainBeliefs, relatedBrainConnections]
-  );
+  // Exactly the discovery itself, not its wider "related" context above —
+  // a hypothesis IS the relationship between several beliefs, so all of
+  // them are the discovery; a belief-kind discovery is just that one
+  // belief, not everything connected to it. This is what actually gets
+  // pointed at by the full brain's glow below, via autoHighlightIds.
+  const discoveryBeliefIds = React.useMemo(() => {
+    if (h) return h.relatedBeliefIds;
+    if (b) return [b.id];
+    return [];
+  }, [h, b]);
 
   // SECTION 2 — the strongest (most recent) three, shown chronologically.
   const rawEvidence: (StoredEvidenceQuote & { domain?: string })[] = h ? evidenceForHypothesis(h, store.beliefs) : b ? b.evidenceQuotes : [];
@@ -1158,9 +1161,15 @@ function ScreenAnalysis({
                 </SectionCard>
               )}
 
-              {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — supporting evidence, not decoration, so it lives here, not at the top. Kept as NeuralBeliefGraph3D's own self-contained dark canvas (not part of the Modernist mockup, which drops this section) rather than reworking the WebGL scene's own palette — reads as an intentional "window into the tissue" panel, not a stray dark card. ── */}
+              {/* ── SECTION 4 · RELATED NEURAL ACTIVITY — the same full brain
+              Home shows (BrainNodeMapScreen, not NeuralBeliefGraph3D's
+              separate calm-card renderer — the two used to differ on
+              purpose, but that read as an inconsistent "different job" split
+              rather than an intentional design choice), with only today's
+              discovery glowing via autoHighlightIds instead of the whole
+              network activating. ── */}
               <SectionCard title="관련 활성 뉴런">
-                <NeuralBeliefGraph3D beliefs={relatedBrainBeliefs} connections={relatedBrainConnections} clusters={relatedBrainClusters} height={280} />
+                <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={280} modernist autoHighlightIds={discoveryBeliefIds} />
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${mdDivider}` }}>
                   <RegionBreakdown beliefs={relatedBrainBeliefs} />
                 </div>
@@ -2734,8 +2743,6 @@ function HypothesisDiscoveryBody({
       emotionGranularity: beliefEmotionGranularity(belief, store.history),
       ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
     }));
-  const relatedBeliefIds = new Set(relatedBeliefs.map((b) => b.id));
-  const relatedConnections = store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
   const contradictoryEntries = relatedBeliefs
     .flatMap((b) => (b.contradictoryEntryIds ?? []).map((id) => ({ belief: b, entry: store.history.find((e) => e.id === id) })))
     .filter((x): x is { belief: StoredBelief; entry: StoredHistoryEntry } => !!x.entry);
@@ -2773,7 +2780,7 @@ function HypothesisDiscoveryBody({
             이 발견을 이루는 무의식적 신념들이 뇌에서 실제로 활성화된 자리예요.
           </div>
           <div style={{ marginTop: 12 }}>
-            <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} />
+            <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={200} autoHighlightIds={h.relatedBeliefIds} />
           </div>
         </div>
       )}
