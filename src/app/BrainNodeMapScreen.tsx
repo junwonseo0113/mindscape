@@ -194,8 +194,12 @@ const STAR_VERTEX_SHADER = `
     // Clamped so zooming in close (see the reduced OrbitControls
     // minDistance) doesn't blow points up into oversized blobs — sizes
     // still grow the closer you get, just not past a sane cap. aFlash adds
-    // a brief extra size boost right at the moment of activation.
-    float sizeBoost = 1.0 + aFlash * 1.7;
+    // a brief extra size boost right at the moment of activation; aActivation
+    // adds a smaller PERMANENT one once it settles — before this, an
+    // activated point only ever read as differently colored once its flash
+    // decayed, easy to miss against the rest of the field. Now a standout
+    // point stays visibly bigger, not just redder, for as long as it's lit.
+    float sizeBoost = 1.0 + aFlash * 1.7 + aActivation * 1.3;
     gl_PointSize = min(aSize * (uScale / -mvPosition.z) * (0.72 + 0.4 * tw) * sizeBoost, 150.0);
     gl_Position = projectionMatrix * mvPosition;
   }

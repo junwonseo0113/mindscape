@@ -723,6 +723,46 @@ function RegionBreakdown({ beliefs }: { beliefs: StoredBelief[] }) {
   );
 }
 
+// Fallback for "관련 활성 뉴런" — the crimson glow on the brain above is
+// subtle at this card's small embed size (a real point in a dense field,
+// not a big obvious marker), so this gives a guaranteed-legible list of
+// exactly which beliefs make up today's discovery, plus the relationship
+// note between them when the graph itself would already be drawing a line
+// there — reuses store.connections rather than inventing a second notion
+// of "related."
+function DiscoveryBeliefList({ beliefIds, store, modernist = false }: { beliefIds: string[]; store: Store; modernist?: boolean }) {
+  const items = beliefIds.map((id) => store.beliefs.find((b) => b.id === id)).filter((b): b is StoredBelief => !!b);
+  if (items.length === 0) return null;
+  const notes = store.connections.filter((c) => beliefIds.includes(c.a) && beliefIds.includes(c.b) && c.note);
+  const tagBg = modernist ? mdNeutralTag : dkTrack;
+  const tagText = modernist ? mdNeutralTagText : dkBody;
+  const heading = modernist ? mdHeading : dkHeading;
+  const body = modernist ? mdBody : dkBody;
+  const noteBg = modernist ? mdAccentSoft : dkAccentSoft;
+  const noteText = modernist ? mdAccentText : dkAccentLight;
+  return (
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${modernist ? mdDivider : dkDivider}` }}>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: body, letterSpacing: "0.06em" }}>
+        이 발견을 이루는 신념 · 브레인에서 반짝이는 자리예요
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+        {items.map((belief) => (
+          <div key={belief.id} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: tagBg, borderRadius: 12, padding: "10px 12px" }}>
+            <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: tagText, flexShrink: 0 }}>{belief.domain}</span>
+            <span style={{ ...serif, fontSize: 13.5, color: heading, flex: 1, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</span>
+            <span style={{ ...mono, fontSize: 11, color: tagText, flexShrink: 0 }}>{belief.confidence}%</span>
+          </div>
+        ))}
+      </div>
+      {notes.map((c, i) => (
+        <div key={i} style={{ ...sans, fontSize: 12, color: noteText, backgroundColor: noteBg, borderRadius: 10, padding: "10px 12px", marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          {c.note}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Every recorded entry's emotions, averaged by label across however many
 // times each has shown up, ranked strongest first — the only distribution
 // this can honestly show, since intensity is a per-entry 0–100 rating, not
@@ -1170,6 +1210,7 @@ function ScreenAnalysis({
               network activating. ── */}
               <SectionCard title="관련 활성 뉴런">
                 <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={280} modernist autoHighlightIds={discoveryBeliefIds} />
+                <DiscoveryBeliefList beliefIds={discoveryBeliefIds} store={store} modernist />
                 <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${mdDivider}` }}>
                   <RegionBreakdown beliefs={relatedBrainBeliefs} />
                 </div>
@@ -2782,6 +2823,7 @@ function HypothesisDiscoveryBody({
           <div style={{ marginTop: 12 }}>
             <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={200} autoHighlightIds={h.relatedBeliefIds} />
           </div>
+          <DiscoveryBeliefList beliefIds={h.relatedBeliefIds} store={store} />
         </div>
       )}
 
