@@ -1049,6 +1049,7 @@ export default function NeuralBeliefGraph3D({
   connections,
   clusters = [],
   height = 360,
+  defaultStructureMode = false,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -1057,6 +1058,13 @@ export default function NeuralBeliefGraph3D({
   // it just means no cluster haze, never an error.
   clusters?: string[][];
   height?: number;
+  // Starts the dormant dust field already hidden (구조 보기 already on) —
+  // for a caller that's already scoped `beliefs` down to a small, specific
+  // set (e.g. "just this discovery's constellation"), the dust field isn't
+  // a calming backdrop, it's noise competing with the few stars that
+  // actually matter. Still just a starting point, not a lockout — the
+  // toggle stays visible and works either direction.
+  defaultStructureMode?: boolean;
 }) {
   const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1064,10 +1072,11 @@ export default function NeuralBeliefGraph3D({
   const [isInteracting, setIsInteracting] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<CognitiveRegion | null>(null);
   // Everything gated behind this (dormant-tissue fade, cluster haze,
-  // tension lines) is real structure the data already supports — just
-  // kept off by default so the first impression stays the calm "quiet
-  // tissue" read the piece is built around, not a data-dense diagram.
-  const [structureMode, setStructureMode] = useState(false);
+  // tension lines) is real structure the data already supports — off by
+  // default for a generic/large belief set so the first impression stays
+  // the calm "quiet tissue" read the piece is built around, not a data-
+  // dense diagram; see defaultStructureMode above for the narrower case.
+  const [structureMode, setStructureMode] = useState(defaultStructureMode);
   const controlsRef = useRef<any>(null);
   const selectedNode = selectedId ? activeNodes.find((n) => n.id === selectedId) ?? null : null;
 
