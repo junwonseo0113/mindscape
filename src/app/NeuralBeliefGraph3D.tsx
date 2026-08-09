@@ -214,6 +214,30 @@ const FOG_COLOR = "#EEEAF8";
 // make. The haze says "structure exists here," nothing about what kind.
 const CLUSTER_HAZE_COLOR = "#9D99A8";
 
+// Force-directed layout, scoped as bounded organic drift rather than free
+// physics — the roadmap note itself flagged that a real physics relayout
+// would detach active nodes from the background tissue's fixed slot system
+// (ripples, proximity edges, and adjacency all key off that fixed table).
+// This keeps each node's deterministic slot (node.position) as a stable
+// anchor — every id/bgIndex-keyed system is untouched — and only adds a
+// small, slow wandering offset from it. Different frequencies per axis so
+// it reads as organic drift, not a clean orbit; amplitude stays well inside
+// the cluster haze's own padding so nothing visually pokes through it.
+// BrainScene computes this once per node per tick and hands the SAME
+// wobbled position to the node mesh, connection lines, and cluster haze —
+// see wobbledNodes below — so nothing ever visually detaches from anything else.
+const WOBBLE_AMPLITUDE = 0.045;
+function nodeWobbleOffset(nodeId: string, t: number): Vec3 {
+  const px = stableUnit(`${nodeId}-wob-x`) * Math.PI * 2;
+  const py = stableUnit(`${nodeId}-wob-y`) * Math.PI * 2;
+  const pz = stableUnit(`${nodeId}-wob-z`) * Math.PI * 2;
+  return [
+    Math.sin(t * 0.17 + px) * WOBBLE_AMPLITUDE,
+    Math.sin(t * 0.13 + py) * WOBBLE_AMPLITUDE * 0.7,
+    Math.sin(t * 0.11 + pz) * WOBBLE_AMPLITUDE,
+  ];
+}
+
 // A ripple never touches more than a handful of already-adjacent
 // background neurons (their existing tissue-edge neighbors — see
 // BACKGROUND_ADJACENCY), never a growing radius, and it's brief enough to
@@ -923,6 +947,24 @@ function BrainScene({
     return map;
   }, [connections]);
 
+  // Bounded organic drift (see nodeWobbleOffset above) — throttled to ~10
+  // updates/sec since the motion itself is slow, so this stays a cheap
+  // state update rather than a per-frame re-render. The node mesh,
+  // connection lines, and cluster haze all render off this SAME array, so
+  // a line's endpoint and the node it touches never drift apart.
+  const [wobbledNodes, setWobbledNodes] = useState<ActiveNode[]>(activeNodes);
+  const lastWobbleTickRef = useRef(0);
+  useFrame(({ clock }) => {
+    if (clock.elapsedTime - lastWobbleTickRef.current < 0.1) return;
+    lastWobbleTickRef.current = clock.elapsedTime;
+    setWobbledNodes(
+      activeNodes.map((n) => {
+        const [ox, oy, oz] = nodeWobbleOffset(n.id, clock.elapsedTime);
+        return { ...n, position: [n.position[0] + ox, n.position[1] + oy, n.position[2] + oz] as Vec3 };
+      })
+    );
+  });
+
   // Re-centers the orbit target on the *selected* belief only (never on
   // hover) — a gentle "ease toward it" that only ever kicks in on a
   // deliberate click, and never fights the user's own drag/zoom.
@@ -958,16 +1000,16 @@ function BrainScene({
           <HighlightEdges focusBgIndex={focusNode?.bgIndex ?? null} />
         </>
       )}
-      <BeliefConnectionLines nodes={activeNodes} connections={connections} focusId={focusId} selectedId={selectedId} structureMode={structureMode} />
+      <BeliefConnectionLines nodes={wobbledNodes} connections={connections} focusId={focusId} selectedId={selectedId} structureMode={structureMode} />
 
       {/* Level 3 — cluster haze, structure-mode only. */}
       {structureMode &&
         clusters.map((clusterIds, ci) => {
-          const clusterNodes = clusterIds.map((id) => activeNodes.find((n) => n.id === id)).filter((n): n is ActiveNode => !!n);
+          const clusterNodes = clusterIds.map((id) => wobbledNodes.find((n) => n.id === id)).filter((n): n is ActiveNode => !!n);
           return clusterNodes.length >= 3 ? <ClusterHaze key={ci} nodes={clusterNodes} /> : null;
         })}
 
-      {activeNodes.map((node) => (
+      {wobbledNodes.map((node) => (
         <ActiveBeliefNode
           key={node.id}
           node={node}
