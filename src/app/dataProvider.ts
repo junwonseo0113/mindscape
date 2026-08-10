@@ -11,12 +11,12 @@ import { loadStore, saveStore } from "./realStore";
 import { DEMO_STORE } from "../demo/demoData";
 
 const DEMO_MODE_KEY = "mijeong.isDemoMode";
-// Defaults to Demo Mode: this app has no real backend/auth distinguishing
-// "a designer reviewing the UI" from "a real user," so the safer default is
-// the one that doesn't silently show a stranger's-eye-view empty app to
-// whoever opens it during development. Toggle off in Profile to see the
-// real first-time experience.
-const DEFAULT_IS_DEMO_MODE = true;
+// Real users start clean: a brand-new visitor gets their own empty state
+// (onboarding → tutorial → an actually-empty brain), not someone else's
+// curated example data presented as if it were theirs. This used to default
+// to true for design/dev review convenience — toggle it on in Profile any
+// time you need that curated walkthrough view back.
+const DEFAULT_IS_DEMO_MODE = false;
 
 function loadIsDemoMode(): boolean {
   try {
