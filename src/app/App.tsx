@@ -3315,10 +3315,10 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
 
 function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: StoredSettings; onBack?: () => void; onChange?: (settings: StoredSettings) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: dkHeading, marginTop: 10 }}>알림</div>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>알림</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <SettingsToggle
@@ -3326,21 +3326,21 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
           note="하루에 한 번, 오늘 있었던 생각을 남겨보라고 알려드려요."
           value={settings.dailyReminder}
           onChange={(v) => onChange?.({ ...settings, dailyReminder: v })}
-          dark
+          modernist
         />
         <SettingsToggle
           label="새 가설 알림"
           note="AI가 새로운 패턴을 발견했을 때 알려드려요."
           value={settings.newHypothesisAlert}
           onChange={(v) => onChange?.({ ...settings, newHypothesisAlert: v })}
-          dark
+          modernist
         />
         <SettingsToggle
           label="주간 요약"
           note="일주일간 쌓인 무의식적 신념과 변화를 한 번에 정리해드려요."
           value={settings.weeklySummary}
           onChange={(v) => onChange?.({ ...settings, weeklySummary: v })}
-          dark
+          modernist
         />
       </div>
     </div>
@@ -3352,18 +3352,18 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBac
   const [armed, setArmed] = React.useState(false);
   const s = store;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: dkHeading, marginTop: 10 }}>데이터와 개인정보</div>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>데이터와 개인정보</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <div style={{ ...sans, fontSize: 13.5, color: dkBody, lineHeight: 1.75, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 13.5, color: mdBody, lineHeight: 1.75, wordBreak: "keep-all" }}>
           이 앱은 별도 서버에 계정을 만들지 않아요. 무의식적 신념·해석, 대화 기록은 전부 이 기기의 브라우저 안에만 저장됩니다. "생각 말하기"로 남긴 텍스트는 분석하는 순간에만 Claude(Anthropic)로 전송되고, 그 외에는 어디로도 나가지 않아요.
         </div>
 
-        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: dkCard, border: `1px solid ${dkCardBorder}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: dkBody, letterSpacing: "0.06em" }}>이 기기에 저장된 데이터</div>
+        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdBody, letterSpacing: "0.06em" }}>이 기기에 저장된 데이터</div>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {[
               ["무의식적 신념", s?.beliefs.length ?? 0],
@@ -3373,8 +3373,8 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBac
               ["AI의 가설", s?.hypotheses.length ?? 0],
             ].map(([label, count]) => (
               <div key={label as string} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ ...sans, fontSize: 13, color: dkBodyLight }}>{label}</span>
-                <span style={{ ...mono, fontSize: 13, color: dkBody }}>{count}개</span>
+                <span style={{ ...sans, fontSize: 13, color: mdBodyLight }}>{label}</span>
+                <span style={{ ...mono, fontSize: 13, color: mdBody }}>{count}개</span>
               </div>
             ))}
           </div>
@@ -3384,14 +3384,14 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBac
           <div
             role="button" tabIndex={0}
             onClick={() => (armed ? onResetData?.() : setArmed(true))}
-            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? dkWarn : dkDivider}`, backgroundColor: armed ? dkWarnSoft : "transparent", cursor: "pointer" }}
+            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
           >
-            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: dkWarn }}>
+            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
               {armed ? "정말요? 다시 누르면 완전히 삭제돼요" : "내 데이터 모두 삭제"}
             </span>
           </div>
           {armed && (
-            <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 8, lineHeight: 1.5 }}>
+            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 8, lineHeight: 1.5 }}>
               이 기기에 저장된 무의식적 신념·해석, 대화 기록, 목표 설정이 모두 사라져요. 되돌릴 수 없어요.
             </div>
           )}
@@ -3413,19 +3413,19 @@ const HELP_ITEMS = [
 
 function ScreenHelp({ onBack }: { onBack?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
-        <div style={{ ...serif, fontSize: 26, color: dkHeading, marginTop: 10 }}>도움말</div>
-        <div style={{ ...sans, fontSize: 13, color: dkBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← 뒤로</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>도움말</div>
+        <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           당신의 마음에는 패턴이 있습니다. 안에서는 보이지 않을 뿐입니다.
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         {HELP_ITEMS.map((h, i) => (
-          <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${dkDivider}` : "none" }}>
-            <div style={{ ...serif, fontSize: 16, color: dkHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.q}</div>
-            <div style={{ ...sans, fontSize: 13.5, color: dkBody, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.a}</div>
+          <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${mdDivider}` : "none" }}>
+            <div style={{ ...serif, fontSize: 16, color: mdHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.q}</div>
+            <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.a}</div>
           </div>
         ))}
       </div>
@@ -3736,6 +3736,7 @@ export default function App() {
     "home", "brainmap", "analysis", "history", "profile",
     "beliefs", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
     "splash", "auth", "login", "signup", "onboarding",
+    "notifications", "dataPrivacy", "help",
   ].includes(screen);
 
   // Think is the app's one self-disclosure moment — the disinhibition-theory
