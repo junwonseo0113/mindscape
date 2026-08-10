@@ -3680,6 +3680,20 @@ export default function App() {
       setTutorialStep((s) => s + 1);
     }
   }, [screen, tutorialActive, tutorialStep]);
+  // The single trigger for "should the tour start now" — arriving at Home
+  // at all, for any reason (guest/signup onboarding, but also a returning
+  // user logging into an existing account, which skips onboarding
+  // entirely and used to skip the tour with it). Wiring this only into
+  // onboarding's onDone meant anyone who already had an account never saw
+  // it. Fires at most once per browser: hasSeenTutorial flips true the
+  // moment the tour starts, and this effect's own condition then never
+  // matches again.
+  React.useEffect(() => {
+    if (screen === "home" && !hasSeenTutorial && !tutorialActive) {
+      setTutorialStep(0);
+      setTutorialActive(true);
+    }
+  }, [screen, hasSeenTutorial, tutorialActive]);
   const finishTutorial = () => { setTutorialActive(false); setHasSeenTutorial(true); };
   const advanceTutorial = () => {
     const step = TUTORIAL_STEPS[tutorialStep];
@@ -3825,7 +3839,10 @@ export default function App() {
           if (aspiration && aspiration !== realStore.aspiration) {
             updateRealStore((prev) => ({ ...prev, aspiration, aspirationSetDate: formatDateDots(new Date()) }));
           }
-          if (!hasSeenTutorial) { setTutorialStep(0); setTutorialActive(true); }
+          // Starting the tour itself is handled by the "arrived at Home"
+          // effect above, not here — this used to be the only trigger,
+          // which meant a returning user logging into an existing account
+          // (skipping onboarding entirely) never saw it.
           setScreen("home");
         }}
       />
