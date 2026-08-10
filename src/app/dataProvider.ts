@@ -36,8 +36,31 @@ function saveIsDemoMode(value: boolean) {
   }
 }
 
+// First-time feature tour (생각 말하기/브레인/마인드/기록/프로필) — shown once,
+// right after onboarding, then never again unless explicitly replayed from
+// 도움말. Separate from onboarding's own "who do you want to be" identity
+// question; this one's just "here's what each tab does."
+const TUTORIAL_SEEN_KEY = "mijeong.hasSeenTutorial";
+
+function loadHasSeenTutorial(): boolean {
+  try {
+    return localStorage.getItem(TUTORIAL_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveHasSeenTutorial(value: boolean) {
+  try {
+    localStorage.setItem(TUTORIAL_SEEN_KEY, value ? "1" : "0");
+  } catch {
+    // private-mode / storage-full — non-fatal, just won't persist
+  }
+}
+
 export function useAppData() {
   const [isDemoMode, setIsDemoModeState] = React.useState(loadIsDemoMode);
+  const [hasSeenTutorial, setHasSeenTutorialState] = React.useState(loadHasSeenTutorial);
   const [realStore, setRealStore] = React.useState<Store>(loadStore);
   // Demo reactions (agreeing with a hypothesis, etc.) are intentionally
   // ephemeral — same as the old local-state-only demo behavior, they reset
@@ -48,6 +71,13 @@ export function useAppData() {
   const setIsDemoMode = (value: boolean) => {
     setIsDemoModeState(value);
     saveIsDemoMode(value);
+  };
+
+  // Replayable (from 도움말), so this takes an explicit value rather than
+  // only ever being settable to true.
+  const setHasSeenTutorial = (value: boolean) => {
+    setHasSeenTutorialState(value);
+    saveHasSeenTutorial(value);
   };
 
   const store = isDemoMode ? demoStore : realStore;
@@ -74,5 +104,5 @@ export function useAppData() {
     }
   };
 
-  return { isDemoMode, setIsDemoMode, store, updateStore, realStore, updateRealStore };
+  return { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore };
 }

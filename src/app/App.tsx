@@ -611,6 +611,74 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   );
 }
 
+// A short, skippable feature tour — 생각 말하기/브레인/마인드/기록/프로필 — shown
+// once right after onboarding (see dataProvider's hasSeenTutorial), never
+// tied to identity/aspiration the way onboarding is. Mirrors onboarding's
+// own step-deck grammar (progress dots, kicker, title, body) so it reads as
+// the same family of moment, not a foreign "app tour" popup, but adds a
+// skip link since there's nothing here worth forcing someone to sit through.
+const TUTORIAL_SLIDES = [
+  {
+    kicker: "생각 말하기",
+    title: "정리하지 않아도\n괜찮아요.",
+    body: "오늘 있었던 일, 갑자기 든 생각, 아직 결정 못한 일 — 떠오르는 순서 그대로 말하거나 적으면 돼요. 홈 화면의 '생각 말하기'에서 언제든 시작할 수 있어요.",
+  },
+  {
+    kicker: "브레인",
+    title: "생각이 이 안에\n하나씩 자리를 잡아요.",
+    body: "말할 때마다 새로운 점이 생기고, 같은 패턴이 반복될수록 그 자리가 더 또렷하게 빛나요.",
+  },
+  {
+    kicker: "마인드",
+    title: "쌓인 기록에서\n패턴을 찾아드려요.",
+    body: "무의식적으로 반복되는 신념과 오늘의 발견을 정리해드려요. 진단이 아니라, 있는 그대로의 관찰이에요.",
+  },
+  {
+    kicker: "기록",
+    title: "지나온 생각들을\n다시 펼쳐볼 수 있어요.",
+    body: "말한 날짜별로 모아두니까, 궁금할 때 언제든 다시 볼 수 있어요.",
+  },
+  {
+    kicker: "프로필",
+    title: "당신의 여정이\n여기 쌓여요.",
+    body: "참여한 질문, 생각의 변화, 연속 참여일 같은 기록을 확인할 수 있어요.",
+  },
+];
+
+function ScreenTutorial({ onDone }: { onDone?: () => void }) {
+  const [i, setI] = React.useState(0);
+  const isLast = i === TUTORIAL_SLIDES.length - 1;
+  const slide = TUTORIAL_SLIDES[i];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 28px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 6, flex: 1, marginRight: 16 }}>
+          {TUTORIAL_SLIDES.map((_, idx) => (
+            <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? mdAccentText : mdDivider }} />
+          ))}
+        </div>
+        <motion.span role="button" tabIndex={0} onClick={onDone} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer", flexShrink: 0 }}>
+          건너뛰기
+        </motion.span>
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+        <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide.kicker}</div>
+        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
+          {slide.title}
+        </div>
+        <div style={{ ...sans, fontSize: 15, color: mdBody, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
+          {slide.body}
+        </div>
+      </div>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <PrimaryBtn onClick={() => (isLast ? onDone?.() : setI((v) => v + 1))} modernist>
+          {isLast ? "시작하기" : "다음"}
+        </PrimaryBtn>
+      </div>
+    </div>
+  );
+}
 
 // ── Screen 4 · Home ───────────────────────────────────────────────────────────
 // Dark theme (see dk* tokens) — exclusively used by ScreenAnalysis, which
@@ -3411,7 +3479,7 @@ const HELP_ITEMS = [
   { q: "이 분석은 무엇에 근거하나요?", a: "CBT(인지행동치료)와 ACT(수용전념치료)의 개념을 참고해요. '흑백사고', '과잉일반화' 같은 인지 왜곡 태그는 CBT에서, 목표와의 거리는 ACT의 '가치 방향' 개념에서 가져온 거예요. 한 번의 기록만으로는 신념이 만들어지지 않고, 최소 3번 이상 비슷한 패턴이 쌓여야 나타나요. 확신도는 절대 100%가 되지 않고, 상충하는 기록이 있으면 오히려 낮아져요. 다만 이건 심리 진단이나 치료가 아니라 자기성찰을 돕는 도구예요." },
 ];
 
-function ScreenHelp({ onBack }: { onBack?: () => void }) {
+function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onReplayTutorial?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -3422,6 +3490,18 @@ function ScreenHelp({ onBack }: { onBack?: () => void }) {
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+        {onReplayTutorial && (
+          <motion.div
+            role="button" tabIndex={0} onClick={onReplayTutorial} whileTap={{ opacity: 0.6 }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+              padding: "14px 16px", borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 18,
+            }}
+          >
+            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdHeading }}>처음 사용법 다시 보기</span>
+            <span style={{ ...sans, fontSize: 14, color: mdFaint }}>›</span>
+          </motion.div>
+        )}
         {HELP_ITEMS.map((h, i) => (
           <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${mdDivider}` : "none" }}>
             <div style={{ ...serif, fontSize: 16, color: mdHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.q}</div>
@@ -3450,7 +3530,7 @@ export default function App() {
   // no idea which one it's looking at. `realStore`/`updateRealStore` are
   // used only for the pre-home account flow, which is always real even if
   // Demo Mode happens to be on.
-  const { isDemoMode, setIsDemoMode, store, updateStore, realStore, updateRealStore } = useAppData();
+  const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore } = useAppData();
 
   const goToTab = (id: string) => setScreen(id);
 
@@ -3591,10 +3671,11 @@ export default function App() {
           if (aspiration && aspiration !== realStore.aspiration) {
             updateRealStore((prev) => ({ ...prev, aspiration, aspirationSetDate: formatDateDots(new Date()) }));
           }
-          setScreen("home");
+          setScreen(hasSeenTutorial ? "home" : "tutorial");
         }}
       />
     ); break;
+    case "tutorial": content = <ScreenTutorial onDone={() => { setHasSeenTutorial(true); setScreen("home"); }} />; break;
     case "home": content = (
       <ScreenHome
         onNavSelect={goToTab}
@@ -3725,7 +3806,7 @@ export default function App() {
         }}
       />
     ); break;
-    case "help": content = <ScreenHelp onBack={() => setScreen("profile")} />; break;
+    case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => setScreen("tutorial")} />; break;
     default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} />;
   }
 
@@ -3735,7 +3816,7 @@ export default function App() {
   const isModernistScreen = [
     "home", "brainmap", "analysis", "history", "profile",
     "beliefs", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
-    "splash", "auth", "login", "signup", "onboarding",
+    "splash", "auth", "login", "signup", "onboarding", "tutorial",
     "notifications", "dataPrivacy", "help",
   ].includes(screen);
 
