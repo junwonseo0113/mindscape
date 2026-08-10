@@ -380,15 +380,15 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: dkBg, padding: 32 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: mdBg, padding: 32 }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkBody, textAlign: "center", letterSpacing: "0.02em" }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center", letterSpacing: "0.02em" }}>
           미정
         </div>
-        <div style={{ ...serif, fontSize: 26, color: dkHeading, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
           당신의 생각에는<br />패턴이 있습니다.
         </div>
-        <div style={{ ...sans, fontSize: 14, color: dkBody, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 14, color: mdBody, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
           안에서는 보이지 않을 뿐입니다.
         </div>
       </motion.div>
@@ -399,16 +399,16 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 // ── Screen 2 · Auth ───────────────────────────────────────────────────────────
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkBody, textAlign: "center" }}>미정</div>
-        <div style={{ ...serif, fontSize: 24, color: dkHeading, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center" }}>미정</div>
+        <div style={{ ...serif, fontSize: 24, color: mdHeading, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           기록하는 앱이 아니라,<br />당신의 사고방식을 이해하는 도구
         </div>
       </div>
       <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onEmailStart}>이메일로 계속하기</PrimaryBtn>
-        <GhostBtn onClick={onGuest}>게스트로 둘러보기</GhostBtn>
+        <PrimaryBtn onClick={onEmailStart} modernist>이메일로 계속하기</PrimaryBtn>
+        <GhostBtn onClick={onGuest} modernist>게스트로 둘러보기</GhostBtn>
       </div>
     </div>
   );
@@ -417,7 +417,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
 function TextField({ label, type = "text", value, onChange, placeholder, error }: { label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: boolean }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: dkBody, marginBottom: 6 }}>{label}</div>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdBody, marginBottom: 6 }}>{label}</div>
       <input
         type={type}
         value={value}
@@ -425,8 +425,8 @@ function TextField({ label, type = "text", value, onChange, placeholder, error }
         placeholder={placeholder}
         style={{
           ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
-          border: `1px solid ${error ? dkWarn : dkCardBorder}`, fontSize: 15, color: dkHeading,
-          backgroundColor: dkCard, outline: "none",
+          border: `1px solid ${error ? mdWarn : mdDivider}`, fontSize: 15, color: mdHeading,
+          backgroundColor: mdCard, outline: "none",
         }}
       />
     </div>
@@ -462,21 +462,21 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← 뒤로</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: dkHeading, lineHeight: 1.4 }}>다시 만나서 반가워요</div>
+        <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>다시 만나서 반가워요</div>
         <div style={{ marginTop: 24 }}>
           <TextField label="이메일" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
           <TextField label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
         </div>
-        {error && <div style={{ ...sans, fontSize: 12.5, color: dkWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "확인하는 중…" : "로그인"}</PrimaryBtn>
+        {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
+        <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "확인하는 중…" : "로그인"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
-          <span style={{ ...sans, fontSize: 13, color: dkBody }}>계정이 없으신가요? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, fontWeight: 600, cursor: "pointer" }}>회원가입</motion.span>
+          <span style={{ ...sans, fontSize: 13, color: mdBody }}>계정이 없으신가요? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>회원가입</motion.span>
         </div>
       </div>
     </div>
@@ -504,13 +504,13 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← 뒤로</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← 뒤로</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: dkHeading, lineHeight: 1.4 }}>계정을 만들어요</div>
-        <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>계정을 만들어요</div>
+        <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
           이 기기에만 저장돼요. 다른 서버로 전송되지 않아요.
         </div>
         <div style={{ marginTop: 20 }}>
@@ -518,11 +518,11 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
           <TextField label="이메일" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
           <TextField label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="6자 이상" error={!!error} />
         </div>
-        {error && <div style={{ ...sans, fontSize: 12.5, color: dkWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "만드는 중…" : "가입하기"}</PrimaryBtn>
+        {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
+        <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "만드는 중…" : "가입하기"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
-          <span style={{ ...sans, fontSize: 13, color: dkBody }}>이미 계정이 있으신가요? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, fontWeight: 600, cursor: "pointer" }}>로그인</motion.span>
+          <span style={{ ...sans, fontSize: 13, color: mdBody }}>이미 계정이 있으신가요? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>로그인</motion.span>
         </div>
       </div>
     </div>
@@ -562,30 +562,30 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ display: "flex", gap: 6, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
-          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? dkAccentLight : dkDivider }} />
+          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? mdAccentText : mdDivider }} />
         ))}
       </div>
       {!isAspirationStep ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: dkAccentLight, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
-          <div style={{ ...serif, fontSize: 28, color: dkHeading, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+          <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
             {slide!.title}
           </div>
-          <div style={{ ...sans, fontSize: 15, color: dkBody, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
+          <div style={{ ...sans, fontSize: 15, color: mdBody, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
             {slide!.body}
           </div>
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px" }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: dkAccentLight, letterSpacing: "0.06em" }}>마지막으로</div>
-            <div style={{ ...serif, fontSize: 26, color: dkHeading, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>마지막으로</div>
+            <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
               당신은 어떤 사람이<br />되고 싶나요?
             </div>
-            <div style={{ ...sans, fontSize: 13.5, color: dkBody, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
               선택이에요. 적어두면, 앞으로 남기는 생각들과 이 말 사이의 거리를 계속 보여드릴게요.
             </div>
           </div>
@@ -596,14 +596,14 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             placeholder="예: 안정보다 도전을 선택하는 사람이 되고 싶어."
             style={{
               ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
-              backgroundColor: "transparent", color: dkHeading, fontSize: 18, lineHeight: 1.7,
-              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "dark",
+              backgroundColor: "transparent", color: mdHeading, fontSize: 18, lineHeight: 1.7,
+              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "light",
             }}
           />
         </div>
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
+        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))} modernist>
           {isLast ? (aspiration.trim() ? "저장하고 시작하기" : "건너뛰고 시작하기") : "다음"}
         </PrimaryBtn>
       </div>
@@ -3735,6 +3735,7 @@ export default function App() {
   const isModernistScreen = [
     "home", "brainmap", "analysis", "history", "profile",
     "beliefs", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
+    "splash", "auth", "login", "signup", "onboarding",
   ].includes(screen);
 
   // Think is the app's one self-disclosure moment — the disinhibition-theory
