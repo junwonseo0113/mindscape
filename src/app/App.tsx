@@ -234,6 +234,7 @@ function BottomNav({ active, onSelect, dark, modernist }: { active: string; onSe
         return (
           <motion.div
             key={item.id}
+            data-tutorial={`nav-${item.id}`}
             role="button"
             tabIndex={0}
             onClick={() => onSelect?.(item.id)}
@@ -611,71 +612,200 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   );
 }
 
-// A short, skippable feature tour — 생각 말하기/브레인/마인드/기록/프로필 — shown
-// once right after onboarding (see dataProvider's hasSeenTutorial), never
-// tied to identity/aspiration the way onboarding is. Mirrors onboarding's
-// own step-deck grammar (progress dots, kicker, title, body) so it reads as
-// the same family of moment, not a foreign "app tour" popup, but adds a
-// skip link since there's nothing here worth forcing someone to sit through.
-const TUTORIAL_SLIDES = [
+// A real, interactive coach-mark tour instead of a detached slide deck —
+// the whole point being "point at the actual thing, explain it, let the
+// real tap through" rather than a wall of text about the app. Every step
+// spotlights one real, already-rendered element (found by its
+// data-tutorial attribute — see BrainNodeMapScreen's card, BottomNav's
+// items, SectionCard's dataTutorial prop, etc.), dims everything else via
+// four surrounding bands (not a CSS mask/clip-path, so the math stays
+// simple and the spotlighted element's own click handler keeps working
+// completely unmodified underneath), and shows a tooltip with the step's
+// explanation. A step with `navTo` is a real navigation step: its own
+// nav-bar icon is left clickable under the spotlight, and the tooltip's
+// button performs the exact same setScreen the real tap would — both
+// paths converge on one `useEffect` (see the app shell) that advances the
+// tour once `screen` actually reaches that step's target, so there's only
+// one place that decides "we've arrived," never two competing ones.
+type TutorialStep = {
+  screen: "home" | "analysis" | "history" | "profile";
+  target: string;
+  title: string;
+  body: string;
+  navTo?: "analysis" | "history" | "profile";
+};
+
+const TUTORIAL_STEPS: TutorialStep[] = [
   {
-    kicker: "생각 말하기",
-    title: "정리하지 않아도\n괜찮아요.",
-    body: "오늘 있었던 일, 갑자기 든 생각, 아직 결정 못한 일 — 떠오르는 순서 그대로 말하거나 적으면 돼요. 홈 화면의 '생각 말하기'에서 언제든 시작할 수 있어요.",
-  },
-  {
-    kicker: "브레인",
-    title: "생각이 이 안에\n하나씩 자리를 잡아요.",
+    screen: "home",
+    target: "brain-card",
+    title: "이 브레인이 당신이 될 거예요",
     body: "말할 때마다 새로운 점이 생기고, 같은 패턴이 반복될수록 그 자리가 더 또렷하게 빛나요.",
   },
   {
-    kicker: "마인드",
-    title: "쌓인 기록에서\n패턴을 찾아드려요.",
-    body: "무의식적으로 반복되는 신념과 오늘의 발견을 정리해드려요. 진단이 아니라, 있는 그대로의 관찰이에요.",
+    screen: "home",
+    target: "think-card",
+    title: "편하게 말해보세요",
+    body: "오늘 있었던 일, 갑자기 든 생각 — 정리하지 않고 그대로 남기면 돼요. 음성도, 텍스트도 괜찮아요.",
   },
   {
-    kicker: "기록",
-    title: "지나온 생각들을\n다시 펼쳐볼 수 있어요.",
-    body: "말한 날짜별로 모아두니까, 궁금할 때 언제든 다시 볼 수 있어요.",
+    screen: "home",
+    target: "nav-analysis",
+    title: "마인드에서 패턴을 확인해요",
+    body: "쌓인 기록에서 반복적으로 드러나는 패턴을 정리해드려요. 눌러서 실제로 확인해볼까요?",
+    navTo: "analysis",
   },
   {
-    kicker: "프로필",
-    title: "당신의 여정이\n여기 쌓여요.",
+    screen: "analysis",
+    target: "today-discovery",
+    title: "오늘의 발견",
+    body: "무의식적으로 반복되는 신념을 여기서 보여드려요. 진단이 아니라, 있는 그대로의 관찰이에요.",
+  },
+  {
+    screen: "analysis",
+    target: "nav-history",
+    title: "기록에서 지난 생각들을 봐요",
+    body: "말했던 날짜별로 모아뒀어요. 눌러서 확인해볼까요?",
+    navTo: "history",
+  },
+  {
+    screen: "history",
+    target: "history-list",
+    title: "지나온 생각들이 여기 모여요",
+    body: "궁금할 때 언제든 다시 펼쳐볼 수 있어요.",
+  },
+  {
+    screen: "history",
+    target: "nav-profile",
+    title: "프로필에서 여정을 확인해요",
+    body: "쌓여온 기록을 한눈에 볼 수 있어요. 눌러서 확인해볼까요?",
+    navTo: "profile",
+  },
+  {
+    screen: "profile",
+    target: "profile-stats",
+    title: "당신의 여정이 쌓여요",
     body: "참여한 질문, 생각의 변화, 연속 참여일 같은 기록을 확인할 수 있어요.",
   },
 ];
 
-function ScreenTutorial({ onDone }: { onDone?: () => void }) {
-  const [i, setI] = React.useState(0);
-  const isLast = i === TUTORIAL_SLIDES.length - 1;
-  const slide = TUTORIAL_SLIDES[i];
+// Re-measures on step/screen change and on resize, plus one short retry —
+// the target it's looking for may not have mounted yet the instant a new
+// screen's fade-in starts (AnimatePresence), so a single synchronous
+// measurement on mount can legitimately come up empty.
+function useTutorialTargetRect(target: string, frameRef: React.RefObject<HTMLDivElement>, screen: string) {
+  const [rect, setRect] = React.useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled) return;
+      const frame = frameRef.current;
+      const el = frame?.querySelector(`[data-tutorial="${target}"]`) as HTMLElement | null;
+      if (!frame || !el) { setRect(null); return; }
+      const f = frame.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      setRect({ top: r.top - f.top, left: r.left - f.left, width: r.width, height: r.height });
+    };
+    measure();
+    const retry = setTimeout(measure, 320);
+    window.addEventListener("resize", measure);
+    return () => { cancelled = true; clearTimeout(retry); window.removeEventListener("resize", measure); };
+  }, [target, frameRef, screen]);
+  return rect;
+}
+
+function TutorialOverlay({
+  step,
+  stepIndex,
+  totalSteps,
+  frameRef,
+  screen,
+  onNext,
+  onSkip,
+}: {
+  step: TutorialStep;
+  stepIndex: number;
+  totalSteps: number;
+  frameRef: React.RefObject<HTMLDivElement>;
+  screen: string;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const rect = useTutorialTargetRect(step.target, frameRef, screen);
+  const isLast = stepIndex === totalSteps - 1;
+  // Only render once the current real screen matches this step's screen —
+  // otherwise we're mid-transition and the target genuinely isn't there
+  // yet; useTutorialTargetRect's retry picks it back up a moment later.
+  if (screen !== step.screen || !rect) return null;
+
+  const pad = 6;
+  const spot = { top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 };
+  const FRAME_H = 852;
+  const tooltipBelow = spot.top + spot.height + 190 < FRAME_H;
+  const bandColor = "rgba(24,20,18,0.72)";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 28px 0", flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 6, flex: 1, marginRight: 16 }}>
-          {TUTORIAL_SLIDES.map((_, idx) => (
-            <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? mdAccentText : mdDivider }} />
-          ))}
+    <div style={{ position: "absolute", inset: 0, zIndex: 300, pointerEvents: "none" }}>
+      {/* Four dimming bands around the spotlight — never a mask/clip-path
+      over the whole overlay, so the spotlighted element itself has no
+      overlay above it at all and its real onClick fires completely
+      normally when navTo steps are tapped directly. */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: Math.max(0, spot.top), backgroundColor: bandColor, pointerEvents: "auto" }} />
+      <div style={{ position: "absolute", top: spot.top + spot.height, left: 0, right: 0, bottom: 0, backgroundColor: bandColor, pointerEvents: "auto" }} />
+      <div style={{ position: "absolute", top: spot.top, left: 0, width: Math.max(0, spot.left), height: spot.height, backgroundColor: bandColor, pointerEvents: "auto" }} />
+      <div style={{ position: "absolute", top: spot.top, left: spot.left + spot.width, right: 0, height: spot.height, backgroundColor: bandColor, pointerEvents: "auto" }} />
+
+      {/* Glow ring on the real element — the spotlight itself. */}
+      <motion.div
+        key={step.target}
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        style={{
+          position: "absolute", top: spot.top, left: spot.left, width: spot.width, height: spot.height,
+          borderRadius: 18, border: `2px solid ${mdAccent}`, boxShadow: `0 0 0 5px ${mdAccentSoft}`,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Skip, always reachable. */}
+      <motion.span
+        role="button" tabIndex={0} onClick={onSkip} whileTap={{ opacity: 0.6 }}
+        style={{
+          position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
+          backgroundColor: "rgba(0,0,0,0.35)", padding: "6px 12px", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)",
+          pointerEvents: "auto",
+        }}
+      >
+        건너뛰기 {stepIndex + 1}/{totalSteps}
+      </motion.span>
+
+      {/* Tooltip — flips above/below depending on where the spotlight sits. */}
+      <motion.div
+        key={`tip-${step.target}`}
+        initial={{ opacity: 0, y: tooltipBelow ? 8 : -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut", delay: 0.1 }}
+        style={{
+          position: "absolute",
+          left: 20, right: 20,
+          // Anchored by `bottom` (not a fixed `top` offset) when placed
+          // above the spotlight, so it grows upward and can never overlap
+          // the cutout no matter how tall the actual content renders —
+          // a fixed offset here previously underestimated real height and
+          // let the tooltip sit on top of (and block clicks on) the very
+          // element it was pointing at.
+          ...(tooltipBelow ? { top: spot.top + spot.height + 14 } : { bottom: FRAME_H - spot.top + 14 }),
+          backgroundColor: mdCard, borderRadius: 18, padding: "18px 20px", boxShadow: mdCardShadowLg,
+          pointerEvents: "auto",
+        }}
+      >
+        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: mdAccentText, letterSpacing: "0.04em" }}>{step.title}</div>
+        <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{step.body}</div>
+        <div style={{ marginTop: 16 }}>
+          <PrimaryBtn onClick={onNext} modernist>{isLast ? "시작하기" : step.navTo ? "눌러서 확인하기" : "다음"}</PrimaryBtn>
         </div>
-        <motion.span role="button" tabIndex={0} onClick={onDone} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer", flexShrink: 0 }}>
-          건너뛰기
-        </motion.span>
-      </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide.kicker}</div>
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
-          {slide.title}
-        </div>
-        <div style={{ ...sans, fontSize: 15, color: mdBody, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
-          {slide.body}
-        </div>
-      </div>
-      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={() => (isLast ? onDone?.() : setI((v) => v + 1))} modernist>
-          {isLast ? "시작하기" : "다음"}
-        </PrimaryBtn>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -763,11 +893,11 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
           오늘은 어떤 생각이<br />스쳐 지나갔나요?
         </div>
 
-        <div style={{ marginTop: 28 }}>
+        <div data-tutorial="brain-card" style={{ marginTop: 28 }}>
           <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} modernist />
         </div>
 
-        <div style={{ marginTop: 16 }}>
+        <div data-tutorial="think-card" style={{ marginTop: 16 }}>
           <motion.div
             role="button" tabIndex={0} onClick={onStartThink} whileTap={{ scale: 0.98, opacity: 0.92 }}
             style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: mdCardShadow }}
@@ -1073,9 +1203,9 @@ function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: strin
 // divider used to (and couldn't, since surface-on-page is barely visible).
 // Every section from "why" onward is one of these, so the page reads as
 // distinct, scannable groups rather than one continuous flow of text.
-function SectionCard({ title, subtitle, children }: { title?: string; subtitle?: string; children: React.ReactNode }) {
+function SectionCard({ title, subtitle, children, dataTutorial }: { title?: string; subtitle?: string; children: React.ReactNode; dataTutorial?: string }) {
   return (
-    <div style={{ backgroundColor: mdCard, borderRadius: 20, padding: "22px 20px", boxShadow: mdCardShadow }}>
+    <div data-tutorial={dataTutorial} style={{ backgroundColor: mdCard, borderRadius: 20, padding: "22px 20px", boxShadow: mdCardShadow }}>
       {title && <div style={{ ...serif, fontSize: 19, color: mdHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
       {subtitle && <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginBottom: 16, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
       {children}
@@ -1227,7 +1357,7 @@ function ScreenAnalysis({
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {/* ── SECTION 1 · HERO — title, discovery, confidence. Nothing else. ── */}
-          <SectionCard>
+          <SectionCard dataTutorial="today-discovery">
             {discovery ? (
               <>
                 <div style={{ ...sans, fontSize: 11, fontWeight: 800, color: mdAccent, letterSpacing: "0.04em", marginBottom: 10 }}>오늘의 발견</div>
@@ -3203,7 +3333,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>기록</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody }}>지금까지 남긴 생각들이에요.</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
+      <div data-tutorial="history-list" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {items.length === 0 ? (
           <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "12px 0" }}>아직 기록된 생각이 없습니다.</div>
         ) : (
@@ -3317,7 +3447,7 @@ function ScreenProfile({
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+        <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 14 }}>
           {stats.map((s) => (
             <div key={s.label} style={{ flex: 1, backgroundColor: mdCard, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: mdCardShadow }}>
               <div style={{ ...mono, fontSize: 22, fontWeight: 700, color: mdAccentText, marginBottom: 4 }}>{s.value}</div>
@@ -3534,6 +3664,30 @@ export default function App() {
 
   const goToTab = (id: string) => setScreen(id);
 
+  // Interactive tour state — see TutorialOverlay/TUTORIAL_STEPS above.
+  // frameRef lets the overlay measure real targets relative to the phone
+  // frame; this one effect is the single place that decides "we've
+  // arrived at a nav step's destination," whether that arrival came from
+  // the real nav-bar tap passing through the spotlight or from the
+  // tooltip's own button calling the identical setScreen.
+  const [tutorialActive, setTutorialActive] = React.useState(false);
+  const [tutorialStep, setTutorialStep] = React.useState(0);
+  const frameRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!tutorialActive) return;
+    const step = TUTORIAL_STEPS[tutorialStep];
+    if (step?.navTo && screen === step.navTo) {
+      setTutorialStep((s) => s + 1);
+    }
+  }, [screen, tutorialActive, tutorialStep]);
+  const finishTutorial = () => { setTutorialActive(false); setHasSeenTutorial(true); };
+  const advanceTutorial = () => {
+    const step = TUTORIAL_STEPS[tutorialStep];
+    if (step?.navTo) { setScreen(step.navTo); return; }
+    if (tutorialStep >= TUTORIAL_STEPS.length - 1) { finishTutorial(); return; }
+    setTutorialStep((s) => s + 1);
+  };
+
   // Shared by both the legacy hypothesisDetail screen and the Analysis
   // tab's inline discovery body, so agree/disagree behaves identically no
   // matter which one the user reached it through.
@@ -3671,11 +3825,11 @@ export default function App() {
           if (aspiration && aspiration !== realStore.aspiration) {
             updateRealStore((prev) => ({ ...prev, aspiration, aspirationSetDate: formatDateDots(new Date()) }));
           }
-          setScreen(hasSeenTutorial ? "home" : "tutorial");
+          if (!hasSeenTutorial) { setTutorialStep(0); setTutorialActive(true); }
+          setScreen("home");
         }}
       />
     ); break;
-    case "tutorial": content = <ScreenTutorial onDone={() => { setHasSeenTutorial(true); setScreen("home"); }} />; break;
     case "home": content = (
       <ScreenHome
         onNavSelect={goToTab}
@@ -3806,7 +3960,7 @@ export default function App() {
         }}
       />
     ); break;
-    case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => setScreen("tutorial")} />; break;
+    case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
     default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} />;
   }
 
@@ -3816,7 +3970,7 @@ export default function App() {
   const isModernistScreen = [
     "home", "brainmap", "analysis", "history", "profile",
     "beliefs", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
-    "splash", "auth", "login", "signup", "onboarding", "tutorial",
+    "splash", "auth", "login", "signup", "onboarding",
     "notifications", "dataPrivacy", "help",
   ].includes(screen);
 
@@ -3830,7 +3984,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column", position: "relative" }}>
+      <div ref={frameRef} style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column", position: "relative" }}>
         {showStatusBar && <StatusBar modernist={isModernistScreen} />}
         <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
           <AnimatePresence mode="wait">
@@ -3858,6 +4012,18 @@ export default function App() {
           transition={{ duration: 0.6, ease: "easeInOut" }}
           style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.12)", pointerEvents: "none", zIndex: 40 }}
         />
+
+        {tutorialActive && TUTORIAL_STEPS[tutorialStep] && (
+          <TutorialOverlay
+            step={TUTORIAL_STEPS[tutorialStep]}
+            stepIndex={tutorialStep}
+            totalSteps={TUTORIAL_STEPS.length}
+            frameRef={frameRef}
+            screen={screen}
+            onNext={advanceTutorial}
+            onSkip={finishTutorial}
+          />
+        )}
       </div>
     </div>
   );
