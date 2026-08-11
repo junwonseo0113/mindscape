@@ -2,10 +2,14 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: without this, env(safe-area-inset-*) always
+    resolves to 0 even on a notched/Dynamic-Island phone, since the page
+    never actually extends under those areas in the first place. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3f2f2" />
     <title>미정</title>
     <meta name="robots" content="noindex, nofollow" />
-    <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+    <style>html, body { height: 100%; margin: 0; overscroll-behavior: none; } #root { height: 100%; }</style>
   </head>
   <body>
     <div id="root"></div>

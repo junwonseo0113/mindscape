@@ -8,8 +8,16 @@ html, body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  /* Stops iOS Safari auto-inflating text past the sizes actually set here
+     (e.g. after a device rotation), which otherwise silently breaks every
+     pixel-tuned layout in this file. */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Removes the ~300ms tap-response delay mobile browsers otherwise add
+     while waiting to see if a tap is the start of a double-tap-to-zoom,
+     and stops that double-tap gesture from firing on buttons/cards at all. */
+  touch-action: manipulation;
 }

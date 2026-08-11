@@ -225,6 +225,10 @@ function BottomNav({ active, onSelect, dark, modernist }: { active: string; onSe
         backgroundColor: modernist ? "rgba(255,255,255,0.82)" : dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
         backdropFilter: "blur(12px)",
         padding: "8px 10px",
+        // Real value on a notched/gesture-nav phone (clears the home
+        // indicator so nothing renders under it), 0px everywhere else —
+        // always safe to include unconditionally.
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom))",
         flexShrink: 0,
       }}
     >
@@ -426,7 +430,11 @@ function TextField({ label, type = "text", value, onChange, placeholder, error }
         placeholder={placeholder}
         style={{
           ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
-          border: `1px solid ${error ? mdWarn : mdDivider}`, fontSize: 15, color: mdHeading,
+          border: `1px solid ${error ? mdWarn : mdDivider}`,
+          // 16px, not 15 — iOS Safari auto-zooms the whole page on focus for
+          // any input under 16px, which then has to be manually pinched back
+          // out. Below that threshold it's a real mobile bug, not a style nit.
+          fontSize: 16, color: mdHeading,
           backgroundColor: mdCard, outline: "none",
         }}
       />
@@ -3643,6 +3651,25 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
   );
 }
 
+// On a real phone, the fixed 393×852 "device mockup" frame below (rounded
+// corners, drop shadow, centered on a desktop backdrop) is exactly wrong —
+// it reads as a small floating box with wasted padding around it instead of
+// filling the actual screen. This flips the frame to full-bleed (edge to
+// edge, no chrome) whenever the viewport itself is phone-width, so the same
+// component tree serves both "a nice mockup to review on desktop" and "the
+// real app on someone's phone" without a separate mobile build.
+function useIsMobileViewport(): boolean {
+  const query = "(max-width: 480px)";
+  const [isMobile, setIsMobile] = React.useState(() => (typeof window !== "undefined" ? window.matchMedia(query).matches : false));
+  React.useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
@@ -3981,7 +4008,13 @@ export default function App() {
     default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} />;
   }
 
-  const showStatusBar = !["splash"].includes(screen);
+  const isMobileViewport = useIsMobileViewport();
+  // The fake "9:41 + battery" status bar is mockup chrome for the desktop
+  // preview — a real phone already has its own real status bar, so showing
+  // ours too would just be a second, wrong clock sitting under the actual
+  // one. Safe-area padding (below) takes over its job of clearing the
+  // notch on mobile instead.
+  const showStatusBar = !["splash"].includes(screen) && !isMobileViewport;
   // Screens ported from the Modernist (light/red) design import — every
   // other screen keeps the dark theme, see the dk*/md* token comments.
   const isModernistScreen = [
@@ -4000,8 +4033,24 @@ export default function App() {
   const isThink = screen === "think";
 
   return (
-    <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div ref={frameRef} style={{ width: 393, height: 852, borderRadius: 40, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", backgroundColor: isModernistScreen ? mdBg : dkBg, display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobileViewport ? 0 : 20 }}>
+      <div
+        ref={frameRef}
+        style={{
+          width: isMobileViewport ? "100%" : 393,
+          height: isMobileViewport ? "100dvh" : 852,
+          borderRadius: isMobileViewport ? 0 : 40,
+          overflow: "hidden",
+          boxShadow: isMobileViewport ? "none" : "0 20px 60px rgba(0,0,0,0.25)",
+          backgroundColor: isModernistScreen ? mdBg : dkBg,
+          display: "flex", flexDirection: "column", position: "relative",
+          // Clears the real notch/Dynamic Island whenever the fake status
+          // bar isn't the one doing that job (mobile, or the status-bar-
+          // less splash screen) — a no-op (0px) anywhere without a real
+          // safe area, so it's always safe to include.
+          paddingTop: showStatusBar ? 0 : "env(safe-area-inset-top)",
+        }}
+      >
         {showStatusBar && <StatusBar modernist={isModernistScreen} />}
         <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
           <AnimatePresence mode="wait">
