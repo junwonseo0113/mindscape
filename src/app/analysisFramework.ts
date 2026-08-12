@@ -27,7 +27,7 @@
 import { HypothesisStatus, PendingBeliefCandidate, Store, StoredBelief, StoredConnection, StoredHistoryEntry } from "./types";
 
 export const DISCLAIMER_NOTICE =
-  "이 분석은 CBT와 ACT의 개념을 참고한 자기성찰 도구이며, 심리 진단이나 치료를 대체하지 않습니다.";
+  "This analysis is a self-reflection tool that draws on CBT and ACT concepts — it does not replace psychological diagnosis or treatment.";
 
 // One entry is an observation. Two is a coincidence worth watching. Three
 // is the minimum this framework treats as an actual recurring pattern.
@@ -41,15 +41,15 @@ const MAX_CONFIDENCE = 92;
 // exhaustive — the model may still describe a pattern in its own words in
 // reasoningSummary, but the tags themselves should come from here.
 export const COGNITIVE_PATTERN_LABELS = [
-  "흑백사고", // all-or-nothing thinking
-  "과잉일반화", // overgeneralization
-  "재앙화", // catastrophizing
-  "개인화", // personalization
-  "감정적 추론", // emotional reasoning
-  "당위적 사고", // "should" statements
-  "정신적 여과", // mental filtering
-  "성급한 결론", // jumping to conclusions
-  "긍정 축소", // discounting the positive
+  "All-or-nothing thinking",
+  "Overgeneralization",
+  "Catastrophizing",
+  "Personalization",
+  "Emotional reasoning",
+  "Should statements",
+  "Mental filtering",
+  "Jumping to conclusions",
+  "Discounting the positive",
 ] as const;
 
 // Shown when a user taps a pattern tag — deliberately worded as "this is a
@@ -57,15 +57,15 @@ export const COGNITIVE_PATTERN_LABELS = [
 // Reflect, don't correct: naming the pattern is the entire intervention;
 // there's no prescription attached.
 export const COGNITIVE_PATTERN_DESCRIPTIONS: Record<(typeof COGNITIVE_PATTERN_LABELS)[number], string> = {
-  "흑백사고": "'항상', '전혀', '완전히' 같은 표현처럼, 상황을 두 극단으로만 나눠서 보는 흔한 사고 습관이에요.",
-  "과잉일반화": "한두 번 있었던 일을 '매번', '누구나 다' 같은 표현으로 넓혀서 보는 흔한 사고 습관이에요.",
-  "재앙화": "일어날 수 있는 가장 나쁜 결과부터 먼저 떠올리는 흔한 사고 습관이에요.",
-  "개인화": "함께 작용한 다른 원인들이 있는데도, 일어난 일의 원인을 자기 자신에게서만 찾는 흔한 사고 습관이에요.",
-  "감정적 추론": "'이렇게 느껴지니까 분명 사실일 거야'처럼, 감정을 근거 삼아 결론을 내리는 흔한 사고 습관이에요.",
-  "당위적 사고": "'반드시', '~해야 한다' 같은 표현처럼, 스스로에게 엄격한 기준을 강제하는 흔한 사고 습관이에요.",
-  "정신적 여과": "잘된 부분은 지나치고 아쉬웠던 한 부분에만 계속 머무르는 흔한 사고 습관이에요.",
-  "성급한 결론": "충분한 근거 없이, 상대의 생각이나 앞으로의 결과를 미리 단정하는 흔한 사고 습관이에요.",
-  "긍정 축소": "잘한 일이나 좋은 결과를 '별거 아니었다'며 깎아내리는 흔한 사고 습관이에요.",
+  "All-or-nothing thinking": "A common habit of mind that sorts a situation into one of two extremes — words like \"always,\" \"never,\" \"completely.\"",
+  "Overgeneralization": "A common habit of mind that stretches one or two instances into a broader rule — words like \"every time,\" \"everyone.\"",
+  "Catastrophizing": "A common habit of mind that jumps straight to the worst possible outcome first.",
+  "Personalization": "A common habit of mind that locates the cause of what happened entirely in yourself, even when other factors were also at play.",
+  "Emotional reasoning": "A common habit of mind that treats a feeling as proof — \"it feels this way, so it must be true.\"",
+  "Should statements": "A common habit of mind that holds yourself to a strict standard — words like \"must,\" \"have to.\"",
+  "Mental filtering": "A common habit of mind that skips past what went well and stays fixed on the one part that didn't.",
+  "Jumping to conclusions": "A common habit of mind that decides what someone's thinking, or how things will turn out, without enough to go on.",
+  "Discounting the positive": "A common habit of mind that waves off something that went well as \"no big deal.\"",
 };
 
 // A balanced, standard CBT reframe of each named pattern (ported from a
@@ -75,35 +75,35 @@ export const COGNITIVE_PATTERN_DESCRIPTIONS: Record<(typeof COGNITIVE_PATTERN_LA
 // unique insight about any one person — the same reframe every time that
 // pattern is tagged, grounded in the pattern itself, not the user.
 export const COGNITIVE_PATTERN_REFLECTIONS: Record<(typeof COGNITIVE_PATTERN_LABELS)[number], { benefit: string; caution: string }> = {
-  흑백사고: { benefit: "빠르고 명확하게 판단할 수 있게 해줘요.", caution: "상황의 중간 지점을 놓칠 때가 있어요." },
-  과잉일반화: { benefit: "한 번의 경험에서 빠르게 규칙을 찾아내는 힘이에요.", caution: "한 번의 일이 항상 반복될 거라 단정할 때가 있어요." },
-  재앙화: { benefit: "위험을 미리 대비하게 해주는 신중함이에요.", caution: "실제보다 상황을 더 심각하게 느낄 때가 있어요." },
-  개인화: { benefit: "책임감 있게 상황을 받아들이는 태도예요.", caution: "내 탓이 아닌 것까지 떠안을 때가 있어요." },
-  "감정적 추론": { benefit: "감정에 솔직하게 반응하는 힘이에요.", caution: "그 순간의 느낌을 사실로 믿게 될 때가 있어요." },
-  "당위적 사고": { benefit: "스스로에게 높은 기준을 두는 태도예요.", caution: "기준에 못 미칠 때 스스로를 몰아세울 수 있어요." },
-  "정신적 여과": { benefit: "중요한 디테일을 놓치지 않는 집중력이에요.", caution: "긍정적인 부분을 자연스럽게 지나칠 때가 있어요." },
-  "성급한 결론": { benefit: "빠르게 상황을 파악하고 결정하는 힘이에요.", caution: "충분한 근거 없이 결론에 도달할 때가 있어요." },
-  "긍정 축소": { benefit: "겸손하게 스스로를 돌아보는 태도예요.", caution: "잘한 부분까지 스스로 인정하지 않을 때가 있어요." },
+  "All-or-nothing thinking": { benefit: "Lets you judge things quickly and clearly.", caution: "Can miss the middle ground in a situation." },
+  "Overgeneralization": { benefit: "The ability to spot a pattern quickly from one experience.", caution: "Can assume something will always repeat after just one instance." },
+  "Catastrophizing": { benefit: "A kind of caution that prepares you for risk ahead of time.", caution: "Can make a situation feel worse than it actually is." },
+  "Personalization": { benefit: "A responsible way of owning a situation.", caution: "Can take on blame that isn't actually yours." },
+  "Emotional reasoning": { benefit: "The ability to respond honestly to how you feel.", caution: "Can turn a passing feeling into something you treat as fact." },
+  "Should statements": { benefit: "Holding yourself to a high standard.", caution: "Can turn into self-criticism when you fall short of it." },
+  "Mental filtering": { benefit: "A focus that doesn't miss important details.", caution: "Can pass over the positive parts without noticing." },
+  "Jumping to conclusions": { benefit: "The ability to read a situation and decide quickly.", caution: "Can reach a conclusion without quite enough to go on." },
+  "Discounting the positive": { benefit: "A humble way of looking at yourself.", caution: "Can keep you from acknowledging what you did well." },
 };
 
 // When no specific pattern is tagged — still a paired, honest reframe,
 // just not tied to one named distortion.
 export const GENERIC_PATTERN_REFLECTION = {
-  benefit: "이 반응은 지금까지 당신을 지켜온 방식일 수 있어요.",
-  caution: "가끔은 다른 선택지를 가려버릴 때도 있어요.",
+  benefit: "This response may be something that's protected you up to now.",
+  caution: "It can sometimes crowd out other options, too.",
 };
 
 // Suggested ACT life-domain vocabulary for valueDirection.relatedValues —
 // a starting point, not a closed list.
 export const VALUE_DOMAIN_LABELS = [
-  "관계", "일/커리어", "건강", "성장/배움", "자율성", "안정감", "여가", "공동체", "자기표현",
+  "Relationships", "Work/Career", "Health", "Growth/Learning", "Autonomy", "Security", "Leisure", "Community", "Self-expression",
 ] as const;
 
 // Secondary, longitudinal-only, optional. Loose descriptive labels, not a
 // clinical schema inventory — only ever attached to a belief that has
 // already independently cleared MIN_SUPPORTING_ENTRIES_FOR_BELIEF.
 export const SCHEMA_DOMAIN_LABELS = [
-  "결핍/유기", "불신/상처", "실패에 대한 예민함", "복종/맞춤", "엄격한 기준", "고립/단절",
+  "Deprivation/Abandonment", "Mistrust/Hurt", "Sensitivity to failure", "Subjugation/Compliance", "Unrelenting standards", "Isolation/Disconnection",
 ] as const;
 
 // Neutral, hedged phrasing this framework's language should sound like —
@@ -111,9 +111,9 @@ export const SCHEMA_DOMAIN_LABELS = [
 // isn't something code can check), but kept here as the single source of
 // truth for tone.
 export const HEDGE_PHRASES = [
-  "이런 가능성이 있습니다",
-  "현재 기록에서는",
-  "아직 근거가 충분하지 않습니다",
+  "this may be the case",
+  "based on what's been recorded so far",
+  "there isn't enough evidence yet",
 ] as const;
 
 export function clampConfidence(value: number): number {
