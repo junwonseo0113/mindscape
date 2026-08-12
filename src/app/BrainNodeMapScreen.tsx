@@ -271,7 +271,7 @@ export default function BrainNodeMapScreen({
   // still a bigger, more immersive version to grow into later.
   embedded?: boolean;
   height?: number;
-  // Embedded mode only — shows a 확대 (expand) button that hands off to
+  // Embedded mode only — shows an expand button that hands off to
   // whatever the caller wants to do to show this same map full-screen
   // (App.tsx wires this to the existing "brainmap" route). No-op/hidden if
   // omitted, and never shown in full-screen mode itself (nothing to expand
@@ -285,8 +285,9 @@ export default function BrainNodeMapScreen({
   modernist?: boolean;
   // Points the network-activation glow (same crimson pulse-then-steady-glow
   // used by tapping a node) at a specific set of belief ids without a tap
-  // and without opening the detail panel — e.g. Analysis's "오늘의 발견" can
-  // point at just the belief(s) that discovery is actually about. Ignored
+  // and without opening the detail panel — e.g. Analysis's "Today's
+  // Discovery" can point at just the belief(s) that discovery is actually
+  // about. Ignored
   // while the user has something explicitly selected (never fights an
   // active tap), and resumes the moment they close the panel.
   autoHighlightIds?: string[];
@@ -300,8 +301,8 @@ export default function BrainNodeMapScreen({
   const inkFaint = modernist ? "rgba(32,30,29,0.42)" : inkFaintDark;
   const dormantColor = modernist ? new THREE.Color(0x201e1d) : dormantColorDark;
   const FILTERED_OUT_TINT = modernist ? new THREE.Color(0xd7d3d3) : FILTERED_OUT_TINT_DARK;
-  // The dark theme's generic purple UI-chrome accent (search caret, 초기화/
-  // 확대 buttons, region-rail active row, panel tag pill) — swapped for the
+  // The dark theme's generic purple UI-chrome accent (search caret, reset/
+  // expand buttons, region-rail active row, panel tag pill) — swapped for the
   // Modernist palette's own red accent, not left purple, since Modernist is
   // explicitly mono-red ("no second accent was chosen").
   const accentUi = modernist ? "#ec3013" : "#9184d9";
@@ -500,7 +501,7 @@ export default function BrainNodeMapScreen({
       twinkleArr[i * 2] = stableUnit(`star-${i}-phase`) * Math.PI * 2;
       twinkleArr[i * 2 + 1] = 0.5 + stableUnit(`star-${i}-speed`) * 1.1;
       // Dormant tissue is pure white; real belief nodes get their own
-      // region color back (matching the 영역 rail's colored legend dots —
+      // region color back (matching the region rail's colored legend dots —
       // that panel already shows six distinct colors, so a real node
       // rendering flat white instead was a real inconsistency, not a
       // deliberate "all white" look). Still distinguished from the
@@ -922,7 +923,7 @@ export default function BrainNodeMapScreen({
             onClick={onBack}
             style={{ ...sans, fontSize: 13, color: inkMid, cursor: "pointer", flexShrink: 0 }}
           >
-            ← 뒤로
+            ← Back
           </span>
         )}
         <div style={{ ...sans, fontWeight: 500, fontSize: 16, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -931,13 +932,13 @@ export default function BrainNodeMapScreen({
             <path d="M13.5 3.2c2 .3 3.4 2 3.3 4-.05.8.2 1.1.7 1.6.9.9.9 2.5 0 3.4-.5.5-.7.9-.7 1.6 0 2.1-1.7 3.7-3.7 3.5" stroke={accentUi} strokeWidth="1.4" strokeLinecap="round" />
             <path d="M10 3.6v13" stroke={accentUi} strokeWidth="1.2" strokeLinecap="round" strokeDasharray="0.2 3.2" />
           </svg>
-          브레인 맵
+          Brain Map
         </div>
         {/* Search — full-screen only. On the embedded teaser card there's
-            no room left for it once 확대 also needs a slot in this same
-            row (this is what overflowed/clipped the 확대 button off the
-            edge of the card before); the full search box is one tap away
-            via 확대 → the full-screen route. */}
+            no room left for it once the expand button also needs a slot in
+            this same row (this is what overflowed/clipped the expand button
+            off the edge of the card before); the full search box is one tap
+            away via expand → the full-screen route. */}
         {!embedded && (
           <div style={{ position: "relative", width: "100%", maxWidth: 240, marginLeft: "auto" }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
@@ -946,7 +947,7 @@ export default function BrainNodeMapScreen({
             </svg>
             <input
               type="text"
-              placeholder="신념 검색"
+              placeholder="Search beliefs"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -984,12 +985,12 @@ export default function BrainNodeMapScreen({
             marginLeft: embedded ? "auto" : undefined,
           }}
         >
-          초기화
+          Reset
         </button>
         {embedded && onExpand && (
           <button
             onClick={onExpand}
-            aria-label="확대"
+            aria-label="Expand"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -1054,7 +1055,7 @@ export default function BrainNodeMapScreen({
               boxShadow: `0 0 0 1px ${line}`,
             }}
           >
-            <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accentUi, marginBottom: 2 }}>영역</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accentUi, marginBottom: 2 }}>Regions</div>
             {COGNITIVE_REGIONS.map((region) => {
               const active = activeRegion === region;
               return (
@@ -1090,11 +1091,11 @@ export default function BrainNodeMapScreen({
             no width limit on either, so at teaser-card width the two ran
             into each other. */}
         <div style={{ position: "absolute", bottom: 16, left: 20, right: embedded ? 20 : "auto", fontSize: 11, color: inkFaint, letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {totalBeliefs}개 신념 · {connectionCount}개 연결
+          {totalBeliefs} beliefs · {connectionCount} connections
         </div>
         {!embedded && (
           <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 11, color: inkFaint }}>
-            드래그해서 회전 · 스크롤해서 확대 · 클릭해서 선택
+            Drag to rotate · Scroll to zoom · Click to select
           </div>
         )}
 
@@ -1170,12 +1171,12 @@ export default function BrainNodeMapScreen({
               </div>
               <div style={{ ...serif, fontSize: 18, lineHeight: 1.35, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>{selected.statement}</div>
               <div style={{ ...mono, fontSize: 11, color: inkMid }}>
-                {selected.domain} · 근거 {selected.evidenceCount}건 · 확신도 {selected.confidence}%
+                {selected.domain} · {selected.evidenceCount} pieces of evidence · {selected.confidence}% confidence
               </div>
               <div style={{ height: 1, margin: "9px 0", background: `linear-gradient(to right, transparent, ${line} 24px, ${line} calc(100% - 24px), transparent)` }} />
-              <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400 }}>왜 이 별들이 연결되어 있나요</div>
+              <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400 }}>Why these stars are connected</div>
               {selected.linked.length === 0 ? (
-                <div style={{ fontSize: 12.5, color: inkFaint, padding: "6px 0" }}>연결된 신념이 없어요.</div>
+                <div style={{ fontSize: 12.5, color: inkFaint, padding: "6px 0" }}>No connected beliefs yet.</div>
               ) : (
                 selected.linked.map((l) => (
                   <div key={l.id} style={{ padding: "10px 0", borderBottom: `1px solid ${line}` }}>
@@ -1199,7 +1200,7 @@ export default function BrainNodeMapScreen({
                           border: l.kind === "contradiction" && modernist ? `1px solid ${accentUi}` : "none",
                         }}
                       >
-                        {l.kind === "contradiction" ? "상충" : "기반 공유"}
+                        {l.kind === "contradiction" ? "Contradicts" : "Shared basis"}
                       </span>
                     </div>
                     {l.note && (
@@ -1210,7 +1211,7 @@ export default function BrainNodeMapScreen({
               )}
               {selected.evidenceQuotes.length > 0 && (
                 <>
-                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400, marginTop: 14 }}>이 패턴을 뒷받침하는 순간들</div>
+                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400, marginTop: 14 }}>Moments that support this pattern</div>
                   {selected.evidenceQuotes.map((q, i) => (
                     <div key={i} style={{ borderLeft: `2px solid ${modernist ? accentUi : line}`, paddingLeft: 10, marginTop: i === 0 ? 8 : 10 }}>
                       <div style={{ ...mono, fontSize: 10.5, color: inkMid }}>{q.date}</div>

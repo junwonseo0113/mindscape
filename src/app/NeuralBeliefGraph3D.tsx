@@ -36,8 +36,8 @@ export type NeuralBeliefNode = {
   // neuron in. Optional because the backend doesn't produce this yet —
   // see mapDomainToCognitiveRegion below for the fallback.
   region?: CognitiveRegion;
-  // Optional — only used by BrainNodeMapScreen's node-detail panel ("이
-  // 패턴을 뒷받침하는 순간들"). Always present in practice (every real
+  // Optional — only used by BrainNodeMapScreen's node-detail panel
+  // ("Moments that support this pattern"). Always present in practice (every real
   // StoredBelief carries its own quotes), optional here only so a caller
   // that genuinely doesn't have quotes yet isn't forced to fake an array.
   evidenceQuotes?: StoredEvidenceQuote[];
@@ -55,16 +55,16 @@ export type NeuralBeliefNode = {
 };
 
 // Temporary mapping until the backend sends `region` directly: the app's
-// real belief data only carries a freeform (often Korean) `domain` string,
-// so this guesses a cognitive region from keywords and falls back to a
-// stable hash so every domain still lands somewhere deterministic.
+// real belief data only carries a freeform `domain` string, so this guesses
+// a cognitive region from keywords and falls back to a stable hash so every
+// domain still lands somewhere deterministic.
 const DOMAIN_REGION_KEYWORDS: [RegExp, CognitiveRegion][] = [
-  [/career|job|work|직장|커리어|일|업무|진로/i, "career"],
-  [/relationship|love|family|friend|관계|사랑|우정|가족|연애/i, "relationships"],
-  [/safe|security|stability|안전|안정/i, "security"],
-  [/self|identity|value|자아|정체성|가치관/i, "identity"],
-  [/creativ|art|imagin|창의|예술|상상/i, "creativity"],
-  [/curio|explore|learn|호기심|탐구|학습|배움/i, "curiosity"],
+  [/career|job|work|workplace|profession|occupation/i, "career"],
+  [/relationship|love|family|friend|romance|dating/i, "relationships"],
+  [/safe|security|stability|stable/i, "security"],
+  [/self|identity|value/i, "identity"],
+  [/creativ|art|imagin/i, "creativity"],
+  [/curio|explore|learn|growth/i, "curiosity"],
 ];
 
 function mapDomainToCognitiveRegion(domain: string): CognitiveRegion {
@@ -173,17 +173,16 @@ const DIM_TINT = new THREE.Color("#131217");
 const BRIGHT_TINT = new THREE.Color("#3C342A");
 
 // ── Single source of truth for the six cognitive regions: their permanent
-// activation color, Korean display label, and a one-line description of
-// what the category actually means — the legend and RegionBreakdown both
-// read from this map — nothing hardcodes a region's color or meaning
-// anywhere else.
+// activation color, display label, and a one-line description of what the
+// category actually means — the legend and RegionBreakdown both read from
+// this map — nothing hardcodes a region's color or meaning anywhere else.
 export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string; description: string }> = {
-  identity: { color: "#8B7CFF", label: "정체성", description: "내가 누구라고 생각하는지 — 자기 인식, 자존감, 가치관에 관한 믿음" },
-  security: { color: "#4CAF7A", label: "안정", description: "위험과 변화 앞에서 안전을 지키려는 판단 기준" },
-  career: { color: "#D9A441", label: "커리어", description: "일, 성취, 능력에 대해 갖고 있는 믿음" },
-  relationships: { color: "#E88AAE", label: "관계", description: "다른 사람과의 관계에서 반복되는 생각과 태도" },
-  curiosity: { color: "#69A7FF", label: "호기심", description: "새로운 것을 탐구하고 배우는 것에 대한 태도" },
-  creativity: { color: "#F4A261", label: "창의성", description: "상상하고 표현하는 방식에 대한 믿음" },
+  identity: { color: "#8B7CFF", label: "Identity", description: "Who you think you are — beliefs about self-perception, self-worth, and values" },
+  security: { color: "#4CAF7A", label: "Security", description: "The standards you use to stay safe in the face of risk and change" },
+  career: { color: "#D9A441", label: "Career", description: "Beliefs you hold about work, achievement, and ability" },
+  relationships: { color: "#E88AAE", label: "Relationships", description: "Recurring thoughts and attitudes in how you relate to other people" },
+  curiosity: { color: "#69A7FF", label: "Curiosity", description: "Your attitude toward exploring and learning new things" },
+  creativity: { color: "#F4A261", label: "Creativity", description: "Beliefs about how you imagine and express yourself" },
 };
 
 // Reserved exclusively for the "this one is selected" indicator (a thin
@@ -653,7 +652,7 @@ function BeliefConnectionLines({
 
         // A contradiction connection always gets the distinct dashed/
         // sparking treatment once it's actually touching whatever's
-        // focused — you shouldn't need "구조 보기" on just to tell, when
+        // focused — you shouldn't need "Structure View" on just to tell, when
         // you've selected a belief, whether its neighbor supports or
         // contradicts it. Structure mode still controls whether it looks
         // different at rest, with nothing selected.
@@ -746,7 +745,7 @@ function ActiveBeliefNode({
   const orbitPhase = useMemo(() => stableUnit(`${node.id}-orbit`) * Math.PI * 2, [node.id]);
   const springScale = useRef(1);
   const vitalitySmooth = useRef(node.vitality);
-  // Click-to-isolate fade — smooth ("싸아악"), not an instant cut, and
+  // Click-to-isolate fade — a smooth, swift swoosh, not an instant cut, and
   // fast enough to feel responsive (~0.4s) without being jarring.
   const visibility = useRef(1);
   const baseColorObj = useMemo(() => new THREE.Color(node.color), [node.color]);
@@ -804,8 +803,8 @@ function ActiveBeliefNode({
     }
 
     // Shrinking slightly as it fades (not just going transparent) is what
-    // sells "싸아악 사라짐" — a dot that's both vanishing and receding,
-    // not a sphere suddenly turning to glass in place.
+    // sells the swift-swoosh disappearance — a dot that's both vanishing
+    // and receding, not a sphere suddenly turning to glass in place.
     const visibilityScale = 0.4 + 0.6 * visibility.current;
     ref.current.scale.setScalar(pulse * springScale.current * vitalityScale * visibilityScale * (1 + flash * 1.6));
     const mat = ref.current.material as THREE.MeshStandardMaterial;
@@ -983,7 +982,7 @@ function BrainScene({
       <pointLight position={[4, 5, 6]} intensity={16} color="#E8DEFF" />
       <pointLight position={[-5, -3, -4]} intensity={7} color="#DCE8FF" />
 
-      {/* 구조 보기 (structureMode): the dormant tissue — dust field, its
+      {/* Structure View (structureMode): the dormant tissue — dust field, its
           glow layers, and the faint tissue-edge lines — fades out
           entirely, leaving just the real belief network (nodes + every
           connection, root and contradiction alike) visible at a glance. */}
@@ -1058,7 +1057,7 @@ export default function NeuralBeliefGraph3D({
   // it just means no cluster haze, never an error.
   clusters?: string[][];
   height?: number;
-  // Starts the dormant dust field already hidden (구조 보기 already on) —
+  // Starts the dormant dust field already hidden (Structure View already on) —
   // for a caller that's already scoped `beliefs` down to a small, specific
   // set (e.g. "just this discovery's constellation"), the dust field isn't
   // a calming backdrop, it's noise competing with the few stars that
@@ -1229,7 +1228,7 @@ export default function NeuralBeliefGraph3D({
             pointerEvents: "none",
           }}
         >
-          드래그로 회전 · 탭하여 선택
+          Drag to rotate · Tap to select
         </div>
 
         <div style={{ position: "absolute", right: 10, top: 10, display: "flex", gap: 8 }}>
@@ -1248,7 +1247,7 @@ export default function NeuralBeliefGraph3D({
               backdropFilter: "blur(6px)",
             }}
           >
-            초기화
+            Reset
           </button>
           <button
             onClick={() => setStructureMode((v) => !v)}
@@ -1265,7 +1264,7 @@ export default function NeuralBeliefGraph3D({
               backdropFilter: "blur(6px)",
             }}
           >
-            구조 보기
+            Structure View
           </button>
         </div>
 
@@ -1293,17 +1292,17 @@ export default function NeuralBeliefGraph3D({
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
               <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
-              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>확신도 {selectedNode.confidence}%</span>
+              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
             </div>
             <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
               {selectedNode.statement}
             </div>
-            <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>근거 {selectedNode.evidenceCount}개</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
 
             {structureMode && selectedCluster && selectedCluster.length >= 3 && (
               <div style={{ marginTop: 6 }}>
                 <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  다른 신념 {selectedCluster.length - 1}개와 함께 서로를 지지하고 있어요
+                  Reinforces {selectedCluster.length - 1} other beliefs, and they support each other
                 </div>
                 <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
                   {selectedCluster
@@ -1337,7 +1336,7 @@ export default function NeuralBeliefGraph3D({
             )}
             {structureMode && selectedContradiction && (
               <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                "{selectedContradiction.statement}"와 긴장 관계에 있어요 — 어느 쪽이 맞는지는 정하지 않아요.
+                In tension with "{selectedContradiction.statement}" — this doesn't decide which one is right.
               </div>
             )}
           </motion.div>
