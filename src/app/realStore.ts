@@ -116,7 +116,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   // counts, never trusted as-is from the model's own guess.
   const rawCandidate = result?.hypothesisCandidate ?? {};
   const candidateBelief = typeof rawCandidate.candidateBelief === "string" ? rawCandidate.candidateBelief.trim() : "";
-  const candidateDomain = typeof rawCandidate.domain === "string" && rawCandidate.domain.trim() ? rawCandidate.domain.trim() : "삶 전반";
+  const candidateDomain = typeof rawCandidate.domain === "string" && rawCandidate.domain.trim() ? rawCandidate.domain.trim() : "Life overall";
   const reasoningSummary = typeof rawCandidate.reasoningSummary === "string" ? rawCandidate.reasoningSummary : "";
   const directness = typeof rawCandidate.directness === "number" ? rawCandidate.directness : 0.4;
   const relation: "supports" | "contradicts" = rawCandidate.relation === "contradicts" ? "contradicts" : "supports";
@@ -130,7 +130,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     typeof rawCandidate.schemaDomainLabelSuggestion === "string" && rawCandidate.schemaDomainLabelSuggestion.trim()
       ? rawCandidate.schemaDomainLabelSuggestion.trim()
       : null;
-  // ACT-style defusion label ("완벽주의 생각") — see analysisFramework's
+  // ACT-style defusion label ("Perfectionism thought") — see analysisFramework's
   // thoughtLabel field doc. Purely a display reframe, so it's fine to just
   // take the model's suggestion as-is rather than re-deriving it.
   const thoughtLabelSuggestion: string | null =

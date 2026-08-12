@@ -232,7 +232,7 @@ export function findContradictionPairs(beliefs: StoredBelief[], connections: Sto
 // ── Rumination-possibility signal (gap-analysis note 4 / Trapnell &
 // Campbell's reflection-vs-rumination distinction) ──────────────────────────
 // Internal-only. This function's return value must never be surfaced as a
-// label, score, or the word "반추"/"rumination" anywhere in the UI — per
+// label, score, or the word "rumination" anywhere in the UI — per
 // the note's own caution, that reads as a diagnostic instrument. The three
 // signals it converges on are exactly the ones the note describes: the
 // same belief's confidence keeps climbing across 3+ sessions, it hasn't

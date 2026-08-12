@@ -104,11 +104,11 @@ export type StoredBelief = {
   // never set from a single entry, and never framed as a diagnosis.
   schemaDomainLabel?: string;
   // Separate from userReaction above: this tracks agreement with this
-  // belief specifically when it surfaces as "오늘의 발견" (the Analysis
-  // page's reflection step), not the permanent "reject from 무의식적 패턴"
+  // belief specifically when it surfaces as "Today's Discovery" (the Analysis
+  // page's reflection step), not the permanent "reject from Unconscious Patterns"
   // action — a belief can be disagreed with here without being hidden.
   discoveryReaction?: "agree" | "disagree" | null;
-  // Disagreeing as "오늘의 발견" now actually asks the model for a genuinely
+  // Disagreeing as "Today's Discovery" now actually asks the model for a genuinely
   // different reading of the same evidence instead of just recording a
   // reason — these track that loop. rejectedStatements accumulates every
   // interpretation the user has already said no to (so the model never
@@ -123,14 +123,14 @@ export type StoredBelief = {
   discoveryExhausted?: boolean;
   discoveryInterpretationOverride?: string;
   // An ACT-style "defusion" label — a short noun phrase naming the thought
-  // as a recurring visitor ("완벽주의 생각") rather than restating it as a
+  // as a recurring visitor ("Perfectionism thought") rather than restating it as a
   // first-person fact. Purely a display reframe alongside `statement`,
   // never a replacement for it — nothing downstream (matching, confidence,
   // evidence) reads this field.
   thoughtLabel?: string;
   // Distanced self-talk (Kross & Ayduk) — the same belief statement restated
-  // in the person's name or 2nd person instead of 1st ("나는 결국 실패할
-  // 것이다" -> "{name}은 결국 실패할 것 같다고 느끼고 있어요"), which measurably
+  // in the person's name or 2nd person instead of 1st ("I'll end up failing"
+  // -> "{name} feels like they'll end up failing"), which measurably
   // creates emotional distance on its own. Purely a display reframe
   // alongside `statement`, same as thoughtLabel — nothing downstream reads it.
   distancedReframe?: string;
@@ -220,7 +220,7 @@ export type StoredHistoryEntry = {
 
 // The "investigate" deep-dive is its own optional sub-object rather than a
 // flag, so a hypothesis either has one to walk through or it doesn't — the
-// "더 깊이 알아보기" button already only renders when this is present.
+// "Dig deeper" button already only renders when this is present.
 export type StoredHypothesisInvestigation = {
   origin: StoredEvidenceQuote;
   originNote: string;
@@ -267,7 +267,7 @@ export type StoredSettings = {
 // top of the one on-device dataset, not real auth.
 export type StoredAccount = { name: string; email: string; password: string };
 
-// Shown on 목표와의 거리 only while the user hasn't set an aspiration yet, and
+// Shown on Distance from Your Goal only while the user hasn't set an aspiration yet, and
 // only ever populated by demo data — real data has nothing to put here until
 // an aspiration is actually set, at which point driftNotes takes over.
 export type AspirationExample = {

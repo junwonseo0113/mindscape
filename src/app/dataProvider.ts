@@ -36,9 +36,9 @@ function saveIsDemoMode(value: boolean) {
   }
 }
 
-// First-time feature tour (생각 말하기/브레인/마인드/기록/프로필) — shown once,
+// First-time feature tour (Speak your mind/Brain/Mind/History/Profile) — shown once,
 // right after onboarding, then never again unless explicitly replayed from
-// 도움말. Separate from onboarding's own "who do you want to be" identity
+// Help. Separate from onboarding's own "who do you want to be" identity
 // question; this one's just "here's what each tab does."
 const TUTORIAL_SEEN_KEY = "mijeong.hasSeenTutorial";
 
@@ -73,7 +73,7 @@ export function useAppData() {
     saveIsDemoMode(value);
   };
 
-  // Replayable (from 도움말), so this takes an explicit value rather than
+  // Replayable (from Help), so this takes an explicit value rather than
   // only ever being settable to true.
   const setHasSeenTutorial = (value: boolean) => {
     setHasSeenTutorialState(value);
