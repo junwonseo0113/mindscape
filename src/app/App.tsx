@@ -3458,6 +3458,7 @@ function ScreenProfile({
   isDemoMode,
   onToggleDemoMode,
   onOpenPaywall,
+  onOpenManageSubscription,
 }: {
   onNavSelect?: (id: string) => void;
   store: Store;
@@ -3465,16 +3466,19 @@ function ScreenProfile({
   isDemoMode: boolean;
   onToggleDemoMode: (v: boolean) => void;
   onOpenPaywall?: () => void;
+  onOpenManageSubscription?: () => void;
 }) {
   const name = store.account?.name || "Anonymous observer";
   const initial = name.charAt(0);
   const firstEntryDate = [...store.history].sort((a, b) => a.date.localeCompare(b.date))[0]?.date;
+  const planLabel = store.proPlan === "monthly" ? "Monthly plan" : store.proPlan === "yearly" ? "Yearly plan" : null;
   const stats = [
     { value: String(store.entryCount), label: "Thoughts logged" },
     { value: String(store.beliefs.length), label: "Beliefs discovered" },
     { value: `${computeStreak(store.history)} days`, label: "Streak" },
   ];
   const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
+    ...(store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
     { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
     { label: "Data & Privacy", onClick: () => onOpenSettings?.("dataPrivacy") },
     { label: "Help", onClick: () => onOpenSettings?.("help") },
@@ -3499,7 +3503,11 @@ function ScreenProfile({
                 <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>PRO</span>
               )}
             </div>
-            {firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: mdFaint }}>With you since {firstEntryDate}</span>}
+            {planLabel ? (
+              <span style={{ ...mono, fontSize: 11.5, color: mdFaint }}>{planLabel}</span>
+            ) : (
+              firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: mdFaint }}>With you since {firstEntryDate}</span>
+            )}
           </div>
         </div>
 
@@ -3721,9 +3729,11 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
 // — every screen that reads AI-derived data (Mind/Analysis tab, Brain Map,
 // AI's Hypotheses, Distance from Your Goal) renders this instead when
 // !store.isPro, rather than showing an empty/broken version of itself. No
-// real billing here — onUpgrade just flips store.isPro (see upgradeToPro in
-// the App shell) — but the screen itself is written as a real paywall would
-// be, so swapping in a payment SDK later only touches that one call site.
+// real billing here — onContinue hands the picked plan to ScreenCheckout,
+// which is the one place that actually flips store.isPro (see
+// upgradeToPro in the App shell) — but both screens are written as a real
+// paywall/checkout would be, so swapping in a payment SDK later only
+// touches ScreenCheckout's submit handler.
 const PRO_FEATURES = [
   { title: "Unconscious Patterns", detail: "See the core beliefs quietly running underneath your words and actions." },
   { title: "Brain Map", detail: "Watch your beliefs light up and connect to each other as a living map." },
@@ -3731,7 +3741,21 @@ const PRO_FEATURES = [
   { title: "Distance from Your Goal", detail: "See the real gap between who you want to become and your actual patterns." },
 ];
 
-function ScreenPaywall({ onBack, onUpgrade }: { onBack?: () => void; onUpgrade?: () => void }) {
+type ProPlan = "monthly" | "yearly";
+
+// Priced like the mental-wellness/self-reflection apps this one sits
+// alongside (Reflectly, Stoic, etc. cluster around $7-13/mo or $40-70/yr) —
+// yearly is the default selection below and priced to read as the
+// obviously better deal (58% cheaper per month than paying monthly), which
+// is what "BEST VALUE" is doing the actual math for, not just asserting.
+const PRO_PLANS: { id: ProPlan; label: string; price: string; period: string; billedNote: string; badge?: string }[] = [
+  { id: "yearly", label: "Yearly", price: "$49.99", period: "/year", billedNote: "$4.17/mo, billed annually", badge: "BEST VALUE" },
+  { id: "monthly", label: "Monthly", price: "$9.99", period: "/month", billedNote: "Billed monthly" },
+];
+
+function ScreenPaywall({ onBack, onContinue }: { onBack?: () => void; onContinue?: (plan: ProPlan) => void }) {
+  const [selected, setSelected] = React.useState<ProPlan>("yearly");
+  const plan = PRO_PLANS.find((p) => p.id === selected)!;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -3757,9 +3781,155 @@ function ScreenPaywall({ onBack, onUpgrade }: { onBack?: () => void; onUpgrade?:
             </div>
           ))}
         </div>
+
+        <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 10 }}>
+          {PRO_PLANS.map((p) => {
+            const active = p.id === selected;
+            return (
+              <div
+                key={p.id} role="button" tabIndex={0} onClick={() => setSelected(p.id)}
+                style={{
+                  position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+                  padding: "16px 18px", borderRadius: 14, backgroundColor: active ? mdAccentSoft : mdCard,
+                  boxShadow: mdCardShadow, border: `1.5px solid ${active ? mdAccent : "transparent"}`,
+                }}
+              >
+                {p.badge && (
+                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#fff", backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
+                    {p.badge}
+                  </span>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${active ? mdAccent : mdDivider}`, backgroundColor: active ? mdAccent : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {active && <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#fff" }} />}
+                  </span>
+                  <div>
+                    <div style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading }}>{p.label}</div>
+                    <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{p.billedNote}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: mdHeading }}>{p.price}</div>
+                  <div style={{ ...sans, fontSize: 11, color: mdFaint }}>{p.period}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={onUpgrade} modernist>Upgrade to Pro</PrimaryBtn>
+        <PrimaryBtn onClick={() => onContinue?.(selected)} modernist>Continue — {plan.price}{plan.period}</PrimaryBtn>
+        <div style={{ ...sans, fontSize: 11, color: mdFaint, textAlign: "center", marginTop: 10 }}>Cancel anytime. No commitment.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 15.5 · Checkout ────────────────────────────────────────────────────
+// The one place that actually calls onSubscribed (which flips store.isPro —
+// see upgradeToPro in the App shell). Card fields are formatted/validated
+// like a real checkout (grouped digits, MM/YY, length checks) but nothing
+// here is sent anywhere or charged — see the disclosure line above the
+// submit button. Swapping in Stripe/RevenueCat later means replacing this
+// screen's submit handler with a real charge call and firing onSubscribed
+// only from its success callback; nothing else in the app would change.
+function formatCardNumber(v: string): string {
+  return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})(?=.)/g, "$1 ");
+}
+function formatExpiry(v: string): string {
+  const digits = v.replace(/\D/g, "").slice(0, 4);
+  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?: () => void; onSubscribed?: () => void }) {
+  const planInfo = PRO_PLANS.find((p) => p.id === plan)!;
+  const [cardNumber, setCardNumber] = React.useState("");
+  const [expiry, setExpiry] = React.useState("");
+  const [cvc, setCvc] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [processing, setProcessing] = React.useState(false);
+
+  const canSubmit = cardNumber.replace(/\s/g, "").length === 16 && /^\d{2}\/\d{2}$/.test(expiry) && cvc.length >= 3 && name.trim().length > 0;
+
+  const submit = () => {
+    if (!canSubmit || processing) return;
+    setProcessing(true);
+    setTimeout(() => { setProcessing(false); onSubscribed?.(); }, 900);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 14 }}>Payment</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
+          <div>
+            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>미정 Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
+          </div>
+          <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 12, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
+        </div>
+
+        <TextField label="Card number" value={cardNumber} onChange={(v) => setCardNumber(formatCardNumber(v))} placeholder="4242 4242 4242 4242" />
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ flex: 1 }}><TextField label="Expiry" value={expiry} onChange={(v) => setExpiry(formatExpiry(v))} placeholder="MM/YY" /></div>
+          <div style={{ flex: 1 }}><TextField label="CVC" value={cvc} onChange={(v) => setCvc(v.replace(/\D/g, "").slice(0, 4))} placeholder="123" /></div>
+        </div>
+        <TextField label="Name on card" value={name} onChange={setName} placeholder="Jane Doe" />
+
+        <div style={{ ...sans, fontSize: 11, color: mdFaint, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          This is a demo checkout — no real card is charged.
+        </div>
+      </div>
+      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
+        <PrimaryBtn onClick={submit} disabled={!canSubmit || processing} modernist>{processing ? "Processing…" : `Subscribe — ${planInfo.price}${planInfo.period}`}</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 15.7 · Manage subscription ─────────────────────────────────────────
+// Profile's settings-list entry point once isPro is true — same armed-
+// confirmation pattern ScreenDataPrivacy uses for "Delete all my data,"
+// since canceling is the same kind of one-way, worth-a-pause action.
+// Canceling drops back to free immediately (no real billing period to
+// honor) rather than pretending to schedule an end-of-period cancellation.
+function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; onBack?: () => void; onCancel?: () => void }) {
+  const [armed, setArmed] = React.useState(false);
+  const planInfo = PRO_PLANS.find((p) => p.id === store.proPlan) ?? PRO_PLANS[0];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
+          <div>
+            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>미정 Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
+          </div>
+          <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 11, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
+        </div>
+
+        <div style={{ marginTop: 28 }}>
+          <div
+            role="button" tabIndex={0}
+            onClick={() => (armed ? onCancel?.() : setArmed(true))}
+            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
+          >
+            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
+              {armed ? "Are you sure? Tap again to cancel" : "Cancel subscription"}
+            </span>
+          </div>
+          {armed && (
+            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              You'll immediately lose access to your Brain Map, hypotheses, and analysis. Your recorded entries stay right where they are.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3860,13 +4030,23 @@ export default function App() {
   };
   // Mocked upgrade — no real billing wired up yet, just flips the flag that
   // gates analysis/belief-map/hypotheses/drift (see the "isPro" case guards
-  // in the screen switch below and ScreenPaywall). Real payment processing
-  // (App Store/Play Store IAP or a web checkout) would replace this single
-  // call with a purchase-success callback; nothing else in the app would
-  // need to change.
-  const upgradeToPro = () => {
-    updateStore((prev) => ({ ...prev, isPro: true }));
+  // in the screen switch below), called only from ScreenCheckout's
+  // onSubscribed once its (also mocked) card form validates. Real payment
+  // processing (App Store/Play Store IAP or a web checkout) would replace
+  // that one call site with a purchase-success callback; nothing else in
+  // the app would need to change.
+  const upgradeToPro = (plan: ProPlan) => {
+    updateStore((prev) => ({ ...prev, isPro: true, proPlan: plan }));
   };
+  const cancelPro = () => {
+    updateStore((prev) => ({ ...prev, isPro: false, proPlan: undefined }));
+  };
+  // Where checkout (and the paywall itself, when reached as its own "paywall"
+  // route rather than inline-gated) returns to on cancel/back or a
+  // successful subscribe. Set right before navigating into that flow —
+  // see each onContinue/onOpenPaywall/onUpgrade call site below.
+  const [paywallReturnTo, setPaywallReturnTo] = React.useState("home");
+  const [checkoutPlan, setCheckoutPlan] = React.useState<ProPlan>("yearly");
   // Distinct from rejectBelief above: reacting to a belief as "Today's
   // Discovery" never hides it from "Unconscious Patterns" — only the dedicated reject
   // link there does that.
@@ -4008,10 +4188,10 @@ export default function App() {
     case "brainmap": content = store.isPro ? (
       <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />
     ) : (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("brainmap"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
     case "analysis": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("analysis"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("analysis"); setScreen("checkout"); }} />
     ) : (
       <ScreenAnalysis
         onNavSelect={goToTab}
@@ -4083,26 +4263,26 @@ export default function App() {
         error={analysisError}
         showUpsell={!store.isPro && !analysisError}
         onDone={() => setScreen("home")}
-        onUpgrade={() => { upgradeToPro(); setScreen("home"); }}
+        onUpgrade={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
       />
     ); break;
     case "beliefs": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("beliefs"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("beliefs"); setScreen("checkout"); }} />
     ) : (
       <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />
     ); break;
     case "assumptions": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("assumptions"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("assumptions"); setScreen("checkout"); }} />
     ) : (
       <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />
     ); break;
     case "drift": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("drift"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("drift"); setScreen("checkout"); }} />
     ) : (
       <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />
     ); break;
     case "aspirationSetup": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("aspirationSetup"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("aspirationSetup"); setScreen("checkout"); }} />
     ) : (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
@@ -4114,12 +4294,12 @@ export default function App() {
       />
     ); break;
     case "hypotheses": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("hypotheses"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypotheses"); setScreen("checkout"); }} />
     ) : (
       <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />
     ); break;
     case "hypothesisDetail": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("hypothesisDetail"); }} />
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypothesisDetail"); setScreen("checkout"); }} />
     ) : (
       <ScreenHypothesisDetail
         index={hypothesisIndex}
@@ -4136,7 +4316,7 @@ export default function App() {
     ); break;
     case "investigate": {
       if (!store.isPro) {
-        content = <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("investigate"); }} />;
+        content = <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("investigate"); setScreen("checkout"); }} />;
         break;
       }
       const investigatedHypothesis = store.hypotheses[hypothesisIndex] ?? store.hypotheses[0];
@@ -4162,10 +4342,30 @@ export default function App() {
         isDemoMode={isDemoMode}
         onToggleDemoMode={setIsDemoMode}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
-        onOpenPaywall={() => setScreen("paywall")}
+        onOpenPaywall={() => { setPaywallReturnTo("profile"); setScreen("paywall"); }}
+        onOpenManageSubscription={() => setScreen("manageSubscription")}
       />
     ); break;
-    case "paywall": content = <ScreenPaywall onBack={() => setScreen("profile")} onUpgrade={() => { upgradeToPro(); setScreen("profile"); }} />; break;
+    case "paywall": content = (
+      <ScreenPaywall
+        onBack={() => setScreen(paywallReturnTo)}
+        onContinue={(plan) => { setCheckoutPlan(plan); setScreen("checkout"); }}
+      />
+    ); break;
+    case "checkout": content = (
+      <ScreenCheckout
+        plan={checkoutPlan}
+        onBack={() => setScreen(paywallReturnTo)}
+        onSubscribed={() => { upgradeToPro(checkoutPlan); setScreen(paywallReturnTo); }}
+      />
+    ); break;
+    case "manageSubscription": content = (
+      <ScreenManageSubscription
+        store={store}
+        onBack={() => setScreen("profile")}
+        onCancel={() => { cancelPro(); setScreen("profile"); }}
+      />
+    ); break;
     case "notifications": content = (
       <ScreenNotificationSettings
         settings={store.settings}

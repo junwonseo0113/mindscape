@@ -301,8 +301,12 @@ export type Store = {
   // connections/drift ever get created. Pro unlocks the analysis call
   // itself, not just its display, so a free store's beliefs/hypotheses
   // arrays stay genuinely empty rather than hidden-but-populated. Mocked
-  // locally (no real billing) — see ScreenPaywall's onUpgrade in App.tsx.
+  // locally (no real billing) — see ScreenCheckout's onSubscribed in App.tsx.
   isPro: boolean;
+  // Which plan a mock Pro upgrade was made under — cosmetic only (drives
+  // Profile's "Yearly plan" text and ScreenManageSubscription) until real
+  // billing exists. Always undefined while isPro is false.
+  proPlan?: "monthly" | "yearly";
 };
 
 export function formatDateDots(d: Date) {

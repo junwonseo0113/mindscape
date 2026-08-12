@@ -253,4 +253,5 @@ export const DEMO_STORE: Store = {
   // gated behind Pro (belief map, hypotheses, distance from your goal) —
   // never itself gated.
   isPro: true,
+  proPlan: "yearly",
 };
