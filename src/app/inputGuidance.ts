@@ -15,29 +15,39 @@
 //   take your time," the text equivalent of a listener's "mm-hmm."
 
 const OPEN_ENDED_PROMPTS = [
-  "생각이 잘 안 잡혀도 괜찮아요. 떠오르는 대로 아무거나 적어보세요.",
-  "정리하지 않아도 괜찮아요. 지금 떠오르는 말부터 시작해보세요.",
-  "여기서 멈추셔도 괜찮고, 조금 더 이어가셔도 괜찮아요.",
+  "It's okay if nothing's coming together yet. Just write down whatever comes to mind.",
+  "You don't have to organize it. Start with whatever word comes first.",
+  "It's fine to stop here, and it's fine to keep going a little more.",
 ];
 
 const GRANULARITY_PROMPTS = [
-  "그 감정, 조금 더 구체적인 말로 표현하면 뭐가 어울릴까요?",
-  "그때 느낀 걸 조금만 더 풀어서 적어봐도 좋아요.",
+  "If you put that feeling into a more specific word, what would fit?",
+  "It might help to unpack what you felt in that moment a little more.",
 ];
 
 const BACKCHANNEL_PROMPTS = [
-  "편하게 이어가셔도 돼요.",
-  "듣고 있어요. 천천히 이어가세요.",
+  "Take your time, whenever you're ready.",
+  "Still here. Keep going at your own pace.",
 ];
 
 // Deliberately small and coarse — this only has to catch "an emotion word
 // showed up," not classify which one. computeLanguageObservation's cognitive
 // verbs are a different signal (self-directed thinking, not feeling), so
-// this stays its own short list rather than reusing that one.
+// this stays its own short list rather than reusing that one. Matched at
+// word boundaries so short entries like "mad" or "low" don't fire inside
+// unrelated longer words.
 const EMOTION_KEYWORDS = [
-  "불안", "슬프", "화나", "짜증", "답답", "외로", "무섭", "두렵", "서운",
-  "부끄럽", "죄책", "자책", "우울", "힘들", "지치", "억울", "질투", "허무", "막막",
+  "anxious", "anxiety", "sad", "sadness", "angry", "mad", "irritated",
+  "frustrated", "frustrating", "lonely", "scared", "afraid", "fear",
+  "hurt", "ashamed", "shame", "embarrassed", "guilty", "guilt",
+  "depressed", "down", "tired", "exhausted", "unfair", "jealous",
+  "envious", "empty", "numb", "overwhelmed", "stuck", "hopeless",
 ];
+
+const EMOTION_KEYWORD_REGEX = new RegExp(
+  `\\b(${EMOTION_KEYWORDS.join("|")})\\b`,
+  "i"
+);
 
 function pickFrom(list: string[]): string {
   return list[Math.floor(Math.random() * list.length)];
@@ -46,9 +56,10 @@ function pickFrom(list: string[]): string {
 export function pickInputGuidance(currentText: string): string {
   const trimmed = currentText.trim();
   if (!trimmed) return pickFrom(OPEN_ENDED_PROMPTS);
-  if (trimmed.length < 40 && EMOTION_KEYWORDS.some((k) => trimmed.includes(k))) {
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount <= 6 && EMOTION_KEYWORD_REGEX.test(trimmed)) {
     return pickFrom(GRANULARITY_PROMPTS);
   }
-  if (trimmed.length < 15) return pickFrom(OPEN_ENDED_PROMPTS);
+  if (wordCount <= 2) return pickFrom(OPEN_ENDED_PROMPTS);
   return pickFrom(BACKCHANNEL_PROMPTS);
 }
