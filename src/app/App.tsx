@@ -2132,6 +2132,33 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
   );
 }
 
+// ── Screen 6.6 · Soft paywall (one-time nudge) ────────────────────────────────
+// Fires exactly once, replacing the usual "Got it" beat right after the free
+// tier's 3rd recorded entry (see UPSELL_PROMPT_AT_ENTRY_COUNT and the
+// "think" case's onDone in the App shell) — a deliberate, one-time ask
+// rather than the quiet recurring footnote ScreenThinkComplete's showUpsell
+// already adds to every free entry. Never repeats after this: the App shell
+// marks hasSeenUpgradePrompt true the instant this screen is shown, whether
+// the person taps through to plans or dismisses with "Not now."
+function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          You've recorded three thoughts now.
+        </div>
+        <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+          That's usually enough for the first patterns to start showing. Want Pro to show you what's underneath them?
+        </div>
+      </div>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <PrimaryBtn onClick={onSeePlans}>See Pro plans</PrimaryBtn>
+        <GhostBtn onClick={onDismiss}>Not now</GhostBtn>
+      </div>
+    </div>
+  );
+}
+
 // ── Screen 6.5 · Session summary (Feature 2) ─────────────────────────────────
 // Shown once, right after a successful analysis, before landing on the
 // Analysis tab — a quiet "here's what was just observed about how you
@@ -3743,6 +3770,13 @@ const PRO_FEATURES = [
 
 type ProPlan = "monthly" | "yearly";
 
+// Which free-tier entry triggers ScreenSoftPaywall — see the "think" case's
+// onDone in the App shell and hasSeenUpgradePrompt in types.ts. 3 gives the
+// free experience a little room to prove itself (a single entry has nothing
+// to show a pattern in) before asking, without waiting so long the ask
+// feels disconnected from what just happened.
+const UPSELL_PROMPT_AT_ENTRY_COUNT = 3;
+
 // Priced like the mental-wellness/self-reflection apps this one sits
 // alongside (Reflectly, Stoic, etc. cluster around $7-13/mo or $40-70/yr) —
 // yearly is the default selection below and priced to read as the
@@ -4221,8 +4255,16 @@ export default function App() {
             // Free tier: no /api/analyze call — just record the entry (see
             // appendUnanalyzedEntry) and acknowledge it, same "Got it" beat
             // Pro sees when the model itself finds nothing new to report.
-            updateStore((prev) => appendUnanalyzedEntry(prev, text));
-            setScreen("thinkComplete");
+            // The one-time soft-paywall ask (ScreenSoftPaywall) preempts
+            // that beat exactly once, right as the 3rd free entry lands —
+            // decided off the pre-update entryCount since this is a
+            // synchronous read within the same event, not a stale closure.
+            const isUpsellMoment = store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
+            updateStore((prev) => {
+              const appended = appendUnanalyzedEntry(prev, text);
+              return isUpsellMoment ? { ...appended, hasSeenUpgradePrompt: true } : appended;
+            });
+            setScreen(isUpsellMoment ? "softPaywall" : "thinkComplete");
           }
         }}
       />
@@ -4264,6 +4306,12 @@ export default function App() {
         showUpsell={!store.isPro && !analysisError}
         onDone={() => setScreen("home")}
         onUpgrade={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
+      />
+    ); break;
+    case "softPaywall": content = (
+      <ScreenSoftPaywall
+        onSeePlans={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
+        onDismiss={() => setScreen("home")}
       />
     ); break;
     case "beliefs": content = !store.isPro ? (

@@ -307,6 +307,13 @@ export type Store = {
   // Profile's "Yearly plan" text and ScreenManageSubscription) until real
   // billing exists. Always undefined while isPro is false.
   proPlan?: "monthly" | "yearly";
+  // One-time soft-paywall interstitial (ScreenSoftPaywall in App.tsx) —
+  // fires once, right after the free tier's 3rd recorded entry, then never
+  // again regardless of how many more free entries follow. Set the instant
+  // it's shown (not just "would have shown"), so dismissing it with "Not
+  // now" still permanently retires it — this is a single nudge, not a
+  // recurring nag.
+  hasSeenUpgradePrompt?: boolean;
 };
 
 export function formatDateDots(d: Date) {

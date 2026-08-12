@@ -55,6 +55,7 @@ export function loadStore(): Store {
       pendingBeliefCandidates: Array.isArray(parsed.pendingBeliefCandidates) ? parsed.pendingBeliefCandidates : [],
       isPro: typeof parsed.isPro === "boolean" ? parsed.isPro : false,
       proPlan: parsed.proPlan === "monthly" || parsed.proPlan === "yearly" ? parsed.proPlan : undefined,
+      hasSeenUpgradePrompt: typeof parsed.hasSeenUpgradePrompt === "boolean" ? parsed.hasSeenUpgradePrompt : false,
     };
   } catch {
     return emptyStore();
