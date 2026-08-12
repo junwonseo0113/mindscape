@@ -249,4 +249,8 @@ export const DEMO_STORE: Store = {
   settings: { dailyReminder: true, newHypothesisAlert: true, weeklySummary: false },
   account: null,
   entryCount: 47,
+  // Demo Mode exists to showcase the full feature set, including everything
+  // gated behind Pro (belief map, hypotheses, distance from your goal) —
+  // never itself gated.
+  isPro: true,
 };

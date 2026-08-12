@@ -53,6 +53,7 @@ export function loadStore(): Store {
       account: parsed.account && typeof parsed.account === "object" ? parsed.account : null,
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
       pendingBeliefCandidates: Array.isArray(parsed.pendingBeliefCandidates) ? parsed.pendingBeliefCandidates : [],
+      isPro: typeof parsed.isPro === "boolean" ? parsed.isPro : false,
     };
   } catch {
     return emptyStore();
@@ -93,6 +94,28 @@ function parseInterpretation(raw: any): ThoughtInterpretation {
       towardOrAway: towardOrAway === "toward" || towardOrAway === "away" ? towardOrAway : "unclear",
       explanation: typeof raw?.valueDirection?.explanation === "string" ? raw.valueDirection.explanation : "",
     },
+  };
+}
+
+// Free tier: no /api/analyze call at all, so no belief/hypothesis/connection
+// ever gets created from this entry — recording is the entire free-tier
+// feature. languageObservation is still computed (it's a local word-count
+// pass, not an LLM call — see cognitiveLexicon.ts) since it's part of
+// "recording," not "analysis." Kept as a separate function rather than a
+// branch inside mergeAnalysisIntoStore so the free path can never
+// accidentally pick up an analysis field.
+export function appendUnanalyzedEntry(prev: Store, rawText: string): Store {
+  const entryId = `entry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const historyEntry: StoredHistoryEntry = {
+    id: entryId,
+    date: formatDateDots(new Date()),
+    text: rawText,
+    languageObservation: computeLanguageObservation(rawText),
+  };
+  return {
+    ...prev,
+    history: [...prev.history, historyEntry].slice(-50),
+    entryCount: prev.entryCount + 1,
   };
 }
 

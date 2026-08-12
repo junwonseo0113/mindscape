@@ -17,7 +17,7 @@ import {
   emptyStore,
   formatDateDots,
 } from "./types";
-import { mergeAnalysisIntoStore } from "./realStore";
+import { appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
@@ -903,7 +903,35 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
         </div>
 
         <div data-tutorial="brain-card" style={{ marginTop: 28 }}>
-          <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} modernist />
+          {store.isPro ? (
+            <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} modernist />
+          ) : (
+            // Locked teaser instead of quietly rendering an always-empty
+            // brain — a free store's beliefs/connections never populate
+            // (see appendUnanalyzedEntry in realStore.ts), so without this
+            // a free user would just see "0 beliefs" forever with no
+            // explanation why. Routes through onOpenBrainMap/"brainmap"
+            // rather than a separate handler — that route already renders
+            // ScreenPaywall for a non-Pro store.
+            <motion.div
+              role="button" tabIndex={0} onClick={onOpenBrainMap} whileTap={{ scale: 0.98, opacity: 0.92 }}
+              style={{
+                height: 336, borderRadius: 30, backgroundColor: mdCard, boxShadow: mdCardShadow, cursor: "pointer",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
+              }}
+            >
+              <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: mdAccentSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <rect x="4.5" y="9" width="11" height="8" rx="2" stroke={mdAccentText} strokeWidth="1.5" />
+                  <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={mdAccentText} strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div style={{ ...sans, fontSize: 15, fontWeight: 800, color: mdHeading }}>Unlock your Brain Map</div>
+              <div style={{ ...sans, fontSize: 12.5, color: mdBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
+                Upgrade to Pro to see your unconscious beliefs light up and connect.
+              </div>
+            </motion.div>
+          )}
         </div>
 
         <div data-tutorial="think-card" style={{ marginTop: 16 }}>
@@ -2058,11 +2086,13 @@ function ScreenProcessing({
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-// Only reached now when there's nothing to show in the Analysis tab yet —
-// a real result routes straight to "analysis" instead (see the app
-// shell's onDone for the "processing" screen). Just the error state and a
-// quiet fallback acknowledgment.
-function ScreenThinkComplete({ error, onDone }: { error?: string; onDone?: () => void }) {
+// Reached two ways now: a Pro entry where the model itself found nothing new
+// to report, or any free-tier entry (recording is the entire free feature —
+// see appendUnanalyzedEntry in realStore.ts and the "think" case's onDone).
+// showUpsell distinguishes the two only by adding one extra line and a CTA;
+// the core "Got it" acknowledgment is identical either way, since a free
+// entry isn't a lesser version of a Pro one, just an unanalyzed one.
+function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
@@ -2083,6 +2113,15 @@ function ScreenThinkComplete({ error, onDone }: { error?: string; onDone?: () =>
             <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
               Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
             </div>
+            {showUpsell && (
+              <div
+                role="button" tabIndex={0} onClick={onUpgrade}
+                style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
+              >
+                <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
+                <div style={{ ...sans, fontSize: 12.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>Upgrade to Pro to turn your record into unconscious beliefs, connections, and hypotheses.</div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -3418,12 +3457,14 @@ function ScreenProfile({
   onOpenSettings,
   isDemoMode,
   onToggleDemoMode,
+  onOpenPaywall,
 }: {
   onNavSelect?: (id: string) => void;
   store: Store;
   onOpenSettings?: (screen: "notifications" | "dataPrivacy" | "help") => void;
   isDemoMode: boolean;
   onToggleDemoMode: (v: boolean) => void;
+  onOpenPaywall?: () => void;
 }) {
   const name = store.account?.name || "Anonymous observer";
   const initial = name.charAt(0);
@@ -3452,10 +3493,32 @@ function ScreenProfile({
             {initial}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: mdHeading }}>{name}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: mdHeading }}>{name}</span>
+              {store.isPro && (
+                <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>PRO</span>
+              )}
+            </div>
             {firstEntryDate && <span style={{ ...mono, fontSize: 11.5, color: mdFaint }}>With you since {firstEntryDate}</span>}
           </div>
         </div>
+
+        {!store.isPro && (
+          <motion.div
+            role="button" tabIndex={0} onClick={onOpenPaywall} whileTap={{ opacity: 0.6 }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 12,
+              backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", boxShadow: mdCardShadow, marginBottom: 14,
+              borderLeft: `2px solid ${mdAccent}`,
+            }}
+          >
+            <div>
+              <div style={{ ...sans, fontSize: 14, fontWeight: 800, color: mdHeading }}>Upgrade to Pro</div>
+              <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 2 }}>Unlock your Brain Map, hypotheses, and more</div>
+            </div>
+            <span style={{ color: mdAccentText, fontSize: 18 }}>›</span>
+          </motion.div>
+        )}
 
         <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 14 }}>
           {stats.map((s) => (
@@ -3653,6 +3716,55 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
   );
 }
 
+// ── Screen 15 · Paywall ───────────────────────────────────────────────────────
+// Free tier only records entries (see appendUnanalyzedEntry in realStore.ts)
+// — every screen that reads AI-derived data (Mind/Analysis tab, Brain Map,
+// AI's Hypotheses, Distance from Your Goal) renders this instead when
+// !store.isPro, rather than showing an empty/broken version of itself. No
+// real billing here — onUpgrade just flips store.isPro (see upgradeToPro in
+// the App shell) — but the screen itself is written as a real paywall would
+// be, so swapping in a payment SDK later only touches that one call site.
+const PRO_FEATURES = [
+  { title: "Unconscious Patterns", detail: "See the core beliefs quietly running underneath your words and actions." },
+  { title: "Brain Map", detail: "Watch your beliefs light up and connect to each other as a living map." },
+  { title: "AI's Hypotheses", detail: "Get higher-level theories that cross multiple beliefs, and refine them together." },
+  { title: "Distance from Your Goal", detail: "See the real gap between who you want to become and your actual patterns." },
+];
+
+function ScreenPaywall({ onBack, onUpgrade }: { onBack?: () => void; onUpgrade?: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>
+          Recording is free.<br />Understanding the pattern isn't yet.
+        </div>
+        <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 10, lineHeight: 1.6, wordBreak: "keep-all" }}>
+          Every thought you speak is already being kept, free. Pro turns that record into the unconscious beliefs, connections, and hypotheses behind it.
+        </div>
+
+        <div style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
+          {PRO_FEATURES.map((f) => (
+            <div key={f.title} style={{ display: "flex", gap: 12, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: mdAccentSoft, color: mdAccentText, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>✓</span>
+              <div>
+                <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>{f.title}</div>
+                <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{f.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
+        <PrimaryBtn onClick={onUpgrade} modernist>Upgrade to Pro</PrimaryBtn>
+      </div>
+    </div>
+  );
+}
+
 // On a real phone, the fixed 393×852 "device mockup" frame below (rounded
 // corners, drop shadow, centered on a desktop backdrop) is exactly wrong —
 // it reads as a small floating box with wasted padding around it instead of
@@ -3745,6 +3857,15 @@ export default function App() {
       ...prev,
       beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, userReaction: "rejected" as const } : b)),
     }));
+  };
+  // Mocked upgrade — no real billing wired up yet, just flips the flag that
+  // gates analysis/belief-map/hypotheses/drift (see the "isPro" case guards
+  // in the screen switch below and ScreenPaywall). Real payment processing
+  // (App Store/Play Store IAP or a web checkout) would replace this single
+  // call with a purchase-success callback; nothing else in the app would
+  // need to change.
+  const upgradeToPro = () => {
+    updateStore((prev) => ({ ...prev, isPro: true }));
   };
   // Distinct from rejectBelief above: reacting to a belief as "Today's
   // Discovery" never hides it from "Unconscious Patterns" — only the dedicated reject
@@ -3884,8 +4005,14 @@ export default function App() {
         store={store}
       />
     ); break;
-    case "brainmap": content = <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />; break;
-    case "analysis": content = (
+    case "brainmap": content = store.isPro ? (
+      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />
+    ) : (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("brainmap"); }} />
+    ); break;
+    case "analysis": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("analysis"); }} />
+    ) : (
       <ScreenAnalysis
         onNavSelect={goToTab}
         store={store}
@@ -3902,7 +4029,24 @@ export default function App() {
         reinterpretingKey={reinterpretingKey}
       />
     ); break;
-    case "think": content = <ScreenThink onBack={() => setScreen("home")} onDone={(text) => { setThinkText(text); setAnalysisError(""); setScreen("processing"); }} />; break;
+    case "think": content = (
+      <ScreenThink
+        onBack={() => setScreen("home")}
+        onDone={(text) => {
+          setThinkText(text);
+          setAnalysisError("");
+          if (store.isPro) {
+            setScreen("processing");
+          } else {
+            // Free tier: no /api/analyze call — just record the entry (see
+            // appendUnanalyzedEntry) and acknowledge it, same "Got it" beat
+            // Pro sees when the model itself finds nothing new to report.
+            updateStore((prev) => appendUnanalyzedEntry(prev, text));
+            setScreen("thinkComplete");
+          }
+        }}
+      />
+    ); break;
     case "processing": content = (
       <ScreenProcessing
         text={thinkText}
@@ -3934,11 +4078,32 @@ export default function App() {
       />
     ); break;
     case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("analysis")} />; break;
-    case "thinkComplete": content = <ScreenThinkComplete error={analysisError} onDone={() => setScreen("home")} />; break;
-    case "beliefs": content = <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />; break;
-    case "assumptions": content = <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />; break;
-    case "drift": content = <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />; break;
-    case "aspirationSetup": content = (
+    case "thinkComplete": content = (
+      <ScreenThinkComplete
+        error={analysisError}
+        showUpsell={!store.isPro && !analysisError}
+        onDone={() => setScreen("home")}
+        onUpgrade={() => { upgradeToPro(); setScreen("home"); }}
+      />
+    ); break;
+    case "beliefs": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("beliefs"); }} />
+    ) : (
+      <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />
+    ); break;
+    case "assumptions": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("assumptions"); }} />
+    ) : (
+      <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />
+    ); break;
+    case "drift": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("drift"); }} />
+    ) : (
+      <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />
+    ); break;
+    case "aspirationSetup": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("aspirationSetup"); }} />
+    ) : (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
         onBack={() => setScreen("drift")}
@@ -3948,8 +4113,14 @@ export default function App() {
         }}
       />
     ); break;
-    case "hypotheses": content = <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />; break;
-    case "hypothesisDetail": content = (
+    case "hypotheses": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("hypotheses"); }} />
+    ) : (
+      <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />
+    ); break;
+    case "hypothesisDetail": content = !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("hypothesisDetail"); }} />
+    ) : (
       <ScreenHypothesisDetail
         index={hypothesisIndex}
         store={store}
@@ -3964,6 +4135,10 @@ export default function App() {
       />
     ); break;
     case "investigate": {
+      if (!store.isPro) {
+        content = <ScreenPaywall onBack={() => setScreen("home")} onUpgrade={() => { upgradeToPro(); setScreen("investigate"); }} />;
+        break;
+      }
       const investigatedHypothesis = store.hypotheses[hypothesisIndex] ?? store.hypotheses[0];
       content = investigatedHypothesis?.investigate ? (
         <ScreenInvestigate investigate={investigatedHypothesis.investigate} onBack={() => setScreen(investigateReturnTo)} />
@@ -3987,8 +4162,10 @@ export default function App() {
         isDemoMode={isDemoMode}
         onToggleDemoMode={setIsDemoMode}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
+        onOpenPaywall={() => setScreen("paywall")}
       />
     ); break;
+    case "paywall": content = <ScreenPaywall onBack={() => setScreen("profile")} onUpgrade={() => { upgradeToPro(); setScreen("profile"); }} />; break;
     case "notifications": content = (
       <ScreenNotificationSettings
         settings={store.settings}

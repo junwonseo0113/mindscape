@@ -296,6 +296,13 @@ export type Store = {
   // PendingBeliefCandidate. Internal bookkeeping only; no screen renders
   // this directly.
   pendingBeliefCandidates?: PendingBeliefCandidate[];
+  // Free tier only records entries (see appendUnanalyzedEntry in
+  // realStore.ts) — no AI analysis call, so no beliefs/hypotheses/
+  // connections/drift ever get created. Pro unlocks the analysis call
+  // itself, not just its display, so a free store's beliefs/hypotheses
+  // arrays stay genuinely empty rather than hidden-but-populated. Mocked
+  // locally (no real billing) — see ScreenPaywall's onUpgrade in App.tsx.
+  isPro: boolean;
 };
 
 export function formatDateDots(d: Date) {
@@ -319,5 +326,6 @@ export function emptyStore(): Store {
     settings: defaultSettings(),
     account: null,
     entryCount: 0,
+    isPro: false,
   };
 }
