@@ -731,59 +731,75 @@ type TutorialStep = {
   navTo?: "analysis" | "history" | "profile";
 };
 
-const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    screen: "home",
-    target: "brain-card",
-    title: "This brain is going to become you",
-    body: "Every time you speak, a new point appears — and the more a pattern repeats, the more brightly that spot glows.",
-  },
-  {
-    screen: "home",
-    target: "think-card",
-    title: "Just say it, however it comes out",
-    body: "Something that happened today, a thought that popped up — leave it as is, no need to organize it. Voice or text both work.",
-  },
-  {
-    screen: "home",
-    target: "nav-analysis",
-    title: "Check patterns in Mind",
-    body: "We organize the patterns that keep showing up across what you've recorded. Want to tap in and take a look?",
-    navTo: "analysis",
-  },
-  {
-    screen: "analysis",
-    target: "today-discovery",
-    title: "Today's discovery",
-    body: "This is where we show you beliefs that keep repeating without you noticing. Not a diagnosis — just an observation, as-is.",
-  },
-  {
-    screen: "analysis",
-    target: "nav-history",
-    title: "See past thoughts in History",
-    body: "They're gathered here by the date you spoke them. Want to tap in and take a look?",
-    navTo: "history",
-  },
-  {
-    screen: "history",
-    target: "history-list",
-    title: "Your past thoughts gather here",
-    body: "You can open any of them back up whenever you're curious.",
-  },
-  {
-    screen: "history",
-    target: "nav-profile",
-    title: "See your journey in Profile",
-    body: "You can see everything you've built up at a glance. Want to tap in and take a look?",
-    navTo: "profile",
-  },
-  {
-    screen: "profile",
-    target: "profile-stats",
-    title: "Your journey builds up here",
-    body: "You can track things like questions you've engaged with, shifts in your thinking, and your streak of days showing up.",
-  },
-];
+// A function of isPro, not a static list — free tier lands on ScreenPaywall
+// instead of the real ScreenAnalysis for the "analysis" step, so that one
+// step needs different copy pointing at the paywall's feature list instead
+// of the (Pro-only) real discovery card. Same target key ("today-discovery")
+// exists on both — see the paywall's own data-tutorial. Everything else is
+// identical either way; recomputed via useMemo in the App shell whenever
+// isPro changes so a mid-tour upgrade doesn't leave stale copy in place.
+function buildTutorialSteps(isPro: boolean): TutorialStep[] {
+  return [
+    {
+      screen: "home",
+      target: "brain-card",
+      title: "This brain is going to become you",
+      body: "Every time you speak, a new point appears — and the more a pattern repeats, the more brightly that spot glows.",
+    },
+    {
+      screen: "home",
+      target: "think-card",
+      title: "Just say it, however it comes out",
+      body: "Something that happened today, a thought that popped up — leave it as is, no need to organize it. Voice or text both work.",
+    },
+    {
+      screen: "home",
+      target: "nav-analysis",
+      title: "Check patterns in Mind",
+      body: "We organize the patterns that keep showing up across what you've recorded. Want to tap in and take a look?",
+      navTo: "analysis",
+    },
+    isPro
+      ? {
+          screen: "analysis",
+          target: "today-discovery",
+          title: "Today's discovery",
+          body: "This is where we show you beliefs that keep repeating without you noticing. Not a diagnosis — just an observation, as-is.",
+        }
+      : {
+          screen: "analysis",
+          target: "today-discovery",
+          title: "This is what Pro unlocks",
+          body: "Recording is always free. Once you're subscribed, this is where your recorded thoughts turn into beliefs, connections, and hypotheses like these.",
+        },
+    {
+      screen: "analysis",
+      target: "nav-history",
+      title: "See past thoughts in History",
+      body: "They're gathered here by the date you spoke them. Want to tap in and take a look?",
+      navTo: "history",
+    },
+    {
+      screen: "history",
+      target: "history-list",
+      title: "Your past thoughts gather here",
+      body: "You can open any of them back up whenever you're curious.",
+    },
+    {
+      screen: "history",
+      target: "nav-profile",
+      title: "See your journey in Profile",
+      body: "You can see everything you've built up at a glance. Want to tap in and take a look?",
+      navTo: "profile",
+    },
+    {
+      screen: "profile",
+      target: "profile-stats",
+      title: "Your journey builds up here",
+      body: "You can track things like questions you've engaged with, shifts in your thinking, and your streak of days showing up.",
+    },
+  ];
+}
 
 // Re-measures on step/screen change and on resize, plus one short retry —
 // the target it's looking for may not have mounted yet the instant a new
@@ -836,8 +852,27 @@ function TutorialOverlay({
 
   const pad = 6;
   const spot = { top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 };
-  const FRAME_H = 852;
-  const tooltipBelow = spot.top + spot.height + 190 < FRAME_H;
+  // Was a hardcoded 852 (the desktop device-mockup's fixed height) — wrong
+  // on mobile, where the frame renders full-bleed at 100dvh (see the app
+  // shell's frameRef div), so a real phone's actual height could be well
+  // under or over 852 and this "should the tooltip go above or below"
+  // math would place it off-screen. Measuring the real frame gets both
+  // modes right with the same formula.
+  const FRAME_H = frameRef.current?.getBoundingClientRect().height ?? 852;
+  // ~190 is the tooltip's own approximate rendered height (title + 2-3
+  // lines of body + button) — no ref-measurement needed for a card this
+  // predictable in shape, and it's already the threshold the "does it fit
+  // below" check used before this fix. A spotlight target that's short
+  // (a card, a nav icon) always clears one side or the other; one that
+  // spans nearly the full screen (an empty full-height list, e.g.
+  // "history-list" with no entries yet) can leave neither side with 190px
+  // to spare, in which case the tooltip pins to a fixed safe top instead
+  // of bottom-anchoring above the spotlight and running off the top of
+  // the screen — reachable and fully readable beats non-overlap here.
+  const TOOLTIP_H = 190;
+  const fitsBelow = spot.top + spot.height + TOOLTIP_H < FRAME_H;
+  const fitsAbove = spot.top - TOOLTIP_H > 40;
+  const tooltipPosition: "below" | "above" | "pinned" = fitsBelow ? "below" : fitsAbove ? "above" : "pinned";
   const bandColor = "rgba(24,20,18,0.72)";
 
   return (
@@ -876,22 +911,27 @@ function TutorialOverlay({
         Skip {stepIndex + 1}/{totalSteps}
       </motion.span>
 
-      {/* Tooltip — flips above/below depending on where the spotlight sits. */}
+      {/* Tooltip — below/above/pinned depending on where the spotlight sits
+      and how much room is actually available (see tooltipPosition above). */}
       <motion.div
         key={`tip-${step.target}`}
-        initial={{ opacity: 0, y: tooltipBelow ? 8 : -8 }}
+        initial={{ opacity: 0, y: tooltipPosition === "above" ? -8 : 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25, ease: "easeOut", delay: 0.1 }}
         style={{
           position: "absolute",
           left: 20, right: 20,
-          // Anchored by `bottom` (not a fixed `top` offset) when placed
-          // above the spotlight, so it grows upward and can never overlap
-          // the cutout no matter how tall the actual content renders —
-          // a fixed offset here previously underestimated real height and
-          // let the tooltip sit on top of (and block clicks on) the very
-          // element it was pointing at.
-          ...(tooltipBelow ? { top: spot.top + spot.height + 14 } : { bottom: FRAME_H - spot.top + 14 }),
+          // "below"/"above" anchor by `top`/`bottom` respectively (the
+          // "above" case grows upward from the spotlight so it can never
+          // overlap the cutout no matter how tall the content renders);
+          // "pinned" is the neither-fits fallback (e.g. a spotlight target
+          // that spans nearly the full screen) and just sits at a fixed
+          // safe offset from the top instead of running off-screen.
+          ...(tooltipPosition === "below"
+            ? { top: spot.top + spot.height + 14 }
+            : tooltipPosition === "above"
+              ? { bottom: FRAME_H - spot.top + 14 }
+              : { top: 60 }),
           backgroundColor: mdCard, borderRadius: 18, padding: "18px 20px", boxShadow: mdCardShadowLg,
           pointerEvents: "auto",
         }}
@@ -3875,7 +3915,23 @@ const PRO_PLANS: { id: ProPlan; label: string; price: string; period: string; bi
   { id: "monthly", label: "Monthly", price: "$9.99", period: "/month", billedNote: "Billed monthly" },
 ];
 
-function ScreenPaywall({ onBack, onContinue }: { onBack?: () => void; onContinue?: (plan: ProPlan) => void }) {
+function ScreenPaywall({
+  onBack,
+  onContinue,
+  activeTab,
+  onNavSelect,
+}: {
+  onBack?: () => void;
+  onContinue?: (plan: ProPlan) => void;
+  // Set only when this screen is standing in for a real tab (currently just
+  // "analysis" — the only gated screen whose real version has its own
+  // BottomNav; see the "analysis" case in the App shell). Keeps this a full-
+  // screen modal everywhere else it's used (from Profile, from the post-
+  // recording upsell), matching those entry points' own real screens, none
+  // of which have a tab bar either.
+  activeTab?: string;
+  onNavSelect?: (id: string) => void;
+}) {
   const [selected, setSelected] = React.useState<ProPlan>("yearly");
   const plan = PRO_PLANS.find((p) => p.id === selected)!;
   return (
@@ -3892,7 +3948,11 @@ function ScreenPaywall({ onBack, onContinue }: { onBack?: () => void; onContinue
           Every thought you speak is already being kept, free. Pro turns that record into the unconscious beliefs, connections, and hypotheses behind it.
         </div>
 
-        <div style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Also the interactive tutorial's "today-discovery" spotlight target
+            when a free-tier tour reaches the Mind tab — see buildTutorialSteps
+            in the App shell, which swaps in Pro-aware copy pointing here
+            instead of at the (Pro-only) real discovery card. */}
+        <div data-tutorial="today-discovery" style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
           {PRO_FEATURES.map((f) => (
             <div key={f.title} style={{ display: "flex", gap: 12, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
               <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: mdAccentSoft, color: mdAccentText, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>✓</span>
@@ -3939,10 +3999,11 @@ function ScreenPaywall({ onBack, onContinue }: { onBack?: () => void; onContinue
           })}
         </div>
       </div>
-      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
+      <div style={{ padding: "0 22px 20px", flexShrink: 0 }}>
         <PrimaryBtn onClick={() => onContinue?.(selected)} modernist>Continue — {plan.price}{plan.period}</PrimaryBtn>
         <div style={{ ...sans, fontSize: 11, color: mdFaint, textAlign: "center", marginTop: 10 }}>Cancel anytime. No commitment.</div>
       </div>
+      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} modernist />}
     </div>
   );
 }
@@ -4097,12 +4158,16 @@ export default function App() {
 
   const goToTab = (id: string) => setScreen(id);
 
-  // Interactive tour state — see TutorialOverlay/TUTORIAL_STEPS above.
-  // frameRef lets the overlay measure real targets relative to the phone
-  // frame; this one effect is the single place that decides "we've
-  // arrived at a nav step's destination," whether that arrival came from
-  // the real nav-bar tap passing through the spotlight or from the
+  // Interactive tour state — see TutorialOverlay/buildTutorialSteps above.
+  // Recomputed off store.isPro so a mid-tour upgrade (unlikely, but
+  // possible if someone subscribes from the tour's own paywall step) shows
+  // the Pro-flavored "today-discovery" copy from that point on instead of
+  // the free one. frameRef lets the overlay measure real targets relative
+  // to the phone frame; the effect below is the single place that decides
+  // "we've arrived at a nav step's destination," whether that arrival came
+  // from the real nav-bar tap passing through the spotlight or from the
   // tooltip's own button calling the identical setScreen.
+  const TUTORIAL_STEPS = React.useMemo(() => buildTutorialSteps(store.isPro), [store.isPro]);
   const [tutorialActive, setTutorialActive] = React.useState(false);
   const [tutorialStep, setTutorialStep] = React.useState(0);
   const frameRef = React.useRef<HTMLDivElement>(null);
@@ -4313,7 +4378,12 @@ export default function App() {
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
     case "analysis": content = !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("analysis"); setScreen("checkout"); }} />
+      <ScreenPaywall
+        onBack={() => setScreen("home")}
+        onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("analysis"); setScreen("checkout"); }}
+        activeTab="analysis"
+        onNavSelect={goToTab}
+      />
     ) : (
       <ScreenAnalysis
         onNavSelect={goToTab}
