@@ -539,18 +539,82 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
 }
 
 // ── Screen 3 · Onboarding (3 short beats) ────────────────────────────────────
+// Simple stroke-based glyphs, same style as WaveformIcon/the bottom-nav
+// icons (24x24 viewBox, no fill, rounded strokes) — one per onboarding
+// slide, Apple-onboarding-style (Health/Fitness+: a big glyph, a headline,
+// one line of body copy, nothing busier than that).
+function OnboardingIcon({ kind, size = 56 }: { kind: "welcome" | "speak" | "watch" | "pattern"; size?: number }) {
+  const color = mdAccent;
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none" as const };
+  if (kind === "welcome") {
+    // A loose constellation radiating from a center point — the same
+    // "your thoughts become this brain" idea the Home hero card shows in
+    // miniature, here as a single simple glyph rather than the real 3D field.
+    return (
+      <svg {...common}>
+        <g stroke={color} strokeWidth="1" opacity="0.4">
+          <path d="M12 12L6 8M12 12L18 9M12 12L8 17M12 12L17 16M12 12L12 4" />
+        </g>
+        <circle cx="12" cy="12" r="1.8" fill={color} />
+        <circle cx="6" cy="8" r="1.1" fill={color} opacity="0.75" />
+        <circle cx="18" cy="9" r="1.3" fill={color} opacity="0.85" />
+        <circle cx="8" cy="17" r="1.4" fill={color} opacity="0.9" />
+        <circle cx="17" cy="16" r="1" fill={color} opacity="0.65" />
+        <circle cx="12" cy="4" r="0.9" fill={color} opacity="0.55" />
+      </svg>
+    );
+  }
+  if (kind === "speak") {
+    return (
+      <svg {...common}>
+        <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v7A2.5 2.5 0 0 1 16.5 15H10l-4 4v-4H7.5A2.5 2.5 0 0 1 5 12.5v-7Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+        <g stroke={color} strokeWidth="1.6" strokeLinecap="round">
+          <path d="M8.5 8.5v2" />
+          <path d="M11.5 7v5" />
+          <path d="M14.5 8.5v2" />
+        </g>
+      </svg>
+    );
+  }
+  if (kind === "watch") {
+    return (
+      <svg {...common}>
+        <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+        <circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  // "pattern" — concentric rings, the repeated-signal idea rendered simply.
+  return (
+    <svg {...common}>
+      <circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="7.5" stroke={color} strokeWidth="1.2" opacity="0.55" />
+      <circle cx="12" cy="12" r="10.5" stroke={color} strokeWidth="1" opacity="0.3" />
+    </svg>
+  );
+}
+
 const ONBOARDING_SLIDES = [
   {
+    icon: "welcome" as const,
+    kicker: null as string | null,
+    title: "Welcome to\n미정.",
+    body: "A quiet mirror for the unconscious beliefs running underneath your everyday thoughts.",
+  },
+  {
+    icon: "speak" as const,
     kicker: "Don't organize it",
     title: "Just say whatever\ncomes to mind.",
     body: "No tidy sentences, no prompts required. Something that happened today, a thought that popped up, a decision you're stuck on — say it in whatever order it comes.",
   },
   {
+    icon: "watch" as const,
     kicker: "The AI's role",
     title: "The AI doesn't give answers.\nIt watches for patterns.",
     body: "Instead of advising you each time, it quietly observes the unconscious interpretations and judgment habits you repeat across hundreds of conversations.",
   },
   {
+    icon: "pattern" as const,
     kicker: "Over time",
     title: "You start to see patterns\nyou never noticed in yourself.",
     body: "\"When things are uncertain, it's safest to wait\" — it's hard to notice from the inside that this underlying interpretation has repeated in your career, your relationships, and your investing.",
@@ -570,23 +634,47 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const isLast = i === totalSteps - 1;
   const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
 
+  const isWelcome = slide?.kicker == null;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg, overflow: "hidden" }}>
       <div style={{ display: "flex", gap: 6, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
           <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? mdAccentText : mdDivider }} />
         ))}
       </div>
       {!isAspirationStep ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
-          <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 14, lineHeight: 1.4, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
-            {slide!.title}
-          </div>
-          <div style={{ ...sans, fontSize: 15, color: mdBody, marginTop: 18, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            {slide!.body}
-          </div>
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.26, ease: "easeOut" }}
+            style={{
+              flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px",
+              alignItems: isWelcome ? "center" : "stretch", textAlign: isWelcome ? "center" : "left",
+            }}
+          >
+            <div style={{ marginBottom: isWelcome ? 22 : 16 }}>
+              <OnboardingIcon kind={slide!.icon} size={isWelcome ? 72 : 44} />
+            </div>
+            {slide!.kicker && (
+              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+            )}
+            <div
+              style={{
+                ...serif, fontSize: isWelcome ? 34 : 28, color: mdHeading, marginTop: isWelcome ? 4 : 14,
+                lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all",
+              }}
+            >
+              {slide!.title}
+            </div>
+            <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: mdBody, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
+              {slide!.body}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px" }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
@@ -613,7 +701,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
         <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))} modernist>
-          {isLast ? (aspiration.trim() ? "Save and start" : "Skip and start") : "Next"}
+          {isLast ? (aspiration.trim() ? "Save and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
         </PrimaryBtn>
       </div>
     </div>
