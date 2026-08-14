@@ -388,7 +388,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: mdBg, padding: 32 }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center", letterSpacing: "0.02em" }}>
-          미정
+          Mindscape
         </div>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There's a pattern<br />in your thinking.
@@ -406,7 +406,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center" }}>미정</div>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center" }}>Mindscape</div>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
@@ -598,7 +598,7 @@ const ONBOARDING_SLIDES = [
   {
     icon: "welcome" as const,
     kicker: null as string | null,
-    title: "Welcome to\n미정.",
+    title: "Welcome to\nMindscape.",
     body: "A quiet mirror for the unconscious beliefs running underneath your everyday thoughts.",
   },
   {
@@ -4049,7 +4049,7 @@ function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
           <div>
-            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>미정 Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
             <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
           </div>
           <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 12, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
@@ -4091,7 +4091,7 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
           <div>
-            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>미정 Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
             <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
           </div>
           <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 11, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
