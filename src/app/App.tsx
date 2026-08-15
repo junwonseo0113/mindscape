@@ -19,6 +19,8 @@ import {
 } from "./types";
 import { appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
+import { isCloudSyncConfigured } from "./supabaseClient";
+import { cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
@@ -458,21 +460,35 @@ function TextField({ label, type = "text", value, onChange, placeholder, error }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// A local-only mock login: there's no server, so "logging in" just checks
-// against the single account stored on this device (see StoredAccount).
-// It's here so the flow feels real, not to imply real multi-user auth.
+// Real Supabase auth when cloud sync is configured (see supabaseClient.ts);
+// otherwise the original local-only mock — checking against the single
+// account stored on this device (see StoredAccount) — so the app still
+// works exactly as before wherever Supabase env vars aren't set.
 function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: StoredAccount | null; onBack?: () => void; onGoSignup?: () => void; onLogin?: () => void }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     if (loading) return;
     setError("");
     if (!email.trim() || !password) { setError("Please enter both an email and a password."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
     setLoading(true);
+
+    if (isCloudSyncConfigured) {
+      try {
+        await cloudSignIn(email.trim(), password);
+        setLoading(false);
+        onLogin?.();
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : "Couldn't log in.");
+      }
+      return;
+    }
+
     setTimeout(() => {
       setLoading(false);
       if (!account) { setError("No account found. Please sign up first."); return; }
@@ -511,15 +527,42 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
+  // Distinct from `error` — Supabase projects that require email
+  // confirmation return a user with no active session yet, which isn't a
+  // failure, just a "one more step" state that needs its own tone (not
+  // red/warning-colored) and shouldn't advance past this screen.
+  const [info, setInfo] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     if (loading) return;
     setError("");
+    setInfo("");
     if (!name.trim()) { setError("Please enter your name."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true);
+
+    if (isCloudSyncConfigured) {
+      try {
+        const data = await cloudSignUp(email.trim(), password, name.trim());
+        setLoading(false);
+        if (!data.session) {
+          setInfo("Check your email for a confirmation link, then log in.");
+          return;
+        }
+        // Real auth already has the password, hashed, in Supabase's own
+        // auth.users table — never duplicated here in plaintext, since
+        // this object is what gets synced to user_stores as part of the
+        // Store (see cloudSync.ts / supabase/schema.sql).
+        onSignup?.({ name: name.trim(), email: email.trim(), password: "" });
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : "Couldn't create an account.");
+      }
+      return;
+    }
+
     setTimeout(() => {
       setLoading(false);
       onSignup?.({ name: name.trim(), email: email.trim(), password });
@@ -534,7 +577,9 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>Let's create an account</div>
         <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
-          It only lives on this device. Nothing is sent to any server.
+          {isCloudSyncConfigured
+            ? "Synced privately to your account, so it's there on any device you log into — never sold, never shared."
+            : "It only lives on this device. Nothing is sent to any server."}
         </div>
         <div style={{ marginTop: 20 }}>
           <TextField label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
@@ -542,6 +587,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
           <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
+        {info && <div style={{ ...sans, fontSize: 12.5, color: mdAccentText, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
         <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: mdBody }}>Already have an account? </span>
@@ -3829,7 +3875,16 @@ function ScreenProfile({
     { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
     { label: "Data & Privacy", onClick: () => onOpenSettings?.("dataPrivacy") },
     { label: "Help", onClick: () => onOpenSettings?.("help") },
-    { label: "Log out", onClick: onNavSelect ? () => onNavSelect("auth") : undefined, destructive: true },
+    {
+      label: "Log out",
+      onClick: onNavSelect
+        ? () => {
+            if (isCloudSyncConfigured) cloudSignOut();
+            onNavSelect("auth");
+          }
+        : undefined,
+      destructive: true,
+    },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
@@ -3997,7 +4052,9 @@ function ScreenDataPrivacy({
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 13.5, color: mdBody, lineHeight: 1.75, wordBreak: "keep-all" }}>
-          This app doesn't create an account on a separate server. Your unconscious beliefs, interpretations, and conversation history are stored only in this device's browser. Text you log with "Speak your mind" is only sent to Claude (Anthropic) at the moment it's analyzed, and never leaves your device otherwise.
+          {isCloudSyncConfigured
+            ? "Browsing as a guest, everything stays only in this device's browser. If you've signed up, your unconscious beliefs, interpretations, and conversation history are also synced to a private, encrypted account — accessible only to you, never sold or shared, and protected by database-level access rules that make it impossible for anyone else to read your data even by mistake. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed."
+            : "This app doesn't create an account on a separate server. Your unconscious beliefs, interpretations, and conversation history are stored only in this device's browser. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed, and never leaves your device otherwise."}
         </div>
 
         <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 16, lineHeight: 1.75, wordBreak: "keep-all" }}>
@@ -4151,7 +4208,9 @@ function ScreenLegalDocument({
 const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   {
     heading: "1. Overview",
-    body: "Mindscape does not operate its own server and does not create accounts on a server you don't control — there is no Mindscape backend that stores your data. Everything you record lives in your browser's local storage, on your own device, unless you delete it (see \"Deleting your data\" below).",
+    body: isCloudSyncConfigured
+      ? "Browsing as a guest, everything you record lives only in your browser's local storage, on your own device, unless you delete it. If you sign up, your data is also synced to a private, encrypted account so it's there across your devices — see \"Where your data goes\" below for exactly what that means and doesn't mean."
+      : "Mindscape does not operate its own server and does not create accounts on a server you don't control — there is no Mindscape backend that stores your data. Everything you record lives in your browser's local storage, on your own device, unless you delete it (see \"Deleting your data\" below).",
   },
   {
     heading: "2. What we collect",
@@ -4159,7 +4218,9 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   },
   {
     heading: "3. Where your data goes",
-    body: "Stored only in this browser's local storage on this device — it does not sync across devices and isn't backed up anywhere by us. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics, advertising, or tracking of any kind — there's no \"us\" to send usage data to, because there's no Mindscape server collecting it.",
+    body: isCloudSyncConfigured
+      ? "Stored in this browser's local storage on this device, and — only if you've signed up for an account — also synced to a private database row tied to your account, encrypted at rest, and protected by database-level access rules that only your own login can satisfy; not even we can query another user's data through the normal app, and we don't build tools to bypass that. Guests (no account) stay fully local, no different from before. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics or advertising of any kind."
+      : "Stored only in this browser's local storage on this device — it does not sync across devices and isn't backed up anywhere by us. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics, advertising, or tracking of any kind — there's no \"us\" to send usage data to, because there's no Mindscape server collecting it.",
   },
   {
     heading: "4. Crisis-language detection",
@@ -4167,7 +4228,9 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   },
   {
     heading: "5. Deleting your data",
-    body: "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device. Because nothing is stored on a server, there's nothing left anywhere else to delete afterward.",
+    body: isCloudSyncConfigured
+      ? "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device — and, if you're signed in, from your synced account as well, the next time a change syncs (effectively immediately)."
+      : "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device. Because nothing is stored on a server, there's nothing left anywhere else to delete afterward.",
   },
   {
     heading: "6. Children's privacy",

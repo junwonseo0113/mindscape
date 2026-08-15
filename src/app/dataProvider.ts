@@ -9,6 +9,8 @@ import React from "react";
 import type { Store } from "./types";
 import { loadStore, saveStore } from "./realStore";
 import { DEMO_STORE } from "../demo/demoData";
+import { supabase } from "./supabaseClient";
+import { pullStoreFromCloud, pushStoreToCloud } from "./cloudSync";
 
 const DEMO_MODE_KEY = "mijeong.isDemoMode";
 // Real users start clean: a brand-new visitor gets their own empty state
@@ -82,16 +84,52 @@ export function useAppData() {
 
   const store = isDemoMode ? demoStore : realStore;
 
+  // Only ever non-null when Supabase is configured (see supabaseClient.ts)
+  // AND this visitor has a real, signed-in session — guests, and anyone
+  // running the app without Supabase env vars set, never populate this,
+  // and every write below stays purely local exactly as it always has.
+  const [cloudUserId, setCloudUserId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setCloudUserId(data.session?.user.id ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCloudUserId(session?.user.id ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Fires once per transition into "signed in" (a fresh login, or an
+  // existing session Supabase restores on page load) — pulls whatever's
+  // already in the cloud down and makes it the local copy of record. A
+  // brand-new signup has no cloud row yet, so this is a no-op for them;
+  // updateRealStore's push below is what creates that first row, the
+  // moment anything actually changes.
+  React.useEffect(() => {
+    if (!cloudUserId) return;
+    let cancelled = false;
+    pullStoreFromCloud(cloudUserId).then((cloud) => {
+      if (cancelled || !cloud) return;
+      setRealStore(cloud);
+      saveStore(cloud);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudUserId]);
+
   // Always targets real, on-device storage regardless of the current mode
   // — used only for the pre-home account/onboarding flow (signup, login
   // routing, the aspiration asked during onboarding), since creating your
   // actual account is a real action even if you happen to have Demo Mode
   // switched on for browsing. Every other mutation goes through the
-  // mode-aware updateStore below.
+  // mode-aware updateStore below. The cloud push is fire-and-forget and
+  // never awaited — a slow or failed network call must never block the
+  // local save that already happened via saveStore just above it.
   const updateRealStore = (updater: (prev: Store) => Store) => {
     setRealStore((prev) => {
       const next = updater(prev);
       saveStore(next);
+      if (cloudUserId) pushStoreToCloud(cloudUserId, next);
       return next;
     });
   };
@@ -104,5 +142,5 @@ export function useAppData() {
     }
   };
 
-  return { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore };
+  return { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore, cloudUserId };
 }
