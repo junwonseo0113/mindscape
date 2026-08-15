@@ -3873,7 +3873,19 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
 }
 
 // ── Screen 14.2 · Data & privacy ───────────────────────────────────────────────
-function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBack?: () => void; onResetData?: () => void }) {
+function ScreenDataPrivacy({
+  store,
+  onBack,
+  onResetData,
+  onOpenPrivacyPolicy,
+  onOpenTermsOfService,
+}: {
+  store: Store;
+  onBack?: () => void;
+  onResetData?: () => void;
+  onOpenPrivacyPolicy?: () => void;
+  onOpenTermsOfService?: () => void;
+}) {
   const [armed, setArmed] = React.useState(false);
   const s = store;
   return (
@@ -3925,6 +3937,21 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBac
             </div>
           )}
         </div>
+
+        <div style={{ marginTop: 28, backgroundColor: mdCard, borderRadius: 20, overflow: "hidden", boxShadow: mdCardShadow }}>
+          {[
+            { label: "Privacy Policy", onClick: onOpenPrivacyPolicy },
+            { label: "Terms of Service", onClick: onOpenTermsOfService },
+          ].map((r, i, arr) => (
+            <motion.div
+              key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${mdDivider}` : "none" }}
+            >
+              <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading, flex: 1 }}>{r.label}</span>
+              <span style={{ color: mdFaint, fontSize: 15 }}>›</span>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -3974,6 +4001,133 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
     </div>
   );
 }
+
+// ── Screen 14.4/14.5 · Legal documents ────────────────────────────────────────
+// Both drafted to accurately describe how the app actually behaves today
+// (local-storage-only, what gets sent to Claude/Anthropic and when,
+// on-device crisis-language checking, the current MONETIZATION_ENABLED
+// state) rather than generic boilerplate — but they're still a draft, not
+// legal advice, and say so prominently. Swap in this file's content once
+// an actual lawyer has reviewed it for your jurisdiction; nothing else
+// about how these render needs to change.
+type LegalSection = { heading: string; body: string };
+
+function ScreenLegalDocument({
+  title,
+  lastUpdated,
+  sections,
+  onBack,
+}: {
+  title: string;
+  lastUpdated: string;
+  sections: LegalSection[];
+  onBack?: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>{title}</div>
+        <div style={{ ...mono, fontSize: 11, color: mdFaint, marginTop: 6 }}>Last updated {lastUpdated}</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 32px" }}>
+        <div style={{ padding: 14, borderRadius: 12, backgroundColor: mdWarnSoft, borderLeft: `2px solid ${mdWarn}`, marginBottom: 22 }}>
+          <div style={{ ...sans, fontSize: 12.5, color: mdWarnLabel, lineHeight: 1.6, wordBreak: "keep-all" }}>
+            Draft — written to accurately describe how the app works today, but not yet reviewed by a lawyer. Have this reviewed for your jurisdiction before relying on it.
+          </div>
+        </div>
+        {sections.map((s) => (
+          <div key={s.heading} style={{ marginBottom: 22 }}>
+            <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: mdHeading }}>{s.heading}</div>
+            <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.7, wordBreak: "keep-all" }}>{s.body}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
+  {
+    heading: "1. Overview",
+    body: "Mindscape does not operate its own server and does not create accounts on a server you don't control — there is no Mindscape backend that stores your data. Everything you record lives in your browser's local storage, on your own device, unless you delete it (see \"Deleting your data\" below).",
+  },
+  {
+    heading: "2. What we collect",
+    body: "Text you write or speak using \"Speak your mind\"; the AI's analysis of that text (beliefs, interpretations, hypotheses), generated and stored back on your device; basic account info if you sign up (name, email); and an optional aspiration statement, if you choose to set one. We do not collect your location, contacts, photos, browsing history outside the app, or anything you haven't directly entered.",
+  },
+  {
+    heading: "3. Where your data goes",
+    body: "Stored only in this browser's local storage on this device — it does not sync across devices and isn't backed up anywhere by us. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics, advertising, or tracking of any kind — there's no \"us\" to send usage data to, because there's no Mindscape server collecting it.",
+  },
+  {
+    heading: "4. Crisis-language detection",
+    body: "Separately from AI analysis, every entry is checked on your device — not sent anywhere, not reviewed by the AI — for language that may indicate a mental health crisis. If detected, you're shown crisis support resources instead of the usual analysis. This check happens entirely locally; its result is never stored, logged, or transmitted.",
+  },
+  {
+    heading: "5. Deleting your data",
+    body: "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device. Because nothing is stored on a server, there's nothing left anywhere else to delete afterward.",
+  },
+  {
+    heading: "6. Children's privacy",
+    body: "Mindscape is not directed at children under 13, and we don't knowingly collect information from anyone under 13.",
+  },
+  {
+    heading: "7. Changes to this policy",
+    body: "If this policy changes, the \"Last updated\" date above will change. Continuing to use the app after an update means you accept the revised policy.",
+  },
+  {
+    heading: "8. Contact",
+    body: "[Add a real contact email here before publishing.]",
+  },
+];
+
+const TERMS_OF_SERVICE_SECTIONS: LegalSection[] = [
+  {
+    heading: "1. What this app is",
+    body: "Mindscape is a self-reflection tool that uses AI to help surface patterns in your own words and actions, drawing on concepts from Cognitive Behavioral Therapy (CBT) and Acceptance and Commitment Therapy (ACT).",
+  },
+  {
+    heading: "2. Not medical or mental health treatment",
+    body: "Mindscape is not therapy, counseling, medical advice, or a mental health treatment service, and no part of it is provided or reviewed by a licensed clinician. The AI's observations are not a diagnosis and shouldn't be treated as one. If you're experiencing a mental health crisis, contact a licensed professional or emergency services — see the in-app crisis resources, or call or text 988 (US).",
+  },
+  {
+    heading: "3. Your account",
+    body: "If you create an account, you're responsible for keeping your login information accurate and for anything that happens under it. Accounts and their data exist only on your local device (see our Privacy Policy) — we cannot recover a lost account or restore deleted data.",
+  },
+  {
+    heading: "4. Acceptable use",
+    body: "Don't use Mindscape to harm yourself or others, to violate any law, or to attempt to disrupt, reverse-engineer, or abuse the service, including the AI systems it relies on.",
+  },
+  {
+    heading: "5. AI-generated content",
+    body: "Analysis, hypotheses, and other AI-generated content are probabilistic and can be wrong, incomplete, or reflect the limitations of the underlying model. Use your own judgment about anything the AI surfaces — nothing it says is a fact about you unless you decide it resonates.",
+  },
+  {
+    heading: "6. Subscriptions",
+    body: "Some features may be offered as part of a paid subscription (Mindscape Pro). At current launch, Mindscape Pro is not active — every feature is available at no cost; this section is included so the terms are ready if that changes. Where a subscription is active, it renews automatically at the price and interval shown at signup until canceled, and can be canceled any time from Profile → Manage subscription.",
+  },
+  {
+    heading: "7. Disclaimer of warranties",
+    body: "Mindscape is provided \"as is,\" without warranties of any kind. We don't guarantee the app will be uninterrupted or error-free, or that its analysis will be accurate or useful for any particular purpose.",
+  },
+  {
+    heading: "8. Limitation of liability",
+    body: "To the fullest extent permitted by law, Mindscape and its creators are not liable for any damages arising from your use of the app, including reliance on any AI-generated content.",
+  },
+  {
+    heading: "9. Changes",
+    body: "We may update these terms; continued use after a change means you accept the new terms.",
+  },
+  {
+    heading: "10. Governing law",
+    body: "[Add your jurisdiction here before publishing.]",
+  },
+  {
+    heading: "11. Contact",
+    body: "[Add a real contact email here before publishing.]",
+  },
+];
 
 // ── Screen 15 · Paywall ───────────────────────────────────────────────────────
 // Free tier only records entries (see appendUnanalyzedEntry in realStore.ts)
@@ -4697,6 +4851,24 @@ export default function App() {
           updateStore(() => emptyStore());
           setScreen("profile");
         }}
+        onOpenPrivacyPolicy={() => setScreen("privacyPolicy")}
+        onOpenTermsOfService={() => setScreen("termsOfService")}
+      />
+    ); break;
+    case "privacyPolicy": content = (
+      <ScreenLegalDocument
+        title="Privacy Policy"
+        lastUpdated="August 15, 2026"
+        sections={PRIVACY_POLICY_SECTIONS}
+        onBack={() => setScreen("dataPrivacy")}
+      />
+    ); break;
+    case "termsOfService": content = (
+      <ScreenLegalDocument
+        title="Terms of Service"
+        lastUpdated="August 15, 2026"
+        sections={TERMS_OF_SERVICE_SECTIONS}
+        onBack={() => setScreen("dataPrivacy")}
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
