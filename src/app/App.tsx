@@ -18,6 +18,7 @@ import {
   formatDateDots,
 } from "./types";
 import { appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
+import { detectCrisisSignal } from "./crisisDetection";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
@@ -673,6 +674,17 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: mdBody, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
               {slide!.body}
             </div>
+            {/* The one place this disclosure needs to land before anyone
+                types a word — both halves matter equally: "not therapy" is
+                the legal/ethical baseline, and naming the crisis exception
+                up front is what keeps ScreenCrisisSupport from reading as a
+                surprise breach of "observe, don't judge" the one time it
+                actually activates. See crisisDetection.ts. */}
+            {isWelcome && (
+              <div style={{ ...sans, fontSize: 12, color: mdFaint, marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
+                Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app.
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       ) : (
@@ -2287,6 +2299,72 @@ function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void;
   );
 }
 
+// ── Screen 6.7 · Crisis support ───────────────────────────────────────────────
+// The one deliberate exception to "observe, don't judge" — see
+// crisisDetection.ts for why this exists and why it's keyword-based rather
+// than a model call. Reached instead of processing/thinkComplete/the soft
+// paywall/anything else the "think" case's onDone would otherwise route to
+// — checked first, before the isPro branch, so a crisis-flagged entry never
+// reaches /api/analyze or the belief/hypothesis pipeline regardless of tier.
+// The entry itself is still saved (see appendUnanalyzedEntry in the App
+// shell's onDone) — this is about response routing, not about withholding
+// or hiding what someone wrote. Real tel:/sms: links, not styled buttons
+// wired to JS, so the OS's own dialer/messages app opens directly.
+function CrisisResourceCard({ title, subtitle, href }: { title: string; subtitle: string; href: string }) {
+  return (
+    <a
+      href={href}
+      style={{
+        display: "block", textDecoration: "none", padding: "16px 18px", borderRadius: 14,
+        backgroundColor: dkCard, border: `1px solid ${dkDivider}`,
+      }}
+    >
+      <div style={{ ...sans, fontSize: 14.5, fontWeight: 700, color: dkHeading }}>{title}</div>
+      <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginTop: 3, lineHeight: 1.5 }}>{subtitle}</div>
+    </a>
+  );
+}
+
+function ScreenCrisisSupport({ onContinue }: { onContinue?: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "48px 28px 24px" }}>
+        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          It sounds like you might be going through something really hard right now.
+        </div>
+        <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+          If that's true, you don't have to go through it alone. These are free, confidential, and available right now — not just for emergencies, for whatever this is too.
+        </div>
+
+        <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          <CrisisResourceCard
+            title="988 Suicide & Crisis Lifeline"
+            subtitle="Call or text 988 — free, confidential, 24/7"
+            href="tel:988"
+          />
+          <CrisisResourceCard
+            title="Crisis Text Line"
+            subtitle="Text HOME to 741741 — a real person, by text"
+            href="sms:741741&body=HOME"
+          />
+          <CrisisResourceCard
+            title="Outside the US"
+            subtitle="Find a local helpline at findahelpline.com"
+            href="https://findahelpline.com"
+          />
+        </div>
+
+        <div style={{ ...sans, fontSize: 12, color: dkBody, marginTop: 24, lineHeight: 1.6, wordBreak: "keep-all" }}>
+          What you wrote is still saved, just like always — nothing else about it changes. Mindscape isn't a substitute for real support, which is exactly why these are here.
+        </div>
+      </div>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <GhostBtn onClick={onContinue}>Continue</GhostBtn>
+      </div>
+    </div>
+  );
+}
+
 // ── Screen 6.5 · Session summary (Feature 2) ─────────────────────────────────
 // Shown once, right after a successful analysis, before landing on the
 // Analysis tab — a quiet "here's what was just observed about how you
@@ -3796,6 +3874,10 @@ function ScreenDataPrivacy({ store, onBack, onResetData }: { store: Store; onBac
           This app doesn't create an account on a separate server. Your unconscious beliefs, interpretations, and conversation history are stored only in this device's browser. Text you log with "Speak your mind" is only sent to Claude (Anthropic) at the moment it's analyzed, and never leaves your device otherwise.
         </div>
 
+        <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 16, lineHeight: 1.75, wordBreak: "keep-all" }}>
+          One exception: what you write is checked on this device, before anything is sent anywhere, for language that suggests you might be in crisis. That check never leaves your device either — if it matches, you're shown real crisis resources instead of the usual analysis. Nothing about that check is stored, scored, or shared.
+        </div>
+
         <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdBody, letterSpacing: "0.06em" }}>Data Stored on This Device</div>
           <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3843,6 +3925,7 @@ const HELP_ITEMS = [
   { q: "How is an AI hypothesis different from an unconscious belief?", a: "An unconscious belief is the thing itself — what repeatedly shows up in your actual words and actions. A hypothesis is a higher-level theory the AI offers by crossing multiple unconscious beliefs/connections (e.g., \"this pattern shows up the same way in both your career and your relationships\"). It's not a settled fact — it's an interpretation you refine together by agreeing or pushing back." },
   { q: "How is distance from your goal calculated?", a: "The AI points out the concrete gap between who you said you wanted to become and the unconscious beliefs/interpretations that have actually built up. You set the goal directly on that screen." },
   { q: "What is this analysis based on?", a: "It draws on concepts from CBT (Cognitive Behavioral Therapy) and ACT (Acceptance and Commitment Therapy). Cognitive-distortion tags like \"All-or-nothing thinking\" and \"Overgeneralization\" come from CBT; distance from your goal comes from ACT's \"value direction\" concept. A single entry never creates a belief — it takes at least 3 similar patterns building up. Confidence never reaches 100%, and actually goes down when there are conflicting entries. That said, this is a self-reflection tool, not a psychological diagnosis or treatment." },
+  { q: "What if I'm in crisis?", a: "If what you write suggests you might be in crisis, we show you real crisis resources (like the 988 Suicide & Crisis Lifeline) right away, instead of the usual analysis — that check happens entirely on your device, before anything is sent anywhere. If you're in danger right now, please contact emergency services or 988 directly rather than waiting on this app." },
 ];
 
 function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onReplayTutorial?: () => void }) {
@@ -4407,7 +4490,17 @@ export default function App() {
         onDone={(text) => {
           setThinkText(text);
           setAnalysisError("");
-          if (store.isPro) {
+          // Checked before anything else, regardless of tier — a crisis-
+          // flagged entry never reaches /api/analyze or the belief/
+          // hypothesis pipeline. The entry is still saved (see
+          // appendUnanalyzedEntry below) — this is about where it routes
+          // to next, not about withholding what was written. See
+          // crisisDetection.ts for why this is the one exception to
+          // "observe, don't judge."
+          if (detectCrisisSignal(text)) {
+            updateStore((prev) => appendUnanalyzedEntry(prev, text));
+            setScreen("crisisSupport");
+          } else if (store.isPro) {
             setScreen("processing");
           } else {
             // Free tier: no /api/analyze call — just record the entry (see
@@ -4472,6 +4565,7 @@ export default function App() {
         onDismiss={() => setScreen("home")}
       />
     ); break;
+    case "crisisSupport": content = <ScreenCrisisSupport onContinue={() => setScreen("home")} />; break;
     case "beliefs": content = !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("beliefs"); setScreen("checkout"); }} />
     ) : (
