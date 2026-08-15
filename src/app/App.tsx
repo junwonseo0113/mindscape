@@ -608,6 +608,95 @@ function OnboardingIcon({ kind, size = 56 }: { kind: "welcome" | "speak" | "watc
   );
 }
 
+// Two loose hand-placed clusters (not the real generateBrainCloud — this is
+// a decorative ~20-point stand-in, not the actual tissue) roughly tracing
+// two hemispheres, same visual language as the real Brain Map without the
+// WebGL cost of mounting/unmounting a Three.js scene every time onboarding's
+// AnimatePresence swaps slides. viewBox is 0 0 100 80.
+const MINI_BRAIN_DOTS: { x: number; y: number; r: number }[] = [
+  { x: 22, y: 35, r: 1.8 }, { x: 30, y: 26, r: 1.3 }, { x: 16, y: 46, r: 1.6 },
+  { x: 26, y: 58, r: 1.2 }, { x: 36, y: 42, r: 1.9 }, { x: 14, y: 60, r: 1.1 },
+  { x: 33, y: 66, r: 1.4 }, { x: 24, y: 20, r: 1.0 }, { x: 41, y: 50, r: 1.3 },
+  { x: 11, y: 40, r: 1.2 },
+  { x: 78, y: 35, r: 1.7 }, { x: 70, y: 26, r: 1.4 }, { x: 84, y: 46, r: 1.5 },
+  { x: 74, y: 58, r: 1.2 }, { x: 64, y: 42, r: 1.8 }, { x: 86, y: 60, r: 1.1 },
+  { x: 67, y: 66, r: 1.3 }, { x: 76, y: 20, r: 1.0 }, { x: 59, y: 50, r: 1.4 },
+  { x: 89, y: 40, r: 1.2 },
+];
+
+// Onboarding's own "show, don't tell" moment for the whole "just say
+// anything" idea — a real (if tiny) text field, and typing into it and
+// tapping "Try it" spawns one new glowing point at the center gap between
+// the two hemispheres, echoing the interactive tour's own first line
+// almost verbatim ("Every time you speak, a new point appears") so this
+// reads as a preview of that mechanic, not a different one. What's typed
+// here is never saved anywhere — purely a demonstration, matching the "no
+// pressure" tone the rest of onboarding already has.
+function OnboardingBrainDemo() {
+  const [text, setText] = React.useState("");
+  const [activated, setActivated] = React.useState(false);
+  const tryIt = () => {
+    if (!text.trim()) return;
+    setActivated(true);
+  };
+  return (
+    <div style={{ width: "100%" }}>
+      <svg width="100%" height="120" viewBox="0 0 100 80" style={{ display: "block" }}>
+        {MINI_BRAIN_DOTS.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={mdAccent} opacity={0.28} />
+        ))}
+        {activated && (
+          <>
+            <motion.circle
+              cx={50} cy={44} fill={mdAccent}
+              initial={{ r: 0, opacity: 0 }}
+              animate={{ r: 3.2, opacity: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            />
+            <motion.circle
+              cx={50} cy={44} r={3.2} fill="none" stroke={mdAccent} strokeWidth={0.6}
+              initial={{ opacity: 0.6, scale: 1 }}
+              animate={{ opacity: 0, scale: 2.8 }}
+              transition={{ duration: 0.9, ease: "easeOut" }}
+            />
+          </>
+        )}
+      </svg>
+      {!activated ? (
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") tryIt(); }}
+            placeholder="Try typing anything…"
+            style={{
+              flex: 1, ...sans, fontSize: 14, padding: "10px 12px", borderRadius: 10,
+              border: `1px solid ${mdDivider}`, backgroundColor: mdCard, color: mdHeading, outline: "none",
+            }}
+          />
+          <motion.div
+            role="button" tabIndex={0} onClick={tryIt} whileTap={text.trim() ? { scale: 0.96 } : undefined}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px", borderRadius: 10,
+              backgroundColor: text.trim() ? mdAccent : mdTrack, color: text.trim() ? "#fff" : "#a29d9d",
+              ...sans, fontSize: 13, fontWeight: 700, cursor: text.trim() ? "pointer" : "default", flexShrink: 0,
+            }}
+          >
+            Try it
+          </motion.div>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+          style={{ ...sans, fontSize: 13, fontWeight: 600, color: mdAccentText, marginTop: 8, textAlign: "center" }}
+        >
+          That's what happens every time you speak.
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 const ONBOARDING_SLIDES = [
   {
     icon: "welcome" as const,
@@ -619,7 +708,7 @@ const ONBOARDING_SLIDES = [
     icon: "speak" as const,
     kicker: "Don't organize it",
     title: "Just say whatever\ncomes to mind.",
-    body: "No tidy sentences, no prompts required. Something that happened today, a thought that popped up, a decision you're stuck on — say it in whatever order it comes.",
+    body: "No tidy sentences, no prompts required — try it below.",
   },
   {
     icon: "watch" as const,
@@ -649,6 +738,11 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
 
   const isWelcome = slide?.kicker == null;
+  // The one slide that shows instead of just telling — see
+  // OnboardingBrainDemo above for why this is worth a special case rather
+  // than threading a demo prop through the generic slide template used by
+  // the other three.
+  const isInteractive = i === 1;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg, overflow: "hidden" }}>
@@ -670,9 +764,11 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
               alignItems: isWelcome ? "center" : "stretch", textAlign: isWelcome ? "center" : "left",
             }}
           >
-            <div style={{ marginBottom: isWelcome ? 22 : 16 }}>
-              <OnboardingIcon kind={slide!.icon} size={isWelcome ? 72 : 44} />
-            </div>
+            {!isInteractive && (
+              <div style={{ marginBottom: isWelcome ? 22 : 16 }}>
+                <OnboardingIcon kind={slide!.icon} size={isWelcome ? 72 : 44} />
+              </div>
+            )}
             {slide!.kicker && (
               <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
             )}
@@ -687,6 +783,11 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: mdBody, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
               {slide!.body}
             </div>
+            {isInteractive && (
+              <div style={{ marginTop: 22 }}>
+                <OnboardingBrainDemo />
+              </div>
+            )}
             {/* The one place this disclosure needs to land before anyone
                 types a word — both halves matter equally: "not therapy" is
                 the legal/ethical baseline, and naming the crisis exception
