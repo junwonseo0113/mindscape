@@ -24,6 +24,19 @@ import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIM
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 import { pickInputGuidance } from "./inputGuidance";
 
+// ── Launch config ────────────────────────────────────────────────────────────
+// Off for the initial launch: gathering real usage/feedback matters more
+// right now than revenue, so every screen behaves as if every account were
+// Pro — full analysis, Brain Map, hypotheses, drift, all of it, for free.
+// The entire Pro/paywall/checkout/subscription-management system underneath
+// this flag is fully built and untouched (see ScreenPaywall, ScreenCheckout,
+// ScreenManageSubscription, PRO_PLANS below, and appendUnanalyzedEntry in
+// realStore.ts) — flipping this back to true is the only change needed to
+// re-enable it later. Every gate below reads MONETIZATION_ENABLED, never
+// store.isPro directly, specifically so this one flag is a real kill switch
+// and not just one of several places that would need to change together.
+const MONETIZATION_ENABLED = false;
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
 // not to alarm or entertain. Warm paper background, plum as the single
@@ -1043,7 +1056,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
         </div>
 
         <div data-tutorial="brain-card" style={{ marginTop: 28 }}>
-          {store.isPro ? (
+          {(!MONETIZATION_ENABLED || store.isPro) ? (
             <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} embedded height={336} onExpand={onOpenBrainMap} modernist />
           ) : (
             // Locked teaser instead of quietly rendering an always-empty
@@ -3711,7 +3724,7 @@ function ScreenProfile({
     { value: `${computeStreak(store.history)} days`, label: "Streak" },
   ];
   const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
-    ...(store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
+    ...(MONETIZATION_ENABLED && store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
     { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
     { label: "Data & Privacy", onClick: () => onOpenSettings?.("dataPrivacy") },
     { label: "Help", onClick: () => onOpenSettings?.("help") },
@@ -3732,7 +3745,7 @@ function ScreenProfile({
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: mdHeading }}>{name}</span>
-              {store.isPro && (
+              {MONETIZATION_ENABLED && store.isPro && (
                 <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>PRO</span>
               )}
             </div>
@@ -3744,7 +3757,7 @@ function ScreenProfile({
           </div>
         </div>
 
-        {!store.isPro && (
+        {MONETIZATION_ENABLED && !store.isPro && (
           <motion.div
             role="button" tabIndex={0} onClick={onOpenPaywall} whileTap={{ opacity: 0.6 }}
             style={{
@@ -4250,7 +4263,10 @@ export default function App() {
   // "we've arrived at a nav step's destination," whether that arrival came
   // from the real nav-bar tap passing through the spotlight or from the
   // tooltip's own button calling the identical setScreen.
-  const TUTORIAL_STEPS = React.useMemo(() => buildTutorialSteps(store.isPro), [store.isPro]);
+  const TUTORIAL_STEPS = React.useMemo(
+    () => buildTutorialSteps(!MONETIZATION_ENABLED || store.isPro),
+    [store.isPro]
+  );
   const [tutorialActive, setTutorialActive] = React.useState(false);
   const [tutorialStep, setTutorialStep] = React.useState(0);
   const frameRef = React.useRef<HTMLDivElement>(null);
@@ -4455,12 +4471,12 @@ export default function App() {
         store={store}
       />
     ); break;
-    case "brainmap": content = store.isPro ? (
+    case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
       <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />
     ) : (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
-    case "analysis": content = !store.isPro ? (
+    case "analysis": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall
         onBack={() => setScreen("home")}
         onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("analysis"); setScreen("checkout"); }}
@@ -4500,7 +4516,7 @@ export default function App() {
           if (detectCrisisSignal(text)) {
             updateStore((prev) => appendUnanalyzedEntry(prev, text));
             setScreen("crisisSupport");
-          } else if (store.isPro) {
+          } else if (!MONETIZATION_ENABLED || store.isPro) {
             setScreen("processing");
           } else {
             // Free tier: no /api/analyze call — just record the entry (see
@@ -4554,7 +4570,7 @@ export default function App() {
     case "thinkComplete": content = (
       <ScreenThinkComplete
         error={analysisError}
-        showUpsell={!store.isPro && !analysisError}
+        showUpsell={MONETIZATION_ENABLED && !store.isPro && !analysisError}
         onDone={() => setScreen("home")}
         onUpgrade={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
       />
@@ -4566,22 +4582,22 @@ export default function App() {
       />
     ); break;
     case "crisisSupport": content = <ScreenCrisisSupport onContinue={() => setScreen("home")} />; break;
-    case "beliefs": content = !store.isPro ? (
+    case "beliefs": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("beliefs"); setScreen("checkout"); }} />
     ) : (
       <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />
     ); break;
-    case "assumptions": content = !store.isPro ? (
+    case "assumptions": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("assumptions"); setScreen("checkout"); }} />
     ) : (
       <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />
     ); break;
-    case "drift": content = !store.isPro ? (
+    case "drift": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("drift"); setScreen("checkout"); }} />
     ) : (
       <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />
     ); break;
-    case "aspirationSetup": content = !store.isPro ? (
+    case "aspirationSetup": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("aspirationSetup"); setScreen("checkout"); }} />
     ) : (
       <ScreenAspirationSetup
@@ -4593,12 +4609,12 @@ export default function App() {
         }}
       />
     ); break;
-    case "hypotheses": content = !store.isPro ? (
+    case "hypotheses": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypotheses"); setScreen("checkout"); }} />
     ) : (
       <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />
     ); break;
-    case "hypothesisDetail": content = !store.isPro ? (
+    case "hypothesisDetail": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypothesisDetail"); setScreen("checkout"); }} />
     ) : (
       <ScreenHypothesisDetail
@@ -4615,7 +4631,7 @@ export default function App() {
       />
     ); break;
     case "investigate": {
-      if (!store.isPro) {
+      if (MONETIZATION_ENABLED && !store.isPro) {
         content = <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("investigate"); setScreen("checkout"); }} />;
         break;
       }
