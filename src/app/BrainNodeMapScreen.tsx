@@ -753,6 +753,24 @@ export default function BrainNodeMapScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, activeRegion]);
 
+  // The actual fix for "tapping a Home region shortcut opens the map but
+  // doesn't visibly focus on that region until you tap it again in here":
+  // useState(initialActiveRegion) already set activeRegion correctly on
+  // mount, and the existing applyFilters effect below already recolored
+  // the nodes for it — but nothing ever pointed the *camera* there.
+  // flyToRegion was previously only ever called from toggleRegion (a
+  // manual row tap), never from the initial-prop path, so a shortcut
+  // landed on a technically-filtered but visually-unchanged default
+  // overview — indistinguishable from the shortcut having done nothing.
+  // Placed after the mount-once scene effect above (both are declared in
+  // that order, so both run in that order on mount too) so three.current
+  // is already populated by the time this fires.
+  useEffect(() => {
+    setActiveRegion(initialActiveRegion);
+    flyToRegion(initialActiveRegion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActiveRegion]);
+
   // "Network activation" — tapping a real node. Never removes the rest of
   // the brain (point 1/9): everything not part of the tapped node's own
   // network dims to DIM_OPACITY, and — after a short ACTIVATION_PAUSE_MS —
@@ -879,16 +897,18 @@ export default function BrainNodeMapScreen({
     }
   };
 
-  const toggleRegion = (region: CognitiveRegion) => {
-    const next = activeRegion === region ? null : region;
-    setActiveRegion(next);
+  // Extracted out of toggleRegion so both the manual row-tap path and the
+  // initialActiveRegion sync effect above land the camera the same way —
+  // a shortcut from Home should feel identical to tapping the region
+  // yourself, not a lesser/partial version of it.
+  const flyToRegion = (region: CognitiveRegion | null) => {
     const t = three.current;
     if (!t) return;
-    if (next) {
+    if (region) {
       const ids = [...t.beliefIndexOf.entries()].filter(([idx]) => {
         const beliefId = t.beliefIndexOf.get(idx)!;
         const belief = beliefsRef.current.find((b) => b.id === beliefId);
-        return belief && resolveRegion(belief) === next;
+        return belief && resolveRegion(belief) === region;
       });
       const pts = ids.length > 0 ? ids.map(([idx]) => t.positions[idx]) : [t.positions[0]];
       const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
@@ -898,8 +918,14 @@ export default function BrainNodeMapScreen({
       const dir = target.clone().normalize().multiplyScalar(1.9);
       flyTo(new THREE.Vector3(cx + dir.x, cy + dir.y * 0.5, cz + dir.z), target, 850);
     } else {
-      flyTo(three.current!.defaultCamPos.clone(), three.current!.defaultTarget.clone(), 700);
+      flyTo(t.defaultCamPos.clone(), t.defaultTarget.clone(), 700);
     }
+  };
+
+  const toggleRegion = (region: CognitiveRegion) => {
+    const next = activeRegion === region ? null : region;
+    setActiveRegion(next);
+    flyToRegion(next);
   };
 
   const resetView = () => {

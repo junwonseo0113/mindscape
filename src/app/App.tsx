@@ -3859,16 +3859,27 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
 }
 
 // ── Screen 13.5 · History entry detail ────────────────────────────────────────
+// Previously showed only the raw date/duration/text and threw away
+// everything else already sitting on the entry — entry.analysis (situation,
+// automatic thought, emotions, cognitive patterns, the belief it fed into)
+// and entry.sessionSummary (Feature 3's AI recap, otherwise only ever seen
+// once, on ScreenSessionSummary, right after recording — never revisitable
+// anywhere else). A tap into any entry landed on a screen with a wall of
+// empty space below one paragraph, which read as unfinished rather than
+// deliberately minimal. Free-tier entries (see appendUnanalyzedEntry in
+// realStore.ts) genuinely have no `analysis`, so those sections just don't
+// render — never a fabricated "nothing to see" placeholder for them.
 function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: Store; onBack?: () => void }) {
   const items = [...store.history].reverse();
   const entry = items[index] ?? items[0];
   if (!entry) return null;
+  const analysis = entry.analysis;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ ...mono, fontSize: 12, color: "#726A8A" }}>{entry.date}</span>
           {entry.duration && <span style={{ ...mono, fontSize: 11, color: "#726A8A" }}>{entry.duration}</span>}
@@ -3876,6 +3887,65 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
         <div style={{ ...serif, fontSize: 19, color: dkHeading, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
           {entry.text}
         </div>
+
+        {entry.sessionSummary && (
+          <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: dkCard, boxShadow: dkCardShadow }}>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Recap</div>
+            <div style={{ ...sans, fontSize: 13.5, color: dkBodyLight, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{entry.sessionSummary}</div>
+          </div>
+        )}
+
+        {analysis && (
+          <>
+            <div style={{ marginTop: 28, ...sans, fontSize: 11, fontWeight: 700, color: dkBody, letterSpacing: "0.06em", textTransform: "uppercase" }}>What Stood Out</div>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+              {analysis.observation.situation && (
+                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
+                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>Situation</div>
+                  <div style={{ ...sans, fontSize: 13.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.situation}</div>
+                </div>
+              )}
+              {analysis.observation.automaticThought && (
+                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
+                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>Automatic thought</div>
+                  <div style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>"{analysis.observation.automaticThought}"</div>
+                </div>
+              )}
+              {analysis.observation.actionUrge && (
+                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
+                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>What it made you want to do</div>
+                  <div style={{ ...sans, fontSize: 13.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.actionUrge}</div>
+                </div>
+              )}
+            </div>
+
+            {(analysis.observation.emotions.length > 0 || analysis.interpretation.possibleCognitivePatterns.length > 0) && (
+              <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+                {analysis.observation.emotions.map((e, i) => (
+                  <span key={`e-${i}`} style={{ ...sans, fontSize: 11.5, color: dkAccentTagText, backgroundColor: dkAccentTag, padding: "4px 10px", borderRadius: 999 }}>
+                    {e.label} · {e.intensity}%
+                  </span>
+                ))}
+                {analysis.interpretation.possibleCognitivePatterns.map((p) => (
+                  <span key={p} style={{ ...sans, fontSize: 11.5, color: dkWarnTagText, backgroundColor: dkWarnTag, padding: "4px 10px", borderRadius: 999 }}>{p}</span>
+                ))}
+              </div>
+            )}
+
+            {analysis.interpretation.valueDirection.explanation && (
+              <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                {analysis.interpretation.valueDirection.explanation}
+              </div>
+            )}
+
+            {analysis.hypothesis.candidateBelief && (
+              <div style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}` }}>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Belief This Fed Into</div>
+                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkHeading, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
