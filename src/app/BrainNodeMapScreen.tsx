@@ -952,7 +952,7 @@ export default function BrainNodeMapScreen({
           <span
             role="button"
             tabIndex={0}
-            onClick={onBack}
+            onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }}
             style={{ ...sans, fontSize: 13, color: inkMid, cursor: "pointer", flexShrink: 0 }}
           >
             ← Back
@@ -1100,7 +1100,7 @@ export default function BrainNodeMapScreen({
                   key={region}
                   role="button"
                   tabIndex={0}
-                  onClick={() => toggleRegion(region)}
+                  onClick={() => toggleRegion(region)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => toggleRegion(region))?.(); } }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1203,7 +1203,7 @@ export default function BrainNodeMapScreen({
                 >
                   {REGION_CONFIG[selected.region].label}
                 </span>
-                <span data-testid="node-panel-close" role="button" tabIndex={0} onClick={() => setSelected(null)} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 2 }}>
+                <span data-testid="node-panel-close" role="button" tabIndex={0} onClick={() => setSelected(null)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setSelected(null))?.(); } }} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 2 }}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>
@@ -1223,7 +1223,7 @@ export default function BrainNodeMapScreen({
                     <div
                       role="button"
                       tabIndex={0}
-                      onClick={() => selectBelief(l.id)}
+                      onClick={() => selectBelief(l.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => selectBelief(l.id))?.(); } }}
                       style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", wordBreak: "keep-all" }}
                     >
                       <span style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, backgroundColor: l.color }} />

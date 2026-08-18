@@ -305,7 +305,7 @@ function GhostBtn({ children, onClick, modernist = false }: { children: React.Re
     <motion.div
       role="button"
       tabIndex={0}
-      onClick={onClick}
+      onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }}
       whileTap={{ opacity: 0.6 }}
       style={{
         ...sans, width: "100%", padding: "15px 0", display: "flex", alignItems: "center", justifyContent: "center",
@@ -436,14 +436,23 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
 }
 
 function TextField({ label, type = "text", value, onChange, placeholder, error }: { label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: boolean }) {
+  // The caption above every input in the app (login, signup, aspiration,
+  // checkout's card fields) was a plain styled div, never actually
+  // associated with its input — a screen reader announced every one of
+  // these as an unlabeled text box. A real <label htmlFor> fixes all call
+  // sites from this one component; useId keeps it unique and stable
+  // without callers having to pass their own id.
+  const id = React.useId();
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdBody, marginBottom: 6 }}>{label}</div>
+      <label htmlFor={id} style={{ display: "block", ...sans, fontSize: 12, fontWeight: 600, color: mdBody, marginBottom: 6 }}>{label}</label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-invalid={error || undefined}
         style={{
           ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
           border: `1px solid ${error ? mdWarn : mdDivider}`,
@@ -503,7 +512,7 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>Welcome back</div>
@@ -515,7 +524,7 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
         <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: mdBody }}>Don't have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
         </div>
       </div>
     </div>
@@ -572,7 +581,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>Let's create an account</div>
@@ -591,7 +600,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
         <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: mdBody }}>Already have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
         </div>
       </div>
     </div>
@@ -715,13 +724,14 @@ function OnboardingBrainDemo() {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") tryIt(); }}
             placeholder="Try typing anything…"
+            aria-label="Try typing anything, to preview how the brain map responds"
             style={{
               flex: 1, ...sans, fontSize: 14, padding: "10px 12px", borderRadius: 10,
               border: `1px solid ${mdDivider}`, backgroundColor: mdCard, color: mdHeading, outline: "none",
             }}
           />
           <motion.div
-            role="button" tabIndex={0} onClick={tryIt} whileTap={text.trim() ? { scale: 0.96 } : undefined}
+            role="button" tabIndex={0} onClick={tryIt} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (tryIt)?.(); } }} whileTap={text.trim() ? { scale: 0.96 } : undefined}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px", borderRadius: 10,
               backgroundColor: text.trim() ? mdAccent : mdTrack, color: text.trim() ? "#fff" : "#a29d9d",
@@ -863,6 +873,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             value={aspiration}
             onChange={(e) => setAspiration(e.target.value)}
             placeholder="e.g. I want to be someone who chooses challenge over safety."
+            aria-label="What kind of person do you want to become?"
             style={{
               ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
               backgroundColor: "transparent", color: mdHeading, fontSize: 18, lineHeight: 1.7,
@@ -1017,6 +1028,16 @@ function TutorialOverlay({
 }) {
   const rect = useTutorialTargetRect(step.target, frameRef, screen);
   const isLast = stepIndex === totalSteps - 1;
+  // Moves focus to each new step's tooltip title as it appears — same
+  // "screen reader announces whatever gets focus" fix as
+  // ScreenCrisisSupport, applied here so a keyboard/screen-reader user
+  // actually gets told a new spotlight step showed up, not just left to
+  // discover it by tabbing around blind. Declared before the early return
+  // below (hooks can't follow a conditional return).
+  const titleRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    titleRef.current?.focus();
+  }, [step.target]);
   // Only render once the current real screen matches this step's screen —
   // otherwise we're mid-transition and the target genuinely isn't there
   // yet; useTutorialTargetRect's retry picks it back up a moment later.
@@ -1073,7 +1094,7 @@ function TutorialOverlay({
 
       {/* Skip, always reachable. */}
       <motion.span
-        role="button" tabIndex={0} onClick={onSkip} whileTap={{ opacity: 0.6 }}
+        role="button" tabIndex={0} onClick={onSkip} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSkip)?.(); } }} whileTap={{ opacity: 0.6 }}
         style={{
           position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
           backgroundColor: "rgba(0,0,0,0.35)", padding: "6px 12px", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)",
@@ -1108,7 +1129,7 @@ function TutorialOverlay({
           pointerEvents: "auto",
         }}
       >
-        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: mdAccentText, letterSpacing: "0.04em" }}>{step.title}</div>
+        <div ref={titleRef} tabIndex={-1} style={{ ...sans, fontSize: 11, fontWeight: 700, color: mdAccentText, letterSpacing: "0.04em", outline: "none" }}>{step.title}</div>
         <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{step.body}</div>
         <div style={{ marginTop: 16 }}>
           <PrimaryBtn onClick={onNext} modernist>{isLast ? "Get started" : step.navTo ? "Tap to check it out" : "Next"}</PrimaryBtn>
@@ -1125,7 +1146,7 @@ function TutorialOverlay({
 function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser: string; badge?: string; onClick?: () => void }) {
   return (
     <motion.div
-      role="button" tabIndex={0} onClick={onClick} whileTap={{ scale: 0.98, opacity: 0.9 }}
+      role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.9 }}
       style={{ flex: 1, padding: "18px 16px", borderRadius: 20, backgroundColor: mdCard, boxShadow: mdCardShadow, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1201,7 +1222,7 @@ function HomeRegionShortcuts({ beliefs, onSelectRegion }: { beliefs: StoredBelie
     <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "2px 2px 6px", marginTop: 14, WebkitOverflowScrolling: "touch" }}>
       {COGNITIVE_REGIONS.map((region) => (
         <motion.div
-          key={region} role="button" tabIndex={0} onClick={() => onSelectRegion?.(region)} whileTap={{ scale: 0.95, opacity: 0.85 }}
+          key={region} role="button" tabIndex={0} onClick={() => onSelectRegion?.(region)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onSelectRegion?.(region))?.(); } }} whileTap={{ scale: 0.95, opacity: 0.85 }}
           style={{
             display: "flex", alignItems: "center", gap: 9, flexShrink: 0, cursor: "pointer",
             padding: "11px 16px", borderRadius: 999, backgroundColor: mdCard, boxShadow: mdCardShadow,
@@ -1248,7 +1269,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
             // rather than a separate handler — that route already renders
             // ScreenPaywall for a non-Pro store.
             <motion.div
-              role="button" tabIndex={0} onClick={onOpenBrainMap} whileTap={{ scale: 0.98, opacity: 0.92 }}
+              role="button" tabIndex={0} onClick={onOpenBrainMap} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenBrainMap)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
               style={{
                 height: 336, borderRadius: 30, backgroundColor: mdCard, boxShadow: mdCardShadow, cursor: "pointer",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
@@ -1274,7 +1295,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
 
         <div data-tutorial="think-card" style={{ marginTop: 16 }}>
           <motion.div
-            role="button" tabIndex={0} onClick={onStartThink} whileTap={{ scale: 0.98, opacity: 0.92 }}
+            role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
             style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", cursor: "pointer", boxShadow: mdCardShadow }}
           >
             <div style={{ width: 44, height: 44, borderRadius: "50%", background: `linear-gradient(135deg, ${mdAccent}, ${mdAccentText})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1424,13 +1445,13 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist }: { rea
     return (
       <div style={{ display: "flex", gap: 8, opacity: disabled ? 0.55 : 1 }}>
         <motion.div
-          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, backgroundColor: mdHeading, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: "#fff" }}>I agree</span>
         </motion.div>
         <motion.div
-          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, border: `1px solid ${mdDivider}`, backgroundColor: "transparent", cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: mdHeading }}>Doesn't feel right</span>
@@ -1442,13 +1463,13 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist }: { rea
     return (
       <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
         <motion.div
-          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, backgroundColor: dkAccent, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: "#fff" }}>I agree</span>
         </motion.div>
         <motion.div
-          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+          role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${dkCardBorder}`, backgroundColor: dkTrack, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: dkBodyLight }}>Doesn't feel right</span>
@@ -1459,13 +1480,13 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist }: { rea
   return (
     <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
       <motion.div
-        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>I agree</span>
       </motion.div>
       <motion.div
-        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} whileTap={disabled ? undefined : { scale: 0.97 }}
+        role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>Doesn't feel right</span>
@@ -1839,7 +1860,7 @@ function ScreenAnalysis({
                 />
                 {h?.investigate && hIndex !== null && (
                   <motion.div
-                    role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} whileTap={{ opacity: 0.6 }}
+                    role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onInvestigateHypothesis?.(hIndex))?.(); } }} whileTap={{ opacity: 0.6 }}
                     style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: `1.5px solid ${mdDivider}`, color: mdHeading, borderRadius: 14, padding: 12, ...sans, fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}
                   >
                     Dig deeper
@@ -2201,11 +2222,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
           ✕ Stop
         </motion.span>
         {!recording && (
-          <motion.span role="button" tabIndex={0} onClick={() => setTextMode((v) => !v)} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
+          <motion.span role="button" tabIndex={0} onClick={() => setTextMode((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setTextMode((v) => !v))?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
             {textMode ? "Use voice instead" : "Write instead"}
           </motion.span>
         )}
@@ -2219,6 +2240,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
               value={text}
               onChange={(e) => { setText(e.target.value); noteActivity(e.target.value); }}
               placeholder={`${promptHint} Write whatever feels natural.`}
+              aria-label="Speak your mind"
               style={{
                 ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
                 backgroundColor: "transparent", color: dkHeading, fontSize: 19, lineHeight: 1.7,
@@ -2325,6 +2347,18 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 // When real typed text is present, this screen actually calls the analysis
 // endpoint (server-side LLM call) instead of just running a fixed timer —
 // the timer stays as pacing for the still-unimplemented voice/STT path.
+// A hung /api/analyze call (slow model, a network stall that never
+// actually errors) used to strand the user here indefinitely — no
+// AbortController/timeout anywhere in the request, and this screen had no
+// back button or cancel affordance. ANALYZE_TIMEOUT_MS bounds the wait;
+// past that, the request is aborted and routed through the same onError
+// path a real failure already uses. CANCEL_AFFORDANCE_DELAY_MS is
+// separate and shorter — gives an impatient (not necessarily stuck) user
+// a way out well before the hard timeout, without asserting anything is
+// actually wrong.
+const ANALYZE_TIMEOUT_MS = 25000;
+const CANCEL_AFFORDANCE_DELAY_MS = 6000;
+
 function ScreenProcessing({
   text,
   matchableBeliefs,
@@ -2335,6 +2369,7 @@ function ScreenProcessing({
   name,
   onDone,
   onError,
+  onCancel,
 }: {
   text?: string;
   matchableBeliefs?: Pick<StoredBelief, "id" | "domain" | "statement" | "confidence">[];
@@ -2350,9 +2385,13 @@ function ScreenProcessing({
   // never blocks or fails the main analysis, per Feature 3's own spec.
   onDone?: (result: any | null, sessionSummary?: string) => void;
   onError?: (message: string) => void;
+  // Distinct from onError: canceling is a decision, not a failure — no
+  // error message, just back to Home.
+  onCancel?: () => void;
 }) {
   const STEPS = ["Listening", "Connecting it to past conversations", "Double-checking the pattern"];
   const [step, setStep] = React.useState(0);
+  const [showCancel, setShowCancel] = React.useState(false);
 
   React.useEffect(() => {
     if (text) return;
@@ -2365,15 +2404,23 @@ function ScreenProcessing({
   }, [text, step]);
 
   React.useEffect(() => {
+    const t = setTimeout(() => setShowCancel(true), CANCEL_AFFORDANCE_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  React.useEffect(() => {
     if (!text) return;
     let cancelled = false;
     const stepTimer = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 700);
+    const analyzeAbort = new AbortController();
+    const timeoutId = setTimeout(() => analyzeAbort.abort(), ANALYZE_TIMEOUT_MS);
 
     // Feature 3 — fired alongside /api/analyze, not chained after it, so
     // the summary doesn't add extra wait time on top of the main analysis.
     // Deliberately swallows its own errors to undefined: a missing summary
     // just means the session-summary card skips that paragraph, never a
-    // reason to fail the session.
+    // reason to fail the session. Not worth its own timeout — it's already
+    // bounded by however long /api/analyze itself takes below.
     const summaryPromise = fetch("/api/summarize-session", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -2390,6 +2437,7 @@ function ScreenProcessing({
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name }),
+      signal: analyzeAbort.signal,
     })
       .then(async (res) => {
         const data = await res.json();
@@ -2399,16 +2447,19 @@ function ScreenProcessing({
       .then(async (data) => {
         const sessionSummary = await summaryPromise;
         if (cancelled) return;
+        clearTimeout(timeoutId);
         clearInterval(stepTimer);
         setStep(STEPS.length - 1);
         setTimeout(() => { if (!cancelled) onDone?.(data, sessionSummary); }, 500);
       })
       .catch((err) => {
         if (cancelled) return;
+        clearTimeout(timeoutId);
         clearInterval(stepTimer);
-        onError?.(err instanceof Error ? err.message : "Analysis failed.");
+        const isTimeout = err instanceof DOMException && err.name === "AbortError";
+        onError?.(isTimeout ? "This is taking longer than expected. Please try again." : err instanceof Error ? err.message : "Analysis failed.");
       });
-    return () => { cancelled = true; clearInterval(stepTimer); };
+    return () => { cancelled = true; clearInterval(stepTimer); clearTimeout(timeoutId); analyzeAbort.abort(); };
   }, [text]);
 
   return (
@@ -2419,6 +2470,16 @@ function ScreenProcessing({
         style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: dkAccent, boxShadow: `0 0 24px 6px ${dkAccentSoft}` }}
       />
       <div style={{ ...sans, fontSize: 14, color: dkBodyLight, marginTop: 22 }}>{STEPS[step]}</div>
+      {showCancel && (
+        <motion.span
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+          role="button" tabIndex={0} onClick={onCancel}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCancel?.(); } }}
+          style={{ ...sans, fontSize: 13, color: dkBody, marginTop: 28, cursor: "pointer" }}
+        >
+          Cancel
+        </motion.span>
+      )}
     </div>
   );
 }
@@ -2453,7 +2514,7 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
             </div>
             {showUpsell && (
               <div
-                role="button" tabIndex={0} onClick={onUpgrade}
+                role="button" tabIndex={0} onClick={onUpgrade} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onUpgrade)?.(); } }}
                 style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
               >
                 <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
@@ -2524,10 +2585,23 @@ function CrisisResourceCard({ title, subtitle, href }: { title: string; subtitle
 }
 
 function ScreenCrisisSupport({ onContinue }: { onContinue?: () => void }) {
+  // This is the one screen in the app where a screen-reader user silently
+  // missing that anything changed is unacceptable — everywhere else, a
+  // missed transition just means re-exploring the page; here it means the
+  // 988/Crisis Text Line resources go unnoticed. Moving focus to the
+  // heading is the standard SPA route-change fix: most screen readers
+  // announce whatever receives focus, so this reads immediately instead
+  // of requiring the person to blindly find it. tabIndex={-1} makes a
+  // plain div programmatically focusable without adding it to the normal
+  // Tab order (it's not an interactive element itself).
+  const headingRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "48px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div ref={headingRef} tabIndex={-1} style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all", outline: "none" }}>
           It sounds like you might be going through something really hard right now.
         </div>
         <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
@@ -3004,7 +3078,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
             return (
               <motion.span
                 key={p} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                onClick={() => setOpenPattern(active ? null : p)}
+                onClick={() => setOpenPattern(active ? null : p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setOpenPattern(active ? null : p))?.(); } }}
                 style={{ ...sans, fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? "#fff" : mdAccentText, backgroundColor: active ? mdAccent : mdAccentSoft, padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
               >
                 {p}
@@ -3041,7 +3115,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {hasLoopData && (
         <div style={{ marginTop: 10 }}>
           <motion.span
-            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => setShowLoop((v) => !v)}
+            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => setShowLoop((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setShowLoop((v) => !v))?.(); } }}
             style={{ ...sans, fontSize: 11.5, color: mdAccentText, fontWeight: 600, cursor: "pointer", display: "inline-block" }}
           >
             {showLoop ? "Collapse repeat structure ↑" : "See why this pattern repeats ↓"}
@@ -3055,7 +3129,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       )}
       {onReject && (
         <motion.span
-          role="button" tabIndex={0} onClick={() => onReject(belief.id)} whileTap={{ opacity: 0.6 }}
+          role="button" tabIndex={0} onClick={() => onReject(belief.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onReject(belief.id))?.(); } }} whileTap={{ opacity: 0.6 }}
           style={{ ...sans, fontSize: 11.5, color: mdFaint, marginTop: 10, display: "inline-block", cursor: "pointer" }}
         >
           This observation doesn't match how I see it
@@ -3165,7 +3239,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Unconscious Patterns</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: hasBeliefs ? 6 : 20, lineHeight: 1.5, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
@@ -3285,7 +3359,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Distance from Your Goal</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           The gap between the person you said you wanted to be and your recent actual patterns.
@@ -3299,7 +3373,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
               <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: mdBodyLight, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>
                 "{store.aspiration}"
               </div>
-              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: mdAccentText, cursor: "pointer", display: "inline-block", marginTop: 10 }}>
+              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: mdAccentText, cursor: "pointer", display: "inline-block", marginTop: 10 }}>
                 Set again
               </motion.span>
             </div>
@@ -3321,7 +3395,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
         ) : (
           <>
             <div
-              role="button" tabIndex={0} onClick={onSetupAspiration}
+              role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }}
               style={{ padding: 16, borderRadius: 14, backgroundColor: mdAccentSoft, borderLeft: `2px solid ${mdAccent}`, marginBottom: 24, cursor: "pointer" }}
             >
               <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: mdAccentText }}>Tell us who you want to become</div>
@@ -3373,7 +3447,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
           We'll keep comparing this to the thoughts you log going forward.
@@ -3385,6 +3459,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="e.g. I want to be someone who chooses challenge over safety."
+          aria-label="Who do you want to become?"
           style={{
             ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
             backgroundColor: "transparent", color: mdHeading, fontSize: 19, lineHeight: 1.7,
@@ -3423,7 +3498,7 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5 }}>Not certain. Agree or push back to help refine it together.</div>
       </div>
@@ -3435,7 +3510,7 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
         ) : (
           items.map((h, i) => (
             <motion.div
-              key={h.id} role="button" tabIndex={0} onClick={() => onOpen?.(i)} whileTap={{ scale: 0.99, opacity: 0.9 }}
+              key={h.id} role="button" tabIndex={0} onClick={() => onOpen?.(i)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onOpen?.(i))?.(); } }} whileTap={{ scale: 0.99, opacity: 0.9 }}
               style={{ padding: "18px 0", borderBottom: i < items.length - 1 ? `1px solid ${mdDivider}` : "none", cursor: "pointer" }}
             >
               <div style={{ ...serif, fontSize: 16, color: mdHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
@@ -3648,7 +3723,7 @@ function ScreenHypothesisDetail({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <HypothesisDiscoveryBody h={h} store={store} onAgree={onAgree} onDisagree={onDisagree} reinterpreting={reinterpreting} onInvestigate={onInvestigate} />
@@ -3720,7 +3795,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
   return (
     <div style={{ position: "relative", height: "100%" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 22px 0", zIndex: 2 }}>
-        <motion.span role="button" tabIndex={0} onClick={step === 0 ? onBack : () => setStep(step - 1)} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={step === 0 ? onBack : () => setStep(step - 1)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (step === 0 ? onBack : () => setStep(step - 1))?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{step + 1} / {steps}</span>
       </div>
       <div style={{ height: "100%" }}>{body}</div>
@@ -3828,7 +3903,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     const tag = status === "supported" || status === "emerging" ? "Recurring thought" : null;
                     return (
                       <motion.div
-                        key={entry.id} role="button" tabIndex={0} onClick={() => onOpenEntry?.(index)} whileTap={{ opacity: 0.6 }}
+                        key={entry.id} role="button" tabIndex={0} onClick={() => onOpenEntry?.(index)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onOpenEntry?.(index))?.(); } }} whileTap={{ opacity: 0.6 }}
                         style={{ backgroundColor: mdCard, borderRadius: 16, padding: "16px 18px", boxShadow: mdCardShadow, cursor: "pointer" }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -3877,7 +3952,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -4023,7 +4098,7 @@ function ScreenProfile({
 
         {MONETIZATION_ENABLED && !store.isPro && (
           <motion.div
-            role="button" tabIndex={0} onClick={onOpenPaywall} whileTap={{ opacity: 0.6 }}
+            role="button" tabIndex={0} onClick={onOpenPaywall} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenPaywall)?.(); } }} whileTap={{ opacity: 0.6 }}
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 12,
               backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", boxShadow: mdCardShadow, marginBottom: 14,
@@ -4065,7 +4140,7 @@ function ScreenProfile({
         <div style={{ backgroundColor: mdCard, borderRadius: 20, overflow: "hidden", boxShadow: mdCardShadow }}>
           {rows.map((r, i) => (
             <motion.div
-              key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
+              key={r.label} role="button" tabIndex={0} onClick={r.onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (r.onClick)?.(); } }} whileTap={{ opacity: 0.6 }}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${mdDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: r.destructive ? mdAccentText : mdHeading, flex: 1 }}>{r.label}</span>
@@ -4093,7 +4168,7 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
         {note && <div style={{ ...sans, fontSize: 12, color: noteColor, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
       </div>
       <motion.div
-        role="button" tabIndex={0} onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
+        role="button" tabIndex={0} onClick={() => onChange?.(!value)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onChange?.(!value))?.(); } }} whileTap={{ scale: 0.95 }}
         style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
       >
         <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff" }} />
@@ -4106,7 +4181,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Notifications</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -4155,7 +4230,7 @@ function ScreenDataPrivacy({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -4190,7 +4265,7 @@ function ScreenDataPrivacy({
         <div style={{ marginTop: 28 }}>
           <div
             role="button" tabIndex={0}
-            onClick={() => (armed ? onResetData?.() : setArmed(true))}
+            onClick={() => (armed ? onResetData?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onResetData?.() : setArmed(true)))?.(); } }}
             style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
@@ -4210,7 +4285,7 @@ function ScreenDataPrivacy({
             { label: "Terms of Service", onClick: onOpenTermsOfService },
           ].map((r, i, arr) => (
             <motion.div
-              key={r.label} role="button" tabIndex={0} onClick={r.onClick} whileTap={{ opacity: 0.6 }}
+              key={r.label} role="button" tabIndex={0} onClick={r.onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (r.onClick)?.(); } }} whileTap={{ opacity: 0.6 }}
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${mdDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading, flex: 1 }}>{r.label}</span>
@@ -4238,7 +4313,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Help</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There are patterns in your mind. You just can't see them from inside.
@@ -4247,7 +4322,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         {onReplayTutorial && (
           <motion.div
-            role="button" tabIndex={0} onClick={onReplayTutorial} whileTap={{ opacity: 0.6 }}
+            role="button" tabIndex={0} onClick={onReplayTutorial} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onReplayTutorial)?.(); } }} whileTap={{ opacity: 0.6 }}
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
               padding: "14px 16px", borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 18,
@@ -4292,7 +4367,7 @@ function ScreenLegalDocument({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>{title}</div>
         <div style={{ ...mono, fontSize: 11, color: mdFaint, marginTop: 6 }}>Last updated {lastUpdated}</div>
       </div>
@@ -4459,7 +4534,7 @@ function ScreenPaywall({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
@@ -4491,7 +4566,7 @@ function ScreenPaywall({
             const active = p.id === selected;
             return (
               <div
-                key={p.id} role="button" tabIndex={0} onClick={() => setSelected(p.id)}
+                key={p.id} role="button" tabIndex={0} onClick={() => setSelected(p.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setSelected(p.id))?.(); } }}
                 style={{
                   position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
                   padding: "16px 18px", borderRadius: 14, backgroundColor: active ? mdAccentSoft : mdCard,
@@ -4565,7 +4640,7 @@ function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 14 }}>Payment</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px 24px" }}>
@@ -4607,7 +4682,7 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -4622,7 +4697,7 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
         <div style={{ marginTop: 28 }}>
           <div
             role="button" tabIndex={0}
-            onClick={() => (armed ? onCancel?.() : setArmed(true))}
+            onClick={() => (armed ? onCancel?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onCancel?.() : setArmed(true)))?.(); } }}
             style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
@@ -4995,6 +5070,7 @@ export default function App() {
           }
         }}
         onError={(msg) => { setAnalysisError(msg); setScreen("thinkComplete"); }}
+        onCancel={() => setScreen("home")}
       />
     ); break;
     case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("analysis")} />; break;

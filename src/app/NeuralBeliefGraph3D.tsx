@@ -1315,7 +1315,7 @@ export default function NeuralBeliefGraph3D({
                           key={id}
                           role="button"
                           tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setSelectedId(id); }}
+                          onClick={(e) => { e.stopPropagation(); setSelectedId(id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ((e) => { e.stopPropagation(); setSelectedId(id); })?.(e); } }}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -1353,7 +1353,7 @@ export default function NeuralBeliefGraph3D({
               key={region}
               role="button"
               tabIndex={0}
-              onClick={() => setSelectedRegion(active ? null : region)}
+              onClick={() => setSelectedRegion(active ? null : region)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setSelectedRegion(active ? null : region))?.(); } }}
               style={{
                 display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
                 background: active ? `${REGION_CONFIG[region].color}22` : "rgba(150,120,255,0.1)",
