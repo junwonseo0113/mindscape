@@ -260,6 +260,7 @@ export default function BrainNodeMapScreen({
   onExpand,
   modernist = false,
   autoHighlightIds,
+  initialActiveRegion = null,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -291,6 +292,11 @@ export default function BrainNodeMapScreen({
   // while the user has something explicitly selected (never fights an
   // active tap), and resumes the moment they close the panel.
   autoHighlightIds?: string[];
+  // Pre-selects a region filter on mount — how Home's region shortcuts
+  // (see HomeRegionShortcuts in App.tsx) land here already filtered
+  // instead of opening to the unfiltered full map and making the person
+  // tap the region again themselves.
+  initialActiveRegion?: CognitiveRegion | null;
 }) {
   const bg = modernist ? "#ffffff" : bgDark;
   const panelBg = modernist ? "#ffffff" : panelBgDark;
@@ -353,7 +359,7 @@ export default function BrainNodeMapScreen({
   } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeRegion, setActiveRegion] = useState<CognitiveRegion | null>(null);
+  const [activeRegion, setActiveRegion] = useState<CognitiveRegion | null>(initialActiveRegion);
   const [selected, setSelected] = useState<PanelNode | null>(null);
   const [hover, setHover] = useState<{ label: string; x: number; y: number } | null>(null);
   const [cursor, setCursor] = useState<"grab" | "grabbing" | "pointer">("grab");
@@ -1035,27 +1041,32 @@ export default function BrainNodeMapScreen({
         />
 
         {/* ── Left rail: regions — full-screen only. At the embedded card's
-            width (420px teaser on Home) this 178px opaque panel used to
-            cover most of the canvas, hiding almost the whole brain; the
-            full rail (with per-region counts) is still one tap away via
-            the full-screen "brainmap" route. ── */}
+            width (420px teaser on Home) this opaque panel used to cover
+            most of the canvas, hiding almost the whole brain; the full
+            rail (with per-region counts) is still one tap away via the
+            full-screen "brainmap" route, or via Home's own region
+            shortcuts (see HomeRegionShortcuts in App.tsx), which land here
+            pre-filtered. Sized for a thumb, not a cursor — the previous
+            9px dot / 12.5px text / 5px-padding rows were tuned for a
+            desktop-mockup sidebar and read as genuinely hard to pick out
+            or tap accurately on a real phone. ── */}
         {!embedded && (
           <div
             style={{
               position: "absolute",
               top: 16,
               left: 18,
-              width: 178,
+              width: 210,
               background: panelBg,
-              borderRadius: 8,
-              padding: 13,
+              borderRadius: 10,
+              padding: 14,
               display: "flex",
               flexDirection: "column",
-              gap: 8,
+              gap: 4,
               boxShadow: `0 0 0 1px ${line}`,
             }}
           >
-            <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: accentUi, marginBottom: 2 }}>Regions</div>
+            <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: accentUi, marginBottom: 4, fontWeight: 700 }}>Regions</div>
             {COGNITIVE_REGIONS.map((region) => {
               const active = activeRegion === region;
               return (
@@ -1067,18 +1078,21 @@ export default function BrainNodeMapScreen({
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
-                    fontSize: 12.5,
+                    gap: 11,
+                    fontSize: 15,
+                    fontWeight: active ? 700 : 500,
                     cursor: "pointer",
-                    padding: "5px 6px",
-                    borderRadius: 6,
+                    padding: "11px 10px",
+                    minHeight: 44,
+                    boxSizing: "border-box",
+                    borderRadius: 8,
                     background: active ? accentUiSofter : "transparent",
-                    boxShadow: active ? `inset 0 0 0 1px ${accentUi}` : "none",
+                    boxShadow: active ? `inset 0 0 0 1.5px ${accentUi}` : "none",
                   }}
                 >
-                  <span style={{ width: 9, height: 9, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
+                  <span style={{ width: 13, height: 13, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
                   <span style={{ flex: 1, color: active ? ink : inkSoft }}>{REGION_CONFIG[region].label}</span>
-                  <span style={{ fontSize: 10.5, color: inkMid }}>{regionCounts[region] ?? 0}</span>
+                  <span style={{ fontSize: 12.5, color: inkMid }}>{regionCounts[region] ?? 0}</span>
                 </div>
               );
             })}

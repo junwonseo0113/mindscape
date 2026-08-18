@@ -1182,7 +1182,41 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
 // Dark theme, ported directly from the claude.ai/design spec (home screen.dc.html)
 // — see the dk* tokens near the top of the file. The 3D brain's own card
 // styling is left untouched (that component wasn't part of this import).
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: () => void; store: Store }) {
+// A same-shortcut-shown-on-the-full-map's own left rail, just sized for a
+// thumb instead of a cursor — that rail's dots/text/row-height were tuned
+// for a desktop-mockup sidebar (9px dot, 12.5px text, 5px vertical
+// padding), which reads as genuinely hard to pick out and tap accurately
+// on a real phone. This is a horizontally-scrollable chip row instead of a
+// list (Home is already stacking a hero + Brain Map + Speak-your-mind
+// card, no room for a tall list), each chip large enough to be a real
+// touch target (44px+ tall, per Apple's own HIG minimum) with a bigger
+// color dot and bolder label so which region is which reads at a glance.
+// Tapping one jumps straight to the full Brain Map already filtered to it
+// — a real shortcut, not just a preview.
+function HomeRegionShortcuts({ beliefs, onSelectRegion }: { beliefs: StoredBelief[]; onSelectRegion?: (region: CognitiveRegion) => void }) {
+  const counts = new Map<CognitiveRegion, number>();
+  COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
+  beliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
+  return (
+    <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "2px 2px 6px", marginTop: 14, WebkitOverflowScrolling: "touch" }}>
+      {COGNITIVE_REGIONS.map((region) => (
+        <motion.div
+          key={region} role="button" tabIndex={0} onClick={() => onSelectRegion?.(region)} whileTap={{ scale: 0.95, opacity: 0.85 }}
+          style={{
+            display: "flex", alignItems: "center", gap: 9, flexShrink: 0, cursor: "pointer",
+            padding: "11px 16px", borderRadius: 999, backgroundColor: mdCard, boxShadow: mdCardShadow,
+          }}
+        >
+          <span style={{ width: 12, height: 12, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
+          <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading, whiteSpace: "nowrap" }}>{REGION_CONFIG[region].label}</span>
+          <span style={{ ...mono, fontSize: 12.5, color: mdFaint }}>{counts.get(region) ?? 0}</span>
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 20px 24px" }}>
@@ -1233,6 +1267,10 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
             </motion.div>
           )}
         </div>
+
+        {(!MONETIZATION_ENABLED || store.isPro) && (
+          <HomeRegionShortcuts beliefs={store.beliefs} onSelectRegion={(region) => onOpenBrainMap?.(region)} />
+        )}
 
         <div data-tutorial="think-card" style={{ marginTop: 16 }}>
           <motion.div
@@ -4562,6 +4600,11 @@ export default function App() {
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
+  // Set right before navigating to "brainmap" whenever the trip started
+  // from a region shortcut (see HomeRegionShortcuts) rather than the
+  // Brain Map card's own expand button — null just opens the map
+  // unfiltered, same as always.
+  const [brainMapInitialRegion, setBrainMapInitialRegion] = React.useState<CognitiveRegion | null>(null);
   // The one data provider: `store` is whichever dataset is currently active
   // (curated demo content, or the real on-device store — see
   // src/app/dataProvider.ts), and every screen below reads only that, with
@@ -4785,12 +4828,12 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={() => setScreen("think")}
-        onOpenBrainMap={() => setScreen("brainmap")}
+        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setScreen("brainmap"); }}
         store={store}
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
-      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist />
+      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist initialActiveRegion={brainMapInitialRegion} />
     ) : (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
