@@ -500,7 +500,17 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
 
     setTimeout(() => {
       setLoading(false);
-      if (!account) { setError("No account found. Please sign up first."); return; }
+      // A malformed/partial account record (a hand-edited localStorage
+      // value, a future schema change, corrupted storage) used to hard-
+      // crash this whole screen right here — loadStore's own `account &&
+      // typeof === "object"` check accepts any object shape, it never
+      // verifies `.email` is actually a string before this called
+      // .toLowerCase() on it. Same error as no account at all, since
+      // from here they're functionally the same: nothing to log into.
+      if (!account || typeof account.email !== "string" || typeof account.password !== "string") {
+        setError("No account found. Please sign up first.");
+        return;
+      }
       if (account.email.toLowerCase() !== email.trim().toLowerCase() || account.password !== password) {
         setError("Email or password is incorrect.");
         return;
@@ -852,7 +862,9 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
                 actually activates. See crisisDetection.ts. */}
             {isWelcome && (
               <div style={{ ...sans, fontSize: 12, color: mdFaint, marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
-                Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app.
+                {isCloudSyncConfigured
+                  ? "Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this private, whether it stays only on this device or syncs to your own encrypted account."
+                  : "Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app."}
               </div>
             )}
           </motion.div>
@@ -2121,6 +2133,17 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const guidanceShownRef = React.useRef(false);
   const guidanceDelayRef = React.useRef<any>(null);
 
+  // Guards both onDone call sites below (text Next button, voice auto-stop)
+  // against a rapid double-tap firing onDone twice before the screen
+  // change unmounts this component — without it, two "processing" calls
+  // race and can create two duplicate history entries for one entry.
+  const [submitted, setSubmitted] = React.useState(false);
+  const submit = (finalText: string) => {
+    if (submitted) return;
+    setSubmitted(true);
+    onDone?.(finalText);
+  };
+
   const noteActivity = (currentText: string) => {
     latestTextRef.current = currentText;
     lastActivityRef.current = Date.now();
@@ -2216,7 +2239,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
     setRecording(false);
     const finalText = (transcript + (interim ? " " + interim : "")).trim();
     setInterim("");
-    onDone?.(finalText);
+    submit(finalText);
   };
 
   return (
@@ -2263,7 +2286,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
             </AnimatePresence>
           </div>
           <div style={{ padding: "0 24px 40px" }}>
-            <PrimaryBtn disabled={!text.trim()} onClick={() => onDone?.(text.trim())}>Next</PrimaryBtn>
+            <PrimaryBtn disabled={!text.trim() || submitted} onClick={() => submit(text.trim())}>Next</PrimaryBtn>
           </div>
         </>
       ) : (
@@ -2407,6 +2430,25 @@ function ScreenProcessing({
     const t = setTimeout(() => setShowCancel(true), CANCEL_AFFORDANCE_DELAY_MS);
     return () => clearTimeout(t);
   }, []);
+
+  // The one moment in the app where a refresh/tab-close is actually
+  // destructive: `text` only lives in this component's props/React state
+  // until mergeAnalysisIntoStore (or appendUnanalyzedEntry, for the free
+  // path) actually runs, back in the App shell's onDone — nothing here
+  // persists it before that. Every other screen either has nothing
+  // unsaved yet (still typing, hasn't hit Next) or has already been
+  // written to localStorage. Native browser prompt, not a custom one —
+  // beforeunload can't render its own UI, only ask the browser to show
+  // its own "leave site?" confirmation.
+  React.useEffect(() => {
+    if (!text) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [text]);
 
   React.useEffect(() => {
     if (!text) return;
