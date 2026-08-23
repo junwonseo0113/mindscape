@@ -1094,12 +1094,106 @@ export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
   );
 }
 
+// The tapped-node detail card — same content/behavior whether it's sitting
+// inside the full card chrome or floating directly over a photo in minimal
+// mode (see the `minimal` prop below), so this is shared between both
+// return branches instead of duplicated.
+function NodeDetailCard({
+  selectedNode,
+  structureMode,
+  selectedCluster,
+  selectedContradiction,
+  activeNodes,
+  onSelectId,
+}: {
+  selectedNode: ActiveNode;
+  structureMode: boolean;
+  selectedCluster: string[] | null;
+  selectedContradiction: ActiveNode | null;
+  activeNodes: ActiveNode[];
+  onSelectId: (id: string) => void;
+}) {
+  return (
+    <motion.div
+      key={selectedNode.id}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: 36,
+        background: "rgba(20,15,35,0.92)",
+        border: "1px solid rgba(170,140,255,0.2)",
+        backdropFilter: "blur(8px)",
+        borderRadius: 14,
+        padding: "14px 16px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
+        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
+        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
+      </div>
+      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
+        {selectedNode.statement}
+      </div>
+      <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
+
+      {structureMode && selectedCluster && selectedCluster.length >= 3 && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
+            Reinforces {selectedCluster.length - 1} other beliefs, and they support each other
+          </div>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            {selectedCluster
+              .filter((id) => id !== selectedNode.id)
+              .map((id) => {
+                const member = activeNodes.find((n) => n.id === id);
+                if (!member) return null;
+                return (
+                  <div
+                    key={id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); onSelectId(id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ((e) => { e.stopPropagation(); onSelectId(id); })?.(e); } }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,0.04)",
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: member.color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#E8E3F5", lineHeight: 1.4, wordBreak: "keep-all" }}>{member.statement}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+      {structureMode && selectedContradiction && (
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          In tension with "{selectedContradiction.statement}" — this doesn't decide which one is right.
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function NeuralBeliefGraph3D({
   beliefs,
   connections,
   clusters = [],
   height = 360,
   defaultStructureMode = false,
+  minimal = false,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -1115,6 +1209,16 @@ export default function NeuralBeliefGraph3D({
   // actually matter. Still just a starting point, not a lockout — the
   // toggle stays visible and works either direction.
   defaultStructureMode?: boolean;
+  // Chrome-free variant for embedding straight into a photographic scene
+  // (Mind's "constellation in the sky" redesign): no card background/
+  // border/shadow, no Reset/Structure View buttons, no built-in "Drag to
+  // rotate" caption, no region legend — just the transparent canvas with
+  // the exact same real nodes/connections/camera-orbit/tap-to-select/
+  // detail-panel behavior, sized to fill whatever container the caller
+  // gives it (percentage/aspect-ratio friendly) rather than a literal
+  // pixel `height`. The caller is expected to supply its own caption text
+  // and size the wrapping element itself.
+  minimal?: boolean;
 }) {
   const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1191,6 +1295,54 @@ export default function NeuralBeliefGraph3D({
     setSelectedRegion(null);
     controlsRef.current?.reset?.();
   };
+
+  // Minimal: just the transparent canvas + the same tap-to-select detail
+  // card, sized to fill whatever the caller gives it — no card chrome, no
+  // buttons, no caption, no legend, no shrink-on-select animation (that
+  // was keyed off the literal `height` px number, which this mode doesn't
+  // have — the detail card just floats over the unchanged canvas instead).
+  if (minimal) {
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <Canvas
+          dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
+          camera={{ position: [0, 0, 7.2], fov: 44 }}
+          gl={{ antialias: true, alpha: true }}
+          onPointerMissed={() => setSelectedId(null)}
+        >
+          <BrainScene
+            activeNodes={activeNodes}
+            connections={connections}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
+            onHover={setHoveredId}
+            controlsRef={controlsRef}
+            isInteracting={isInteracting}
+            onInteractStart={() => setIsInteracting(true)}
+            onInteractEnd={() => setIsInteracting(false)}
+            justActivatedById={justActivatedById}
+            justActivatedBgIndices={justActivatedBgIndices}
+            structureMode={structureMode}
+            clusters={clusters}
+            contradictionPause={contradictionPause}
+          />
+        </Canvas>
+        <AnimatePresence>
+          {selectedNode && (
+            <NodeDetailCard
+              selectedNode={selectedNode}
+              structureMode={structureMode}
+              selectedCluster={selectedCluster}
+              selectedContradiction={selectedContradiction}
+              activeNodes={activeNodes}
+              onSelectId={setSelectedId}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   // Dark container + info-card treatment ported from the imported design
   // spec's NeuralBeliefGraph3D.dc.html — that file reimplements this whole
@@ -1320,78 +1472,16 @@ export default function NeuralBeliefGraph3D({
         </div>
 
         <AnimatePresence>
-        {selectedNode && (
-          <motion.div
-            key={selectedNode.id}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            style={{
-              position: "absolute",
-              left: 10,
-              right: 10,
-              bottom: 36,
-              background: "rgba(20,15,35,0.92)",
-              border: "1px solid rgba(170,140,255,0.2)",
-              backdropFilter: "blur(8px)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
-              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
-            </div>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
-              {selectedNode.statement}
-            </div>
-            <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
-
-            {structureMode && selectedCluster && selectedCluster.length >= 3 && (
-              <div style={{ marginTop: 6 }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  Reinforces {selectedCluster.length - 1} other beliefs, and they support each other
-                </div>
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                  {selectedCluster
-                    .filter((id) => id !== selectedNode.id)
-                    .map((id) => {
-                      const member = activeNodes.find((n) => n.id === id);
-                      if (!member) return null;
-                      return (
-                        <div
-                          key={id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setSelectedId(id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ((e) => { e.stopPropagation(); setSelectedId(id); })?.(e); } }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            cursor: "pointer",
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            background: "rgba(255,255,255,0.04)",
-                          }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: member.color, flexShrink: 0 }} />
-                          <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#E8E3F5", lineHeight: 1.4, wordBreak: "keep-all" }}>{member.statement}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-            {structureMode && selectedContradiction && (
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                In tension with "{selectedContradiction.statement}" — this doesn't decide which one is right.
-              </div>
-            )}
-          </motion.div>
-        )}
+          {selectedNode && (
+            <NodeDetailCard
+              selectedNode={selectedNode}
+              structureMode={structureMode}
+              selectedCluster={selectedCluster}
+              selectedContradiction={selectedContradiction}
+              activeNodes={activeNodes}
+              onSelectId={setSelectedId}
+            />
+          )}
         </AnimatePresence>
       </div>
 
