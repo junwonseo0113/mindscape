@@ -1811,11 +1811,11 @@ function ScreenAnalysis({ onNavSelect, store }: { onNavSelect?: (id: string) => 
         // The photo as an actual CSS background — nothing else about this
         // screen's layout changes from what it was on flat mdBg: same
         // padding, same title block, same order, same everything below it.
-        // This particular photo (an aged cream journal page) is light and
-        // fairly even top to bottom, unlike the darker photo it replaced —
-        // dark ink text sits straight on it with no scrim needed, the same
-        // way this screen's text always looked on flat mdBg.
-        backgroundColor: "#ece2cd",
+        // This photo mixes dark branches and bright fog right where the
+        // title sits, unlike the flat cream journal page it replaced — a
+        // light color alone would vanish against the dark patches, so this
+        // goes back to cream text with a dark shadow (holds up over both).
+        backgroundColor: "#2a2016",
         backgroundImage: `url(${mindHeroImg})`,
         backgroundSize: "cover",
         backgroundPosition: "top center",
@@ -1823,8 +1823,8 @@ function ScreenAnalysis({ onNavSelect, store }: { onNavSelect?: (id: string) => 
     >
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
         <div style={{ padding: "8px 4px 20px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>Mind</div>
-          <div style={{ ...sans, fontSize: 13, color: mdBody }}>The beliefs you've confirmed so far, mapped as their own living network.</div>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: "#f2ece2", marginBottom: 6, textShadow: "0 2px 10px rgba(0,0,0,0.6)" }}>Mind</div>
+          <div style={{ ...sans, fontSize: 13, color: "rgba(242,236,226,0.82)", textShadow: "0 1px 8px rgba(0,0,0,0.65)" }}>The beliefs you've confirmed so far, mapped as their own living network.</div>
         </div>
 
         {/* ── RELATED NEURAL ACTIVITY — deliberately NOT Home's full brain
@@ -4940,7 +4940,7 @@ function useIsMobileViewport(): boolean {
 
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = React.useState("home"); // TEMP: visual QA
+  const [screen, setScreen] = React.useState("splash");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
