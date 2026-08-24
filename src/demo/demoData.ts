@@ -246,7 +246,7 @@ export const DEMO_STORE: Store = {
     },
   ],
   driftNotes: [],
-  settings: { dailyReminder: true, newHypothesisAlert: true, weeklySummary: false },
+  settings: { dailyReminder: true, dailyReminderTime: "20:00", newHypothesisAlert: true, weeklySummary: false },
   account: null,
   entryCount: 47,
   // Demo Mode exists to showcase the full feature set, including everything
@@ -254,4 +254,29 @@ export const DEMO_STORE: Store = {
   // never itself gated.
   isPro: true,
   proPlan: "yearly",
+  // Curated, not live-computed (same reasoning as aspirationExamples above)
+  // — goalsBeliefSnapshot matches beliefs.length so HomeGoalsWidget sees
+  // "already computed for this belief set" and never fires a real API call
+  // against demo content.
+  goals: [
+    {
+      id: "demo-goal-0",
+      statement: "Let one thing stay imperfect on purpose, and start it anyway.",
+      basedOnDomains: ["Work", "Career"],
+      createdDate: "2026.07.20",
+    },
+    {
+      id: "demo-goal-1",
+      statement: "Ask for help with something before you've exhausted doing it alone.",
+      basedOnDomains: ["Relationships"],
+      createdDate: "2026.07.20",
+    },
+    {
+      id: "demo-goal-2",
+      statement: "Notice one choice this week you made for freedom, not just security.",
+      basedOnDomains: ["Values", "Life overall"],
+      createdDate: "2026.07.20",
+    },
+  ],
+  goalsBeliefSnapshot: 5,
 };

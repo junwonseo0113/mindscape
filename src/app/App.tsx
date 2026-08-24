@@ -11,6 +11,7 @@ import {
   StoredBelief,
   StoredConnection,
   StoredEvidenceQuote,
+  StoredGoal,
   StoredHistoryEntry,
   StoredHypothesis,
   StoredSettings,
@@ -38,6 +39,12 @@ import { pickInputGuidance } from "./inputGuidance";
 // store.isPro directly, specifically so this one flag is a real kill switch
 // and not just one of several places that would need to change together.
 const MONETIZATION_ENABLED = false;
+
+// Tracks the last calendar day the daily-reminder Notification actually
+// fired (see App()'s reminder effect near useAppData) — guards against
+// firing twice in the same minute-granularity tick, or again on a reload
+// that happens to land in the same HH:mm.
+const DAILY_REMINDER_LAST_FIRED_KEY = "mijeong.lastDailyReminderFiredDate";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -1249,7 +1256,7 @@ function HomeRegionShortcuts({ beliefs, onSelectRegion }: { beliefs: StoredBelie
   );
 }
 
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 20px 24px" }}>
@@ -1319,8 +1326,102 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store }: { onNa
             </div>
           </motion.div>
         </div>
+
+        {(!MONETIZATION_ENABLED || store.isPro) && (
+          <HomeGoalsWidget beliefs={store.beliefs} goals={store.goals} goalsBeliefSnapshot={store.goalsBeliefSnapshot} updateStore={updateStore} />
+        )}
       </div>
       <BottomNav active="home" onSelect={onNavSelect} modernist />
+    </div>
+  );
+}
+
+// Home's "Where you might be headed" widget — infers a few forward-looking
+// growth directions from the recurring unconscious beliefs the Brain Map
+// has already surfaced. Distinct from `aspiration` (which the user types
+// themselves during onboarding/Distance from Goal): this is AI-inferred
+// from what they've actually written, never something they stated. Only
+// recomputes when the belief set has changed size since the last
+// computation (goalsBeliefSnapshot), so it's not re-calling the AI on
+// every Home visit — and never below MIN_BELIEFS_FOR_GOALS, since one or
+// two beliefs isn't enough to infer a direction from.
+const MIN_BELIEFS_FOR_GOALS = 3;
+
+function HomeGoalsWidget({
+  beliefs,
+  goals,
+  goalsBeliefSnapshot,
+  updateStore,
+}: {
+  beliefs: StoredBelief[];
+  goals: StoredGoal[];
+  goalsBeliefSnapshot?: number;
+  updateStore?: (updater: (prev: Store) => Store) => void;
+}) {
+  const [loading, setLoading] = React.useState(false);
+  const fetchingRef = React.useRef(false);
+
+  const needsRefresh = beliefs.length >= MIN_BELIEFS_FOR_GOALS && goalsBeliefSnapshot !== beliefs.length;
+
+  React.useEffect(() => {
+    if (!needsRefresh || !updateStore || fetchingRef.current) return;
+    fetchingRef.current = true;
+    setLoading(true);
+    const payload = beliefs.map((b) => ({ domain: b.domain, statement: b.statement, evidenceCount: b.evidenceCount }));
+    fetch("/api/infer-goals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ beliefs: payload }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Couldn't infer goals.");
+        return data;
+      })
+      .then((data) => {
+        const today = formatDateDots(new Date());
+        const nextGoals: StoredGoal[] = (data.goals as { statement: string; basedOnDomains: string[] }[]).map((g, i) => ({
+          id: `goal-${Date.now()}-${i}`,
+          statement: g.statement,
+          basedOnDomains: g.basedOnDomains,
+          createdDate: today,
+        }));
+        updateStore((prev) => ({ ...prev, goals: nextGoals, goalsBeliefSnapshot: beliefs.length }));
+      })
+      // Best-effort, same spirit as ScreenProcessing's summarize-session
+      // call — a failed inference just means the widget stays as it was
+      // (or stays hidden, for a first-ever attempt), never a blocking error
+      // on the Home screen.
+      .catch(() => {})
+      .finally(() => {
+        fetchingRef.current = false;
+        setLoading(false);
+      });
+  }, [needsRefresh, beliefs, updateStore]);
+
+  if (goals.length === 0) {
+    if (!loading) return null;
+    return (
+      <div style={{ marginTop: 16, backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", boxShadow: mdCardShadow }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: mdAccentText }}>WHERE YOU MIGHT BE HEADED</div>
+        <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 10 }}>Looking at what you've written so far…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: 16, backgroundColor: mdCard, borderRadius: 20, padding: "16px 18px", boxShadow: mdCardShadow }}>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: mdAccentText }}>WHERE YOU MIGHT BE HEADED</div>
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column" }}>
+        {goals.slice(0, 3).map((g, i) => (
+          <div key={g.id} style={{ padding: i === 0 ? "0 0 12px" : "12px 0", borderTop: i > 0 ? `1px solid ${mdDivider}` : "none" }}>
+            <div style={{ ...serif, fontSize: 15, color: mdHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{g.statement}</div>
+            {g.basedOnDomains.length > 0 && (
+              <div style={{ ...sans, fontSize: 11, color: mdFaint, marginTop: 4 }}>Based on {g.basedOnDomains.join(", ")}</div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -4234,6 +4335,25 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
           onChange={(v) => onChange?.({ ...settings, dailyReminder: v })}
           modernist
         />
+        {settings.dailyReminder && (
+          <div style={{ padding: "2px 0 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <label htmlFor="daily-reminder-time" style={{ ...sans, fontSize: 13, color: mdBody }}>
+                Remind me at
+              </label>
+              <input
+                id="daily-reminder-time"
+                type="time"
+                value={settings.dailyReminderTime}
+                onChange={(e) => onChange?.({ ...settings, dailyReminderTime: e.target.value })}
+                style={{ ...sans, fontSize: 14, color: mdHeading, border: `1px solid ${mdDivider}`, borderRadius: 10, padding: "6px 10px", backgroundColor: mdCard }}
+              />
+            </div>
+            <div style={{ ...sans, fontSize: 11.5, color: mdFaint, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              Only fires while this app is open in a tab — there's no server behind this yet to reach you when it's closed.
+            </div>
+          </div>
+        )}
         <SettingsToggle
           label="New hypothesis alerts"
           note="We'll let you know when the AI finds a new pattern."
@@ -4800,6 +4920,37 @@ export default function App() {
   // Demo Mode happens to be on.
   const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore } = useAppData();
 
+  // Best-effort "reflect on today" reminder. There's no service worker or
+  // push infra behind this app (see ScreenNotificationSettings' own
+  // caption to the user about this) — so it's the plain Notification API,
+  // ticked from this always-mounted root, and it can only ever fire while
+  // a tab is open. Checked once a minute; a localStorage date-stamp keeps
+  // it from firing twice inside the same day if the tick and the reload
+  // timing happen to line up.
+  React.useEffect(() => {
+    if (!store.settings.dailyReminder) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "default") Notification.requestPermission();
+
+    const check = () => {
+      if (Notification.permission !== "granted") return;
+      const now = new Date();
+      const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      if (hhmm !== store.settings.dailyReminderTime) return;
+      const todayStr = formatDateDots(now);
+      let lastFired = "";
+      try { lastFired = localStorage.getItem(DAILY_REMINDER_LAST_FIRED_KEY) ?? ""; } catch { /* private mode */ }
+      if (lastFired === todayStr) return;
+      try { localStorage.setItem(DAILY_REMINDER_LAST_FIRED_KEY, todayStr); } catch { /* private mode */ }
+      new Notification("There's a pattern in your thinking.", {
+        body: "Take a minute to reflect on today.",
+      });
+    };
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, [store.settings.dailyReminder, store.settings.dailyReminderTime]);
+
   const goToTab = (id: string) => setScreen(id);
 
   // Interactive tour state — see TutorialOverlay/buildTutorialSteps above.
@@ -5017,6 +5168,7 @@ export default function App() {
         onStartThink={() => setScreen("think")}
         onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setScreen("brainmap"); }}
         store={store}
+        updateStore={updateStore}
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
@@ -5267,7 +5419,7 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} updateStore={updateStore} />;
   }
 
   const isMobileViewport = useIsMobileViewport();

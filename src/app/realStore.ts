@@ -56,6 +56,10 @@ export function loadStore(): Store {
       isPro: typeof parsed.isPro === "boolean" ? parsed.isPro : false,
       proPlan: parsed.proPlan === "monthly" || parsed.proPlan === "yearly" ? parsed.proPlan : undefined,
       hasSeenUpgradePrompt: typeof parsed.hasSeenUpgradePrompt === "boolean" ? parsed.hasSeenUpgradePrompt : false,
+      goals: Array.isArray(parsed.goals)
+        ? parsed.goals.filter((g: any) => g && typeof g.id === "string" && typeof g.statement === "string")
+        : [],
+      goalsBeliefSnapshot: typeof parsed.goalsBeliefSnapshot === "number" ? parsed.goalsBeliefSnapshot : undefined,
     };
   } catch {
     return emptyStore();
@@ -398,19 +402,19 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     ? [...prev.driftNotes, { date: today, note: result.driftNote.trim() }].slice(-20)
     : prev.driftNotes;
 
+  // Spread-then-override, not a hand-enumerated field list — the latter
+  // silently dropped isPro/proPlan/hasSeenUpgradePrompt (and would have
+  // done the same to `goals`) every time this ran, since nothing here
+  // type-checks the return against Store (no tsconfig in this project).
   return {
+    ...prev,
     beliefs,
     assumptions,
     connections,
     history,
     hypotheses,
-    aspiration: prev.aspiration,
-    aspirationSetDate: prev.aspirationSetDate,
-    aspirationExamples: prev.aspirationExamples,
     driftNotes,
-    settings: prev.settings,
-    account: prev.account,
-    entryCount: prev.entryCount + 1,
     pendingBeliefCandidates,
+    entryCount: prev.entryCount + 1,
   };
 }

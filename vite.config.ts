@@ -407,6 +407,115 @@ Write one line reading "===JSON===", then output only the final result JSON belo
           }
         })
       })
+
+      // Feature 4 — the Home screen's "Where you might be headed" widget.
+      // Takes the recurring unconscious beliefs the Brain Map has already
+      // surfaced (domain + statement + evidence count only — no raw entry
+      // text, same minimal-payload spirit as /api/reinterpret) and infers a
+      // few forward-looking growth directions. Called only when the belief
+      // set has changed since the last computation (see App.tsx's
+      // HomeGoalsWidget) — not on every Home visit.
+      server.middlewares.use('/api/infer-goals', async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end('Method not allowed')
+          return
+        }
+
+        const apiKey = env.ANTHROPIC_API_KEY
+        if (!apiKey) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY is not set. Create a .env file in the project root with your key, then restart the server.' }))
+          return
+        }
+
+        let raw = ''
+        req.on('data', (chunk) => { raw += chunk })
+        req.on('end', async () => {
+          try {
+            const { beliefs } = JSON.parse(raw || '{}')
+            const list: { domain: string; statement: string; evidenceCount: number }[] = Array.isArray(beliefs)
+              ? beliefs
+                  .filter((b: any) => b && typeof b.domain === 'string' && typeof b.statement === 'string')
+                  .map((b: any) => ({ domain: b.domain, statement: b.statement, evidenceCount: typeof b.evidenceCount === 'number' ? b.evidenceCount : 0 }))
+              : []
+            if (list.length === 0) {
+              res.statusCode = 400
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: 'No beliefs to work from.' }))
+              return
+            }
+
+            const prompt = `You are a self-reflection tool that draws on CBT (cognitive behavioral therapy) and ACT (acceptance and commitment therapy) concepts. Below are a user's recurring unconscious beliefs, each inferred from patterns across many things they've written over time.
+
+[Recurring unconscious beliefs]
+${list.map((b) => `- (${b.domain}, seen in ${b.evidenceCount} entries) "${b.statement}"`).join("\n")}
+
+[Task]
+Infer 2-3 concrete, forward-looking personal growth directions — small, specific things this person could actually notice or try, that would represent movement away from what's limiting in these patterns (not generic self-help advice, and not just restating a belief back to them).
+
+[Rules]
+- Ground every goal in at least one of the beliefs above; name which domain(s) it's based on.
+- Do not diagnose or draw conclusions about who this person is. No definitive "you are" statements.
+- Keep a tentative, second-person-but-gentle tone — an invitation, not an instruction. ("Notice...", "Try...", "Let...") One sentence each.
+- Do not repeat the same growth direction twice in different words.
+
+Write one line reading "===JSON===", then output only the final JSON below it. No other explanation or code block.
+
+{
+  "goals": [
+    { "statement": "one sentence", "basedOnDomains": ["domain from the list above"] }
+  ]
+}`
+
+            const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-5',
+                max_tokens: 512,
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            })
+
+            if (!apiRes.ok) {
+              const errText = await apiRes.text()
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: `The AI call failed (${apiRes.status}): ${errText.slice(0, 300)}` }))
+              return
+            }
+
+            const data: any = await apiRes.json()
+            const block = data.content?.find((c: any) => c.type === 'text')
+            const parsed = extractJsonAfterMarker(block?.text ?? '')
+            const goals = Array.isArray(parsed?.goals)
+              ? parsed.goals
+                  .filter((g: any) => g && typeof g.statement === 'string')
+                  .map((g: any) => ({ statement: g.statement, basedOnDomains: Array.isArray(g.basedOnDomains) ? g.basedOnDomains.filter((d: any) => typeof d === 'string') : [] }))
+              : null
+            if (!goals || goals.length === 0) {
+              res.statusCode = 502
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify({ error: "Couldn't parse the AI response." }))
+              return
+            }
+
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ goals }))
+          } catch (err: any) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: err?.message ?? 'An unknown error occurred.' }))
+          }
+        })
+      })
     },
   }
 }

@@ -259,8 +259,23 @@ export type StoredDriftNote = { date: string; note: string };
 
 export type StoredSettings = {
   dailyReminder: boolean;
+  // 24-hour "HH:mm", local time — only read while dailyReminder is true.
+  dailyReminderTime: string;
   newHypothesisAlert: boolean;
   weeklySummary: boolean;
+};
+
+// A forward-looking growth direction inferred from the recurring unconscious
+// beliefs the Brain Map has actually surfaced — not something the user typed
+// themselves (that's `aspiration`), and not a single belief restated, but
+// what moving away from a few of them together might look like. Recomputed
+// (see App.tsx's HomeGoalsWidget) only when the belief set has actually
+// changed since the last computation, not on every render.
+export type StoredGoal = {
+  id: string;
+  statement: string;
+  basedOnDomains: string[];
+  createdDate: string;
 };
 
 // Local-only mock account — there's no backend, so this is just a gate on
@@ -314,6 +329,11 @@ export type Store = {
   // now" still permanently retires it — this is a single nudge, not a
   // recurring nag.
   hasSeenUpgradePrompt?: boolean;
+  goals: StoredGoal[];
+  // beliefs.length at the moment `goals` was last computed — recompute only
+  // once the belief set has actually grown/shrunk since then, not on every
+  // Home render. undefined means "never computed."
+  goalsBeliefSnapshot?: number;
 };
 
 export function formatDateDots(d: Date) {
@@ -321,7 +341,7 @@ export function formatDateDots(d: Date) {
 }
 
 export function defaultSettings(): StoredSettings {
-  return { dailyReminder: true, newHypothesisAlert: true, weeklySummary: false };
+  return { dailyReminder: true, dailyReminderTime: "20:00", newHypothesisAlert: true, weeklySummary: false };
 }
 
 export function emptyStore(): Store {
@@ -338,5 +358,6 @@ export function emptyStore(): Store {
     account: null,
     entryCount: 0,
     isPro: false,
+    goals: [],
   };
 }
