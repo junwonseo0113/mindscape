@@ -1,0 +1,28 @@
+ASTRO MERGE — SOURCE OF TRUTH
+Base design/features: Astro(4).zip
+Partner feature source: untitled-project-main (2)(1).zip
+
+Partner additions merged:
+- AI inferred growth directions state + /api/infer-goals endpoint
+- goals persistence and goalsBeliefSnapshot
+- configurable daily reminder time
+- browser notification scheduling/deduplication
+- Home search -> History and profile icon -> Profile
+- Brain Map region shortcuts/filter handoff
+- Free/Pro Brain Map teaser behavior
+- mergeAnalysisIntoStore spread-preservation fix
+- malformed local account protection
+- updated demo schema/data for goals/reminder time
+
+Preserved from Astro(4):
+- current Home/Mind/Analysis/History assets and layouts
+- newer Brain Map implementation
+- no-scrollbar styling
+- TypeScript configs and dev typings
+- existing navigation and feature set
+
+Analysis fix:
+- Today's Discovery is hard-bounded by overflow:hidden
+- dynamic title/interpretation are clamped
+- footer/action row is inside the safe area
+- safe area bottom inset increased to 24% to keep content off the paper edge

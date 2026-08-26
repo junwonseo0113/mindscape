@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  /* Stops iOS Safari auto-inflating text past the sizes actually set here
+     (e.g. after a device rotation), which otherwise silently breaks every
+     pixel-tuned layout in this file. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Removes the ~300ms tap-response delay mobile browsers otherwise add
+     while waiting to see if a tap is the start of a double-tap-to-zoom,
+     and stops that double-tap gesture from firing on buttons/cards at all. */
+  touch-action: manipulation;
+}
+
+/* A scrollable region that stays scrollable but never shows the scrollbar
+   track itself — inline styles can't reach ::-webkit-scrollbar, hence a
+   real class. Used where a visible scrollbar reads as "web app chrome"
+   rather than part of the physical desk/paper illustration underneath it. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/new Edge */
+}
