@@ -1043,6 +1043,52 @@ function BrainScene({
   );
 }
 
+// A chrome-free, non-interactive belief preview — real, region-colored
+// belief points (no dormant background tissue field, no OrbitControls,
+// pointer events pass straight through) meant to sit inside a static jar
+// photo on Home, where the whole image is already one tap target
+// (onOpenBrainMap in App.tsx) rather than a per-node interaction surface.
+// A slow constant spin stands in for the drag-to-orbit the full BrainScene
+// offers, since this view isn't meant to be dragged.
+function JarBrainSpin({ children }: { children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame((_, delta) => {
+    if (ref.current) ref.current.rotation.y += delta * 0.5;
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
+  const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
+  return (
+    <Canvas
+      dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
+      camera={{ position: [0, 0, 7.6], fov: 40 }}
+      gl={{ antialias: true, alpha: true }}
+      style={{ pointerEvents: "none" }}
+    >
+      <ambientLight intensity={1.3} />
+      <pointLight position={[4, 5, 6]} intensity={16} color="#E8DEFF" />
+      <pointLight position={[-5, -3, -4]} intensity={7} color="#DCE8FF" />
+      <JarBrainSpin>
+        {activeNodes.map((node) => (
+          <ActiveBeliefNode
+            key={node.id}
+            node={node}
+            isSelected={false}
+            isFocused={false}
+            isDimmed={false}
+            isHiddenBySelection={false}
+            justActivatedAt={null}
+            onSelect={() => {}}
+            onHoverChange={() => {}}
+          />
+        ))}
+      </JarBrainSpin>
+    </Canvas>
+  );
+}
+
 export default function NeuralBeliefGraph3D({
   beliefs,
   connections,
