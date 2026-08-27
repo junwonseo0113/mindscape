@@ -1831,6 +1831,212 @@ function computeWeeklySummary(history: StoredHistoryEntry[]): { entryCount: numb
   return { entryCount: recent.length, topPattern };
 }
 
+// Monday-anchored week bucket — no isoWeek library in this project, so
+// this is plain date arithmetic. Keyed by that Monday's own dot-date
+// string (via formatDateDots) so the bucket key doubles as something
+// parseDotDate/shortMonthDay can already read back out, rather than
+// inventing a separate label format.
+function mondayOfWeek(d: Date): Date {
+  const copy = new Date(d);
+  const daysSinceMonday = (copy.getDay() + 6) % 7; // Sun=0..Sat=6 -> Mon=0..Sun=6
+  copy.setDate(copy.getDate() - daysSinceMonday);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+type SelfTalkWeek = {
+  weekStart: string;
+  cognitiveVerbPerHundredWords: number;
+  firstPersonSingularCount: number;
+  collectiveOrOtherCount: number;
+};
+
+// Only entries that actually carry languageObservation contribute (older
+// entries from before Feature 2 existed won't) — weeks with real entries
+// but zero observation data simply don't produce a bucket, rather than a
+// misleading zero-rate week.
+function buildSelfTalkWeeks(history: StoredHistoryEntry[], maxWeeks = 8): SelfTalkWeek[] {
+  const buckets = new Map<string, { words: number; verbs: number; firstPerson: number; collective: number }>();
+  history.forEach((e) => {
+    const obs = e.languageObservation;
+    const d = parseDotDate(e.date);
+    if (!obs || !d) return;
+    const key = formatDateDots(mondayOfWeek(d));
+    const cur = buckets.get(key) ?? { words: 0, verbs: 0, firstPerson: 0, collective: 0 };
+    cur.words += obs.wordCount;
+    cur.verbs += obs.cognitiveVerbCount;
+    cur.firstPerson += obs.firstPersonSingularCount;
+    cur.collective += obs.collectiveOrOtherCount;
+    buckets.set(key, cur);
+  });
+  return Array.from(buckets.entries())
+    .map(([weekStart, b]) => ({
+      weekStart,
+      cognitiveVerbPerHundredWords: b.words > 0 ? (b.verbs / b.words) * 100 : 0,
+      firstPersonSingularCount: b.firstPerson,
+      collectiveOrOtherCount: b.collective,
+    }))
+    .sort((a, b) => (a.weekStart < b.weekStart ? -1 : 1)) // lexicographic sort is safe: fixed-width zero-padded "YYYY.MM.DD"
+    .slice(-maxWeeks);
+}
+
+// Premium's "language over time" module — the per-entry version of this
+// (compareCognitiveVerbTrend/comparePronounLean in cognitiveLexicon.ts)
+// only ever compares one entry against its 3 most recent neighbors, right
+// after recording (see ScreenSessionSummary). This is the same underlying
+// Pennebaker-style observation, just aggregated into real weekly buckets
+// instead of a single "today vs. recently" read — an accumulated pattern
+// like everything else Premium gates, not a new analysis.
+function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
+  const weeks = buildSelfTalkWeeks(history);
+  if (weeks.length < 2) {
+    return <div style={{ ...sans, fontSize: 13, color: mdBody }}>Not enough weeks of recorded language yet — this fills in once you've written across a few different weeks.</div>;
+  }
+
+  const w = 280;
+  const h = 40;
+  const pad = 4;
+  const maxRate = Math.max(...weeks.map((wk) => wk.cognitiveVerbPerHundredWords), 1);
+  const points = weeks
+    .map((wk, i) => {
+      const x = pad + (i / (weeks.length - 1)) * (w - pad * 2);
+      const y = h - pad - (wk.cognitiveVerbPerHundredWords / maxRate) * (h - pad * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdBody }}>
+          Reflective language ("think," "realize," "notice"...) per 100 words, by week
+        </div>
+        <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 6, display: "block" }}>
+          <polyline points={points} fill="none" stroke={mdAccent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+          <span style={{ ...mono, fontSize: 9.5, color: mdFaint }}>{shortMonthDay(weeks[0].weekStart)}</span>
+          <span style={{ ...mono, fontSize: 9.5, color: mdFaint }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
+        </div>
+      </div>
+
+      <div>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdBody, marginBottom: 8 }}>
+          "I" vs. "we/they," by week
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {weeks.map((wk) => {
+            const total = wk.firstPersonSingularCount + wk.collectiveOrOtherCount;
+            return (
+              <div key={wk.weekStart}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ ...sans, fontSize: 11, color: mdBodyLight }}>{shortMonthDay(wk.weekStart)}</span>
+                  {total > 0 && <span style={{ ...mono, fontSize: 10, color: mdFaint }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
+                </div>
+                <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", backgroundColor: mdTrack }}>
+                  {total > 0 && (
+                    <>
+                      <div style={{ height: "100%", width: `${(wk.firstPersonSingularCount / total) * 100}%`, backgroundColor: mdAccent }} />
+                      <div style={{ height: "100%", width: `${(wk.collectiveOrOtherCount / total) * 100}%`, backgroundColor: mdWarn }} />
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const RECORDING_HEATMAP_WEEKS = 12;
+
+type HeatmapDay = { date: Date; count: number; isFuture: boolean };
+
+// Sun-Sat columns, most recent week last, ending on the Saturday of the
+// current week (so today's own column is always a complete week, not a
+// partial one cut off mid-week) — the same GitHub-contribution-graph idiom,
+// built from real entry dates only; days beyond today are marked
+// isFuture so the component can render them as empty space rather than a
+// misleading "0 entries" cell for a day that hasn't happened yet.
+function buildRecordingHeatmapWeeks(history: StoredHistoryEntry[], numWeeks = RECORDING_HEATMAP_WEEKS): HeatmapDay[][] {
+  const counts = new Map<string, number>();
+  history.forEach((e) => {
+    const d = parseDotDate(e.date);
+    if (!d) return;
+    const key = d.toDateString();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(today);
+  endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
+  const totalDays = numWeeks * 7;
+  const start = new Date(endOfWeek);
+  start.setDate(endOfWeek.getDate() - totalDays + 1);
+
+  const weeks: HeatmapDay[][] = [];
+  const cursor = new Date(start);
+  for (let w = 0; w < numWeeks; w++) {
+    const week: HeatmapDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(cursor);
+      const isFuture = dayDate > today;
+      week.push({ date: dayDate, count: isFuture ? 0 : (counts.get(dayDate.toDateString()) ?? 0), isFuture });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+function heatmapCellColor(count: number, isFuture: boolean): string {
+  if (isFuture) return "transparent";
+  if (count === 0) return mdTrack;
+  if (count === 1) return mdAccentTag;
+  return mdAccent;
+}
+
+// Premium's "consistency" view — same spirit as Profile's streak stat,
+// just showing the actual shape of when entries landed over the last
+// RECORDING_HEATMAP_WEEKS weeks instead of a single running-streak number.
+function RecordingHeatmap({ history }: { history: StoredHistoryEntry[] }) {
+  const weeks = React.useMemo(() => buildRecordingHeatmapWeeks(history), [history]);
+  const totalDaysRecorded = weeks.flat().filter((d) => !d.isFuture && d.count > 0).length;
+  const cell = 11;
+  const gap = 3;
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap, overflowX: "auto", paddingBottom: 2 }}>
+        {weeks.map((week, wi) => (
+          <div key={wi} style={{ display: "flex", flexDirection: "column", gap, flexShrink: 0 }}>
+            {week.map((day, di) => (
+              <div
+                key={di}
+                title={day.isFuture ? undefined : `${formatDateDots(day.date)} · ${day.count} thought${day.count === 1 ? "" : "s"}`}
+                style={{ width: cell, height: cell, borderRadius: 2.5, backgroundColor: heatmapCellColor(day.count, day.isFuture) }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+        <span style={{ ...sans, fontSize: 11, color: mdFaint }}>{totalDaysRecorded} day{totalDaysRecorded === 1 ? "" : "s"} recorded in the last {RECORDING_HEATMAP_WEEKS} weeks</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ ...sans, fontSize: 9.5, color: mdFaint }}>Less</span>
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: mdTrack }} />
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: mdAccentTag }} />
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: mdAccent }} />
+          <span style={{ ...sans, fontSize: 9.5, color: mdFaint }}>More</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The one shared agree/disagree control — used compactly in the hero (a
 // quick read, available before the user has even scrolled) and again in
 // the Reflection section further down (where disagreeing also asks what
@@ -2623,6 +2829,14 @@ function ScreenPremium({ onNavSelect, store, onOpenArtifact }: { onNavSelect?: (
 
           <SectionCard title="Thinking patterns (CBT)" subtitle="Which cognitive patterns show up most in what you've recorded.">
             <CognitivePatternFrequency history={store.history} />
+          </SectionCard>
+
+          <SectionCard title="Recording consistency" subtitle="Which days you actually showed up, over time.">
+            <RecordingHeatmap history={store.history} />
+          </SectionCard>
+
+          <SectionCard title="Self-talk over time" subtitle="How your own language has shifted, week to week.">
+            <SelfTalkTrend history={store.history} />
           </SectionCard>
         </div>
       </div>

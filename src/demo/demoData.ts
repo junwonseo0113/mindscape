@@ -83,6 +83,10 @@ export const DEMO_STORE: Store = {
           reasoningSummary: "A pattern of delaying decisions has come up repeatedly.",
         },
       },
+      // Computed by the real computeLanguageObservation algorithm against
+      // this entry's own text above (not invented) — powers Premium's
+      // self-talk-over-time trend.
+      languageObservation: { wordCount: 17, cognitiveVerbCount: 1, cognitiveVerbPerHundredWords: 5.88, firstPersonSingularCount: 2, collectiveOrOtherCount: 0 },
     },
     {
       id: "demo-entry-1", date: "2026.07.25", text: "After the presentation, I kept replaying only the parts I regretted...", duration: "2 min 40 sec",
@@ -104,6 +108,7 @@ export const DEMO_STORE: Store = {
           reasoningSummary: "There's a recurring pattern of looking inward for the cause whenever the outcome isn't good.",
         },
       },
+      languageObservation: { wordCount: 11, cognitiveVerbCount: 0, cognitiveVerbPerHundredWords: 0, firstPersonSingularCount: 2, collectiveOrOtherCount: 0 },
     },
     {
       id: "demo-entry-2", date: "2026.07.21", text: "Lately I can't tell if deciding things alone is actually comfortable, or if I'm just used to it...", duration: "6 min 5 sec",
@@ -125,6 +130,7 @@ export const DEMO_STORE: Store = {
           reasoningSummary: "There have been cases of choosing to be alone without distinguishing comfort from habit.",
         },
       },
+      languageObservation: { wordCount: 18, cognitiveVerbCount: 0, cognitiveVerbPerHundredWords: 0, firstPersonSingularCount: 2, collectiveOrOtherCount: 0 },
     },
   ],
 
