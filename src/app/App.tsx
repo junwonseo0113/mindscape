@@ -54,6 +54,10 @@ const MONETIZATION_ENABLED = false;
 // firing twice in the same minute-granularity tick, or again on a reload
 // that happens to land in the same HH:mm.
 const DAILY_REMINDER_LAST_FIRED_KEY = "mijeong.lastDailyReminderFiredDate";
+// Same idea, weekly grain — the last calendar day the weekly-summary
+// Notification fired, so App()'s effect can tell "7+ days since last one"
+// apart from "already sent this week."
+const WEEKLY_SUMMARY_LAST_FIRED_KEY = "mijeong.lastWeeklySummaryFiredDate";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 // A quiet, editorial palette — this app's job is to reveal patterns calmly,
@@ -1718,16 +1722,113 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
   );
 }
 
-// A reserved, clearly-labeled slot for an analysis module that doesn't
-// exist yet — honest about what it is instead of shipping a fake chart
-// with no real data behind it.
-function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
+// Same bar-list treatment as EmotionDistribution — every value this
+// person's entries have ever touched (interpretation.valueDirection.
+// relatedValues), how many times a recorded thought moved toward it vs.
+// away from it. "Unclear" entries count toward the total (so the split
+// bar's two colored segments never silently overstate toward+away as if
+// they summed to the whole), they just don't get their own segment.
+function ValueDirectionShifts({ history }: { history: StoredHistoryEntry[] }) {
+  const totals = new Map<string, { toward: number; away: number; unclear: number }>();
+  history.forEach((entry) => {
+    const vd = entry.analysis?.interpretation.valueDirection;
+    if (!vd) return;
+    vd.relatedValues.forEach((value) => {
+      const cur = totals.get(value) ?? { toward: 0, away: 0, unclear: 0 };
+      cur[vd.towardOrAway] += 1;
+      totals.set(value, cur);
+    });
+  });
+  const rows = Array.from(totals.entries())
+    .map(([label, t]) => ({ label, ...t, total: t.toward + t.away + t.unclear }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  if (rows.length === 0) {
+    return <div style={{ ...sans, fontSize: 13, color: mdBody }}>No value-direction data yet. It'll show up here after you leave a few thoughts.</div>;
+  }
+
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${mdDivider}` }}>
-      <span style={{ ...sans, fontSize: 13.5, color: mdFaint }}>{label}</span>
-      <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdBody, backgroundColor: mdNeutralTag, padding: "3px 9px", borderRadius: 999 }}>Coming soon</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+            <span style={{ ...sans, fontSize: 13, color: mdBodyLight }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: mdBody }}>{r.toward} toward · {r.away} away</span>
+          </div>
+          <div style={{ display: "flex", height: 7, borderRadius: 4, overflow: "hidden", backgroundColor: mdTrack }}>
+            <div style={{ height: "100%", width: `${(r.toward / r.total) * 100}%`, backgroundColor: mdAccent }} />
+            <div style={{ height: "100%", width: `${(r.away / r.total) * 100}%`, backgroundColor: mdWarn }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
+}
+
+// Same bar-list treatment as EmotionDistribution, counting
+// interpretation.possibleCognitivePatterns instead of emotion intensity —
+// only ever the fixed nine-item list analysisFramework's prompt already
+// constrains the model to, never invented labels.
+function CognitivePatternFrequency({ history }: { history: StoredHistoryEntry[] }) {
+  const counts = new Map<string, number>();
+  history.forEach((entry) => {
+    entry.analysis?.interpretation.possibleCognitivePatterns.forEach((p) => {
+      counts.set(p, (counts.get(p) ?? 0) + 1);
+    });
+  });
+  const rows = Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  if (rows.length === 0) {
+    return <div style={{ ...sans, fontSize: 13, color: mdBody }}>No recurring thinking patterns yet. It'll show up here after you leave a few thoughts.</div>;
+  }
+
+  const maxCount = rows[0].count || 1;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+            <span style={{ ...sans, fontSize: 13, color: mdBodyLight }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: mdBody }}>{r.count}×</span>
+          </div>
+          <div style={{ height: 7, borderRadius: 4, backgroundColor: mdTrack, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(r.count / maxCount) * 100}%`, borderRadius: 4, backgroundColor: mdAccent }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Powers the weekly-summary Notification (see App()'s effect near the
+// daily-reminder one) — not a component, just the same kind of real
+// aggregation CognitivePatternFrequency does above, scoped to the last 7
+// days instead of all-time. Returns null when there's nothing to report
+// (no entries this week) so the caller can skip firing an empty
+// notification rather than sending "0 thoughts this week."
+function computeWeeklySummary(history: StoredHistoryEntry[]): { entryCount: number; topPattern: string | null } | null {
+  const now = new Date();
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const recent = history.filter((e) => {
+    const d = parseDotDate(e.date);
+    return !!d && d >= sevenDaysAgo && d <= now;
+  });
+  if (recent.length === 0) return null;
+
+  const patternCounts = new Map<string, number>();
+  recent.forEach((e) => {
+    e.analysis?.interpretation.possibleCognitivePatterns.forEach((p) => {
+      patternCounts.set(p, (patternCounts.get(p) ?? 0) + 1);
+    });
+  });
+  const topPattern = Array.from(patternCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  return { entryCount: recent.length, topPattern };
 }
 
 // The one shared agree/disagree control — used compactly in the hero (a
@@ -2516,9 +2617,12 @@ function ScreenPremium({ onNavSelect, store, onOpenArtifact }: { onNavSelect?: (
             <EmotionDistribution history={store.history} />
           </SectionCard>
 
-          <SectionCard>
-            <ComingSoonRow label="Value shifts" />
-            <ComingSoonRow label="Thinking patterns (CBT)" last />
+          <SectionCard title="Value shifts" subtitle="How often what you've written moves toward what you care about, versus away from it.">
+            <ValueDirectionShifts history={store.history} />
+          </SectionCard>
+
+          <SectionCard title="Thinking patterns (CBT)" subtitle="Which cognitive patterns show up most in what you've recorded.">
+            <CognitivePatternFrequency history={store.history} />
           </SectionCard>
         </div>
       </div>
@@ -5887,6 +5991,41 @@ export default function App() {
     const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
   }, [store.settings.dailyReminder, store.settings.dailyReminderTime]);
+
+  // Weekly-summary Notification — same plain-Notification-API, tab-must-
+  // be-open mechanism as the daily reminder above, just checked on an
+  // hourly cadence (a "has 7 days passed" question doesn't need minute
+  // granularity) and gated to Pro: a recap of what accumulated over the
+  // week is exactly the kind of cross-entry insight the free tier doesn't
+  // get (see mergeAnalysisIntoStore's `accumulate` param). Skips firing
+  // entirely when there's nothing to report (computeWeeklySummary returns
+  // null for zero entries this week) rather than sending an empty recap.
+  React.useEffect(() => {
+    if (!store.settings.weeklySummary) return;
+    if (!(!MONETIZATION_ENABLED || store.isPro)) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "default") Notification.requestPermission();
+
+    const check = () => {
+      if (Notification.permission !== "granted") return;
+      const now = new Date();
+      let lastFiredStr = "";
+      try { lastFiredStr = localStorage.getItem(WEEKLY_SUMMARY_LAST_FIRED_KEY) ?? ""; } catch { /* private mode */ }
+      const lastFired = lastFiredStr ? parseDotDate(lastFiredStr) : null;
+      const daysSinceLastFired = lastFired ? Math.floor((now.getTime() - lastFired.getTime()) / (1000 * 60 * 60 * 24)) : Infinity;
+      if (daysSinceLastFired < 7) return;
+      const summary = computeWeeklySummary(store.history);
+      if (!summary) return;
+      try { localStorage.setItem(WEEKLY_SUMMARY_LAST_FIRED_KEY, formatDateDots(now)); } catch { /* private mode */ }
+      const body = summary.topPattern
+        ? `${summary.entryCount} thought${summary.entryCount === 1 ? "" : "s"} this week, most often touching on ${summary.topPattern.toLowerCase()}.`
+        : `${summary.entryCount} thought${summary.entryCount === 1 ? "" : "s"} recorded this week.`;
+      new Notification("Your week in review", { body });
+    };
+    check();
+    const interval = setInterval(check, 3600000);
+    return () => clearInterval(interval);
+  }, [store.settings.weeklySummary, store.isPro, store.history]);
 
   const goToTab = (id: string) => setScreen(id);
 
