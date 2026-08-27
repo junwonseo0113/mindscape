@@ -2996,6 +2996,12 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const recognitionRef = React.useRef<any>(null);
   const micLevelRef = useMicLevel(recording);
   const manualStopRef = React.useRef(false);
+  // Guards the transition out of this screen — without it, a fast double
+  // tap on "Next" (or on the orb to stop recording) before the parent's
+  // setScreen("processing") actually commits could fire onDone twice,
+  // queuing the same entry for analysis twice. Once tripped, both submit
+  // paths below are inert and the button renders disabled.
+  const [submitted, setSubmitted] = React.useState(false);
   // Authoritative running transcript, mirrors the `transcript` state but
   // read synchronously (state set via a functional updater isn't
   // guaranteed to be visible in the same tick, and the silence-watcher
@@ -3102,6 +3108,8 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   };
 
   const stopRecording = () => {
+    if (submitted) return;
+    setSubmitted(true);
     manualStopRef.current = true;
     recognitionRef.current?.stop?.();
     recognitionRef.current = null;
@@ -3155,7 +3163,16 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
             </AnimatePresence>
           </div>
           <div style={{ padding: "0 24px 40px" }}>
-            <PrimaryBtn disabled={!text.trim()} onClick={() => onDone?.(text.trim())}>Next</PrimaryBtn>
+            <PrimaryBtn
+              disabled={!text.trim() || submitted}
+              onClick={() => {
+                if (submitted) return;
+                setSubmitted(true);
+                onDone?.(text.trim());
+              }}
+            >
+              Next
+            </PrimaryBtn>
           </div>
         </>
       ) : (
@@ -6163,6 +6180,23 @@ export default function App() {
   // used only for the pre-home account flow, which is always real even if
   // Demo Mode happens to be on.
   const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore } = useAppData();
+
+  // A refresh or tab-close mid-analysis silently throws away the in-flight
+  // /api/analyze call (and, for a Pro entry, the thought itself — it isn't
+  // saved to history until mergeAnalysisIntoStore runs in onDone below).
+  // Scoped to exactly the "processing" screen: armed the moment it mounts,
+  // torn down the moment the screen changes away from it for any reason
+  // (a real result, an error routing to thinkComplete, or Cancel routing
+  // home), so normal navigation is never blocked once analysis is settled.
+  React.useEffect(() => {
+    if (screen !== "processing") return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [screen]);
 
   React.useEffect(() => {
     if (!store.settings.dailyReminder) return;

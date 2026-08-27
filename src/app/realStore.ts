@@ -35,12 +35,18 @@ import { computeLanguageObservation } from "./cognitiveLexicon";
 
 const STORE_KEY = "mijeong.store.v6";
 
-export function loadStore(): Store {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) return emptyStore();
-    const parsed = JSON.parse(raw);
-    return {
+// Shared by loadStore (localStorage) and dataProvider's cloud-pull path
+// (see pullStoreFromCloud in cloudSync.ts) — a row a Pro user's cloud sync
+// wrote from an older/newer schema version, or one edited by hand in the
+// Supabase dashboard, deserves exactly the same field-by-field defaulting
+// a malformed local blob gets, not a second, looser code path that trusts
+// it outright. Every field is read defensively and missing/mistyped ones
+// fall back to an empty/default value rather than the whole object being
+// discarded — so future fields added to Store, or one bad field in an
+// otherwise-valid store, never take down the rest of a user's data.
+export function sanitizeStore(parsed: any): Store {
+  if (!parsed || typeof parsed !== "object") return emptyStore();
+  return {
       beliefs: Array.isArray(parsed.beliefs) ? parsed.beliefs : [],
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
       connections: Array.isArray(parsed.connections) ? parsed.connections : [],
@@ -50,7 +56,19 @@ export function loadStore(): Store {
       aspirationSetDate: typeof parsed.aspirationSetDate === "string" ? parsed.aspirationSetDate : null,
       driftNotes: Array.isArray(parsed.driftNotes) ? parsed.driftNotes : [],
       settings: parsed.settings && typeof parsed.settings === "object" ? { ...defaultSettings(), ...parsed.settings } : defaultSettings(),
-      account: parsed.account && typeof parsed.account === "object" ? parsed.account : null,
+      // Individually validated, not trusted as one blob — a malformed or
+      // partially-written account object (a failed write, a hand-edited
+      // localStorage value, an old/foreign shape) must not crash the app
+      // the moment something downstream reads a field off it expecting a
+      // string. One bad field falls back to "", it doesn't null out the
+      // whole account and sign the person out.
+      account: parsed.account && typeof parsed.account === "object" && !Array.isArray(parsed.account)
+        ? {
+            name: typeof parsed.account.name === "string" ? parsed.account.name : "",
+            email: typeof parsed.account.email === "string" ? parsed.account.email : "",
+            password: typeof parsed.account.password === "string" ? parsed.account.password : "",
+          }
+        : null,
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
       pendingBeliefCandidates: Array.isArray(parsed.pendingBeliefCandidates) ? parsed.pendingBeliefCandidates : [],
       isPro: typeof parsed.isPro === "boolean" ? parsed.isPro : false,
@@ -60,7 +78,14 @@ export function loadStore(): Store {
         ? parsed.goals.filter((g: any) => g && typeof g.id === "string" && typeof g.statement === "string")
         : [],
       goalsBeliefSnapshot: typeof parsed.goalsBeliefSnapshot === "number" ? parsed.goalsBeliefSnapshot : undefined,
-    };
+  };
+}
+
+export function loadStore(): Store {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return emptyStore();
+    return sanitizeStore(JSON.parse(raw));
   } catch {
     return emptyStore();
   }
