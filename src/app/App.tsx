@@ -3142,12 +3142,14 @@ function ScreenProcessing({
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-// Reached two ways now: a Pro entry where the model itself found nothing new
-// to report, or any free-tier entry (recording is the entire free feature —
-// see appendUnanalyzedEntry in realStore.ts and the "think" case's onDone).
-// showUpsell distinguishes the two only by adding one extra line and a CTA;
-// the core "Got it" acknowledgment is identical either way, since a free
-// entry isn't a lesser version of a Pro one, just an unanalyzed one.
+// Now reached only off the "processing" case's error/analyze-call-failed
+// path (see the App shell) — every tier that gets a real result routes
+// through "sessionSummary" instead (see mergeAnalysisIntoStore's
+// `accumulate` param). showUpsell is effectively vestigial as a result
+// (the one non-error path that used to reach this screen was the free
+// tier's unanalyzed-entry acknowledgment, which no longer exists), kept
+// rather than removed since ScreenProcessing's own "no text" fallback can
+// still land here without an error to show.
 function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
@@ -3189,13 +3191,16 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
 }
 
 // ── Screen 6.6 · Soft paywall (one-time nudge) ────────────────────────────────
-// Fires exactly once, replacing the usual "Got it" beat right after the free
-// tier's 3rd recorded entry (see UPSELL_PROMPT_AT_ENTRY_COUNT and the
-// "think" case's onDone in the App shell) — a deliberate, one-time ask
-// rather than the quiet recurring footnote ScreenThinkComplete's showUpsell
-// already adds to every free entry. Never repeats after this: the App shell
-// marks hasSeenUpgradePrompt true the instant this screen is shown, whether
-// the person taps through to plans or dismisses with "Not now."
+// Fires exactly once, replacing the usual "back to home" beat right after
+// the session-summary screen on the free tier's 3rd recorded entry (see
+// UPSELL_PROMPT_AT_ENTRY_COUNT and the "processing"/"sessionSummary" cases
+// in the App shell) — a deliberate, one-time ask. Free entries are analyzed
+// like any other by this point (see mergeAnalysisIntoStore's `accumulate`
+// param) — what they still don't get is the belief/hypothesis network
+// those entries would otherwise feed, which is the actual pitch here.
+// Never repeats after this: the App shell marks hasSeenUpgradePrompt true
+// the instant this screen is shown, whether the person taps through to
+// plans or dismisses with "Not now."
 function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
@@ -5834,6 +5839,11 @@ export default function App() {
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
+  // Set the instant a free-tier entry lands on the one-time upsell moment
+  // (UPSELL_PROMPT_AT_ENTRY_COUNT), read back after the session-summary
+  // beat to decide whether it's followed by the soft paywall or just home
+  // — see the "processing"/"sessionSummary" cases below.
+  const [pendingUpsell, setPendingUpsell] = React.useState(false);
   // Set right before navigating to "brainmap" whenever the trip started
   // from a region shortcut (see HomeRegionShortcuts) rather than the
   // Brain Map card's own expand button — null just opens the map
@@ -6162,22 +6172,13 @@ export default function App() {
           if (detectCrisisSignal(text)) {
             updateStore((prev) => appendUnanalyzedEntry(prev, text));
             setScreen("crisisSupport");
-          } else if (!MONETIZATION_ENABLED || store.isPro) {
-            setScreen("processing");
           } else {
-            // Free tier: no /api/analyze call — just record the entry (see
-            // appendUnanalyzedEntry) and acknowledge it, same "Got it" beat
-            // Pro sees when the model itself finds nothing new to report.
-            // The one-time soft-paywall ask (ScreenSoftPaywall) preempts
-            // that beat exactly once, right as the 3rd free entry lands —
-            // decided off the pre-update entryCount since this is a
-            // synchronous read within the same event, not a stale closure.
-            const isUpsellMoment = store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
-            updateStore((prev) => {
-              const appended = appendUnanalyzedEntry(prev, text);
-              return isUpsellMoment ? { ...appended, hasSeenUpgradePrompt: true } : appended;
-            });
-            setScreen(isUpsellMoment ? "softPaywall" : "thinkComplete");
+            // Every tier gets a real /api/analyze call now — the free/Pro
+            // line moved from "analyzed at all" to "does this entry feed
+            // the accumulated belief/hypothesis network" (see
+            // mergeAnalysisIntoStore's `accumulate` param, applied once
+            // the result comes back in the "processing" case below).
+            setScreen("processing");
           }
         }}
       />
@@ -6197,13 +6198,23 @@ export default function App() {
         name={store.account?.name}
         onDone={(result, sessionSummary) => {
           if (result) {
-            const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary);
-            updateStore(() => merged);
+            const accumulate = !MONETIZATION_ENABLED || store.isPro;
+            // The one-time soft-paywall ask (ScreenSoftPaywall) preempts
+            // the usual post-summary "back to home" beat exactly once,
+            // right as the free tier's 3rd recorded entry lands — decided
+            // off the pre-update entryCount since this is a synchronous
+            // read within the same event, not a stale closure. Remembered
+            // in state (not decided again after sessionSummary) so it
+            // can't disagree with itself if entryCount/hasSeenUpgradePrompt
+            // change in between.
+            const isUpsellMoment = !accumulate && store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
+            const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary, accumulate);
+            updateStore(() => (isUpsellMoment ? { ...merged, hasSeenUpgradePrompt: true } : merged));
+            setPendingUpsell(isUpsellMoment);
             // A real analysis landed — pass through a brief session-summary
             // beat (Feature 2's language observation + Feature 3's AI
-            // recap, when either is available) before the Analysis tab;
-            // computeDiscovery will pick up whatever this entry just
-            // created/reinforced as "Today's Discovery" once there.
+            // recap, when either is available) regardless of tier; where it
+            // goes next depends on tier (see the "sessionSummary" case).
             setScreen("sessionSummary");
           } else {
             setScreen("thinkComplete");
@@ -6213,7 +6224,22 @@ export default function App() {
         onCancel={() => setScreen("home")}
       />
     ); break;
-    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("discoveryAnalysis")} />; break;
+    case "sessionSummary": content = (
+      <ScreenSessionSummary
+        store={store}
+        onDone={() => {
+          // Pro (or monetization disabled): computeDiscovery will pick up
+          // whatever this entry just created/reinforced as "Today's
+          // Discovery" on the Analysis tab. Free tier never accumulated
+          // anything to discover there (see mergeAnalysisIntoStore's
+          // accumulate=false path) and that tab is Pro-gated anyway — its
+          // one-time upsell moment takes over instead, or just home.
+          if (!MONETIZATION_ENABLED || store.isPro) setScreen("discoveryAnalysis");
+          else if (pendingUpsell) setScreen("softPaywall");
+          else setScreen("home");
+        }}
+      />
+    ); break;
     case "thinkComplete": content = (
       <ScreenThinkComplete
         error={analysisError}
