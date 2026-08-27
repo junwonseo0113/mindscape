@@ -2141,17 +2141,33 @@ function DiscoveryPaper({
   return (
     <div style={{ position: "relative", width: "94%", margin: "0 auto" }}>
       <img src={analysisDiscoveryPaperImg} alt="" style={{ width: "100%", display: "block", pointerEvents: "none" }} draggable={false} />
-      <div style={{ position: "absolute", top: "15%", left: "10%", right: "7.5%", bottom: "6%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "15%", left: "10%", right: "7.5%", bottom: "6%", display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, boxSizing: "border-box" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <SparkleGlyph color={paperAccent} />
           <span style={{ ...sans, fontSize: "clamp(10px, 2.6vw, 11px)", fontWeight: 700, color: paperAccent, letterSpacing: "0.12em" }}>TODAY'S DISCOVERY</span>
         </div>
         <div style={{ width: 52, height: 1, backgroundColor: "rgba(46,32,19,0.22)", margin: "7px 0 0" }} />
-        <p style={{ ...serif, fontSize: "clamp(19px, 5.4vw, 23px)", fontWeight: 400, lineHeight: 1.22, color: paperInk, margin: "10px 0 0", wordBreak: "keep-all" }}>
+        {/* A long title/interpretation used to be able to push the footer
+        (thought count/confidence/Examine) below the paper's own printed
+        edge, or off the bottom of the safe area entirely — clamped here so
+        both always fit within the physical paper regardless of length. */}
+        <p
+          style={{
+            ...serif, fontSize: "clamp(19px, 5.4vw, 23px)", fontWeight: 400, lineHeight: 1.22, color: paperInk, margin: "10px 0 0", wordBreak: "keep-all",
+            minWidth: 0, maxWidth: "100%", overflow: "hidden", overflowWrap: "anywhere",
+            display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+          }}
+        >
           {title}
         </p>
         {interpretation && (
-          <p style={{ ...serif, fontSize: "clamp(12.5px, 3.4vw, 14px)", color: "rgba(46,32,19,0.72)", lineHeight: 1.45, margin: "9px 0 0", wordBreak: "keep-all" }}>
+          <p
+            style={{
+              ...serif, fontSize: "clamp(12.5px, 3.4vw, 14px)", color: "rgba(46,32,19,0.72)", lineHeight: 1.45, margin: "9px 0 0", wordBreak: "keep-all",
+              minWidth: 0, maxWidth: "100%", overflow: "hidden", overflowWrap: "anywhere",
+              display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 1,
+            }}
+          >
             {interpretation}
           </p>
         )}
@@ -4221,7 +4237,7 @@ function HypothesisDiscoveryBody({
   const relatedConnections = store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
   const contradictoryEntries = relatedBeliefs
     .flatMap((b) => (b.contradictoryEntryIds ?? []).map((id) => ({ belief: b, entry: store.history.find((e) => e.id === id) })))
-    .filter((x): x is { belief: StoredBelief; entry: StoredHistoryEntry } => !!x.entry);
+    .filter((x): x is { belief: (typeof relatedBeliefs)[number]; entry: StoredHistoryEntry } => !!x.entry);
 
   return (
     <div>

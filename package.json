@@ -17,6 +17,9 @@
     "three": "^0.171.0"
   },
   "devDependencies": {
+    "@types/node": "^26.3.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "@types/three": "^0.171.0",
     "@vitejs/plugin-react": "4.7.0",
     "typescript": "5.6.3",
