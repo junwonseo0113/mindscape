@@ -124,6 +124,41 @@ export function appendUnanalyzedEntry(prev: Store, rawText: string): Store {
   };
 }
 
+// Home's one-tap "How are you feeling?" check-in — no /api/analyze call at
+// all (there's no text to send), just the tapped mood stored directly as
+// this entry's own observation.emotions, the same field EmotionDistribution
+// (and every other emotion-reading screen) already reads. interpretation/
+// hypothesis are present but deliberately inert (empty pattern list, an
+// "insufficient_data" hypothesis with no candidateBelief) — structurally
+// identical to how a free-tier or no-signal Pro entry already looks, which
+// is exactly the point: a mood tap is real data, but on its own it's never
+// enough to claim a recurring pattern, so it can't accidentally create a
+// pending belief candidate or feed the network the way a real "Speak your
+// mind" analysis result can. `text` is a short natural sentence (not left
+// empty) purely so every existing text-first UI — the journal card's
+// quote, History's search, ScreenHistoryDetail's heading — renders this
+// like any other entry without needing a special case anywhere.
+export function appendMoodCheckIn(prev: Store, label: string, intensity: number): Store {
+  const entryId = `entry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const text = `Checked in feeling ${label.toLowerCase()}.`;
+  const historyEntry: StoredHistoryEntry = {
+    id: entryId,
+    date: formatDateDots(new Date()),
+    text,
+    analysis: {
+      observation: { situation: "", automaticThought: "", emotions: [{ label, intensity }], actionUrge: "" },
+      interpretation: { possibleCognitivePatterns: [], valueDirection: { relatedValues: [], towardOrAway: "unclear", explanation: "" } },
+      hypothesis: { candidateBelief: "", confidence: 0, status: "insufficient_data", supportingEntryIds: [], contradictoryEntryIds: [], reasoningSummary: "" },
+    },
+    languageObservation: computeLanguageObservation(text),
+  };
+  return {
+    ...prev,
+    history: [...prev.history, historyEntry].slice(-50),
+    entryCount: prev.entryCount + 1,
+  };
+}
+
 // The model matches beliefs/connections by content (statement text), not by
 // id — it has no reliable way to keep bookkeeping ids consistent across
 // calls. Identity/id assignment happens here instead: exact (domain,

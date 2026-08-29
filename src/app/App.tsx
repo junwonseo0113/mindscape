@@ -9,7 +9,6 @@ import mindSceneImg from "../assets/mind-scene.webp";
 import mindNotebookImg from "../assets/mind-notebook.webp";
 import analysisDeskBgImg from "../assets/analysis-desk-bg.webp";
 import analysisDiscoveryPaperImg from "../assets/analysis-discovery-paper.webp";
-import analysisInsightCardImg from "../assets/analysis-insight-card.webp";
 import historyDeskBgImg from "../assets/history-desk-bg.webp";
 import historyJournalImg from "../assets/history-journal.webp";
 import {
@@ -27,7 +26,7 @@ import {
   emptyStore,
   formatDateDots,
 } from "./types";
-import { appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
+import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
@@ -286,12 +285,16 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
   const items = [
     { id: "home", label: "Home" },
     { id: "analysis", label: "Mind" },
-    // Split out of Mind — Mind itself is now just the belief-network graph
+    // Split out of Mind — Mind itself is just the belief-network graph
     // (see ScreenAnalysis), and everything that used to sit below it there
     // (today's discovery, evidence, evolution, reflection) moved here to
     // its own tab (see ScreenDiscoveryAnalysis and the App shell's
-    // "discoveryAnalysis" case).
-    { id: "discoveryAnalysis", label: "Analysis" },
+    // "discoveryAnalysis" case). Labeled "Discover," not "Analysis" — two
+    // tabs both named after "look at my mind" left first-time users unable
+    // to tell them apart (Mind is the spatial graph itself; this is the
+    // guided read built on top of it, centered on "today's discovery" —
+    // the label should say which is which before anyone taps either).
+    { id: "discoveryAnalysis", label: "Discover" },
     { id: "history", label: "History" },
     // Profile used to live here, but Home's top-right icon already opens it
     // (see ScreenHome) — a tab for something one tap away from Home isn't
@@ -540,6 +543,15 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
       <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn onClick={onEmailStart} modernist>Continue with email</PrimaryBtn>
         <GhostBtn onClick={onGuest} modernist>Browse as a guest</GhostBtn>
+        {/* Guest mode has no account behind it, so clearing this device's
+        storage loses everything with nothing to recover from — this used
+        to go unmentioned anywhere near the decision itself. Data &
+        Privacy's own "Download my data" is the one way to get ahead of
+        that, so it's worth naming right here rather than only discoverable
+        after the fact in Settings. */}
+        <div style={{ ...sans, fontSize: 11.5, color: mdFaint, textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          Browsing as a guest keeps everything only on this device — nothing to restore if it's ever cleared. You can export a copy anytime from Settings.
+        </div>
       </div>
     </div>
   );
@@ -1059,8 +1071,21 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
     },
     {
       screen: "home",
+      target: "nav-analysis",
+      title: "Watch it grow in Mind",
+      body: "Every confirmed pattern lives here too, as its own real constellation. Want to tap in and take a look?",
+      navTo: "analysis",
+    },
+    {
+      screen: "analysis",
+      target: "mind-neurons",
+      title: "This is the same brain, up close",
+      body: "Each point is a belief that's actually shown up more than once. Tap it any time to open the full Brain Map.",
+    },
+    {
+      screen: "analysis",
       target: "nav-discoveryAnalysis",
-      title: "Check patterns in Analysis",
+      title: "Check patterns in Discover",
       body: "We organize the patterns that keep showing up across what you've recorded. Want to tap in and take a look?",
       navTo: "discoveryAnalysis",
     },
@@ -1363,6 +1388,94 @@ function HomeRegionShortcuts({ beliefs, onSelectRegion }: { beliefs: StoredBelie
   );
 }
 
+// The one retention nudge that works regardless of Notification permission
+// or whether a tab was ever left open — the daily-reminder/weekly-summary
+// Notifications (see App()) can only ever reach someone who both granted
+// permission and happens to have a tab open at the right moment, which is
+// close to never for a mobile-first reflection app with no push
+// infrastructure behind it. This just reads real dates off history at
+// render time, the instant Home actually opens.
+function daysSinceLastEntry(history: StoredHistoryEntry[]): number | null {
+  if (history.length === 0) return null;
+  const dates = history.map((e) => parseDotDate(e.date)).filter((d): d is Date => !!d);
+  if (dates.length === 0) return null;
+  const mostRecent = new Date(Math.max(...dates.map((d) => d.getTime())));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  mostRecent.setHours(0, 0, 0, 0);
+  return Math.round((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function WelcomeBackBanner({ history }: { history: StoredHistoryEntry[] }) {
+  const days = daysSinceLastEntry(history);
+  // Only past a couple of days — showing this after a normal one-day gap
+  // would just be daily nagging, not a genuine "welcome back."
+  if (days === null || days < 2) return null;
+  return (
+    <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      Welcome back — it's been {days} days since your last thought.
+    </div>
+  );
+}
+
+// Fixed, deliberately small set of common one-tap moods — not the open-
+// ended vocabulary "Speak your mind" analysis produces (which comes from
+// the model reading real context), since there's no context here to draw
+// a more specific label from. `intensity` is a flat default per mood
+// rather than an extra tap to set it, trading precision for the point of
+// this feature: zero-friction logging on days there's nothing to write.
+const QUICK_MOODS: { label: string; intensity: number }[] = [
+  { label: "Calm", intensity: 35 },
+  { label: "Happy", intensity: 65 },
+  { label: "Anxious", intensity: 60 },
+  { label: "Sad", intensity: 55 },
+  { label: "Frustrated", intensity: 65 },
+  { label: "Tired", intensity: 50 },
+];
+
+// Home's zero-friction alternative to "Speak your mind" — no text, no AI
+// call, just a tapped mood stored straight to history (see
+// appendMoodCheckIn in realStore.ts). Feeds EmotionDistribution/mood
+// metadata like any other entry; never touches the belief/hypothesis
+// network, so it's available to every tier the same way recording itself
+// is, not gated behind Pro.
+function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Store) => Store) => void }) {
+  const [justLogged, setJustLogged] = React.useState<string | null>(null);
+  const clearTimerRef = React.useRef<any>(null);
+
+  const logMood = (label: string, intensity: number) => {
+    updateStore?.((prev) => appendMoodCheckIn(prev, label, intensity));
+    setJustLogged(label);
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    clearTimerRef.current = setTimeout(() => setJustLogged(null), 2200);
+  };
+
+  React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: vtgCreamMuted, marginBottom: 8 }}>
+        {justLogged ? `✓ Logged: ${justLogged}` : "Quick check-in — how are you feeling?"}
+      </div>
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
+        {QUICK_MOODS.map((m) => (
+          <motion.div
+            key={m.label} role="button" tabIndex={0} onClick={() => logMood(m.label, m.intensity)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); logMood(m.label, m.intensity); } }}
+            whileTap={{ scale: 0.94, opacity: 0.85 }}
+            style={{
+              flexShrink: 0, padding: "8px 16px", borderRadius: 999, cursor: "pointer",
+              backgroundColor: justLogged === m.label ? vtgAccent : vtgCard, boxShadow: vtgCardShadow,
+            }}
+          >
+            <span style={{ ...sans, fontSize: 13, fontWeight: 700, color: justLogged === m.label ? "#fff" : vtgInk }}>{m.label}</span>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   return (
     <div
@@ -1494,6 +1607,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           <HomeRegionShortcuts beliefs={store.beliefs} onSelectRegion={(region) => onOpenBrainMap?.(region)} />
         )}
 
+        <WelcomeBackBanner history={store.history} />
+
         <div data-tutorial="think-card" style={{ marginTop: 24 }}>
           <motion.div
             role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
@@ -1511,6 +1626,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             </svg>
           </motion.div>
         </div>
+
+        <QuickMoodCheckIn updateStore={updateStore} />
 
         {(!MONETIZATION_ENABLED || store.isPro) && (
           <HomeGoalsWidget beliefs={store.beliefs} goals={store.goals} goalsBeliefSnapshot={store.goalsBeliefSnapshot} updateStore={updateStore} />
@@ -1555,10 +1672,17 @@ function HomeGoalsWidget({
     fetchingRef.current = true;
     setLoading(true);
     const payload = beliefs.map((b) => ({ domain: b.domain, statement: b.statement, evidenceCount: b.evidenceCount }));
+    // Same bound as /api/analyze's own ANALYZE_TIMEOUT_MS (ScreenProcessing)
+    // — this fetch previously had no timeout at all, so a slow/dead
+    // connection could leave "Looking at what you've written so far…"
+    // showing indefinitely on Home.
+    const abort = new AbortController();
+    const timeoutId = setTimeout(() => abort.abort(), ANALYZE_TIMEOUT_MS);
     fetch("/api/infer-goals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ beliefs: payload }),
+      signal: abort.signal,
     })
       .then(async (res) => {
         const data = await res.json();
@@ -1576,14 +1700,16 @@ function HomeGoalsWidget({
         updateStore((prev) => ({ ...prev, goals: nextGoals, goalsBeliefSnapshot: beliefs.length }));
       })
       // Best-effort, same spirit as ScreenProcessing's summarize-session
-      // call — a failed inference just means the widget stays as it was
-      // (or stays hidden, for a first-ever attempt), never a blocking error
-      // on the Home screen.
+      // call — a failed inference (including a timeout abort) just means
+      // the widget stays as it was (or stays hidden, for a first-ever
+      // attempt), never a blocking error on the Home screen.
       .catch(() => {})
       .finally(() => {
+        clearTimeout(timeoutId);
         fetchingRef.current = false;
         setLoading(false);
       });
+    return () => { clearTimeout(timeoutId); abort.abort(); };
   }, [needsRefresh, beliefs, updateStore]);
 
   if (goals.length === 0) {
@@ -1904,6 +2030,14 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
       return `${x},${y}`;
     })
     .join(" ");
+  // The polyline itself is purely visual — a screen reader gets nothing
+  // from tracing SVG point coordinates, so role="img" + aria-label collapses
+  // the whole chart into the one sentence it's actually communicating,
+  // same idiom as an <img alt="...">.
+  const firstRate = weeks[0].cognitiveVerbPerHundredWords;
+  const lastRate = weeks[weeks.length - 1].cognitiveVerbPerHundredWords;
+  const trendWord = lastRate > firstRate ? "rose to" : lastRate < firstRate ? "fell to" : "stayed at";
+  const sparklineLabel = `Reflective language rate by week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(weeks[weeks.length - 1].weekStart)}: started at ${firstRate.toFixed(1)} per 100 words, ${trendWord} ${lastRate.toFixed(1)} per 100 words.`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1911,7 +2045,7 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
         <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdBody }}>
           Reflective language ("think," "realize," "notice"...) per 100 words, by week
         </div>
-        <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 6, display: "block" }}>
+        <svg role="img" aria-label={sparklineLabel} width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 6, display: "block" }}>
           <polyline points={points} fill="none" stroke={mdAccent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
@@ -2004,15 +2138,25 @@ function heatmapCellColor(count: number, isFuture: boolean): string {
 // RECORDING_HEATMAP_WEEKS weeks instead of a single running-streak number.
 function RecordingHeatmap({ history }: { history: StoredHistoryEntry[] }) {
   const weeks = React.useMemo(() => buildRecordingHeatmapWeeks(history), [history]);
-  const totalDaysRecorded = weeks.flat().filter((d) => !d.isFuture && d.count > 0).length;
+  const recordedDays = weeks.flat().filter((d) => !d.isFuture && d.count > 0);
+  const totalDaysRecorded = recordedDays.length;
   const cell = 11;
   const gap = 3;
+  // Same "collapse a purely-visual grid into one sentence" idiom as
+  // SelfTalkTrend's sparkline above — the per-day `title` attributes below
+  // are unreliable on non-interactive, non-focusable divs for a screen
+  // reader, so the grid as a whole gets a real summary instead. Listing
+  // the actual recorded dates (not just a count) is what the visual grid
+  // itself is for, so the accessible version should say the same thing.
+  const heatmapLabel = totalDaysRecorded === 0
+    ? `Recording heatmap for the last ${RECORDING_HEATMAP_WEEKS} weeks. No days recorded yet.`
+    : `Recording heatmap for the last ${RECORDING_HEATMAP_WEEKS} weeks. Recorded on: ${recordedDays.map((d) => shortMonthDay(formatDateDots(d.date))).join(", ")}.`;
 
   return (
     <div>
-      <div style={{ display: "flex", gap, overflowX: "auto", paddingBottom: 2 }}>
+      <div role="img" aria-label={heatmapLabel} style={{ display: "flex", gap, overflowX: "auto", paddingBottom: 2 }}>
         {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: "flex", flexDirection: "column", gap, flexShrink: 0 }}>
+          <div key={wi} aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap, flexShrink: 0 }}>
             {week.map((day, di) => (
               <div
                 key={di}
@@ -2758,7 +2902,7 @@ function ScreenDiscoveryAnalysis({
           >
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 28px" }}>
               <div style={{ padding: "16px 20px 30px" }}>
-                <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>Analysis</div>
+                <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>Discover</div>
                 <div style={{ ...sans, fontSize: 12.5, color: "rgba(245,239,228,0.82)", marginTop: 5, lineHeight: 1.45, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
                   AI interprets your mind,<br />revealing what's really going on.
                 </div>
@@ -3066,6 +3210,14 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const guidanceShownRef = React.useRef(false);
   const guidanceDelayRef = React.useRef<any>(null);
 
+  // Set only on a fatal SpeechRecognition error (mic permission denied, no
+  // mic hardware, network drop) — before this, a denial left "Listening"
+  // showing indefinitely with a flat waveform and zero explanation, since
+  // recognition.onerror only stopped the internal restart loop without
+  // telling the UI anything had gone wrong. Cleared on mode switch/retry
+  // so it never lingers past the interaction that caused it.
+  const [micError, setMicError] = React.useState<string | null>(null);
+
   // Guards both onDone call sites below (text Next button, voice auto-stop)
   // against a rapid double-tap firing onDone twice before the screen
   // change unmounts this component — without it, two "processing" calls
@@ -3123,6 +3275,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
     setTranscript("");
     setInterim("");
     setSeconds(0);
+    setMicError(null);
     finalTranscriptRef.current = "";
     const SR = getSpeechRecognitionCtor();
     if (SR) {
@@ -3148,10 +3301,21 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
       };
       recognition.onerror = (e: any) => {
         // Fatal errors (mic denied, no mic, offline): stop retrying instead
-        // of looping start/stop forever. "no-speech" is not fatal — it just
-        // means a silent gap, so let onend's restart handle that one.
+        // of looping start/stop forever, AND actually tell the person why —
+        // this used to just stop the internal restart loop, leaving
+        // "Listening" on screen indefinitely with no explanation. "no-speech"
+        // is not fatal — it just means a silent gap, so let onend's restart
+        // handle that one.
         if (["not-allowed", "audio-capture", "network", "service-not-allowed"].includes(e?.error)) {
           manualStopRef.current = true;
+          setRecording(false);
+          setMicError(
+            e.error === "not-allowed" || e.error === "service-not-allowed"
+              ? "Microphone access was denied. Allow it in your browser's settings, or use \"Write instead.\""
+              : e.error === "audio-capture"
+              ? "No microphone was found. Please use \"Write instead.\""
+              : "A network issue interrupted voice recognition. Please try again or use \"Write instead.\""
+          );
         }
       };
       recognition.onend = () => {
@@ -3182,7 +3346,12 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
           ✕ Stop
         </motion.span>
         {!recording && (
-          <motion.span role="button" tabIndex={0} onClick={() => setTextMode((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setTextMode((v) => !v))?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
+          <motion.span
+            role="button" tabIndex={0}
+            onClick={() => { setTextMode((v) => !v); setMicError(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }}
+            whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}
+          >
             {textMode ? "Use voice instead" : "Write instead"}
           </motion.span>
         )}
@@ -3244,6 +3413,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   {!voiceSupportedRef.current && (
                     <div style={{ ...sans, fontSize: 12, color: dkWarn, textAlign: "center", marginTop: 18, lineHeight: 1.6, wordBreak: "keep-all" }}>
                       This browser doesn't support speech recognition. Please use "Write instead."
+                    </div>
+                  )}
+                  {micError && (
+                    <div style={{ ...sans, fontSize: 12, color: dkWarn, textAlign: "center", marginTop: 18, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                      {micError}
                     </div>
                   )}
                 </motion.div>
@@ -5050,6 +5224,29 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     });
   }, [withNumber, search, filterDomain, store.beliefs]);
 
+  // Search used to only ever match entry.text — a real recurring pattern
+  // or AI hypothesis is often what someone actually remembers and searches
+  // for, not the specific entry that first surfaced it. These are kept
+  // separate from `filtered` above (which also drives the swipeable
+  // journal card's prev/next navigation and must stay entry-only) and
+  // rendered as their own sections in the search sheet.
+  const matchingBeliefs = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return store.beliefs.filter((b) => {
+      if (filterDomain && b.domain !== filterDomain) return false;
+      return b.statement.toLowerCase().includes(q);
+    });
+  }, [store.beliefs, search, filterDomain]);
+  const matchingHypotheses = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    return store.hypotheses.filter((h) => {
+      if (filterDomain && !h.domains.includes(filterDomain)) return false;
+      return h.title.toLowerCase().includes(q);
+    });
+  }, [store.hypotheses, search, filterDomain]);
+
   const activeIdx = Math.max(0, filtered.findIndex((w) => w.entry.id === activeId));
   const current = filtered[activeIdx] ?? null;
   const older = filtered[activeIdx + 1] ?? null;
@@ -5258,7 +5455,10 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
               aria-label="Search your recorded thoughts"
               style={{ ...sans, fontSize: 14, color: mdHeading, border: `1.5px solid ${mdDivider}`, borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 14 }}>
+            {(matchingBeliefs.length > 0 || matchingHypotheses.length > 0) && (
+              <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>THOUGHTS</div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filtered.slice(0, 20).map(({ entry, entryNumber }) => (
                 <motion.div
                   key={entry.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
@@ -5269,10 +5469,48 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   <div style={{ ...serif, fontSize: 14, color: mdHeading, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{entry.text.slice(0, 96)}{entry.text.length > 96 ? "…" : ""}</div>
                 </motion.div>
               ))}
-              {search.trim() && filtered.length === 0 && (
-                <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "8px 2px" }}>Nothing matches "{search.trim()}".</div>
-              )}
             </div>
+
+            {matchingBeliefs.length > 0 && (
+              <>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>UNCONSCIOUS BELIEFS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {matchingBeliefs.slice(0, 10).map((b) => (
+                    <motion.div
+                      key={b.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+                      onClick={() => { setSheet(null); onNavSelect?.("beliefs"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSheet(null); onNavSelect?.("beliefs"); } }}
+                      style={{ padding: "10px 12px", borderRadius: 10, backgroundColor: mdNeutralTag, cursor: "pointer" }}
+                    >
+                      <div style={{ ...mono, fontSize: 10.5, color: mdFaint }}>{b.domain}</div>
+                      <div style={{ ...serif, fontSize: 14, color: mdHeading, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {matchingHypotheses.length > 0 && (
+              <>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>AI HYPOTHESES</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {matchingHypotheses.slice(0, 10).map((h) => (
+                    <motion.div
+                      key={h.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+                      onClick={() => { setSheet(null); onNavSelect?.("hypotheses"); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSheet(null); onNavSelect?.("hypotheses"); } }}
+                      style={{ padding: "10px 12px", borderRadius: 10, backgroundColor: mdNeutralTag, cursor: "pointer" }}
+                    >
+                      <div style={{ ...serif, fontSize: 14, color: mdHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.title}</div>
+                    </motion.div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {search.trim() && filtered.length === 0 && matchingBeliefs.length === 0 && matchingHypotheses.length === 0 && (
+              <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "8px 2px", marginTop: 14 }}>Nothing matches "{search.trim()}".</div>
+            )}
           </HistorySheet>
         )}
         {sheet === "calendar" && (
@@ -5441,11 +5679,33 @@ function ScreenProfile({
   const initial = name.charAt(0);
   const firstEntryDate = [...store.history].sort((a, b) => a.date.localeCompare(b.date))[0]?.date;
   const planLabel = store.proPlan === "monthly" ? "Monthly plan" : store.proPlan === "yearly" ? "Yearly plan" : null;
+  const streakDays = computeStreak(store.history);
   const stats = [
     { value: String(store.entryCount), label: "Thoughts logged" },
     { value: String(store.beliefs.length), label: "Beliefs discovered" },
-    { value: `${computeStreak(store.history)} days`, label: "Streak" },
+    { value: `${streakDays} days`, label: "Streak" },
   ];
+
+  // Web Share API where it exists (mobile browsers, mostly); a clipboard
+  // copy elsewhere — no server round-trip either way, this is purely the
+  // three numbers already shown above, formatted as one sentence. `copied`
+  // is the only user-facing sign the clipboard path worked, since it has
+  // no OS-level share sheet of its own to confirm it.
+  const [copied, setCopied] = React.useState(false);
+  const shareStats = async () => {
+    const text = `${store.entryCount} thoughts logged, ${store.beliefs.length} beliefs discovered, ${streakDays}-day streak on Mindscape.`;
+    if (navigator.share) {
+      try { await navigator.share({ text }); } catch { /* user cancelled — not an error */ }
+      return;
+    }
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch { /* clipboard permission denied — silently no-op, same as a cancelled share */ }
+    }
+  };
   const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
     ...(MONETIZATION_ENABLED && store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
     { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
@@ -5506,7 +5766,7 @@ function ScreenProfile({
           </motion.div>
         )}
 
-        <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+        <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 10 }}>
           {stats.map((s) => (
             <div key={s.label} style={{ flex: 1, backgroundColor: mdCard, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: mdCardShadow }}>
               <div style={{ ...mono, fontSize: 22, fontWeight: 700, color: mdAccentText, marginBottom: 4 }}>{s.value}</div>
@@ -5514,6 +5774,24 @@ function ScreenProfile({
             </div>
           ))}
         </div>
+
+        {store.entryCount > 0 && (
+          <motion.div
+            role="button" tabIndex={0} onClick={shareStats} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); shareStats(); } }}
+            whileTap={{ opacity: 0.6 }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", marginBottom: 14, cursor: "pointer" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+              <circle cx="15" cy="5" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
+              <circle cx="5" cy="10" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
+              <circle cx="15" cy="15" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
+              <path d="M7 8.8 13 5.9M7 11.2 13 14.1" stroke={mdAccentText} strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <span style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: mdAccentText }}>
+              {copied ? "Copied to clipboard" : "Share your progress"}
+            </span>
+          </motion.div>
+        )}
 
         {/* Design/dev affordance: instantly switches the whole app between
             curated demo content and a real, on-device, initially-empty
@@ -5623,6 +5901,24 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
   );
 }
 
+// Guests have no account and no cloud sync — clearing site data, switching
+// browsers, or an incognito session ends the session with zero recovery
+// path, and until now there was no way to get a copy out first. This is
+// the one export the whole app has: the real Store shape, straight to a
+// downloaded file, no server round-trip (there's nowhere to send it to
+// even if there were one).
+function downloadStoreAsJson(store: Store) {
+  const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `mindscape-export-${formatDateDots(new Date()).replace(/\./g, "-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ── Screen 14.2 · Data & privacy ───────────────────────────────────────────────
 function ScreenDataPrivacy({
   store,
@@ -5675,6 +5971,21 @@ function ScreenDataPrivacy({
         </div>
 
         <div style={{ marginTop: 28 }}>
+          <div
+            role="button" tabIndex={0}
+            onClick={() => downloadStoreAsJson(s)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); downloadStoreAsJson(s); } }}
+            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${mdDivider}`, cursor: "pointer" }}
+          >
+            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdHeading }}>Download my data</span>
+          </div>
+          <div style={{ ...sans, fontSize: 12, color: mdFaint, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            {isCloudSyncConfigured
+              ? "Saves everything above to a JSON file on this device — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
+              : "Saves everything above to a JSON file on this device. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives."}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 20 }}>
           <div
             role="button" tabIndex={0}
             onClick={() => (armed ? onResetData?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onResetData?.() : setArmed(true)))?.(); } }}
@@ -5944,7 +6255,7 @@ function ScreenPaywall({
   const [selected, setSelected] = React.useState<ProPlan>("yearly");
   const plan = PRO_PLANS.find((p) => p.id === selected)!;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
       </div>
@@ -5958,9 +6269,10 @@ function ScreenPaywall({
         </div>
 
         {/* Also the interactive tutorial's "today-discovery" spotlight target
-            when a free-tier tour reaches the Mind tab — see buildTutorialSteps
-            in the App shell, which swaps in Pro-aware copy pointing here
-            instead of at the (Pro-only) real discovery card. */}
+            when a free-tier tour reaches the Analysis tab — see
+            buildTutorialSteps in the App shell, which swaps in Pro-aware
+            copy pointing here instead of at the (Pro-only) real discovery
+            card. */}
         <div data-tutorial="today-discovery" style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
           {PRO_FEATURES.map((f) => (
             <div key={f.title} style={{ display: "flex", gap: 12, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
@@ -6012,7 +6324,11 @@ function ScreenPaywall({
         <PrimaryBtn onClick={() => onContinue?.(selected)} modernist>Continue — {plan.price}{plan.period}</PrimaryBtn>
         <div style={{ ...sans, fontSize: 11, color: mdFaint, textAlign: "center", marginTop: 10 }}>Cancel anytime. No commitment.</div>
       </div>
-      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} modernist />}
+      {/* Stands in for a vintage-themed tab (analysis/discoveryAnalysis/
+      premium — see the App shell's cases) whenever activeTab is set, so it
+      needs the same nav variant those real tabs use, not modernist's flat
+      bar — see the comment on activeTab above. */}
+      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} vintage />}
     </div>
   );
 }
@@ -6240,6 +6556,18 @@ export default function App() {
     const interval = setInterval(check, 3600000);
     return () => clearInterval(interval);
   }, [store.settings.weeklySummary, store.isPro, store.history]);
+
+  // New-hypothesis alert — unlike the two notifications above, this one is
+  // event-driven (fires the instant an entry actually surfaces something
+  // new), not polled on a timer, so there's nothing to check periodically
+  // here. This effect only requests permission as soon as the setting is
+  // turned on, matching the other two, so it's already granted by the time
+  // the "processing" case's onDone (below) tries to fire one.
+  React.useEffect(() => {
+    if (!store.settings.newHypothesisAlert) return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "default") Notification.requestPermission();
+  }, [store.settings.newHypothesisAlert]);
 
   const goToTab = (id: string) => setScreen(id);
 
@@ -6562,6 +6890,20 @@ export default function App() {
             // change in between.
             const isUpsellMoment = !accumulate && store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
             const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary, accumulate);
+            // "New hypothesis alerts" — fires the instant this entry
+            // actually surfaced something new: a belief crossing the
+            // evidence bar for the first time (beliefs array grows) or a
+            // cross-pattern meta-insight appearing (hypotheses array
+            // grows). mergeAnalysisIntoStore only ever grows either array
+            // on a genuinely new item — reinforcing an existing one changes
+            // its fields in place, never its length — so this comparison
+            // can't misfire on routine reinforcement.
+            if (store.settings.newHypothesisAlert && typeof Notification !== "undefined" && Notification.permission === "granted") {
+              const foundNewPattern = merged.beliefs.length > store.beliefs.length || merged.hypotheses.length > store.hypotheses.length;
+              if (foundNewPattern) {
+                new Notification("A new pattern showed up", { body: "Take a look at what your recent thoughts have in common." });
+              }
+            }
             updateStore(() => (isUpsellMoment ? { ...merged, hasSeenUpgradePrompt: true } : merged));
             setPendingUpsell(isUpsellMoment);
             // A real analysis landed — pass through a brief session-summary
