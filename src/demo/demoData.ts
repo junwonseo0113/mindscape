@@ -132,6 +132,20 @@ export const DEMO_STORE: Store = {
       },
       languageObservation: { wordCount: 18, cognitiveVerbCount: 0, cognitiveVerbPerHundredWords: 0, firstPersonSingularCount: 2, collectiveOrOtherCount: 0 },
     },
+    // A quick mood check-in (see QuickMoodCheckIn/appendMoodCheckIn in
+    // App.tsx/realStore.ts) — same shape a real one produces: only
+    // observation.emotions populated, interpretation/hypothesis inert.
+    // Without one here, Demo Mode never showed what this feature actually
+    // looks like in the journal/heatmap/emotion distribution.
+    {
+      id: "demo-entry-3", date: "2026.07.29", text: "Checked in feeling calm.",
+      analysis: {
+        observation: { situation: "", automaticThought: "", emotions: [{ label: "Calm", intensity: 35 }], actionUrge: "" },
+        interpretation: { possibleCognitivePatterns: [], valueDirection: { relatedValues: [], towardOrAway: "unclear", explanation: "" } },
+        hypothesis: { candidateBelief: "", confidence: 0, status: "insufficient_data", supportingEntryIds: [], contradictoryEntryIds: [], reasoningSummary: "" },
+      },
+      languageObservation: { wordCount: 4, cognitiveVerbCount: 1, cognitiveVerbPerHundredWords: 25, firstPersonSingularCount: 0, collectiveOrOtherCount: 0 },
+    },
   ],
 
   hypotheses: [

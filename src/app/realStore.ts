@@ -152,10 +152,19 @@ export function appendMoodCheckIn(prev: Store, label: string, intensity: number)
     },
     languageObservation: computeLanguageObservation(text),
   };
+  // Deliberately does NOT increment entryCount — that counter drives the
+  // free tier's exact-equality upsell trigger (store.entryCount + 1 ===
+  // UPSELL_PROMPT_AT_ENTRY_COUNT, checked only from a real "Speak your
+  // mind" submission) and Profile's "Thoughts logged"/share-stats copy,
+  // both of which assume a substantive reflection. Counting quick mood
+  // taps there would let check-ins push a user's real 3rd entry past the
+  // exact count the trigger checks for (silently skipping the one-time
+  // upsell), and would overstate what "3 thoughts logged" actually means.
+  // The entry still lands in history — the journal, heatmap, and emotion
+  // distribution all read that directly, not entryCount.
   return {
     ...prev,
     history: [...prev.history, historyEntry].slice(-50),
-    entryCount: prev.entryCount + 1,
   };
 }
 

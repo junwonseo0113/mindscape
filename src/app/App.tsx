@@ -1444,6 +1444,11 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   const clearTimerRef = React.useRef<any>(null);
 
   const logMood = (label: string, intensity: number) => {
+    // Doubles as the in-flight guard (same spirit as ScreenThink's own
+    // `submitted` state) — while a confirmation is showing, a second tap
+    // on any chip is a rapid double-tap, not a genuinely new check-in, and
+    // would otherwise create two near-identical history entries.
+    if (justLogged) return;
     updateStore?.((prev) => appendMoodCheckIn(prev, label, intensity));
     setJustLogged(label);
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
