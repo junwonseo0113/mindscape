@@ -14,6 +14,7 @@ import {
 } from "./neuralBrainLayout";
 import { NeuralBeliefConnection, NeuralBeliefNode, REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
 import { StoredEvidenceQuote } from "./types";
+import brainMapVoidImg from "../assets/brain-map-void.png";
 
 // ── A dedicated, full-screen, dark "control room" view of the same belief
 // tissue the Home hero card shows in miniature — additive-blended glowing
@@ -298,22 +299,28 @@ export default function BrainNodeMapScreen({
   // tap the region again themselves.
   initialActiveRegion?: CognitiveRegion | null;
 }) {
-  const bg = modernist ? "#ffffff" : bgDark;
-  const panelBg = modernist ? "#ffffff" : panelBgDark;
-  const line = modernist ? "rgba(32,30,29,0.14)" : lineDark;
-  const ink = modernist ? "#201e1d" : inkDark;
-  const inkSoft = modernist ? "rgba(32,30,29,0.85)" : inkSoftDark;
-  const inkMid = modernist ? "rgba(32,30,29,0.6)" : inkMidDark;
-  const inkFaint = modernist ? "rgba(32,30,29,0.42)" : inkFaintDark;
-  const dormantColor = modernist ? new THREE.Color(0x201e1d) : dormantColorDark;
-  const FILTERED_OUT_TINT = modernist ? new THREE.Color(0xd7d3d3) : FILTERED_OUT_TINT_DARK;
+  // Full-screen Brain Map is an immersive night-space even when the caller
+  // uses the app's `modernist` flag elsewhere. The previous full-screen
+  // white control-room treatment was the one major visual outlier in the app
+  // and also made the star field harder to read on a phone. Embedded cards
+  // still honor the caller's theme.
+  const immersive = !embedded;
+  const bg = immersive ? "#0d1322" : (modernist ? "#ffffff" : bgDark);
+  const panelBg = immersive ? "rgba(15,21,36,0.86)" : (modernist ? "#ffffff" : panelBgDark);
+  const line = immersive ? "rgba(239,235,225,0.14)" : (modernist ? "rgba(32,30,29,0.14)" : lineDark);
+  const ink = immersive ? "#f2eee4" : (modernist ? "#201e1d" : inkDark);
+  const inkSoft = immersive ? "rgba(242,238,228,0.84)" : (modernist ? "rgba(32,30,29,0.85)" : inkSoftDark);
+  const inkMid = immersive ? "rgba(242,238,228,0.62)" : (modernist ? "rgba(32,30,29,0.6)" : inkMidDark);
+  const inkFaint = immersive ? "rgba(242,238,228,0.44)" : (modernist ? "rgba(32,30,29,0.42)" : inkFaintDark);
+  const dormantColor = immersive ? dormantColorDark : (modernist ? new THREE.Color(0x201e1d) : dormantColorDark);
+  const FILTERED_OUT_TINT = immersive ? FILTERED_OUT_TINT_DARK : (modernist ? new THREE.Color(0xd7d3d3) : FILTERED_OUT_TINT_DARK);
   // The dark theme's generic purple UI-chrome accent (search caret, reset/
   // expand buttons, region-rail active row, panel tag pill) — swapped for the
   // Modernist palette's own red accent, not left purple, since Modernist is
   // explicitly mono-red ("no second accent was chosen").
-  const accentUi = modernist ? "#ec3013" : "#9184d9";
-  const accentUiSoft = modernist ? "rgba(236,48,19,0.12)" : "rgba(145,132,217,0.12)";
-  const accentUiSofter = modernist ? "rgba(236,48,19,0.16)" : "rgba(145,132,217,0.16)";
+  const accentUi = immersive ? "#d8cdbd" : (modernist ? "#ec3013" : "#9184d9");
+  const accentUiSoft = immersive ? "rgba(216,205,189,0.10)" : (modernist ? "rgba(236,48,19,0.12)" : "rgba(145,132,217,0.12)");
+  const accentUiSofter = immersive ? "rgba(216,205,189,0.15)" : (modernist ? "rgba(236,48,19,0.16)" : "rgba(145,132,217,0.16)");
   const mdNeutralTagLocal = "#f8f4f4";
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -367,6 +374,14 @@ export default function BrainNodeMapScreen({
     () => Object.fromEntries(COGNITIVE_REGIONS.map((r) => [r, 0])) as Record<CognitiveRegion, number>
   );
   const [connectionCount, setConnectionCount] = useState(0);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth <= 640);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   const beliefsRef = useRef(beliefs);
   const connectionsRef = useRef(connections);
@@ -943,22 +958,37 @@ export default function BrainNodeMapScreen({
       style={
         embedded
           ? { position: "relative", width: "100%", height, borderRadius: 30, background: bg, color: ink, ...sans, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 18px 50px rgba(10,9,20,0.28)" }
-          : { position: "fixed", inset: 0, background: bg, color: ink, ...sans, overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 40 }
+          : {
+              position: "fixed",
+              inset: 0,
+              backgroundColor: bg,
+              backgroundImage: `linear-gradient(rgba(4,9,20,0.16), rgba(4,9,20,0.34)), url(${brainMapVoidImg})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              color: ink,
+              ...sans,
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+              zIndex: 40,
+              paddingTop: "env(safe-area-inset-top)",
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }
       }
     >
       {/* ── Top bar: back (full-screen only), logo, search, reset ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 20px", flex: "none", zIndex: 5 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 9 : 14, padding: isMobile ? "10px 14px 8px" : "12px 20px", flex: "none", zIndex: 5, minWidth: 0 }}>
         {!embedded && (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }}
-            style={{ ...sans, fontSize: 13, color: inkMid, cursor: "pointer", flexShrink: 0 }}
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back"
+            style={{ ...sans, fontSize: 13, color: inkMid, cursor: "pointer", flexShrink: 0, background: "transparent", border: 0, padding: "8px 4px", margin: "-8px -4px" }}
           >
             ← Back
-          </span>
+          </button>
         )}
-        <div style={{ ...sans, fontWeight: 500, fontSize: 16, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <div style={{ ...sans, fontWeight: 500, fontSize: isMobile ? 15 : 16, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 7, flex: isMobile ? 1 : undefined, minWidth: 0, flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
             <path d="M6.5 3.2c-2 .3-3.4 2-3.3 4 .05.8-.2 1.1-.7 1.6-.9.9-.9 2.5 0 3.4.5.5.7.9.7 1.6 0 2.1 1.7 3.7 3.7 3.5" stroke={accentUi} strokeWidth="1.4" strokeLinecap="round" />
             <path d="M13.5 3.2c2 .3 3.4 2 3.3 4-.05.8.2 1.1.7 1.6.9.9.9 2.5 0 3.4-.5.5-.7.9-.7 1.6 0 2.1-1.7 3.7-3.7 3.5" stroke={accentUi} strokeWidth="1.4" strokeLinecap="round" />
@@ -971,7 +1001,7 @@ export default function BrainNodeMapScreen({
             this same row (this is what overflowed/clipped the expand button
             off the edge of the card before); the full search box is one tap
             away via expand → the full-screen route. */}
-        {!embedded && (
+        {!embedded && !isMobile && (
           <div style={{ position: "relative", width: "100%", maxWidth: 240, marginLeft: "auto" }}>
             <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
               <circle cx="8.5" cy="8.5" r="5.5" stroke="#9397ab" strokeWidth="1.5" />
@@ -1011,7 +1041,7 @@ export default function BrainNodeMapScreen({
             color: accentUi,
             background: "transparent",
             border: `1px solid ${accentUi}`,
-            padding: "6px 11px",
+            padding: isMobile ? "7px 10px" : "6px 11px",
             borderRadius: 8,
             flexShrink: 0,
             marginLeft: embedded ? "auto" : undefined,
@@ -1045,6 +1075,36 @@ export default function BrainNodeMapScreen({
         )}
       </div>
 
+      {!embedded && isMobile && (
+        <div style={{ position: "relative", margin: "0 14px 8px", zIndex: 5 }}>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+            <circle cx="8.5" cy="8.5" r="5.5" stroke={inkMid} strokeWidth="1.5" />
+            <path d="M16 16l-3.2-3.2" stroke={inkMid} strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            type="search"
+            placeholder="Search beliefs"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              minHeight: 42,
+              boxSizing: "border-box",
+              padding: "9px 12px 9px 34px",
+              font: "inherit",
+              fontSize: 14,
+              color: ink,
+              caretColor: accentUi,
+              background: "rgba(10,16,29,0.62)",
+              backdropFilter: "blur(12px)",
+              border: `1px solid ${line}`,
+              borderRadius: 12,
+              outline: "none",
+            }}
+          />
+        </div>
+      )}
+
       {/* ── Canvas + overlays ── */}
       <div ref={wrapRef} style={{ position: "relative", flex: 1, minHeight: 0 }}>
         <canvas
@@ -1063,7 +1123,7 @@ export default function BrainNodeMapScreen({
               setHover(null);
             }
           }}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", cursor: hover ? "pointer" : cursor }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", cursor: hover ? "pointer" : cursor, touchAction: "none" }}
         />
 
         {/* ── Left rail: regions — full-screen only. At the embedded card's
@@ -1076,7 +1136,7 @@ export default function BrainNodeMapScreen({
             9px dot / 12.5px text / 5px-padding rows were tuned for a
             desktop-mockup sidebar and read as genuinely hard to pick out
             or tap accurately on a real phone. ── */}
-        {!embedded && (
+        {!embedded && !isMobile && (
           <div
             style={{
               position: "absolute",
@@ -1125,21 +1185,73 @@ export default function BrainNodeMapScreen({
           </div>
         )}
 
+        {!embedded && isMobile && (
+          <div
+            aria-label="Filter brain map by region"
+            style={{
+              position: "absolute",
+              zIndex: 5,
+              top: 10,
+              left: 10,
+              right: 10,
+              display: "flex",
+              gap: 7,
+              overflowX: "auto",
+              padding: "2px 2px 8px",
+              scrollbarWidth: "none",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            {COGNITIVE_REGIONS.map((region) => {
+              const active = activeRegion === region;
+              return (
+                <button
+                  key={region}
+                  type="button"
+                  onClick={() => toggleRegion(region)}
+                  aria-pressed={active}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 7,
+                    flex: "0 0 auto",
+                    minHeight: 38,
+                    padding: "8px 11px",
+                    borderRadius: 999,
+                    border: `1px solid ${active ? accentUi : line}`,
+                    background: active ? "rgba(216,205,189,0.15)" : "rgba(10,16,29,0.58)",
+                    backdropFilter: "blur(10px)",
+                    color: active ? ink : inkSoft,
+                    ...sans,
+                    fontSize: 12.5,
+                    fontWeight: active ? 700 : 500,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: REGION_CONFIG[region].color }} />
+                  {REGION_CONFIG[region].label}
+                  <span style={{ color: inkFaint, fontSize: 11 }}>{regionCounts[region] ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Stats line always shows (short, never wraps). The longer drag/
             scroll/click hint is full-screen only — on the embedded card it
             used to sit at the same `bottom: 16` row as the stats line with
             no width limit on either, so at teaser-card width the two ran
             into each other. */}
-        <div style={{ position: "absolute", bottom: 16, left: 20, right: embedded ? 20 : "auto", fontSize: 11, color: inkFaint, letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ position: "absolute", bottom: isMobile ? 38 : 16, left: isMobile ? 14 : 20, right: embedded ? 20 : "auto", fontSize: 11, color: inkFaint, letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {totalBeliefs} beliefs · {connectionCount} connections
         </div>
         {!embedded && (
-          <div style={{ position: "absolute", bottom: 16, right: 20, fontSize: 11, color: inkFaint }}>
-            Drag to rotate · Scroll to zoom · Click to select
+          <div style={{ position: "absolute", bottom: isMobile ? 16 : 16, right: isMobile ? 14 : 20, left: isMobile ? 14 : "auto", textAlign: isMobile ? "left" : "right", fontSize: 11, color: inkFaint }}>
+            {isMobile ? "Drag to rotate · Pinch to zoom · Tap a star" : "Drag to rotate · Scroll to zoom · Click to select"}
           </div>
         )}
 
-        {hover && (
+        {hover && !isMobile && (
           <div
             data-testid="node-tooltip"
             style={{
@@ -1169,16 +1281,21 @@ export default function BrainNodeMapScreen({
           data-open={selected ? "true" : "false"}
           style={{
             position: "absolute",
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 300,
-            maxWidth: "82vw",
+            top: isMobile ? "auto" : 0,
+            left: isMobile ? 10 : "auto",
+            right: isMobile ? 10 : 0,
+            bottom: isMobile ? 10 : 0,
+            width: isMobile ? "auto" : 300,
+            maxWidth: isMobile ? "none" : "82vw",
+            maxHeight: isMobile ? "54%" : "none",
+            boxSizing: "border-box",
             background: panelBg,
-            boxShadow: `0 0 0 1px ${line}, -16px 0 40px rgba(0,0,0,0.4)`,
-            transform: selected ? "translateX(0)" : "translateX(110%)",
-            transition: "transform .32s cubic-bezier(.2,.7,.3,1)",
-            padding: 20,
+            backdropFilter: "blur(18px)",
+            borderRadius: isMobile ? 18 : 0,
+            boxShadow: isMobile ? `0 0 0 1px ${line}, 0 -14px 40px rgba(0,0,0,0.32)` : `0 0 0 1px ${line}, -16px 0 40px rgba(0,0,0,0.4)`,
+            transform: selected ? "translate(0,0)" : (isMobile ? "translateY(115%)" : "translateX(110%)"),
+            transition: "transform .28s cubic-bezier(.2,.7,.3,1)",
+            padding: isMobile ? "18px 18px calc(18px + env(safe-area-inset-bottom))" : 20,
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -1203,13 +1320,13 @@ export default function BrainNodeMapScreen({
                 >
                   {REGION_CONFIG[selected.region].label}
                 </span>
-                <span data-testid="node-panel-close" role="button" tabIndex={0} onClick={() => setSelected(null)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setSelected(null))?.(); } }} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 2 }}>
+                <button type="button" aria-label="Close belief details" data-testid="node-panel-close" onClick={() => setSelected(null)} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 8, margin: -8 }}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>
-                </span>
+                </button>
               </div>
-              <div style={{ ...serif, fontSize: 18, lineHeight: 1.35, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>{selected.statement}</div>
+              <div style={{ ...serif, fontSize: isMobile ? 20 : 18, lineHeight: 1.35, letterSpacing: "-0.01em", wordBreak: "keep-all" }}>{selected.statement}</div>
               <div style={{ ...mono, fontSize: 11, color: inkMid }}>
                 {selected.domain} · {selected.evidenceCount} pieces of evidence · {selected.confidence}% confidence
               </div>

@@ -407,7 +407,6 @@ Write one line reading "===JSON===", then output only the final result JSON belo
           }
         })
       })
-
       // Feature 4 — the Home screen's "Where you might be headed" widget.
       // Takes the recurring unconscious beliefs the Brain Map has already
       // surfaced (domain + statement + evidence count only — no raw entry
@@ -524,5 +523,15 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react(), analyzeApiPlugin(env)],
+    // Without this, Vite's dev server binds only to whatever `localhost`
+    // resolves to on this machine — which turned out to be the IPv6
+    // loopback ([::1]) only, not IPv4 (127.0.0.1). Node/curl fall back to
+    // IPv6 automatically so `curl localhost:5173` still worked, but a
+    // browser that resolves `localhost` to 127.0.0.1 first gets a flat
+    // connection refused with nothing on screen. `host: true` binds every
+    // interface (both protocols), which is what actually fixed it.
+    server: {
+      host: true,
+    },
   }
 })

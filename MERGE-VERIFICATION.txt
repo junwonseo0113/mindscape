@@ -1,0 +1,16 @@
+Astro / Mindscape merge verification
+Date: 2026-08-30
+
+Validated in this environment:
+- Fixed merge-introduced syntax errors in src/app/App.tsx:
+  1) stray </MotionConfig> in StatusBar
+  2) duplicated/malformed ScreenHome signature
+  3) missing closing </MotionConfig> in App root
+- TypeScript parser pass across all src/**/*.ts and src/**/*.tsx now reports no syntax/parser diagnostics.
+- Confirmed remaining partner features are present in source:
+  - History search across thoughts, beliefs, and hypotheses with routing
+  - Profile Share Progress with native share + clipboard fallback
+  - Visible microphone failure feedback for denied/no-device/network errors
+
+Environment limitation:
+- A full dependency-aware `tsc -p tsconfig.app.json --noEmit` and Vite production build could not be completed because npm registry/package restoration is unavailable/hanging in this execution environment after the previous partial install. The fallback parser check therefore verifies syntax, but it cannot certify third-party-library type compatibility.

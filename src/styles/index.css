@@ -21,3 +21,15 @@ body {
      and stops that double-tap gesture from firing on buttons/cards at all. */
   touch-action: manipulation;
 }
+
+/* A scrollable region that stays scrollable but never shows the scrollbar
+   track itself — inline styles can't reach ::-webkit-scrollbar, hence a
+   real class. Used where a visible scrollbar reads as "web app chrome"
+   rather than part of the physical desk/paper illustration underneath it. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/new Edge */
+}

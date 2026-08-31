@@ -1,16 +1,18 @@
 import React from "react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import NeuralBeliefGraph3D, { REGION_CONFIG, resolveRegion, JarBrainPreview } from "./NeuralBeliefGraph3D";
+import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
+import NeuralBeliefGraph3D, { JarBrainPreview, REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
 import BrainNodeMapScreen from "./BrainNodeMapScreen";
-import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import homeHeroImg from "../assets/home-hero.webp";
 import panelHeroImg from "../assets/panel-hero.webp";
+import premiumVikImg from "../assets/premium-vik.webp";
 import mindSceneImg from "../assets/mind-scene.webp";
 import mindNotebookImg from "../assets/mind-notebook.webp";
 import analysisDeskBgImg from "../assets/analysis-desk-bg.webp";
 import analysisDiscoveryPaperImg from "../assets/analysis-discovery-paper.webp";
+import analysisInsightCardImg from "../assets/analysis-insight-card.webp";
 import historyDeskBgImg from "../assets/history-desk-bg.webp";
 import historyJournalImg from "../assets/history-journal.webp";
+import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
   LanguageObservation,
   Store,
@@ -48,14 +50,7 @@ import { pickInputGuidance } from "./inputGuidance";
 // and not just one of several places that would need to change together.
 const MONETIZATION_ENABLED = false;
 
-// Tracks the last calendar day the daily-reminder Notification actually
-// fired (see App()'s reminder effect near useAppData) — guards against
-// firing twice in the same minute-granularity tick, or again on a reload
-// that happens to land in the same HH:mm.
 const DAILY_REMINDER_LAST_FIRED_KEY = "mijeong.lastDailyReminderFiredDate";
-// Same idea, weekly grain — the last calendar day the weekly-summary
-// Notification fired, so App()'s effect can tell "7+ days since last one"
-// apart from "already sent this week."
 const WEEKLY_SUMMARY_LAST_FIRED_KEY = "mijeong.lastWeeklySummaryFiredDate";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -158,8 +153,6 @@ const mdNeutralTagText = "#444141";
 const mdWarn = "#a85a1a";
 const mdWarnSoft = "rgba(168,90,26,0.10)";
 const mdWarnTag = "rgba(168,90,26,0.14)";
-const mdWarnTagText = "#7a4310";
-const mdWarnLabel = "#7a4310";
 // The Analysis tab's paper-and-desk redesign — ink colors for text that
 // sits directly on the physical paper assets (discovery-paper/insight-card),
 // deliberately warm brown rather than mdHeading's neutral near-black so it
@@ -169,6 +162,8 @@ const mdWarnLabel = "#7a4310";
 const paperInk = "#2e2013";
 const paperInkMuted = "rgba(46,32,19,0.68)";
 const paperAccent = mdAccentText;
+const mdWarnTagText = "#7a4310";
+const mdWarnLabel = "#7a4310";
 
 // ── Vintage theme — Home only, ported from a photographed-jar mockup: a
 // warm sepia still life (an empty bell jar, dried flowers, old books) fills
@@ -264,9 +259,9 @@ function NavIcon({ id, color, size = 23 }: { id: string; color: string; size?: n
       </svg>
     );
   }
-  // Generic fallback — used for "profile" (reached from Home's top-right
-  // icon, not this bar, since the vintage nav below dropped it in favor of
-  // "premium") and any id the bar isn't actually using.
+  // Generic fallback — every real BottomNav item above is explicitly
+  // handled, so this only ever renders for an id the bar isn't actually
+  // using (never in practice, but NavIcon needs to return *something*).
   return (
     <svg {...common}>
       <circle cx="12" cy="8.3" r="3.3" />
@@ -285,16 +280,12 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
   const items = [
     { id: "home", label: "Home" },
     { id: "analysis", label: "Mind" },
-    // Split out of Mind — Mind itself is just the belief-network graph
+    // Split out of Mind — Mind itself is now just the belief-network graph
     // (see ScreenAnalysis), and everything that used to sit below it there
     // (today's discovery, evidence, evolution, reflection) moved here to
     // its own tab (see ScreenDiscoveryAnalysis and the App shell's
-    // "discoveryAnalysis" case). Labeled "Discover," not "Analysis" — two
-    // tabs both named after "look at my mind" left first-time users unable
-    // to tell them apart (Mind is the spatial graph itself; this is the
-    // guided read built on top of it, centered on "today's discovery" —
-    // the label should say which is which before anyone taps either).
-    { id: "discoveryAnalysis", label: "Discover" },
+    // "discoveryAnalysis" case).
+    { id: "discoveryAnalysis", label: "Analysis" },
     { id: "history", label: "History" },
     // Profile used to live here, but Home's top-right icon already opens it
     // (see ScreenHome) — a tab for something one tap away from Home isn't
@@ -395,39 +386,57 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
 
 function PrimaryBtn({ children, onClick, disabled, modernist = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean }) {
   return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onClick={disabled ? undefined : onClick}
-      onKeyDown={(e) => { if (!disabled && onClick && (e.key === "Enter" || e.key === " ")) onClick(); }}
-      whileTap={disabled ? undefined : { scale: 0.98, opacity: 0.9 }}
+    <motion.button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      whileHover={disabled ? undefined : { y: -1 }}
+      whileTap={disabled ? undefined : { scale: 0.985, opacity: 0.92 }}
+      whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.18)" : "rgba(255,255,255,.14)"}` }}
       style={{
-        ...sans, width: "100%", padding: "15px 0", display: "flex", alignItems: "center", justifyContent: "center",
+        ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
         backgroundColor: disabled ? (modernist ? mdTrack : dkTrack) : (modernist ? mdAccent : dkAccent),
         color: disabled ? (modernist ? "#a29d9d" : "#6E6580") : "#fff",
-        borderRadius: 14, fontSize: 16, fontWeight: 600, cursor: disabled ? "default" : "pointer",
+        border: 0, borderRadius: 14, fontSize: 16, fontWeight: 600,
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.72 : 1,
+        WebkitTapHighlightColor: "transparent",
       }}
     >
       {children}
-    </motion.div>
+    </motion.button>
   );
 }
 
 function GhostBtn({ children, onClick, modernist = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean }) {
   return (
-    <motion.div
-      role="button"
-      tabIndex={0}
-      onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }}
-      whileTap={{ opacity: 0.6 }}
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ backgroundColor: modernist ? "rgba(91,77,130,.045)" : "rgba(255,255,255,.035)" }}
+      whileTap={{ scale: 0.985, opacity: 0.72 }}
+      whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.14)" : "rgba(255,255,255,.10)"}` }}
       style={{
-        ...sans, width: "100%", padding: "15px 0", display: "flex", alignItems: "center", justifyContent: "center",
+        ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
         backgroundColor: "transparent", color: modernist ? mdBody : dkBody,
         border: `1px solid ${modernist ? mdDivider : dkDivider}`, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer",
+        WebkitTapHighlightColor: "transparent",
       }}
     >
       {children}
-    </motion.div>
+    </motion.button>
+  );
+}
+
+function BackButton({ onClick, color = mdBody }: { onClick?: () => void; color?: string }) {
+  return (
+    <motion.button
+      type="button" aria-label="Go back" onClick={onClick}
+      whileTap={{ opacity: 0.58 }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(91,77,130,.12)" }}
+      style={{ ...sans, minHeight: 36, margin: "-8px -10px", padding: "8px 10px", border: 0, borderRadius: 10, background: "transparent", fontSize: 13, color, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+    >
+      ← Back
+    </motion.button>
   );
 }
 
@@ -507,6 +516,143 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
   );
 }
 
+// ── Screen 0 · Quote of the Day ────────────────────────────────────────────────
+// This deliberately lives before the branded splash instead of on Home. The
+// old Home quote block competed with the hero photograph, while the opening
+// beat gives the quote its own quiet moment without adding permanent UI.
+// Selection is based on the user's local calendar date, so reopening the app
+// on the same day shows the same line and the quote naturally turns over at
+// midnight without needing persistence or another store field.
+const DAILY_QUOTES = [
+  { text: "We don't see things as they are, we see them as we are.", author: "Anaïs Nin" },
+  { text: "The privilege of a lifetime is to become who you truly are.", author: "Carl Jung" },
+  { text: "No man is free who is not master of himself.", author: "Epictetus" },
+  { text: "Life can only be understood backwards; but it must be lived forwards.", author: "Søren Kierkegaard" },
+  { text: "The quieter you become, the more you are able to hear.", author: "Rumi" },
+  { text: "What you seek is seeking you.", author: "Rumi" },
+  { text: "I am rooted, but I flow.", author: "Virginia Woolf" },
+  { text: "One does not become enlightened by imagining figures of light, but by making the darkness conscious.", author: "Carl Jung" },
+  { text: "The curious paradox is that when I accept myself just as I am, then I can change.", author: "Carl Rogers" },
+  { text: "Your vision will become clear only when you can look into your own heart.", author: "Carl Jung" },
+  { text: "The only journey is the one within.", author: "Rainer Maria Rilke" },
+  { text: "There is no greater agony than bearing an untold story inside you.", author: "Maya Angelou" },
+] as const;
+
+function getDailyQuote(now = new Date()) {
+  // Local midnight is intentional: "today" should follow the person's day,
+  // not UTC, especially around late evening / early morning app opens.
+  const localDayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86_400_000);
+  return DAILY_QUOTES[((localDayNumber % DAILY_QUOTES.length) + DAILY_QUOTES.length) % DAILY_QUOTES.length];
+}
+
+function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
+  const quote = React.useMemo(() => getDailyQuote(), []);
+  const reducedMotion = useReducedMotion();
+
+  React.useEffect(() => {
+    const t = setTimeout(() => onDone?.(), reducedMotion ? 2600 : 3600);
+    return () => clearTimeout(t);
+  }, [onDone, reducedMotion]);
+
+  return (
+    <motion.div
+      role="button"
+      tabIndex={0}
+      aria-label="Quote of the day. Continue"
+      onClick={onDone}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onDone?.();
+        }
+      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.7, ease: "easeOut" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: "#11192A",
+        color: "#F3EEE4",
+        padding: "44px 30px 34px",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Almost imperceptible star field: enough to connect this opening beat
+          to the Brain Map visual language without turning it into a second
+          hero illustration. */}
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {[
+          [13, 17, 1.2, .34], [27, 72, 1.0, .22], [43, 11, 1.5, .28], [58, 83, 1.1, .2],
+          [71, 24, .9, .24], [80, 67, 1.3, .3], [18, 88, .8, .18], [91, 39, 1.0, .2],
+        ].map(([top, left, size, opacity], i) => (
+          <motion.span
+            key={i}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: reducedMotion ? opacity : [opacity * .55, opacity, opacity * .55] }}
+            transition={reducedMotion ? undefined : { duration: 3.4 + (i % 3) * .7, repeat: Infinity, ease: "easeInOut", delay: i * .17 }}
+            style={{ position: "absolute", top: `${top}%`, left: `${left}%`, width: size, height: size, borderRadius: "50%", background: "#FFF9ED", boxShadow: "0 0 7px rgba(255,249,237,.45)" }}
+          />
+        ))}
+      </div>
+
+      <motion.div
+        initial={reducedMotion ? false : { opacity: 0, y: 7 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
+        style={{ ...mono, fontSize: 10.5, letterSpacing: ".17em", textTransform: "uppercase", color: "rgba(243,238,228,.52)", zIndex: 1 }}
+      >
+        Quote of the day
+      </motion.div>
+
+      <div style={{ flex: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0 : .9, delay: reducedMotion ? 0 : .35, ease: "easeOut" }}
+          style={{ width: "100%", transform: "translateY(-2%)" }}
+        >
+          <div style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: "#F3EEE4", wordBreak: "keep-all" }}>
+            “{quote.text}”
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 24 }}>
+            <span style={{ width: 28, height: 1, backgroundColor: "rgba(243,238,228,.35)" }} />
+            <span style={{ ...sans, fontSize: 12, letterSpacing: ".035em", color: "rgba(243,238,228,.62)" }}>{quote.author}</span>
+          </div>
+        </motion.div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: .42 }}
+        transition={{ duration: reducedMotion ? 0 : .6, delay: reducedMotion ? 0 : 1.25 }}
+        style={{ ...sans, fontSize: 10.5, letterSpacing: ".04em", textAlign: "center", zIndex: 1 }}
+      >
+        Tap anywhere to continue
+      </motion.div>
+    </motion.div>
+  );
+}
+
+const OPENING_BG = "#11192A";
+const OPENING_TEXT = "#F3EEE4";
+const OPENING_MUTED = "rgba(243,238,228,.62)";
+
+function OpeningStars() {
+  const reducedMotion = useReducedMotion();
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      {[[13,17,1.2,.34],[27,72,1,.22],[43,11,1.5,.28],[58,83,1.1,.2],[71,24,.9,.24],[80,67,1.3,.3],[18,88,.8,.18],[91,39,1,.2]].map(([top,left,size,opacity], idx) => (
+        <motion.span key={idx} animate={{ opacity: reducedMotion ? opacity : [opacity*.55, opacity, opacity*.55] }} transition={reducedMotion ? undefined : { duration: 3.4 + (idx%3)*.7, repeat: Infinity, ease: "easeInOut", delay: idx*.17 }} style={{ position:"absolute", top:`${top}%`, left:`${left}%`, width:size, height:size, borderRadius:"50%", background:"#FFF9ED", boxShadow:"0 0 7px rgba(255,249,237,.45)" }} />
+      ))}
+    </div>
+  );
+}
+
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
   React.useEffect(() => {
@@ -514,15 +660,15 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: mdBg, padding: 32 }}>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center", letterSpacing: "0.02em" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
+      <OpeningStars /><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}>
           Mindscape
         </div>
-        <div style={{ ...serif, fontSize: 26, color: mdHeading, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 26, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There's a pattern<br />in your thinking.
         </div>
-        <div style={{ ...sans, fontSize: 14, color: mdBody, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 14, color: OPENING_MUTED, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
           You just can't see it from the inside.
         </div>
       </motion.div>
@@ -533,31 +679,23 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 // ── Screen 2 · Auth ───────────────────────────────────────────────────────────
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
+      <OpeningStars />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBody, textAlign: "center" }}>Mindscape</div>
-        <div style={{ ...serif, fontSize: 24, color: mdHeading, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
+        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
       </div>
       <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onEmailStart} modernist>Continue with email</PrimaryBtn>
-        <GhostBtn onClick={onGuest} modernist>Browse as a guest</GhostBtn>
-        {/* Guest mode has no account behind it, so clearing this device's
-        storage loses everything with nothing to recover from — this used
-        to go unmentioned anywhere near the decision itself. Data &
-        Privacy's own "Download my data" is the one way to get ahead of
-        that, so it's worth naming right here rather than only discoverable
-        after the fact in Settings. */}
-        <div style={{ ...sans, fontSize: 11.5, color: mdFaint, textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          Browsing as a guest keeps everything only on this device — nothing to restore if it's ever cleared. You can export a copy anytime from Settings.
-        </div>
+        <PrimaryBtn onClick={onEmailStart}>Continue with email</PrimaryBtn>
+        <GhostBtn onClick={onGuest}>Browse as a guest</GhostBtn>
       </div>
     </div>
   );
 }
 
-function TextField({ label, type = "text", value, onChange, placeholder, error }: { label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: boolean }) {
+function TextField({ label, type = "text", value, onChange, placeholder, error, dark = false }: { label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string; error?: boolean; dark?: boolean }) {
   // The caption above every input in the app (login, signup, aspiration,
   // checkout's card fields) was a plain styled div, never actually
   // associated with its input — a screen reader announced every one of
@@ -567,7 +705,7 @@ function TextField({ label, type = "text", value, onChange, placeholder, error }
   const id = React.useId();
   return (
     <div style={{ marginBottom: 14 }}>
-      <label htmlFor={id} style={{ display: "block", ...sans, fontSize: 12, fontWeight: 600, color: mdBody, marginBottom: 6 }}>{label}</label>
+      <label htmlFor={id} style={{ display: "block", ...sans, fontSize: 12, fontWeight: 600, color: dark ? OPENING_MUTED : mdBody, marginBottom: 6 }}>{label}</label>
       <input
         id={id}
         type={type}
@@ -577,12 +715,13 @@ function TextField({ label, type = "text", value, onChange, placeholder, error }
         aria-invalid={error || undefined}
         style={{
           ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
-          border: `1px solid ${error ? mdWarn : mdDivider}`,
+          border: `1px solid ${error ? mdWarn : (dark ? "rgba(243,238,228,.18)" : mdDivider)}`,
           // 16px, not 15 — iOS Safari auto-zooms the whole page on focus for
           // any input under 16px, which then has to be manually pinched back
           // out. Below that threshold it's a real mobile bug, not a style nit.
-          fontSize: 16, color: mdHeading,
-          backgroundColor: mdCard, outline: "none",
+          fontSize: 16, color: dark ? OPENING_TEXT : mdHeading,
+          backgroundColor: dark ? "rgba(255,255,255,.055)" : mdCard, outline: "none",
+          colorScheme: dark ? "dark" : "light",
         }}
       />
     </div>
@@ -622,13 +761,6 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
 
     setTimeout(() => {
       setLoading(false);
-      // A malformed/partial account record (a hand-edited localStorage
-      // value, a future schema change, corrupted storage) used to hard-
-      // crash this whole screen right here — loadStore's own `account &&
-      // typeof === "object"` check accepts any object shape, it never
-      // verifies `.email` is actually a string before this called
-      // .toLowerCase() on it. Same error as no account at all, since
-      // from here they're functionally the same: nothing to log into.
       if (!account || typeof account.email !== "string" || typeof account.password !== "string") {
         setError("No account found. Please sign up first.");
         return;
@@ -642,21 +774,22 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
+      <OpeningStars />
+      <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
+        <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>Welcome back</div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
+        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Welcome back</div>
         <div style={{ marginTop: 24 }}>
-          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
+          <TextField dark label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
+        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
-          <span style={{ ...sans, fontSize: 13, color: mdBody }}>Don't have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
+          <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Don't have an account? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
         </div>
       </div>
     </div>
@@ -711,28 +844,29 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
+      <OpeningStars />
+      <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
+        <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: mdHeading, lineHeight: 1.4 }}>Let's create an account</div>
-        <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
+        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Let's create an account</div>
+        <div style={{ ...sans, fontSize: 12.5, color: OPENING_MUTED, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
           {isCloudSyncConfigured
             ? "Synced privately to your account, so it's there on any device you log into — never sold, never shared."
             : "It only lives on this device. Nothing is sent to any server."}
         </div>
         <div style={{ marginTop: 20 }}>
-          <TextField label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
-          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
+          <TextField dark label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
+          <TextField dark label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        {info && <div style={{ ...sans, fontSize: 12.5, color: mdAccentText, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading} modernist>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
+        {info && <div style={{ ...sans, fontSize: 12.5, color: "#D9CFF7", marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
+        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
-          <span style={{ ...sans, fontSize: 13, color: mdBody }}>Already have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdAccentText, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
+          <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Already have an account? </span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
         </div>
       </div>
     </div>
@@ -933,42 +1067,38 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const isInteractive = i === 1;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg, overflow: "hidden" }}>
-      <div style={{ display: "flex", gap: 6, padding: "20px 28px 0", flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
+      <OpeningStars />
+      <div style={{ display: "flex", gap: 6, position: "relative", zIndex: 1, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
-          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? mdAccentText : mdDivider }} />
+          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(243,238,228,.7)" : "rgba(243,238,228,.12)" }} />
         ))}
       </div>
       {!isAspirationStep ? (
         <AnimatePresence mode="wait">
           <motion.div
             key={i}
-            initial={{ opacity: 0, x: 16 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -16 }}
-            transition={{ duration: 0.26, ease: "easeOut" }}
+            initial={{ opacity: 0, y: 7 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.38, ease: "easeOut" }}
             style={{
-              flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px",
+              flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px", position: "relative", zIndex: 1,
               alignItems: isWelcome ? "center" : "stretch", textAlign: isWelcome ? "center" : "left",
             }}
           >
-            {!isInteractive && (
-              <div style={{ marginBottom: isWelcome ? 22 : 16 }}>
-                <OnboardingIcon kind={slide!.icon} size={isWelcome ? 72 : 44} />
-              </div>
-            )}
             {slide!.kicker && (
-              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(243,238,228,.52)", letterSpacing: "0.06em" }}>{slide!.kicker}</div>
             )}
             <div
               style={{
-                ...serif, fontSize: isWelcome ? 34 : 28, color: mdHeading, marginTop: isWelcome ? 4 : 14,
+                ...serif, fontSize: isWelcome ? 34 : 28, color: OPENING_TEXT, marginTop: isWelcome ? 4 : 14,
                 lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all",
               }}
             >
               {slide!.title}
             </div>
-            <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: mdBody, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
+            <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: OPENING_MUTED, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
               {slide!.body}
             </div>
             {isInteractive && (
@@ -983,22 +1113,20 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
                 surprise breach of "observe, don't judge" the one time it
                 actually activates. See crisisDetection.ts. */}
             {isWelcome && (
-              <div style={{ ...sans, fontSize: 12, color: mdFaint, marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
-                {isCloudSyncConfigured
-                  ? "Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this private, whether it stays only on this device or syncs to your own encrypted account."
-                  : "Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app."}
+              <div style={{ ...sans, fontSize: 12, color: "rgba(243,238,228,.42)", marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
+                Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app.
               </div>
             )}
           </motion.div>
         </AnimatePresence>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdAccentText, letterSpacing: "0.06em" }}>Last thing</div>
-            <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(243,238,228,.52)", letterSpacing: "0.06em" }}>Last thing</div>
+            <div style={{ ...serif, fontSize: 26, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
               What kind of person<br />do you want to become?
             </div>
-            <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 13.5, color: OPENING_MUTED, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
               Optional. If you write it down, we'll keep showing you the distance between this and the thoughts you leave here going forward.
             </div>
           </div>
@@ -1010,14 +1138,14 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             aria-label="What kind of person do you want to become?"
             style={{
               ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
-              backgroundColor: "transparent", color: mdHeading, fontSize: 18, lineHeight: 1.7,
-              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "light",
+              backgroundColor: "transparent", color: OPENING_TEXT, fontSize: 18, lineHeight: 1.7,
+              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "dark",
             }}
           />
         </div>
       )}
-      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))} modernist>
+      <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
+        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
           {isLast ? (aspiration.trim() ? "Save and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
         </PrimaryBtn>
       </div>
@@ -1041,20 +1169,21 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
 // tour once `screen` actually reaches that step's target, so there's only
 // one place that decides "we've arrived," never two competing ones.
 type TutorialStep = {
-  screen: "home" | "analysis" | "discoveryAnalysis" | "history" | "profile" | "premium";
+  screen: "home" | "analysis" | "discoveryAnalysis" | "history" | "premium";
   target: string;
   title: string;
   body: string;
-  navTo?: "analysis" | "discoveryAnalysis" | "history" | "profile" | "premium";
+  navTo?: "analysis" | "discoveryAnalysis" | "history" | "premium";
 };
 
 // A function of isPro, not a static list — free tier lands on ScreenPaywall
-// instead of the real ScreenAnalysis for the "analysis" step, so that one
-// step needs different copy pointing at the paywall's feature list instead
-// of the (Pro-only) real discovery card. Same target key ("today-discovery")
-// exists on both — see the paywall's own data-tutorial. Everything else is
-// identical either way; recomputed via useMemo in the App shell whenever
-// isPro changes so a mid-tour upgrade doesn't leave stale copy in place.
+// instead of the real ScreenDiscoveryAnalysis for the "discoveryAnalysis"
+// step, so that one step needs different copy pointing at the paywall's
+// feature list instead of the (Pro-only) real discovery card. Same target
+// key ("today-discovery") exists on both — see the paywall's own
+// data-tutorial. Everything else is identical either way; recomputed via
+// useMemo in the App shell whenever isPro changes so a mid-tour upgrade
+// doesn't leave stale copy in place.
 function buildTutorialSteps(isPro: boolean): TutorialStep[] {
   return [
     {
@@ -1072,21 +1201,21 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
     {
       screen: "home",
       target: "nav-analysis",
-      title: "Watch it grow in Mind",
-      body: "Every confirmed pattern lives here too, as its own real constellation. Want to tap in and take a look?",
+      title: "See your belief network in Mind",
+      body: "Every confirmed belief shows up here as its own point, connected to whatever it's actually related to. Want to tap in and take a look?",
       navTo: "analysis",
     },
     {
       screen: "analysis",
       target: "mind-neurons",
-      title: "This is the same brain, up close",
-      body: "Each point is a belief that's actually shown up more than once. Tap it any time to open the full Brain Map.",
+      title: "Your confirmed beliefs, mapped",
+      body: "Each glowing point is a real, confirmed pattern — not everything you've ever said, just what's repeated enough to count.",
     },
     {
       screen: "analysis",
       target: "nav-discoveryAnalysis",
-      title: "Check patterns in Discover",
-      body: "We organize the patterns that keep showing up across what you've recorded. Want to tap in and take a look?",
+      title: "See why in Analysis",
+      body: "This is where we walk through today's one discovery — the evidence behind it, how it's evolved, and what to do with it. Want to tap in and take a look?",
       navTo: "discoveryAnalysis",
     },
     isPro
@@ -1115,22 +1244,18 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
       title: "Your past thoughts gather here",
       body: "You can open any of them back up whenever you're curious.",
     },
-    // Profile moved off the bottom nav (it's Home's top-right icon now —
-    // see ScreenHome), so the tour's last stop moves to Premium instead,
-    // the tab that took its old bottom-nav slot. Still a real spotlighted
-    // nav-bar element with a real navTo, same pattern as every other step.
     {
       screen: "history",
       target: "nav-premium",
-      title: "See deeper analysis in Premium",
-      body: "Emotion trends, your belief map, and your distance from your own stated goal all live here. Want to tap in and take a look?",
+      title: "Go deeper in Premium",
+      body: "Your unconscious patterns, distance from your aspiration, and more all live here. Want to tap in and take a look?",
       navTo: "premium",
     },
     {
       screen: "premium",
       target: "premium-content",
-      title: "More than just today's discovery",
-      body: "This is where the fuller picture builds up — patterns and trends across everything you've recorded, not just what came up today.",
+      title: "Everything beyond today's discovery",
+      body: "Analysis shows today's one discovery — this is where the rest of what's been recorded builds up over time.",
     },
   ];
 }
@@ -1343,58 +1468,115 @@ function resolveDiscoveryTarget(store: Store, pinned: DiscoveryTarget): Discover
   return b ? { kind: "belief", id: pinned.id, text: b.discoveryInterpretationOverride ?? b.statement } : null;
 }
 
+// One entry in the Analysis tab's "Recent Insights" list — everything
+// that could have been "Today's Discovery" (see computeDiscovery) but
+// isn't, so the list is real history, never invented copy. Both
+// hypotheses and beliefs collapse into this one shape so the list can
+// render them identically and open either back into ScreenDiscoveryAnalysis's
+// Examine view via `target`.
+type RecentInsightItem = {
+  key: string;
+  target: DiscoveryTarget;
+  title: string;
+  region: CognitiveRegion;
+  date: string; // "YYYY.MM.DD" (formatDateDots), possibly "" if unknown
+  thoughtCount: number;
+  confidence: number;
+};
+
+function buildRecentInsights(store: Store, pinned: DiscoveryTarget | null): RecentInsightItem[] {
+  const items: RecentInsightItem[] = [];
+
+  store.hypotheses.forEach((h, index) => {
+    if (pinned?.kind === "hypothesis" && pinned.index === index) return;
+    const domain = h.domains[0] ?? "identity";
+    items.push({
+      key: `hyp:${index}`,
+      target: { kind: "hypothesis", index, text: h.title },
+      // The full sentence, same as what Today's Discovery itself would show
+      // for this target — not the short thoughtLabel, which is reserved for
+      // the Discovery paper's "The '__' showed up again" framing.
+      title: h.title,
+      region: resolveRegion({ domain } as any),
+      date: h.createdDate ?? "",
+      thoughtCount: evidenceForHypothesis(h, store.beliefs).length,
+      confidence: h.confidence,
+    });
+  });
+
+  // A belief already folded into a hypothesis's own related set is that
+  // hypothesis's supporting evidence, not a separate insight of its own —
+  // skipping it here is what keeps this list from doubling up on the same
+  // underlying pattern.
+  const beliefIdsInHypotheses = new Set(store.hypotheses.flatMap((h) => h.relatedBeliefIds));
+  store.beliefs.forEach((b) => {
+    if (b.userReaction === "rejected") return;
+    if (beliefIdsInHypotheses.has(b.id)) return;
+    if (pinned?.kind === "belief" && pinned.id === b.id) return;
+    items.push({
+      key: `belief:${b.id}`,
+      target: { kind: "belief", id: b.id, text: b.discoveryInterpretationOverride ?? b.statement },
+      title: b.discoveryInterpretationOverride ?? b.statement,
+      region: resolveRegion(b),
+      date: b.lastUpdatedAt ?? "",
+      thoughtCount: b.evidenceQuotes.length,
+      confidence: b.confidence,
+    });
+  });
+
+  return items.sort((x, y) => {
+    const dx = x.date || "0000.00.00";
+    const dy = y.date || "0000.00.00";
+    return dx < dy ? 1 : dx > dy ? -1 : 0;
+  });
+}
+
 // ── Screen 4 · Home ────────────────────────────────────────────────────────────
-// Single responsibility: capture and today's highlight. Everything that
-// used to live below the fold here — recent thoughts, unconscious patterns,
-// distance from your aspiration — now belongs to History or Analysis;
-// duplicating any of it here would give it two homes, which is exactly
-// what this reorg is meant to remove. See ScreenAnalysis for where all of
-// that moved.
+// Redesigned from the "interface.png"/hand-photographed-jar mockups: a warm,
+// editorial vintage scene — an empty bell jar on a book-and-dried-flowers
+// still life — fills the whole top of the screen as one continuous photo
+// (homeHeroImg), with the date/headline/nav icons sitting directly on top
+// of it rather than on a separate solid-color block above a smaller inset
+// photo. Two absolutely-positioned regions inside that photo, both hand-
+// measured against it: a generous tap target over the jar's whole silhouette
+// (opens the real Brain Map via onOpenBrainMap) and, nested inside that same
+// coordinate space, the jar's actual glass cavity, which is where the real,
+// live belief tissue (JarBrainPreview — same data/colors/glow as the full
+// Brain Map, chrome-free) gets clipped to render. Belief/connection counts
+// below the photo are real too. See the vtg* tokens near the top of the file
+// for every color used here, all sampled from that photo.
 //
-// Dark theme, ported directly from the claude.ai/design spec (home screen.dc.html)
-// — see the dk* tokens near the top of the file. The 3D brain's own card
-// styling is left untouched (that component wasn't part of this import).
-// A same-shortcut-shown-on-the-full-map's own left rail, just sized for a
-// thumb instead of a cursor — that rail's dots/text/row-height were tuned
-// for a desktop-mockup sidebar (9px dot, 12.5px text, 5px vertical
-// padding), which reads as genuinely hard to pick out and tap accurately
-// on a real phone. This is a horizontally-scrollable chip row instead of a
-// list (Home is already stacking a hero + Brain Map + Speak-your-mind
-// card, no room for a tall list), each chip large enough to be a real
-// touch target (44px+ tall, per Apple's own HIG minimum) with a bigger
-// color dot and bolder label so which region is which reads at a glance.
-// Tapping one jumps straight to the full Brain Map already filtered to it
-// — a real shortcut, not just a preview.
-function HomeRegionShortcuts({ beliefs, onSelectRegion }: { beliefs: StoredBelief[]; onSelectRegion?: (region: CognitiveRegion) => void }) {
+// No quote-of-the-day for now (pulled per feedback — the extra block was
+// competing with the photo for attention) and no region-shortcut chip row
+// (HomeRegionShortcuts) — the full Brain Map, reachable by tapping the jar,
+// still covers that filtering job.
+// Home deliberately keeps the sky still; animated shooting stars were removed
+// in the polish pass because they pulled attention away from the jar/brain map.
+function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs: StoredBelief[]; onSelectRegion: (region: CognitiveRegion) => void; onClose: () => void }) {
   const counts = new Map<CognitiveRegion, number>();
   COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
-  beliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
+  beliefs.forEach((b) => { const r = resolveRegion(b); counts.set(r, (counts.get(r) ?? 0) + 1); });
   return (
-    <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "2px 2px 6px", marginTop: 14, WebkitOverflowScrolling: "touch" }}>
-      {COGNITIVE_REGIONS.map((region) => (
-        <motion.div
-          key={region} role="button" tabIndex={0} onClick={() => onSelectRegion?.(region)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onSelectRegion?.(region))?.(); } }} whileTap={{ scale: 0.95, opacity: 0.85 }}
-          style={{
-            display: "flex", alignItems: "center", gap: 9, flexShrink: 0, cursor: "pointer",
-            padding: "11px 16px", borderRadius: 999, backgroundColor: vtgCard, boxShadow: vtgCardShadow,
-          }}
-        >
-          <span style={{ width: 12, height: 12, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
-          <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: vtgInk, whiteSpace: "nowrap" }}>{REGION_CONFIG[region].label}</span>
-          <span style={{ ...mono, fontSize: 12.5, color: vtgInkMuted }}>{counts.get(region) ?? 0}</span>
-        </motion.div>
-      ))}
-    </div>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+      style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: "rgba(8,14,28,0.94)", border: "1px solid rgba(245,239,228,0.18)", borderRadius: 18, padding: 12, backdropFilter: "blur(12px)", boxShadow: "0 12px 34px rgba(0,0,0,0.35)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", color: vtgCreamMuted }}>OPEN A REGION</span>
+        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.92, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(245,239,228,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: vtgCreamMuted, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {COGNITIVE_REGIONS.map((region) => (
+          <motion.button key={region} onClick={() => onSelectRegion(region)} whileTap={{ scale: 0.96 }}
+            style={{ display: "flex", alignItems: "center", gap: 7, border: "1px solid rgba(245,239,228,0.14)", borderRadius: 999, background: "rgba(255,255,255,0.05)", padding: "8px 10px", cursor: "pointer", color: vtgCream }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
+            <span style={{ ...sans, fontSize: 11.5 }}>{REGION_CONFIG[region].label}</span>
+            <span style={{ ...mono, fontSize: 10.5, color: vtgCreamMuted }}>{counts.get(region) ?? 0}</span>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
   );
 }
 
-// The one retention nudge that works regardless of Notification permission
-// or whether a tab was ever left open — the daily-reminder/weekly-summary
-// Notifications (see App()) can only ever reach someone who both granted
-// permission and happens to have a tab open at the right moment, which is
-// close to never for a mobile-first reflection app with no push
-// infrastructure behind it. This just reads real dates off history at
-// render time, the instant Home actually opens.
 function daysSinceLastEntry(history: StoredHistoryEntry[]): number | null {
   if (history.length === 0) return null;
   const dates = history.map((e) => parseDotDate(e.date)).filter((d): d is Date => !!d);
@@ -1403,27 +1585,9 @@ function daysSinceLastEntry(history: StoredHistoryEntry[]): number | null {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   mostRecent.setHours(0, 0, 0, 0);
-  return Math.round((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.round((today.getTime() - mostRecent.getTime()) / 86_400_000));
 }
 
-function WelcomeBackBanner({ history }: { history: StoredHistoryEntry[] }) {
-  const days = daysSinceLastEntry(history);
-  // Only past a couple of days — showing this after a normal one-day gap
-  // would just be daily nagging, not a genuine "welcome back."
-  if (days === null || days < 2) return null;
-  return (
-    <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
-      Welcome back — it's been {days} days since your last thought.
-    </div>
-  );
-}
-
-// Fixed, deliberately small set of common one-tap moods — not the open-
-// ended vocabulary "Speak your mind" analysis produces (which comes from
-// the model reading real context), since there's no context here to draw
-// a more specific label from. `intensity` is a flat default per mood
-// rather than an extra tap to set it, trading precision for the point of
-// this feature: zero-friction logging on days there's nothing to write.
 const QUICK_MOODS: { label: string; intensity: number }[] = [
   { label: "Calm", intensity: 35 },
   { label: "Happy", intensity: 65 },
@@ -1433,48 +1597,27 @@ const QUICK_MOODS: { label: string; intensity: number }[] = [
   { label: "Tired", intensity: 50 },
 ];
 
-// Home's zero-friction alternative to "Speak your mind" — no text, no AI
-// call, just a tapped mood stored straight to history (see
-// appendMoodCheckIn in realStore.ts). Feeds EmotionDistribution/mood
-// metadata like any other entry; never touches the belief/hypothesis
-// network, so it's available to every tier the same way recording itself
-// is, not gated behind Pro.
 function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Store) => Store) => void }) {
   const [justLogged, setJustLogged] = React.useState<string | null>(null);
-  const clearTimerRef = React.useRef<any>(null);
-
+  const clearTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const logMood = (label: string, intensity: number) => {
-    // Doubles as the in-flight guard (same spirit as ScreenThink's own
-    // `submitted` state) — while a confirmation is showing, a second tap
-    // on any chip is a rapid double-tap, not a genuinely new check-in, and
-    // would otherwise create two near-identical history entries.
     if (justLogged) return;
     updateStore?.((prev) => appendMoodCheckIn(prev, label, intensity));
     setJustLogged(label);
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
     clearTimerRef.current = setTimeout(() => setJustLogged(null), 2200);
   };
-
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
-
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 700, color: vtgCreamMuted, marginBottom: 8 }}>
-        {justLogged ? `✓ Logged: ${justLogged}` : "Quick check-in — how are you feeling?"}
+    <div style={{ marginTop: 8 }}>
+      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: vtgCreamMuted, marginBottom: 6, textShadow: "0 1px 6px rgba(0,0,0,.55)" }}>
+        {justLogged ? `✓ Logged: ${justLogged}` : "Quick check-in"}
       </div>
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
+      <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
         {QUICK_MOODS.map((m) => (
-          <motion.div
-            key={m.label} role="button" tabIndex={0} onClick={() => logMood(m.label, m.intensity)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); logMood(m.label, m.intensity); } }}
-            whileTap={{ scale: 0.94, opacity: 0.85 }}
-            style={{
-              flexShrink: 0, padding: "8px 16px", borderRadius: 999, cursor: "pointer",
-              backgroundColor: justLogged === m.label ? vtgAccent : vtgCard, boxShadow: vtgCardShadow,
-            }}
-          >
-            <span style={{ ...sans, fontSize: 13, fontWeight: 700, color: justLogged === m.label ? "#fff" : vtgInk }}>{m.label}</span>
-          </motion.div>
+          <motion.button key={m.label} type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)} whileTap={{ scale: 0.95, opacity: 0.82 }} style={{ flexShrink: 0, border: 0, padding: "6px 11px", borderRadius: 999, cursor: "pointer", backgroundColor: justLogged === m.label ? vtgAccent : "rgba(243,234,217,.92)", boxShadow: "0 4px 14px rgba(0,0,0,.18)", WebkitTapHighlightColor: "transparent" }}>
+            <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: justLogged === m.label ? "#fff" : vtgInk }}>{m.label}</span>
+          </motion.button>
         ))}
       </div>
     </div>
@@ -1482,263 +1625,174 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
 }
 
 function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
+  const [showRegionShortcuts, setShowRegionShortcuts] = React.useState(false);
+  const daysAway = daysSinceLastEntry(store.history);
+
   return (
     <div
       style={{
-        display: "flex", flexDirection: "column", height: "100%", backgroundColor: vtgDusk,
+        position: "absolute", top: -30, left: 0, right: 0, bottom: 0, backgroundColor: vtgDusk, overflow: "hidden",
+        // Every other screen just fills its slot (height: 100%) below the
+        // App shell's fixed status-bar clearance. Home is the one screen
+        // whose hero photo is meant to run edge-to-edge under the
+        // transparent status bar overlay (see the App shell), so instead
+        // of asking the shared frame to change shape for it — the actual
+        // cause of an earlier bug where switching screens made the whole
+        // frame visibly jump — Home extends itself 30px above its given
+        // slot instead.
+        //
+        // Formerly an aspect-boxed photo (scrolling flex column) with the
+        // "Your mind" summary and "Speak your mind" card living below it on
+        // a solid dusk background — meaning both only appeared after a
+        // scroll. Per feedback, Home is now one fixed, non-scrolling
+        // composition instead: the photo fills the entire screen as a
+        // `cover` background (same full-bleed pattern Mind/Analysis/
+        // History already use) and everything — header, jar, mind summary,
+        // Speak-your-mind card, nav — sits on top of it by percentage, all
+        // visible at once with no overflow:auto anywhere.
       }}
     >
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 20px 20px" }}>
-        <div
-          style={{
-            position: "relative", marginLeft: -20, marginRight: -20, marginTop: -1, aspectRatio: HOME_HERO_ASPECT,
-            backgroundImage: `url(${homeHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center",
-            // Feathers the photo's bottom edge into the dusk background
-            // below it instead of ending in a hard seam — no fade at the
-            // top since the photo starts right at the very top of this
-            // screen's own slot (below the shared frame's normal status
-            // bar — this app's frame renders that in real document flow,
-            // not as a transparent overlay, so unlike the original mockup
-            // the photo starts just below it rather than bleeding under
-            // it), nothing behind it to blend into.
-            WebkitMaskImage: "linear-gradient(180deg, #000 0, #000 calc(100% - 40px), transparent 100%)",
-            maskImage: "linear-gradient(180deg, #000 0, #000 calc(100% - 40px), transparent 100%)",
-          }}
-        >
-          <div style={{ position: "absolute", top: 16, left: 20, right: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-            <span style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: vtgAccent, textShadow: "0 1px 8px rgba(243,231,214,0.75)" }}>{formatDateDots(new Date())}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {/* Search stands in for "look back through what I've said" —
-              the closest real destination for that is History, so it
-              routes there rather than being decorative. */}
-              <motion.div
-                role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
-                whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 6px rgba(243,231,214,0.8))" }}
-              >
-                <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-                  <circle cx="8.5" cy="8.5" r="6" stroke={vtgInk} strokeWidth="1.5" />
-                  <path d="M17 17l-4.3-4.3" stroke={vtgInk} strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </motion.div>
-              <motion.div
-                role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-                whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 6px rgba(243,231,214,0.8))" }}
-              >
-                <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-                  <circle cx="10" cy="7" r="3.4" stroke={vtgInk} strokeWidth="1.5" />
-                  <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={vtgInk} strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </motion.div>
-            </div>
-          </div>
+      <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${homeHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }} />
 
-          <div style={{ position: "absolute", top: "8.5%", left: 20, right: 20, ...serif, fontSize: 32, fontWeight: 400, lineHeight: 1.28, color: vtgInk, wordBreak: "keep-all", textShadow: "0 2px 14px rgba(243,231,214,0.7)" }}>
-            What thought crossed<br />your mind today?
-          </div>
+      {/* The hero photo's top band mixes a bright sunset sky with dark
+      window framing — too uneven for dark-ink text to stay legible
+      everywhere it might fall, hence this scrim + the light ivory header
+      below (same "subtle overlay for text readability" idea every other
+      redesigned screen uses). */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "20%", background: "linear-gradient(180deg, rgba(10,6,3,0.5) 0%, rgba(10,6,3,0.18) 65%, transparent 100%)", pointerEvents: "none" }} />
 
-          {(!MONETIZATION_ENABLED || store.isPro) ? (
-            <>
-              {/* Generous tap target over the jar's whole silhouette (lid
-              through base) — opens the real Brain Map. Positioned directly
-              against the photo's own coordinates, not nested inside
-              anything else, so it can't drift out of alignment with a
-              sibling that's measured the same way. */}
-              <motion.div
-                data-tutorial="brain-card"
-                role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }}
-                whileTap={{ opacity: 0.85 }}
-                style={{ position: "absolute", left: "22.8%", top: "27.6%", width: "54.8%", height: "69.7%", cursor: "pointer" }}
-              />
-              {/* The real, live belief tissue, clipped to the jar's actual
-              glass cavity — genuinely empty glass in the photo itself (no
-              painted-over fill) — measured by hand directly against the
-              photo, independently of the tap target above, and centered on
-              the same point the jar itself is centered on so the spin's
-              axis lines up with the jar's actual middle rather than
-              wherever a nested box happened to land. */}
-              <div
-                style={{
-                  position: "absolute", left: "30.2%", top: "47.1%", width: "40%", height: "44.3%",
-                  borderRadius: "22% / 12%", overflow: "hidden", pointerEvents: "none",
-                }}
-              >
-                <JarBrainPreview beliefs={store.beliefs} />
-              </div>
-            </>
-          ) : (
-            // Locked teaser instead of quietly rendering an always-empty
-            // brain — a free store's beliefs/connections never populate
-            // (see appendUnanalyzedEntry in realStore.ts), so without this
-            // a free user would just see "0 beliefs" forever with no
-            // explanation why. Routes through onOpenBrainMap/"brainmap"
-            // rather than a separate handler — that route already renders
-            // ScreenPaywall for a non-Pro store.
-            <motion.div
-              data-tutorial="brain-card"
-              role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-              style={{
-                position: "absolute", left: "22.8%", top: "27.6%", width: "54.8%", height: "69.7%",
-                backgroundColor: "rgba(20,15,10,0.72)", cursor: "pointer", borderRadius: 24,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
-              }}
-            >
-              <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(243,234,217,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <rect x="4.5" y="9" width="11" height="8" rx="2" stroke={vtgCream} strokeWidth="1.5" />
-                  <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={vtgCream} strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </span>
-              <div style={{ ...sans, fontSize: 15, fontWeight: 800, color: vtgCream }}>Unlock your Brain Map</div>
-              <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
-                Upgrade to Pro to see your unconscious beliefs light up and connect.
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {(!MONETIZATION_ENABLED || store.isPro) && (
-          <div style={{ textAlign: "center", marginTop: 10 }}>
-            <div style={{ ...serif, fontSize: 19, color: vtgCream }}>Your mind</div>
-            <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, marginTop: 2 }}>
-              {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
-            </div>
-          </div>
-        )}
-
-        {(!MONETIZATION_ENABLED || store.isPro) && (
-          <HomeRegionShortcuts beliefs={store.beliefs} onSelectRegion={(region) => onOpenBrainMap?.(region)} />
-        )}
-
-        <WelcomeBackBanner history={store.history} />
-
-        <div data-tutorial="think-card" style={{ marginTop: 24 }}>
+      {/* top is a fixed px, not a %, specifically so it stays clear of
+      the real device status bar / the desktop preview's transparent
+      "9:41" overlay (see the App shell) regardless of screen height. */}
+      <div style={{ position: "absolute", top: 34, left: 20, right: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: vtgCream, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>{formatDateDots(new Date())}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Search stands in for "look back through what I've said" —
+          the closest real destination for that is History, so it
+          routes there rather than being decorative. */}
           <motion.div
-            role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: vtgCard, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: vtgCardShadow }}
+            role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
+            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 5px rgba(0,0,0,0.6))" }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: vtgAccent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <WaveformIcon color="#fff" />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ ...serif, fontSize: 17, color: vtgInk }}>Speak your mind</span>
-              <span style={{ ...sans, fontSize: 12, color: vtgInkMuted }}>It's okay if it's not organized</span>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-              <path d="M4 10h12M10 4l6 6-6 6" stroke={vtgInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+              <circle cx="8.5" cy="8.5" r="6" stroke={vtgCream} strokeWidth="1.5" />
+              <path d="M17 17l-4.3-4.3" stroke={vtgCream} strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </motion.div>
+          <motion.div
+            role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
+            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 5px rgba(0,0,0,0.6))" }}
+          >
+            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="7" r="3.4" stroke={vtgCream} strokeWidth="1.5" />
+              <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={vtgCream} strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </motion.div>
         </div>
-
-        <QuickMoodCheckIn updateStore={updateStore} />
-
-        {(!MONETIZATION_ENABLED || store.isPro) && (
-          <HomeGoalsWidget beliefs={store.beliefs} goals={store.goals} goalsBeliefSnapshot={store.goalsBeliefSnapshot} updateStore={updateStore} />
-        )}
       </div>
-      <BottomNav active="home" onSelect={onNavSelect} vintage />
-    </div>
-  );
-}
 
-const HOME_HERO_ASPECT = "812 / 1105";
-
-// Home's "Where you might be headed" widget — infers a few forward-looking
-// growth directions from the recurring unconscious beliefs the Brain Map
-// has already surfaced. Distinct from `aspiration` (which the user types
-// themselves during onboarding/Distance from Goal): this is AI-inferred
-// from what they've actually written, never something they stated. Only
-// recomputes when the belief set has changed size since the last
-// computation (goalsBeliefSnapshot), so it's not re-calling the AI on
-// every Home visit — and never below MIN_BELIEFS_FOR_GOALS, since one or
-// two beliefs isn't enough to infer a direction from.
-const MIN_BELIEFS_FOR_GOALS = 3;
-
-function HomeGoalsWidget({
-  beliefs,
-  goals,
-  goalsBeliefSnapshot,
-  updateStore,
-}: {
-  beliefs: StoredBelief[];
-  goals: StoredGoal[];
-  goalsBeliefSnapshot?: number;
-  updateStore?: (updater: (prev: Store) => Store) => void;
-}) {
-  const [loading, setLoading] = React.useState(false);
-  const fetchingRef = React.useRef(false);
-
-  const needsRefresh = beliefs.length >= MIN_BELIEFS_FOR_GOALS && goalsBeliefSnapshot !== beliefs.length;
-
-  React.useEffect(() => {
-    if (!needsRefresh || !updateStore || fetchingRef.current) return;
-    fetchingRef.current = true;
-    setLoading(true);
-    const payload = beliefs.map((b) => ({ domain: b.domain, statement: b.statement, evidenceCount: b.evidenceCount }));
-    // Same bound as /api/analyze's own ANALYZE_TIMEOUT_MS (ScreenProcessing)
-    // — this fetch previously had no timeout at all, so a slow/dead
-    // connection could leave "Looking at what you've written so far…"
-    // showing indefinitely on Home.
-    const abort = new AbortController();
-    const timeoutId = setTimeout(() => abort.abort(), ANALYZE_TIMEOUT_MS);
-    fetch("/api/infer-goals", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ beliefs: payload }),
-      signal: abort.signal,
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Couldn't infer goals.");
-        return data;
-      })
-      .then((data) => {
-        const today = formatDateDots(new Date());
-        const nextGoals: StoredGoal[] = (data.goals as { statement: string; basedOnDomains: string[] }[]).map((g, i) => ({
-          id: `goal-${Date.now()}-${i}`,
-          statement: g.statement,
-          basedOnDomains: g.basedOnDomains,
-          createdDate: today,
-        }));
-        updateStore((prev) => ({ ...prev, goals: nextGoals, goalsBeliefSnapshot: beliefs.length }));
-      })
-      // Best-effort, same spirit as ScreenProcessing's summarize-session
-      // call — a failed inference (including a timeout abort) just means
-      // the widget stays as it was (or stays hidden, for a first-ever
-      // attempt), never a blocking error on the Home screen.
-      .catch(() => {})
-      .finally(() => {
-        clearTimeout(timeoutId);
-        fetchingRef.current = false;
-        setLoading(false);
-      });
-    return () => { clearTimeout(timeoutId); abort.abort(); };
-  }, [needsRefresh, beliefs, updateStore]);
-
-  if (goals.length === 0) {
-    if (!loading) return null;
-    return (
-      <div style={{ marginTop: 16, backgroundColor: vtgCard, borderRadius: 20, padding: "16px 18px", boxShadow: vtgCardShadow }}>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: vtgAccent }}>WHERE YOU MIGHT BE HEADED</div>
-        <div style={{ ...sans, fontSize: 13, color: vtgInkMuted, marginTop: 10 }}>Looking at what you've written so far…</div>
+      <div style={{ position: "absolute", top: "7%", left: 20, right: 20, ...serif, fontSize: "clamp(24px, 7.5vw, 32px)", fontWeight: 400, lineHeight: 1.26, color: vtgCream, wordBreak: "keep-all", textShadow: "0 2px 10px rgba(0,0,0,0.6)" }}>
+        What thought crossed<br />your mind today?
       </div>
-    );
-  }
 
-  return (
-    <div style={{ marginTop: 16, backgroundColor: vtgCard, borderRadius: 20, padding: "16px 18px", boxShadow: vtgCardShadow }}>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: vtgAccent }}>WHERE YOU MIGHT BE HEADED</div>
-      <div style={{ marginTop: 10, display: "flex", flexDirection: "column" }}>
-        {goals.slice(0, 3).map((g, i) => (
-          <div key={g.id} style={{ padding: i === 0 ? "0 0 12px" : "12px 0", borderTop: i > 0 ? `1px solid rgba(28,17,8,0.14)` : "none" }}>
-            <div style={{ ...serif, fontSize: 15, color: vtgInk, lineHeight: 1.45, wordBreak: "keep-all" }}>{g.statement}</div>
-            {g.basedOnDomains.length > 0 && (
-              <div style={{ ...sans, fontSize: 11, color: vtgInkMuted, marginTop: 4 }}>Based on {g.basedOnDomains.join(", ")}</div>
-            )}
+      {(!MONETIZATION_ENABLED || store.isPro) ? (
+        <>
+          {/* Generous tap target over the jar's whole silhouette (lid
+          through base) — opens the real Brain Map. Positioned directly
+          against the photo's own coordinates, not nested inside
+          anything else, so it can't drift out of alignment with a
+          sibling that's measured the same way. */}
+          <motion.div
+            data-tutorial="brain-card"
+            role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }}
+            whileTap={{ opacity: 0.85 }}
+            style={{ position: "absolute", left: "18%", top: "3.5%", width: "62%", height: "50%", cursor: "pointer" }}
+          />
+          {/* The real, live belief tissue, clipped to the jar's actual
+          glass cavity — genuinely empty glass in the photo itself (no
+          painted-over fill) — measured by hand directly against the
+          photo, independently of the tap target above, and centered on
+          the same point the jar itself is centered on so the spin's
+          axis lines up with the jar's actual middle rather than
+          wherever a nested box happened to land. */}
+          <div
+            style={{
+              position: "absolute", left: "21%", top: "15%", width: "56%", height: "34%",
+              borderRadius: "22% / 12%", overflow: "hidden", pointerEvents: "none",
+            }}
+          >
+            <JarBrainPreview beliefs={store.beliefs} />
           </div>
-        ))}
+        </>
+      ) : (
+        // Locked teaser instead of quietly rendering an always-empty
+        // brain — a free store's beliefs/connections never populate
+        // (see appendUnanalyzedEntry in realStore.ts), so without this
+        // a free user would just see "0 beliefs" forever with no
+        // explanation why. Routes through onOpenBrainMap/"brainmap"
+        // rather than a separate handler — that route already renders
+        // ScreenPaywall for a non-Pro store.
+        <motion.div
+          data-tutorial="brain-card"
+          role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
+          style={{
+            position: "absolute", left: "18%", top: "3.5%", width: "62%", height: "50%",
+            backgroundColor: "rgba(20,15,10,0.72)", cursor: "pointer", borderRadius: 24,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
+          }}
+        >
+          <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(243,234,217,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="4.5" y="9" width="11" height="8" rx="2" stroke={vtgCream} strokeWidth="1.5" />
+              <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={vtgCream} strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+          <div style={{ ...sans, fontSize: 15, fontWeight: 800, color: vtgCream }}>Unlock your Brain Map</div>
+          <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
+            Upgrade to Pro to see your unconscious beliefs light up and connect.
+          </div>
+        </motion.div>
+      )}
+
+      {(!MONETIZATION_ENABLED || store.isPro) && (
+        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "67.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
+          <div style={{ ...serif, fontSize: 19, color: vtgCream, textShadow: "0 1px 8px rgba(0,0,0,0.55)" }}>Your mind</div>
+          <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, marginTop: 2, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
+            {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
+          </div>
+        </motion.div>
+      )}
+
+      <AnimatePresence>
+        {showRegionShortcuts && (
+          <HomeRegionShortcutSheet beliefs={store.beliefs} onClose={() => setShowRegionShortcuts(false)} onSelectRegion={(region) => { setShowRegionShortcuts(false); onOpenBrainMap?.(region); }} />
+        )}
+      </AnimatePresence>
+
+      <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "77%" }}>
+        <motion.div
+          role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
+          style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: vtgCard, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: vtgCardShadow }}
+        >
+          <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: vtgAccent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <WaveformIcon color="#fff" />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+            <span style={{ ...serif, fontSize: 17, color: vtgInk }}>Speak your mind</span>
+            <span style={{ ...sans, fontSize: 12, color: vtgInkMuted }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M4 10h12M10 4l6 6-6 6" stroke={vtgInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </motion.div>
+        <QuickMoodCheckIn updateStore={updateStore} />
+      </div>
+
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
+        <BottomNav active="home" onSelect={onNavSelect} vintage />
       </div>
     </div>
   );
@@ -1853,12 +1907,18 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
   );
 }
 
-// Same bar-list treatment as EmotionDistribution — every value this
-// person's entries have ever touched (interpretation.valueDirection.
-// relatedValues), how many times a recorded thought moved toward it vs.
-// away from it. "Unclear" entries count toward the total (so the split
-// bar's two colored segments never silently overstate toward+away as if
-// they summed to the whole), they just don't get their own segment.
+// A reserved, clearly-labeled slot for an analysis module that doesn't
+// exist yet — honest about what it is instead of shipping a fake chart
+// with no real data behind it.
+function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${mdDivider}` }}>
+      <span style={{ ...sans, fontSize: 13.5, color: mdFaint }}>{label}</span>
+      <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdBody, backgroundColor: mdNeutralTag, padding: "3px 9px", borderRadius: 999 }}>Coming soon</span>
+    </div>
+  );
+}
+
 function ValueDirectionShifts({ history }: { history: StoredHistoryEntry[] }) {
   const totals = new Map<string, { toward: number; away: number; unclear: number }>();
   history.forEach((entry) => {
@@ -2361,26 +2421,31 @@ function SectionCard({ title, subtitle, children, dataTutorial }: { title?: stri
   );
 }
 
-// ── Screen 4.5 · Mind ─────────────────────────────────────────────────────────
-// The belief-network graph, and nothing else — a chrome-free constellation
-// living inside a photographed jar/desk scene, with a tap-to-open notebook
-// for the detail view (DiscoveryBeliefList/RegionBreakdown) that used to sit
-// inline here as a "Related active neurons" card. The guided-conversation
-// content (Discovery → Evidence → Evolution → Reflection) that used to share
-// this screen moved to its own tab — see ScreenDiscoveryAnalysis below —
-// once there were two genuinely different jobs ("show me the network" vs.
-// "walk me through why") competing for one page.
+// ── Screen 4.5 · Mind ──────────────────────────────────────────────────────────
+// Just the belief network now — the discovery/evidence/evolution/reflection
+// conversation that used to share this screen with it moved out to its own
+// "Analysis" tab (see ScreenDiscoveryAnalysis and the "discoveryAnalysis"
+// case in the App shell below), leaving this one to answer a single
+// question: "what does my confirmed belief network actually look like?"
 function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenBrainMap?: () => void; store: Store }) {
+  const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
-  // ScreenDiscoveryAnalysis uses — kept here too so the constellation is
-  // never just every confirmed belief with no focus, even before
-  // ScreenDiscoveryAnalysis has been visited this session.
+  // ScreenDiscoveryAnalysis uses (see there for the fuller machinery this
+  // mirrors) — kept here too because it's what relatedBrainBeliefs below
+  // scopes around, falling back to every confirmed belief once there's
+  // nothing pinned yet, so this screen never renders empty just because no
+  // discovery has surfaced.
   const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
   const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
 
+  // The beliefs related to *this* discovery, not the whole brain (Home
+  // already shows that). A hypothesis names its own relatedBeliefIds; a
+  // belief-kind discovery's "related" set is itself plus anything
+  // connected to it. Falls back to the full brain only if that set somehow
+  // comes up empty, so the card is never just a blank field.
   const relatedBeliefIds = React.useMemo(() => {
     if (h) return new Set(h.relatedBeliefIds);
     if (b) {
@@ -2398,30 +2463,52 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
       ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
     }));
   }, [store.beliefs, store.connections, store.history, relatedBeliefIds]);
+  const relatedBrainConnections = React.useMemo(() => {
+    if (relatedBeliefIds.size === 0) return store.connections;
+    return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
+  }, [store.connections, relatedBeliefIds]);
+  const relatedBrainClusters = React.useMemo(
+    () => findBeliefClusters(relatedBrainBeliefs, relatedBrainConnections),
+    [relatedBrainBeliefs, relatedBrainConnections]
+  );
   // Exactly the discovery itself, not its wider "related" context above —
-  // used by the notebook's DiscoveryBeliefList to call out which of the
-  // constellation's stars is the actual discovery vs. supporting context.
+  // a hypothesis IS the relationship between several beliefs, so all of
+  // them are the discovery; a belief-kind discovery is just that one
+  // belief, not everything connected to it. Used by DiscoveryBeliefList
+  // below to call out which of the constellation's stars is the actual
+  // discovery vs. supporting context.
   const discoveryBeliefIds = React.useMemo(() => {
     if (h) return h.relatedBeliefIds;
     if (b) return [b.id];
     return [];
   }, [h, b]);
 
-  // Whether the notebook's detail view (DiscoveryBeliefList + RegionBreakdown)
-  // is open. The landing scene itself never scrolls; this is the separate
-  // detail state the notebook tap opens into.
+  // Whether the notebook's detail view (the old boxed neuron-card content —
+  // DiscoveryBeliefList + RegionBreakdown) is open. The landing scene itself
+  // never scrolls (spec: "single immersive scene... fits within 100dvh, no
+  // vertical scrolling"); this state is what the notebook tap opens into,
+  // and that view IS allowed to scroll since it's explicitly a separate
+  // detail state, not the main scene.
   const [notebookOpen, setNotebookOpen] = React.useState(false);
 
   return (
-    <div style={{ height: "100%", position: "relative", backgroundColor: "#1c1712", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, backgroundColor: "#1c1712", overflow: "hidden" }}>
       {/* ── LAYER 1 · Background photo — full-bleed, unmodified aside from a
       faint dusk overlay for text legibility. Everything else in this scene
       (constellation, notebook, header, nav) is positioned on top of it by
       percentage, never baked into it. ── */}
-      <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${mindSceneImg})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+      <div
+        style={{
+          position: "absolute", inset: 0,
+          backgroundImage: `url(${mindSceneImg})`, backgroundSize: "cover", backgroundPosition: "center",
+        }}
+      />
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(10,8,14,0.28) 0%, rgba(10,8,14,0.05) 22%, rgba(10,8,14,0.05) 55%, rgba(20,14,10,0.32) 100%)" }} />
 
-      <div style={{ position: "absolute", top: 16, left: 20, right: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", zIndex: 3 }}>
+      {/* ── Header — top-left title, top-right minimal circular controls,
+      same 34px status-bar clearance Home uses so it reads consistently
+      across the edge-to-edge screens. ── */}
+      <div style={{ position: "absolute", top: 34, left: 20, right: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", zIndex: 3 }}>
         <div>
           <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>Mind</div>
           <div style={{ ...sans, fontSize: 12, color: "rgba(245,239,228,0.82)", marginTop: 3, maxWidth: 200, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
@@ -2433,7 +2520,10 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
             role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
             whileTap={{ opacity: 0.6, scale: 0.94 }}
-            style={{ width: 34, height: 34, borderRadius: "50%", backgroundColor: "rgba(20,15,10,0.35)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            style={{
+              width: 34, height: 34, borderRadius: "50%", backgroundColor: "rgba(20,15,10,0.35)",
+              backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            }}
           >
             <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
               <circle cx="8.5" cy="8.5" r="6" stroke="#f5efe4" strokeWidth="1.5" />
@@ -2444,7 +2534,10 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
             role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
             whileTap={{ opacity: 0.6, scale: 0.94 }}
-            style={{ width: 34, height: 34, borderRadius: "50%", backgroundColor: "rgba(20,15,10,0.35)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            style={{
+              width: 34, height: 34, borderRadius: "50%", backgroundColor: "rgba(20,15,10,0.35)",
+              backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+            }}
           >
             <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
               <circle cx="10" cy="7" r="3.4" stroke="#f5efe4" strokeWidth="1.5" />
@@ -2454,15 +2547,26 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
         </div>
       </div>
 
-      {/* ── LAYER 2 · Brain constellation — chrome-free, living directly in
-      the sky through the window. Positioned by percentage so it stays
-      inside the window's glass across aspect ratios. Same pattern as
-      Home's jar: JarBrainPreview renders pointer-events:none (it still
-      idles/drifts on its own) and a transparent full-area button sits on
-      top so a tap opens the real, expanded Brain Map. ── */}
-      <div data-tutorial="mind-neurons" style={{ position: "absolute", left: "13%", right: "15%", top: "17%", height: "28%", zIndex: 2 }}>
+      {/* ── LAYER 2 · Brain constellation — chrome-free (minimal), living
+      directly in the sky through the window. Positioned by percentage so it
+      stays inside the window's glass across aspect ratios; the real-data
+      caption sits just under it, also on the photo, no card behind either.
+      Same pattern as Home's jar: the graph itself renders pointer-events:none
+      (it still idles/drifts on its own) and a transparent full-area button
+      sits on top so a tap opens the real, expanded Brain Map — not inline
+      node selection here. ── */}
+      <div
+        data-tutorial="mind-neurons"
+        style={{ position: "absolute", left: "13%", right: "15%", top: "17%", height: "28%", zIndex: 2 }}
+      >
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <JarBrainPreview beliefs={relatedBrainBeliefs} />
+          <NeuralBeliefGraph3D
+            beliefs={relatedBrainBeliefs}
+            connections={relatedBrainConnections}
+            clusters={relatedBrainClusters}
+            defaultStructureMode
+            minimal
+          />
         </div>
         <motion.div
           role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
@@ -2471,7 +2575,7 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
           style={{ position: "absolute", inset: 0, cursor: "pointer" }}
         />
       </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: "52%", textAlign: "center", zIndex: 1, pointerEvents: "none" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: "62%", textAlign: "center", zIndex: 1, pointerEvents: "none" }}>
         <div style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: "#f5efe4", letterSpacing: "0.01em", textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
           {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
         </div>
@@ -2487,7 +2591,7 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNotebookOpen(true); } }}
         whileTap={{ scale: 0.97, y: -4 }}
         style={{
-          position: "absolute", left: "25%", right: "25%", top: "67%", height: "18%", zIndex: 2,
+          position: "absolute", left: "25%", right: "25%", top: "70%", height: "18%", zIndex: 2,
           backgroundImage: `url(${mindNotebookImg})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center",
           cursor: "pointer", filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.35))",
         }}
@@ -2501,13 +2605,20 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
       </div>
 
       {/* ── Notebook detail view — the old boxed content (DiscoveryBeliefList
-      + RegionBreakdown), unchanged in substance, relocated here from what
-      used to be Mind's inline "Related active neurons" card. ── */}
+      + RegionBreakdown), unchanged in substance, relocated here per spec
+      ("move detailed Mind functionality into the notebook view instead").
+      This state IS allowed to scroll; the landing scene above never is. ── */}
       <AnimatePresence>
         {notebookOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }} transition={{ duration: 0.32, ease: "easeOut" }}
-            style={{ position: "absolute", inset: 0, zIndex: 10, display: "flex", flexDirection: "column", backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
+            style={{
+              position: "absolute", inset: 0, zIndex: 10, display: "flex", flexDirection: "column",
+              backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center",
+            }}
           >
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
               <div style={{ padding: "44px 4px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -2540,7 +2651,8 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
   );
 }
 
-// A small page-of-notes glyph — "N thoughts" — for DiscoveryPaper's footer.
+// A small page-of-notes glyph — "N thoughts" — matching the supplied
+// concept reference's document icon (not a speech bubble).
 function ThoughtGlyph({ color }: { color: string }) {
   return (
     <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
@@ -2549,7 +2661,8 @@ function ThoughtGlyph({ color }: { color: string }) {
     </svg>
   );
 }
-// A shield-check glyph — "NN% confidence" — for DiscoveryPaper's footer.
+// A shield-check glyph — "NN% confidence" — matching the reference in
+// place of the earlier clock icon.
 function ConfidenceGlyph({ color }: { color: string }) {
   return (
     <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
@@ -2558,7 +2671,9 @@ function ConfidenceGlyph({ color }: { color: string }) {
     </svg>
   );
 }
-// The small four-point sparkle before "TODAY'S DISCOVERY" on the paper.
+// The small four-point sparkle before "TODAY'S DISCOVERY" in the reference —
+// a plain "✦" reads one weight heavier/rounder than the reference's crisp
+// diamond mark, so this draws it directly instead of relying on a font glyph.
 function SparkleGlyph({ color, size = 11 }: { color: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
@@ -2566,21 +2681,44 @@ function SparkleGlyph({ color, size = 11 }: { color: string; size?: number }) {
     </svg>
   );
 }
-// A vertical "|" separator between DiscoveryPaper's two footer stats,
-// drawn rather than relying on a literal pipe character's inconsistent
-// glyph metrics across fonts.
+// A vertical "|" separator between the two footer stats — matching the
+// reference's metadata row, drawn rather than relying on a literal pipe
+// character's inconsistent glyph metrics across fonts.
 function MetaDivider({ color }: { color: string }) {
   return <span style={{ display: "inline-block", width: 1, height: 12, backgroundColor: color, opacity: 0.4, flexShrink: 0 }} />;
 }
 
+// One simple monoline glyph per cognitive region, for Recent Insights'
+// circular icon badge — the reference marks each insight with an icon
+// instead of a domain-name tag, so this is what stands in for that per the
+// app's own six real regions (see REGION_CONFIG/CognitiveRegion) rather
+// than inventing a separate icon set unrelated to the actual data.
+function RegionIconGlyph({ region, color }: { region: CognitiveRegion; color: string }) {
+  const common = { stroke: color, strokeWidth: 1.3, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" };
+  switch (region) {
+    case "identity":
+      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.4" {...common} /><path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" {...common} /></svg>;
+    case "security":
+      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 2.5 16 5v5c0 4.2-2.7 6.9-6 8.5-3.3-1.6-6-4.3-6-8.5V5l6-2.5Z" {...common} /></svg>;
+    case "career":
+      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M2.5 16.5 8 7l3 4.5 2.2-3L17.5 16.5Z" {...common} /></svg>;
+    case "relationships":
+      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="6.8" cy="7" r="2.6" {...common} /><circle cx="13.2" cy="7" r="2.6" {...common} /><path d="M2 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4M9.4 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4" {...common} /></svg>;
+    case "curiosity":
+      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="9.5" cy="9.5" r="6" {...common} /><path d="M15.8 15.8 18 18" {...common} /></svg>;
+    case "creativity":
+    default:
+      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 3c-3.6 0-5.5 2.5-5.5 5.3 0 2.1 1.3 3.2 1.9 4.2.5.8.6 1.5.6 2.5h6c0-1 .1-1.7.6-2.5.6-1 1.9-2.1 1.9-4.2C15.5 5.5 13.6 3 10 3Z" {...common} /><path d="M7.5 17h5M8.3 19h3.4" {...common} /></svg>;
+  }
+}
+
 // Today's Discovery, recreated as a physical sheet: analysis-discovery-paper
-// is only the blank document (no baked-in text), every word here is real
-// React content overlaid on top of it by percentage, so it reflows with
-// whatever the actual discovery says instead of assuming a fixed line
-// count. The "Examine" affordance only renders when a distinct sub-view
-// exists to open into (see onExamine) — ScreenDiscoveryAnalysis's own
-// deep-dive content sits inline below this paper on the same page, so it
-// doesn't pass one.
+// is only the blank document (no baked-in text — see the redesign brief),
+// every word here is real React content overlaid on top of it by percentage,
+// so it reflows with whatever the actual discovery says instead of assuming
+// a fixed line count. `interpretation` is only shown when it's genuinely
+// distinct from `title` (see ScreenDiscoveryAnalysis) so the paper never
+// repeats the same sentence twice.
 function DiscoveryPaper({
   title,
   interpretation,
@@ -2595,83 +2733,219 @@ function DiscoveryPaper({
   onExamine?: () => void;
 }) {
   return (
-    <div style={{ position: "relative", width: "94%", margin: "0 auto" }}>
-      <img src={analysisDiscoveryPaperImg} alt="" style={{ width: "100%", display: "block", pointerEvents: "none" }} draggable={false} />
-      <div style={{ position: "absolute", top: "15%", left: "10%", right: "7.5%", bottom: "6%", display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0, boxSizing: "border-box" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+    <div style={{ position: "relative", width: "100%", margin: "0 auto", boxSizing: "border-box", overflow: "hidden" }}>
+      <img
+        src={analysisDiscoveryPaperImg}
+        alt=""
+        style={{ width: "100%", height: "auto", display: "block", pointerEvents: "none" }}
+        draggable={false}
+      />
+
+      {/* One hard-bounded content area. Nothing inside Today's Discovery is
+          allowed to paint outside the visible top sheet. */}
+      <div
+        style={{
+          position: "absolute",
+          top: "8%",
+          left: "7%",
+          right: "7%",
+          bottom: "10%",
+          display: "grid",
+          gridTemplateRows: "auto auto auto auto minmax(4px, 1fr) auto auto",
+          overflow: "hidden",
+          boxSizing: "border-box",
+          minWidth: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
           <SparkleGlyph color={paperAccent} />
-          <span style={{ ...sans, fontSize: "clamp(10px, 2.6vw, 11px)", fontWeight: 700, color: paperAccent, letterSpacing: "0.12em" }}>TODAY'S DISCOVERY</span>
+          <span style={{ ...sans, fontSize: "clamp(10px, 2.6vw, 11px)", fontWeight: 700, color: paperAccent, letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
+            TODAY'S DISCOVERY
+          </span>
         </div>
-        <div style={{ width: 52, height: 1, backgroundColor: "rgba(46,32,19,0.22)", margin: "7px 0 0" }} />
-        {/* A long title/interpretation used to be able to push the footer
-        (thought count/confidence/Examine) below the paper's own printed
-        edge, or off the bottom of the safe area entirely — clamped here so
-        both always fit within the physical paper regardless of length. */}
+
+        <div style={{ width: 52, height: 1, backgroundColor: "rgba(46,32,19,0.22)", marginTop: 6 }} />
+
         <p
           style={{
-            ...serif, fontSize: "clamp(19px, 5.4vw, 23px)", fontWeight: 400, lineHeight: 1.22, color: paperInk, margin: "10px 0 0", wordBreak: "keep-all",
-            minWidth: 0, maxWidth: "100%", overflow: "hidden", overflowWrap: "anywhere",
-            display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+            ...serif,
+            fontSize: "clamp(18px, 5vw, 22px)",
+            fontWeight: 400,
+            lineHeight: 1.16,
+            color: paperInk,
+            margin: "8px 0 0",
+            minWidth: 0,
+            maxWidth: "100%",
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 2,
+            overflowWrap: "anywhere",
           }}
         >
           {title}
         </p>
-        {interpretation && (
+
+        {interpretation ? (
           <p
             style={{
-              ...serif, fontSize: "clamp(12.5px, 3.4vw, 14px)", color: "rgba(46,32,19,0.72)", lineHeight: 1.45, margin: "9px 0 0", wordBreak: "keep-all",
-              minWidth: 0, maxWidth: "100%", overflow: "hidden", overflowWrap: "anywhere",
-              display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 1,
+              ...serif,
+              fontSize: "clamp(11.5px, 3vw, 13px)",
+              color: "rgba(46,32,19,0.72)",
+              lineHeight: 1.32,
+              margin: "7px 0 0",
+              minWidth: 0,
+              maxWidth: "100%",
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 1,
+              overflowWrap: "anywhere",
             }}
           >
             {interpretation}
           </p>
-        )}
-        <div style={{ marginTop: "clamp(8px, 3vw, 14px)" }} />
-        <div style={{ height: 1, backgroundColor: "rgba(46,32,19,0.18)", margin: "0 0 9px" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: onExamine ? "space-between" : "flex-start", gap: 10, flexWrap: "wrap", rowGap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px, 2vw, 9px)", minWidth: 0 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(10px, 2.6vw, 11.5px)", color: paperInkMuted, whiteSpace: "nowrap" }}>
+        ) : <div />}
+
+        <div />
+        <div style={{ height: 1, backgroundColor: "rgba(46,32,19,0.18)", marginBottom: 6 }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minWidth: 0, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "clamp(5px, 1.6vw, 8px)", minWidth: 0, overflow: "hidden", whiteSpace: "nowrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(9.5px, 2.4vw, 11px)", color: paperInkMuted, whiteSpace: "nowrap", flexShrink: 0 }}>
               <ThoughtGlyph color={paperInkMuted} /> {thoughtCount} thought{thoughtCount === 1 ? "" : "s"}
             </span>
             <MetaDivider color={paperInkMuted} />
-            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(10px, 2.6vw, 11.5px)", color: paperInkMuted, whiteSpace: "nowrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(9.5px, 2.4vw, 11px)", color: paperInkMuted, whiteSpace: "nowrap", minWidth: 0 }}>
               <ConfidenceGlyph color={paperInkMuted} /> {confidence}% confidence
             </span>
           </div>
-          {onExamine && (
-            <motion.div
-              role="button" tabIndex={0} aria-label="Examine today's discovery" onClick={onExamine}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExamine?.(); } }}
-              whileTap={{ scale: 0.96, opacity: 0.85 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, backgroundColor: paperInk, color: "#f3e9da", borderRadius: 999, padding: "7px 12px", ...sans, fontSize: "clamp(11px, 2.9vw, 12px)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
-            >
-              Examine <span aria-hidden>→</span>
-            </motion.div>
-          )}
+
+          <motion.div
+            role="button"
+            tabIndex={0}
+            aria-label="Examine today's discovery"
+            onClick={onExamine}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExamine?.(); } }}
+            whileTap={{ scale: 0.96, opacity: 0.85 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: paperInk, color: "#f3e9da", borderRadius: 999, padding: "7px 11px", ...sans, fontSize: "clamp(10.5px, 2.7vw, 11.5px)", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+          >
+            Examine <span aria-hidden>→</span>
+          </motion.div>
         </div>
       </div>
     </div>
   );
 }
 
+// One "Recent Insights" card — analysis-insight-card is, again, only the
+// physical object; every field here is real (see RecentInsightItem /
+// buildRecentInsights), never invented per-card copy.
+function RecentInsightCard({ item, onOpen, overlap }: { item: RecentInsightItem; onOpen?: () => void; overlap?: boolean }) {
+  return (
+    <motion.div
+      role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
+      whileTap={{ scale: 0.98, opacity: 0.92 }}
+      style={{ position: "relative", width: "82%", margin: "0 auto", marginTop: overlap ? -10 : 0, cursor: "pointer" }}
+    >
+      <img src={analysisInsightCardImg} alt="" style={{ width: "100%", height: "auto", display: "block", pointerEvents: "none" }} draggable={false} />
+      <div style={{ position: "absolute", top: "15%", left: "9%", right: "10%", bottom: "13%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden", boxSizing: "border-box", maxWidth: "100%" }}>
+        {/* flex: 1 alone lets a long title force this column (and the
+        chevron with it) past the card's edge — min-width: 0 is what
+        actually lets it shrink and wrap instead. */}
+        <div style={{ flex: 1, minWidth: 0, maxWidth: "100%" }}>
+          {item.date && <div style={{ ...sans, fontSize: "clamp(9.5px, 2.5vw, 10.5px)", fontWeight: 700, color: paperInkMuted, letterSpacing: "0.1em" }}>{relativeInsightLabel(item.date).toUpperCase()}</div>}
+          <div
+            style={{
+              ...serif, fontSize: "clamp(14.5px, 4vw, 16.5px)", fontWeight: 400, color: paperInk, marginTop: 3, lineHeight: 1.24,
+              maxWidth: "100%", minWidth: 0, overflowWrap: "break-word", wordBreak: "break-word",
+              display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}
+          >
+            {item.title}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "clamp(4px, 1.5vw, 6px)", marginTop: 5, minWidth: 0, maxWidth: "100%" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(10px, 2.6vw, 11.5px)", color: paperInkMuted, whiteSpace: "nowrap" }}>
+              <ThoughtGlyph color={paperInkMuted} /> {item.thoughtCount} thought{item.thoughtCount === 1 ? "" : "s"}
+            </span>
+            <MetaDivider color={paperInkMuted} />
+            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: "clamp(10px, 2.6vw, 11.5px)", color: paperInkMuted, whiteSpace: "nowrap" }}>
+              <ConfidenceGlyph color={paperInkMuted} /> {item.confidence}% confidence
+            </span>
+          </div>
+        </div>
+        {/* Reserved, non-shrinking width — the title column above can never
+        grow into this space, only wrap short of it. */}
+        <span style={{ flexShrink: 0, width: 14, display: "flex", justifyContent: "center" }}>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+            <path d="M7 4l6 6-6 6" stroke={paperInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Screen 4.6 · Analysis ──────────────────────────────────────────────────────
-// A guided conversation, not a report: landing on a paper hero (Today's
-// discovery, recreated via DiscoveryPaper) that opens into the same
-// Evidence → Evolution → Reflection walkthrough this screen has always had
-// — unchanged in substance, just moved off the landing scene per the
-// redesign. The belief-network graph itself (and its notebook detail) moved
-// out to its own "Mind" tab — see ScreenAnalysis above — so it's not
-// duplicated here.
-//
-// Scope note: the friend branch's redesign also added a "Recent Insights"
-// list (every other hypothesis/belief that could have been today's
-// discovery but isn't) to the landing scene. That's a genuinely new
-// feature, not something main had before this port, so it's deliberately
-// left out of this pass rather than half-built — see PR notes.
+// Redesigned around the same "documents on a dark wooden desk" language as
+// the new Mind screen: a full-bleed desk photo (analysisDeskBgImg) behind
+// everything, Today's Discovery recreated as a physical paper
+// (DiscoveryPaper) instead of a white SectionCard, and — new — a real
+// "Recent Insights" list (buildRecentInsights) of every other hypothesis/
+// belief that could have been today's discovery but isn't, each rendered on
+// analysisInsightCardImg. The old single long page (Discovery → Evidence →
+// Evolution → Reflection, all inline) is now two states of the same
+// component: this landing scene, and — unchanged in substance, just moved
+// off the landing page per the redesign brief — the Examine sub-view below,
+// which still holds all of that guided-conversation content for whichever
+// target (today's discovery, or any recent insight) it was opened on. Mind's
+// belief network moved out the other direction (see ScreenAnalysis above) —
+// no AI interpretation lives anywhere else in the app now, this tab is its
+// one home.
+
+// "Where you might be headed" — growth directions inferred from the
+// recurring unconscious beliefs the Brain Map has already surfaced.
+// Distinct from `aspiration` (which the user types themselves during
+// onboarding/Distance from Goal): this is AI-inferred from what they've
+// actually written, never something they stated. Lives on the Analysis tab
+// (Examine view) rather than Home or Profile — it's an interpretation of
+// the same belief evidence Examine is already walking through, not a
+// dashboard tile. Only recomputes when the belief set has changed size
+// since the last computation (goalsBeliefSnapshot), so it's not re-calling
+// the AI on every visit — and never below MIN_BELIEFS_FOR_GOALS, since one
+// or two beliefs isn't enough to infer a direction from.
+const MIN_BELIEFS_FOR_GOALS = 3;
+function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore: (updater: (prev: Store) => Store) => void }) {
+  const fetchingRef = React.useRef(false);
+  const needsRefresh = store.beliefs.length >= MIN_BELIEFS_FOR_GOALS && store.goalsBeliefSnapshot !== store.beliefs.length;
+  React.useEffect(() => {
+    if (!needsRefresh || fetchingRef.current) return;
+    fetchingRef.current = true;
+    const payload = store.beliefs.map((b) => ({ domain: b.domain, statement: b.statement, evidenceCount: b.evidenceCount }));
+    fetch("/api/infer-goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ beliefs: payload }) })
+      .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || "Couldn't infer goals."); return data; })
+      .then((data) => {
+        const today = formatDateDots(new Date());
+        const nextGoals: StoredGoal[] = (data.goals as { statement: string; basedOnDomains: string[] }[]).map((g, i) => ({ id: `goal-${Date.now()}-${i}`, statement: g.statement, basedOnDomains: g.basedOnDomains, createdDate: today }));
+        updateStore((prev) => ({ ...prev, goals: nextGoals, goalsBeliefSnapshot: store.beliefs.length }));
+      })
+      .catch(() => {})
+      .finally(() => { fetchingRef.current = false; });
+  }, [needsRefresh, store.beliefs, updateStore]);
+  if (!store.goals.length) return null;
+  return (
+    <SectionCard title="Where you might be headed" subtitle="Growth directions inferred from your recurring beliefs.">
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {store.goals.slice(0, 3).map((g) => <div key={g.id} style={{ ...serif, fontSize: 14, lineHeight: 1.45, color: mdHeading }}>{g.statement}</div>)}
+      </div>
+    </SectionCard>
+  );
+}
+
 function ScreenDiscoveryAnalysis({
   onNavSelect,
   store,
+  updateStore,
   onAgreeHypothesis,
   onDisagreeHypothesis,
   onInvestigateHypothesis,
@@ -2681,6 +2955,7 @@ function ScreenDiscoveryAnalysis({
 }: {
   onNavSelect?: (id: string) => void;
   store: Store;
+  updateStore: (updater: (prev: Store) => Store) => void;
   onAgreeHypothesis?: (index: number) => void;
   onDisagreeHypothesis?: (index: number) => void;
   onInvestigateHypothesis?: (index: number) => void;
@@ -2688,31 +2963,45 @@ function ScreenDiscoveryAnalysis({
   onDisagreeBeliefDiscovery?: (beliefId: string) => void;
   reinterpretingKey?: string | null;
 }) {
+  const reduceMotion = useReducedMotion();
   // Pinned once per visit to this screen so the discovery being discussed
   // never gets silently swapped out mid-conversation — see
-  // resolveDiscoveryTarget.
+  // resolveDiscoveryTarget. This is Today's Discovery specifically — the
+  // one thing the landing paper shows — independent of whichever target
+  // Examine is currently open on below.
   const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
-  const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
-  const h = hIndex !== null ? store.hypotheses[hIndex] : null;
-  const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
-
+  const discH = discovery?.kind === "hypothesis" ? store.hypotheses[discovery.index] : null;
+  const discB = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
   // The paper's headline is the framing sentence ("The '__' showed up
   // again.") built from the short thoughtLabel when there is one, with the
-  // fuller reasoning underneath as the interpretation line; when there's no
+  // fuller reasoning underneath as `discInterpretation`; when there's no
   // thoughtLabel, the one real sentence IS the headline and there's nothing
   // distinct left to show underneath it — never the same sentence twice.
-  const discThoughtLabel = h?.thoughtLabel || b?.thoughtLabel || "";
+  const discThoughtLabel = discH?.thoughtLabel || discB?.thoughtLabel || "";
   const discTitle = discThoughtLabel ? `The "${discThoughtLabel}" showed up again.` : discovery?.text || "";
   const discInterpretation = discThoughtLabel ? discovery?.text ?? "" : "";
-  const discThoughtCount = h ? evidenceForHypothesis(h, store.beliefs).length : b ? b.evidenceQuotes.length : 0;
-  const discConfidence = h ? h.confidence : b ? b.confidence : 0;
+  const discThoughtCount = discH ? evidenceForHypothesis(discH, store.beliefs).length : discB ? discB.evidenceQuotes.length : 0;
+  const discConfidence = discH ? discH.confidence : discB ? discB.confidence : 0;
 
-  // Landing scene vs. the guided-conversation deep dive — null means the
-  // landing paper; true opens the Evidence/Evolution/Reflection content
-  // below for today's discovery specifically (the only target this pass
-  // supports — see the Recent Insights scope note above).
-  const [examineOpen, setExamineOpen] = React.useState(false);
+  // Everything that could have been Today's Discovery but isn't — see
+  // buildRecentInsights. Capped to the three most recent on the landing
+  // scene per the redesign brief; "View all" reveals the rest in place
+  // rather than growing the page unboundedly by default.
+  const recentInsights = React.useMemo(() => buildRecentInsights(store, pinnedDiscovery), [store, pinnedDiscovery]);
+  const [showAllInsights, setShowAllInsights] = React.useState(false);
+  const visibleInsights = showAllInsights ? recentInsights : recentInsights.slice(0, 3);
+
+  // The Examine sub-view: null means the landing scene; set means the full
+  // guided-conversation content below (evidence → evolution → reflection →
+  // Dig deeper) is open for that specific target, which may be Today's
+  // Discovery or any Recent Insight — same shape, same component, so both
+  // entry points share one implementation.
+  const [examineTarget, setExamineTarget] = React.useState<DiscoveryTarget | null>(null);
+  const examine = examineTarget ? resolveDiscoveryTarget(store, examineTarget) : null;
+  const hIndex = examineTarget?.kind === "hypothesis" ? examineTarget.index : null;
+  const h = hIndex !== null ? store.hypotheses[hIndex] : null;
+  const b = examineTarget?.kind === "belief" ? store.beliefs.find((x) => x.id === examineTarget.id) ?? null : null;
 
   // SECTION 2 — the strongest (most recent) three, shown chronologically.
   const rawEvidence: (StoredEvidenceQuote & { domain?: string })[] = h ? evidenceForHypothesis(h, store.beliefs) : b ? b.evidenceQuotes : [];
@@ -2769,33 +3058,33 @@ function ScreenDiscoveryAnalysis({
   };
 
   return (
-    <div style={{ position: "relative", height: "100%", backgroundColor: "#1c1712" }}>
+    <div style={{ position: "relative", height: "100%", backgroundColor: "#1c1712", overflowX: "hidden" }}>
       {/* ── Desk background — one continuous photo behind both the landing
-      scene and the Examine sub-view, so switching between them never
-      flashes a different backdrop. Its own absolutely-positioned layer
-      (not the scrolling container's own CSS background) so it never
-      scrolls with the content stacked on top of it. ── */}
+      scene and the Examine sub-view, so switching between them never flashes
+      a different backdrop. Sits on its own absolutely-positioned layer
+      (rather than as the scrolling container's own CSS background) so it
+      never scrolls with the content stacked on top of it — see the redesign
+      brief's "remain visually consistent while scrolling." ── */}
       <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${analysisDeskBgImg})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
 
-      <AnimatePresence mode="wait">
-        {examineOpen ? (
+      <AnimatePresence mode="sync" initial={false}>
+        {examineTarget ? (
           <motion.div
             key="examine"
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.28, ease: "easeOut" }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
             style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
           >
-            {/* Examine — unchanged in substance from this screen's old
-            single long page (still the same evidence/evolution/reflection
-            content and handlers), just moved off the landing scene and
-            given a back control. Keeps the same SectionCard/mdHeading
-            styling it always has rather than retinting every section —
-            see the DiscoveryPaper hero above for where the paper treatment
-            actually lives. */}
+            {/* Examine — unchanged in substance from the screen's old single
+            long page (still the same evidence/evolution/reflection/Dig
+            deeper content and handlers), just moved off the landing scene
+            and given a back control. Keeps its own old paper-panel look
+            deliberately: the redesign brief calls out styling this properly
+            as a later pass, not part of this one. */}
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px", backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }}>
-              <div style={{ padding: "44px 4px 20px" }}>
+              <div style={{ padding: "8px 4px 20px" }}>
                 <span
-                  role="button" tabIndex={0} aria-label="Back to Analysis" onClick={() => setExamineOpen(false)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExamineOpen(false); } }}
+                  role="button" tabIndex={0} aria-label="Back to Analysis" onClick={() => setExamineTarget(null)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExamineTarget(null); } }}
                   style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: mdBody, cursor: "pointer", marginBottom: 10 }}
                 >
                   ← Back
@@ -2805,23 +3094,24 @@ function ScreenDiscoveryAnalysis({
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* ── SECTION 1 · HERO — title, discovery, confidence. Nothing else. ── */}
                 <SectionCard dataTutorial="today-discovery">
-                  {discovery ? (
+                  {examine ? (
                     <>
-                      <div style={{ ...sans, fontSize: 11, fontWeight: 800, color: mdAccent, letterSpacing: "0.04em", marginBottom: 10 }}>Today's discovery</div>
-                      {discThoughtLabel && (
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 800, color: mdAccent, letterSpacing: "0.04em", marginBottom: 10 }}>{examineTarget === pinnedDiscovery ? "Today's discovery" : "Recent insight"}</div>
+                      {(h?.thoughtLabel || b?.thoughtLabel) && (
                         <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: mdAccentText, margin: "0 0 8px" }}>
-                          The "{discThoughtLabel}" thought showed up again
+                          The "{h?.thoughtLabel || b?.thoughtLabel}" thought showed up again
                         </p>
                       )}
-                      <p style={{ ...serif, fontSize: 24, lineHeight: 1.4, color: mdHeading, margin: "0 0 18px", wordBreak: "keep-all" }}>{discovery.text}</p>
+                      <p style={{ ...serif, fontSize: 24, lineHeight: 1.4, color: mdHeading, margin: "0 0 18px", wordBreak: "keep-all" }}>{examine.text}</p>
                       <div style={{ height: 1, backgroundColor: mdDivider, margin: "0 0 14px" }} />
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                         <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: mdBody }}>Confidence</span>
-                        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: mdAccentText }}>{discConfidence}%</span>
+                        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: mdAccentText }}>{h ? h.confidence : b?.confidence ?? 0}%</span>
                       </div>
                       <div style={{ height: 6, borderRadius: 3, backgroundColor: mdTrack, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${discConfidence}%`, borderRadius: 3, background: `linear-gradient(90deg, ${mdAccent}, ${mdAccentText})` }} />
+                        <div style={{ height: "100%", width: `${h ? h.confidence : b?.confidence ?? 0}%`, borderRadius: 3, background: `linear-gradient(90deg, ${mdAccent}, ${mdAccentText})` }} />
                       </div>
                     </>
                   ) : (
@@ -2837,8 +3127,16 @@ function ScreenDiscoveryAnalysis({
                   )}
                 </SectionCard>
 
-                {discovery && (
+                {/* ── Growth directions — independent of which discovery is
+                pinned above (it's inferred from the whole belief set, not
+                this one), so it's not gated behind `examine`. Renders
+                nothing until there are enough beliefs and a first
+                inference has come back — see GoalDirectionsPanel. ── */}
+                <GoalDirectionsPanel store={store} updateStore={updateStore} />
+
+                {examine && (
                   <>
+                    {/* ── SECTION 2 · WHY — only the strongest supporting evidence, chronological. ── */}
                     <SectionCard title="Why did this interpretation come up?" subtitle="These are parts where you actually said this.">
                       {evidence.length > 0 ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2871,12 +3169,14 @@ function ScreenDiscoveryAnalysis({
                       )}
                     </SectionCard>
 
+                    {/* ── SECTION 3 · BELIEF EVOLUTION — watch the pattern develop over time. ── */}
                     {evolutionPoints.length > 0 && (
                       <SectionCard title="How this belief has evolved">
                         <EvolutionTimeline points={evolutionPoints} />
                       </SectionCard>
                     )}
 
+                    {/* ── SECTION 4 · USER REFLECTION — the considered version of the hero's quick react. ── */}
                     <SectionCard>
                       <DiscoveryReflection
                         reaction={reaction}
@@ -2902,29 +3202,66 @@ function ScreenDiscoveryAnalysis({
         ) : (
           <motion.div
             key="landing"
-            initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.28, ease: "easeOut" }}
-            style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
+            style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 0 28px" }}>
-              <div style={{ padding: "16px 20px 30px" }}>
-                <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>Discover</div>
-                <div style={{ ...sans, fontSize: 12.5, color: "rgba(245,239,228,0.82)", marginTop: 5, lineHeight: 1.45, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
-                  AI interprets your mind,<br />revealing what's really going on.
-                </div>
+            {/* Header — stationary, over the desk, never scrolls. */}
+            <div style={{ flexShrink: 0, padding: "16px 20px 10px", boxSizing: "border-box" }}>
+              <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>Analysis</div>
+              <div style={{ ...sans, fontSize: 12, color: "rgba(245,239,228,0.82)", marginTop: 3, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
+                AI interprets your mind,<br />revealing what's really going on.
               </div>
+            </div>
 
-              <div data-tutorial="today-discovery">
-                {discovery ? (
-                  <DiscoveryPaper
-                    title={discTitle}
-                    interpretation={discInterpretation}
-                    thoughtCount={discThoughtCount}
-                    confidence={discConfidence}
-                    onExamine={() => setExamineOpen(true)}
-                  />
+            {/* Today's Discovery — stationary, the "current pinned report
+            on the desk," never scrolls with Recent Insights below it. */}
+            <div data-tutorial="today-discovery" style={{ flexShrink: 0, boxSizing: "border-box" }}>
+              {discovery ? (
+                <DiscoveryPaper
+                  title={discTitle}
+                  interpretation={discInterpretation}
+                  thoughtCount={discThoughtCount}
+                  confidence={discConfidence}
+                  onExamine={() => setExamineTarget(pinnedDiscovery)}
+                />
+              ) : (
+                <div style={{ width: "90%", margin: "0 auto", textAlign: "center", padding: "36px 20px", boxSizing: "border-box" }}>
+                  <p style={{ ...sans, fontSize: 13.5, color: "rgba(245,239,228,0.75)", lineHeight: 1.6, margin: 0 }}>Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Insights — everything below this point is the ONE
+            scrollable region on this screen. The "— RECENT INSIGHTS" label
+            is a stationary header for that region (not itself part of the
+            scroll content), same idea as Today's Discovery being pinned
+            above it: this is "a stack of older reports the user scrolls
+            through underneath" the current one. */}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <div style={{ flexShrink: 0, marginTop: 8, ...sans, fontSize: 12, fontWeight: 700, color: "rgba(230,210,178,0.75)", letterSpacing: "0.14em", marginLeft: "5%" }}>
+                <span aria-hidden style={{ marginRight: 8 }}>—</span>RECENT INSIGHTS
+              </div>
+              <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: "6px 0 16px" }}>
+                {recentInsights.length === 0 ? (
+                  <div style={{ width: "90%", margin: "0 auto", textAlign: "center", padding: "18px 16px", boxSizing: "border-box" }}>
+                    <p style={{ ...sans, fontSize: 13, color: "rgba(245,239,228,0.7)", lineHeight: 1.6, margin: 0 }}>No other insights yet — check back as more come into focus.</p>
+                  </div>
                 ) : (
-                  <div style={{ width: "90%", margin: "0 auto", textAlign: "center", padding: "36px 20px" }}>
-                    <p style={{ ...sans, fontSize: 13.5, color: "rgba(245,239,228,0.75)", lineHeight: 1.6, margin: 0 }}>Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                    {visibleInsights.map((item, i) => (
+                      <RecentInsightCard key={item.key} item={item} overlap={i > 0} onOpen={() => setExamineTarget(item.target)} />
+                    ))}
+                  </div>
+                )}
+                {!showAllInsights && recentInsights.length > 3 && (
+                  <div style={{ textAlign: "center", marginTop: 14 }}>
+                    <span
+                      role="button" tabIndex={0} onClick={() => setShowAllInsights(true)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowAllInsights(true); } }}
+                      style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: "#f5efe4", cursor: "pointer", textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}
+                    >
+                      View all →
+                    </span>
                   </div>
                 )}
               </div>
@@ -2941,17 +3278,18 @@ function ScreenDiscoveryAnalysis({
 // The old "Dive deeper" section that used to sit at the bottom of Mind,
 // moved to its own tab — Home already has a real Profile entry point (the
 // top-right icon), which is what freed up the fourth bottom-nav slot this
-// now occupies. Same content, same components (ArtifactTile/SectionCard/
-// EmotionDistribution/ComingSoonRow), just given a real screen and header
-// of its own instead of being a coda on a page about something else.
+// now occupies (see BottomNav's items and the App shell's "premium" case).
+// Same content, same components (ArtifactTile/SectionCard/EmotionDistribution/
+// ComingSoonRow), just given a real screen and header of its own instead of
+// being a coda on a page about something else.
 function ScreenPremium({ onNavSelect, store, onOpenArtifact }: { onNavSelect?: (id: string) => void; store: Store; onOpenArtifact?: (id: string) => void }) {
   const hasBeliefs = store.beliefs.length > 0;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#11192A", backgroundImage: `linear-gradient(180deg, rgba(10,16,29,.18) 0%, rgba(10,16,29,.42) 48%, rgba(10,16,29,.82) 100%), url(${premiumVikImg})`, backgroundSize: "cover", backgroundPosition: "center" }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
-        <div style={{ padding: "8px 4px 20px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: mdHeading, marginBottom: 6 }}>Premium</div>
-          <div style={{ ...sans, fontSize: 13, color: mdBody }}>Deeper looks at what's been recorded, beyond today's one discovery.</div>
+        <div style={{ padding: "18px 8px 20px", margin: "0 -4px 8px", borderRadius: 20, background: "linear-gradient(180deg, rgba(8,14,26,.18), rgba(8,14,26,.42))", backdropFilter: "blur(5px)" }}>
+          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: "#F3EEE4", marginBottom: 6 }}>Premium</div>
+          <div style={{ ...sans, fontSize: 13, color: "rgba(243,238,228,.7)" }}>Deeper looks at what's been recorded, beyond today's one discovery.</div>
         </div>
 
         <div data-tutorial="premium-content" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -2989,7 +3327,7 @@ function ScreenPremium({ onNavSelect, store, onOpenArtifact }: { onNavSelect?: (
           </SectionCard>
         </div>
       </div>
-      <BottomNav active="premium" onSelect={onNavSelect} vintage />
+      <BottomNav active="premium" onSelect={onNavSelect} />
     </div>
   );
 }
@@ -3194,10 +3532,17 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const [promptHint] = React.useState(() => pickThinkPrompt());
   const [transcript, setTranscript] = React.useState("");
   const [interim, setInterim] = React.useState("");
+  const [micError, setMicError] = React.useState<string | null>(null);
   const voiceSupportedRef = React.useRef(!!getSpeechRecognitionCtor());
   const recognitionRef = React.useRef<any>(null);
   const micLevelRef = useMicLevel(recording);
   const manualStopRef = React.useRef(false);
+  // Guards the transition out of this screen — without it, a fast double
+  // tap on "Next" (or on the orb to stop recording) before the parent's
+  // setScreen("processing") actually commits could fire onDone twice,
+  // queuing the same entry for analysis twice. Once tripped, both submit
+  // paths below are inert and the button renders disabled.
+  const [submitted, setSubmitted] = React.useState(false);
   // Authoritative running transcript, mirrors the `transcript` state but
   // read synchronously (state set via a functional updater isn't
   // guaranteed to be visible in the same tick, and the silence-watcher
@@ -3214,25 +3559,6 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   const latestTextRef = React.useRef("");
   const guidanceShownRef = React.useRef(false);
   const guidanceDelayRef = React.useRef<any>(null);
-
-  // Set only on a fatal SpeechRecognition error (mic permission denied, no
-  // mic hardware, network drop) — before this, a denial left "Listening"
-  // showing indefinitely with a flat waveform and zero explanation, since
-  // recognition.onerror only stopped the internal restart loop without
-  // telling the UI anything had gone wrong. Cleared on mode switch/retry
-  // so it never lingers past the interaction that caused it.
-  const [micError, setMicError] = React.useState<string | null>(null);
-
-  // Guards both onDone call sites below (text Next button, voice auto-stop)
-  // against a rapid double-tap firing onDone twice before the screen
-  // change unmounts this component — without it, two "processing" calls
-  // race and can create two duplicate history entries for one entry.
-  const [submitted, setSubmitted] = React.useState(false);
-  const submit = (finalText: string) => {
-    if (submitted) return;
-    setSubmitted(true);
-    onDone?.(finalText);
-  };
 
   const noteActivity = (currentText: string) => {
     latestTextRef.current = currentText;
@@ -3306,11 +3632,8 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
       };
       recognition.onerror = (e: any) => {
         // Fatal errors (mic denied, no mic, offline): stop retrying instead
-        // of looping start/stop forever, AND actually tell the person why —
-        // this used to just stop the internal restart loop, leaving
-        // "Listening" on screen indefinitely with no explanation. "no-speech"
-        // is not fatal — it just means a silent gap, so let onend's restart
-        // handle that one.
+        // of looping start/stop forever. "no-speech" is not fatal — it just
+        // means a silent gap, so let onend's restart handle that one.
         if (["not-allowed", "audio-capture", "network", "service-not-allowed"].includes(e?.error)) {
           manualStopRef.current = true;
           setRecording(false);
@@ -3335,13 +3658,15 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   };
 
   const stopRecording = () => {
+    if (submitted) return;
+    setSubmitted(true);
     manualStopRef.current = true;
     recognitionRef.current?.stop?.();
     recognitionRef.current = null;
     setRecording(false);
     const finalText = (transcript + (interim ? " " + interim : "")).trim();
     setInterim("");
-    submit(finalText);
+    onDone?.(finalText);
   };
 
   return (
@@ -3351,12 +3676,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
           ✕ Stop
         </motion.span>
         {!recording && (
-          <motion.span
-            role="button" tabIndex={0}
-            onClick={() => { setTextMode((v) => !v); setMicError(null); }}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }}
-            whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}
-          >
+          <motion.span role="button" tabIndex={0} onClick={() => { setTextMode((v) => !v); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
             {textMode ? "Use voice instead" : "Write instead"}
           </motion.span>
         )}
@@ -3393,7 +3713,16 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
             </AnimatePresence>
           </div>
           <div style={{ padding: "0 24px 40px" }}>
-            <PrimaryBtn disabled={!text.trim() || submitted} onClick={() => submit(text.trim())}>Next</PrimaryBtn>
+            <PrimaryBtn
+              disabled={!text.trim() || submitted}
+              onClick={() => {
+                if (submitted) return;
+                setSubmitted(true);
+                onDone?.(text.trim());
+              }}
+            >
+              Next
+            </PrimaryBtn>
           </div>
         </>
       ) : (
@@ -3543,25 +3872,6 @@ function ScreenProcessing({
     return () => clearTimeout(t);
   }, []);
 
-  // The one moment in the app where a refresh/tab-close is actually
-  // destructive: `text` only lives in this component's props/React state
-  // until mergeAnalysisIntoStore (or appendUnanalyzedEntry, for the free
-  // path) actually runs, back in the App shell's onDone — nothing here
-  // persists it before that. Every other screen either has nothing
-  // unsaved yet (still typing, hasn't hit Next) or has already been
-  // written to localStorage. Native browser prompt, not a custom one —
-  // beforeunload can't render its own UI, only ask the browser to show
-  // its own "leave site?" confirmation.
-  React.useEffect(() => {
-    if (!text) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [text]);
-
   React.useEffect(() => {
     if (!text) return;
     let cancelled = false;
@@ -3639,14 +3949,12 @@ function ScreenProcessing({
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-// Now reached only off the "processing" case's error/analyze-call-failed
-// path (see the App shell) — every tier that gets a real result routes
-// through "sessionSummary" instead (see mergeAnalysisIntoStore's
-// `accumulate` param). showUpsell is effectively vestigial as a result
-// (the one non-error path that used to reach this screen was the free
-// tier's unanalyzed-entry acknowledgment, which no longer exists), kept
-// rather than removed since ScreenProcessing's own "no text" fallback can
-// still land here without an error to show.
+// Reached two ways now: a Pro entry where the model itself found nothing new
+// to report, or any free-tier entry (recording is the entire free feature —
+// see appendUnanalyzedEntry in realStore.ts and the "think" case's onDone).
+// showUpsell distinguishes the two only by adding one extra line and a CTA;
+// the core "Got it" acknowledgment is identical either way, since a free
+// entry isn't a lesser version of a Pro one, just an unanalyzed one.
 function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
@@ -3688,16 +3996,13 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
 }
 
 // ── Screen 6.6 · Soft paywall (one-time nudge) ────────────────────────────────
-// Fires exactly once, replacing the usual "back to home" beat right after
-// the session-summary screen on the free tier's 3rd recorded entry (see
-// UPSELL_PROMPT_AT_ENTRY_COUNT and the "processing"/"sessionSummary" cases
-// in the App shell) — a deliberate, one-time ask. Free entries are analyzed
-// like any other by this point (see mergeAnalysisIntoStore's `accumulate`
-// param) — what they still don't get is the belief/hypothesis network
-// those entries would otherwise feed, which is the actual pitch here.
-// Never repeats after this: the App shell marks hasSeenUpgradePrompt true
-// the instant this screen is shown, whether the person taps through to
-// plans or dismisses with "Not now."
+// Fires exactly once, replacing the usual "Got it" beat right after the free
+// tier's 3rd recorded entry (see UPSELL_PROMPT_AT_ENTRY_COUNT and the
+// "think" case's onDone in the App shell) — a deliberate, one-time ask
+// rather than the quiet recurring footnote ScreenThinkComplete's showUpsell
+// already adds to every free entry. Never repeats after this: the App shell
+// marks hasSeenUpgradePrompt true the instant this screen is shown, whether
+// the person taps through to plans or dismisses with "Not now."
 function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
@@ -4398,7 +4703,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Unconscious Patterns</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: hasBeliefs ? 6 : 20, lineHeight: 1.5, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
@@ -4518,7 +4823,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Distance from Your Goal</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           The gap between the person you said you wanted to be and your recent actual patterns.
@@ -4606,7 +4911,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
           We'll keep comparing this to the thoughts you log going forward.
@@ -4657,7 +4962,7 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5 }}>Not certain. Agree or push back to help refine it together.</div>
       </div>
@@ -4739,7 +5044,7 @@ function HypothesisDiscoveryBody({
   const relatedConnections = store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
   const contradictoryEntries = relatedBeliefs
     .flatMap((b) => (b.contradictoryEntryIds ?? []).map((id) => ({ belief: b, entry: store.history.find((e) => e.id === id) })))
-    .filter((x): x is { belief: (typeof relatedBeliefs)[number]; entry: StoredHistoryEntry } => !!x.entry);
+    .filter((x): x is typeof x & { entry: StoredHistoryEntry } => !!x.entry);
 
   return (
     <div>
@@ -4882,7 +5187,7 @@ function ScreenHypothesisDetail({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <HypothesisDiscoveryBody h={h} store={store} onAgree={onAgree} onDisagree={onDisagree} reinterpreting={reinterpreting} onInvestigate={onInvestigate} />
@@ -4954,7 +5259,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
   return (
     <div style={{ position: "relative", height: "100%" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 22px 0", zIndex: 2 }}>
-        <motion.span role="button" tabIndex={0} onClick={step === 0 ? onBack : () => setStep(step - 1)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (step === 0 ? onBack : () => setStep(step - 1))?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={step === 0 ? onBack : () => setStep(step - 1)} />
         <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{step + 1} / {steps}</span>
       </div>
       <div style={{ height: "100%" }}>{body}</div>
@@ -4976,6 +5281,39 @@ function parseDotDate(dateStr: string): Date | null {
   const [y, m, d] = parts;
   const dt = new Date(y, m - 1, d);
   return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+// "Today"/"Yesterday" relative to now, else the raw date — matches the
+// History screen's original mockup group headers without fabricating
+// anything the date itself doesn't say.
+function relativeDayLabel(dateStr: string): string {
+  const d = parseDotDate(dateStr);
+  if (!d) return dateStr;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return dateStr;
+}
+
+// A fuller "N days/weeks ago" ladder than relativeDayLabel's Today/Yesterday
+// pair — used only by Recent Insights' small-caps date badge (see the
+// supplied concept reference: "YESTERDAY" / "3 DAYS AGO" / "1 WEEK AGO"),
+// so relativeDayLabel's own two-step behavior for History stays untouched.
+function relativeInsightLabel(dateStr: string): string {
+  const d = parseDotDate(dateStr);
+  if (!d) return dateStr;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  const weeks = Math.round(diffDays / 7);
+  if (weeks <= 1) return "1 week ago";
+  if (weeks < 5) return `${weeks} weeks ago`;
+  return dateStr;
 }
 
 // The design spec colors each history entry by domain, which this app's
@@ -5056,29 +5394,6 @@ function FilterIconGlyph({ color }: { color: string }) {
     </svg>
   );
 }
-// One simple monoline glyph per cognitive region — the journal's metadata
-// row marks each entry's domain with an icon instead of a text tag, so this
-// is what stands in for that per the app's own six real regions (see
-// REGION_CONFIG/CognitiveRegion) rather than inventing a separate icon set
-// unrelated to the actual data.
-function RegionIconGlyph({ region, color }: { region: CognitiveRegion; color: string }) {
-  const common = { stroke: color, strokeWidth: 1.3, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" };
-  switch (region) {
-    case "identity":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.4" {...common} /><path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" {...common} /></svg>;
-    case "security":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 2.5 16 5v5c0 4.2-2.7 6.9-6 8.5-3.3-1.6-6-4.3-6-8.5V5l6-2.5Z" {...common} /></svg>;
-    case "career":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M2.5 16.5 8 7l3 4.5 2.2-3L17.5 16.5Z" {...common} /></svg>;
-    case "relationships":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="6.8" cy="7" r="2.6" {...common} /><circle cx="13.2" cy="7" r="2.6" {...common} /><path d="M2 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4M9.4 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4" {...common} /></svg>;
-    case "curiosity":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="9.5" cy="9.5" r="6" {...common} /><path d="M15.8 15.8 18 18" {...common} /></svg>;
-    case "creativity":
-    default:
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 3c-3.6 0-5.5 2.5-5.5 5.3 0 2.1 1.3 3.2 1.9 4.2.5.8.6 1.5.6 2.5h6c0-1 .1-1.7.6-2.5.6-1 1.9-2.1 1.9-4.2C15.5 5.5 13.6 3 10 3Z" {...common} /><path d="M7.5 17h5M8.3 19h3.4" {...common} /></svg>;
-  }
-}
 
 // ── History helpers ───────────────────────────────────────────────────────────
 const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -5086,7 +5401,8 @@ const SHORT_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug
 
 // No time-of-day is ever actually recorded (StoredHistoryEntry has only
 // `date`) — this derives the one thing that genuinely IS recoverable from a
-// real date, the weekday, rather than inventing a clock time.
+// real date, the weekday, rather than inventing a clock time the concept
+// mockup showed.
 function weekdayFromDotDate(dateStr: string): string {
   const d = parseDotDate(dateStr);
   return d ? WEEKDAY_NAMES[d.getDay()] : "";
@@ -5106,9 +5422,10 @@ function hashRotationDeg(id: string, spread = 4): number {
 }
 
 // One honest margin note per entry, priority-ordered by how much the real
-// data actually supports it — never a decorative placeholder. Reuses the
-// exact same fields the old list view's "Recurring thought" tag and
-// findEntryDomain already relied on.
+// data actually supports it — never a decorative placeholder (see the
+// redesign brief: "Only show annotations when actual Analysis data supports
+// them"). Reuses the exact same fields the old list view's "Recurring
+// thought" tag and findEntryDomain already relied on.
 function entryAnnotation(entry: StoredHistoryEntry, beliefs: StoredBelief[]): string | null {
   if (beliefs.some((b) => (b.contradictoryEntryIds ?? []).includes(entry.id))) return "Contradicts earlier belief";
   const status = entry.analysis?.hypothesis?.status;
@@ -5120,21 +5437,22 @@ function entryAnnotation(entry: StoredHistoryEntry, beliefs: StoredBelief[]): st
 }
 
 // The belief this entry actually helped establish, if any — the same match
-// findEntryDomain uses, just returning the whole belief so its statement
-// can be shown as the journal's "Related Discovery" line.
+// findEntryDomain uses, just returning the whole belief so its statement can
+// be shown as the journal's "Related Discovery" line.
 function relatedBeliefForEntry(entry: StoredHistoryEntry, beliefs: StoredBelief[]): StoredBelief | null {
   return beliefs.find((b) => (b.supportingEntryIds ?? []).includes(entry.id)) ?? null;
 }
 
 // A small outlined circular control (Search/Calendar/Filter) with a label
-// underneath.
+// underneath, matching the redesign brief's "simple outlined circular
+// controls... icon + small label underneath."
 function HistoryControlButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <motion.div
-      role="button" tabIndex={0} aria-label={label} onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+    <motion.button
+      type="button" aria-label={label} aria-pressed={active || undefined} onClick={onClick}
       whileTap={{ scale: 0.94, opacity: 0.8 }}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer" }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(245,239,228,.16)" }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", border: 0, padding: 0, background: "transparent", WebkitTapHighlightColor: "transparent" }}
     >
       <span
         style={{
@@ -5146,13 +5464,13 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
         {icon}
       </span>
       <span style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: "rgba(245,239,228,0.75)" }}>{label}</span>
-    </motion.div>
+    </motion.button>
   );
 }
 
 // The shared bottom-sheet chrome for Search/Calendar/Filter — same warm
-// card look the rest of the redesigned app already uses (mdCard), just
-// anchored to the bottom of the screen instead of being a full modal.
+// paper-card look the rest of the redesigned app already uses (mdCard),
+// just anchored to the bottom of the screen instead of being a full modal.
 function HistorySheet({ title, onClose, children }: { title: string; onClose?: () => void; children: React.ReactNode }) {
   return (
     <motion.div
@@ -5184,15 +5502,15 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
 // directions) so "previous = older / next = newer" is correct regardless of
 // which data source is active — a presentation-layer fix, not a change to
 // the underlying data. Search/date-jump/domain-filter are real, working
-// narrowing of this same list, reusing findEntryDomain. ScreenHistoryDetail
-// (situation/automatic thought/emotions/patterns/session recap) is
-// preserved and still reachable via "Read full entry" whenever an entry
-// actually has that extra content.
+// narrowing of this same list (not decorative), reusing findEntryDomain —
+// the only pre-existing per-entry field capable of a "filter" in the first
+// place. ScreenHistoryDetail (situation/automatic thought/emotions/
+// patterns/session recap) is preserved and still reachable via "Read full
+// entry" whenever an entry actually has that extra content.
 function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
-  // Newest-first, by real date value — store.history's own raw order isn't
-  // trustworthy for this (real vs. demo data happen to store it in opposite
-  // directions), so this always re-derives "previous = older / next =
-  // newer" from the actual date string regardless of which source is active.
+  const reduceMotion = useReducedMotion();
+
+  // Newest-first, by real date value — see the comment above.
   const sorted = React.useMemo(
     () => [...store.history].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
     [store.history]
@@ -5209,12 +5527,12 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   const [dir, setDir] = React.useState(1);
 
   const availableDomains = React.useMemo(() => {
-    const map = new Map<string, string>(); // domain -> color
+    const set = new Map<string, string>(); // domain -> color
     withNumber.forEach(({ entry }) => {
       const d = findEntryDomain(entry.id, store.beliefs);
-      if (d) map.set(d.domain, d.color);
+      if (d) set.set(d.domain, d.color);
     });
-    return Array.from(map.entries());
+    return Array.from(set.entries());
   }, [withNumber, store.beliefs]);
 
   const filtered = React.useMemo(() => {
@@ -5229,12 +5547,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     });
   }, [withNumber, search, filterDomain, store.beliefs]);
 
-  // Search used to only ever match entry.text — a real recurring pattern
-  // or AI hypothesis is often what someone actually remembers and searches
-  // for, not the specific entry that first surfaced it. These are kept
-  // separate from `filtered` above (which also drives the swipeable
-  // journal card's prev/next navigation and must stay entry-only) and
-  // rendered as their own sections in the search sheet.
   const matchingBeliefs = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -5243,6 +5555,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
       return b.statement.toLowerCase().includes(q);
     });
   }, [store.beliefs, search, filterDomain]);
+
   const matchingHypotheses = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
@@ -5259,6 +5572,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
 
   const goOlder = () => { if (older) { setDir(1); setActiveId(older.entry.id); } };
   const goNewer = () => { if (newer) { setDir(-1); setActiveId(newer.entry.id); } };
+
   const jumpTo = (entryId: string) => { setDir(0); setActiveId(entryId); setSheet(null); };
 
   const relatedBelief = current ? relatedBeliefForEntry(current.entry, store.beliefs) : null;
@@ -5266,15 +5580,11 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   const domainInfo = current ? findEntryDomain(current.entry.id, store.beliefs) : null;
   const mood = current?.entry.analysis?.observation.emotions[0]?.label;
   // "Read full entry" shows whenever tapping it would genuinely reveal more
-  // than this page already does — either real analysis/recap data (see
+  // than the page already does — either real analysis/recap data (see
   // ScreenHistoryDetail), or a thought long enough that the 6-line clamp
-  // below is very likely cutting it off.
+  // above is very likely cutting it off.
   const hasExtra = current ? !!(current.entry.analysis || current.entry.sessionSummary || current.entry.text.length > 260) : false;
 
-  // Preserves the exact index contract ScreenHistoryDetail expects — an
-  // index into [...store.history].reverse() — even though this screen's
-  // own internal ordering (sorted/withNumber/filtered) is independent of
-  // that array's raw order.
   const openFullEntry = () => {
     if (!current) return;
     const detailItems = [...store.history].reverse();
@@ -5282,7 +5592,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     if (detailIndex >= 0) onOpenEntry?.(detailIndex);
   };
 
-  const swipeDur = 0.32;
+  const swipeDur = reduceMotion ? 0 : 0.32;
 
   return (
     <div style={{ position: "relative", height: "100%", backgroundColor: "#1c1712" }}>
@@ -5290,10 +5600,11 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+          {/* ── Header + controls ── */}
           <div style={{ padding: "20px 20px 6px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 10 }}>
             <div>
               <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>History</div>
-              <div style={{ ...sans, fontSize: 12.5, color: "rgba(245,239,228,0.82)", marginTop: 5, lineHeight: 1.45, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
+              <div style={{ ...sans, fontSize: 12, color: "rgba(245,239,228,0.82)", marginTop: 3, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
                 The thoughts you've recorded<br />over time.
               </div>
             </div>
@@ -5304,43 +5615,51 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             </div>
           </div>
 
-          <div data-tutorial="history-list" style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 0" }}>
+          {/* ── The journal ── */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 0" }}>
             {current ? (
               <motion.div
                 data-tutorial="history-journal"
-                drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.12}
-                onDragEnd={(_e, info) => {
-                  if (info.offset.x < -60 || info.velocity.x < -500) goNewer();
-                  else if (info.offset.x > 60 || info.velocity.x > 500) goOlder();
-                }}
                 style={{ position: "relative", width: "90%", maxWidth: 420, touchAction: "pan-y" }}
               >
-                <img src={historyJournalImg} alt="" style={{ width: "100%", display: "block", pointerEvents: "none" }} draggable={false} />
-                <div style={{ position: "absolute", top: "8%", left: "13%", right: "9%", bottom: "12%", overflow: "hidden" }}>
+                <img src={historyJournalImg} alt="" style={{ width: "100%", height: "auto", display: "block", pointerEvents: "none" }} draggable={false} />
+                {/* The one strict page-safe container every piece of dynamic
+                content lives inside — measured against the actual cream
+                paper area of historyJournalImg (leather cover, stacked-page
+                edge, and bookmark tab all sit outside these insets), so
+                nothing dynamic can ever render into the leather/binding. */}
+                <div style={{ position: "absolute", top: "10%", left: "13%", right: "12%", bottom: "10%", overflow: "hidden", boxSizing: "border-box", maxWidth: "100%" }}>
                   <AnimatePresence mode="wait" custom={dir}>
                     <motion.div
                       key={current.entry.id}
                       custom={dir}
-                      initial={{ opacity: 0, x: dir === 0 ? 0 : dir * 26 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: dir === 0 ? 0 : -dir * 26 }}
-                      transition={{ duration: swipeDur, ease: "easeOut" }}
-                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}
+                      initial={{ opacity: 0, y: dir === 0 ? 0 : 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: dir === 0 ? 0 : -3 }}
+                      transition={{ duration: swipeDur, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}
                     >
+                      {/* ENTRY number */}
                       <div style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.16em", color: paperInkMuted }}>ENTRY</div>
                       <div style={{ ...serif, fontSize: 17, color: paperInk, marginTop: 2 }}>{current.entryNumber}</div>
                       <div style={{ width: 30, height: 1, backgroundColor: "rgba(46,32,19,0.22)", margin: "8px 0" }} />
 
+                      {/* Date */}
                       <div style={{ ...serif, fontSize: "clamp(17px, 4.6vw, 20px)", color: paperInk }}>{current.entry.date}</div>
                       <div style={{ ...sans, fontSize: 11, color: paperInkMuted, marginTop: 3 }}>
                         {weekdayFromDotDate(current.entry.date)}
                       </div>
 
-                      <div style={{ marginTop: "clamp(14px, 4vw, 20px)", width: "100%" }}>
+                      {/* Thought quote — capped to ~84% of the safe page
+                      width and centered, so a single long line can never
+                      reach all the way to the safe area's own edge, let
+                      alone the physical page edge beyond it. */}
+                      <div style={{ marginTop: "clamp(14px, 4vw, 20px)", width: "84%", maxWidth: "84%", minWidth: 0, boxSizing: "border-box" }}>
                         <span style={{ ...serif, fontSize: 34, color: "rgba(46,32,19,0.28)", lineHeight: 1, display: "block", height: 16 }}>"</span>
                         <p
                           style={{
-                            ...serif, fontStyle: "italic", fontSize: "clamp(14px, 4vw, 16.5px)", color: paperInk, lineHeight: 1.55, margin: "4px 0 0", wordBreak: "keep-all",
+                            ...serif, fontStyle: "italic", fontSize: "clamp(14px, 4vw, 16.5px)", color: paperInk, lineHeight: 1.55, margin: "4px 0 0",
+                            wordBreak: "keep-all", overflowWrap: "anywhere", maxWidth: "100%",
                             display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden",
                           }}
                         >
@@ -5357,60 +5676,82 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                         )}
                       </div>
 
-                      {/* Margin annotation — sits in normal flow right after
-                      the thought (rather than absolutely overlaid beside
-                      it) so it can never collide with however many lines
-                      the real thought actually wraps to. */}
+                      {/* Margin annotation — dynamic, never baked into the
+                      PNG. Sits in normal flow right after the thought
+                      (rather than absolutely overlaid beside it) so it can
+                      never collide with however many lines the real thought
+                      actually wraps to — still right-aligned and tilted
+                      like a note jotted in the margin, just safely below
+                      the text instead of floating over it. */}
                       {annotation && (
-                        <div
-                          style={{
-                            width: "100%", textAlign: "right", marginTop: 6,
-                            ...serif, fontStyle: "italic", fontSize: 11, color: "rgba(150,104,42,0.85)",
-                            transform: `rotate(${hashRotationDeg(current.entry.id)}deg)`, pointerEvents: "none",
-                          }}
-                        >
-                          {annotation}
+                        // paddingRight (not just justify-content: flex-end)
+                        // is what actually matters here — the tilt below
+                        // rotates around the text's own center, so flush
+                        // against the safe area's edge it swings part of
+                        // itself straight into the overflow:hidden clip.
+                        // This padding is that rotation's clearance.
+                        <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, display: "flex", justifyContent: "flex-end", marginTop: 6, paddingRight: "6%", boxSizing: "border-box" }}>
+                          <div
+                            style={{
+                              maxWidth: "58%", boxSizing: "border-box",
+                              ...serif, fontStyle: "italic", fontSize: 11, color: "rgba(150,104,42,0.85)", lineHeight: 1.3, textAlign: "right",
+                              overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                              transform: `rotate(${hashRotationDeg(current.entry.id)}deg)`, pointerEvents: "none",
+                            }}
+                          >
+                            {annotation}
+                          </div>
                         </div>
                       )}
 
+                      {/* Metadata row — constrained to the safe page width,
+                      centered, wraps whole [icon+label] units onto a new
+                      line rather than letting any one of them (a long
+                      domain string, say) run past the page edge. */}
                       {(current.entry.duration || domainInfo || mood) && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 8, marginTop: "clamp(12px, 3.5vw, 18px)" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "clamp(5px, 2vw, 8px)", marginTop: "clamp(12px, 3.5vw, 18px)", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}>
                           {current.entry.duration && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap" }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
                               <MicGlyph color={paperInkMuted} /> {current.entry.duration}
                             </span>
                           )}
                           {current.entry.duration && (domainInfo || mood) && <MetaDivider color={paperInkMuted} />}
                           {domainInfo && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap" }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
                               <RegionIconGlyph region={resolveRegion({ domain: domainInfo.domain } as any)} color={paperInkMuted} /> {domainInfo.domain}
                             </span>
                           )}
                           {domainInfo && mood && <MetaDivider color={paperInkMuted} />}
                           {mood && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap" }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
                               <MoodGlyph color={paperInkMuted} /> {mood}
                             </span>
                           )}
                         </div>
                       )}
 
+                      {/* Related discovery — printed on the page, not a floating card */}
                       {relatedBelief && (
                         <motion.div
                           role="button" tabIndex={0} onClick={() => onNavSelect?.("discoveryAnalysis")}
                           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("discoveryAnalysis"); } }}
                           whileTap={{ opacity: 0.7 }}
                           style={{
-                            marginTop: "clamp(14px, 4vw, 20px)", width: "100%", textAlign: "left", cursor: "pointer",
+                            marginTop: "clamp(14px, 4vw, 20px)", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", textAlign: "left", cursor: "pointer",
                             borderTop: "1px solid rgba(46,32,19,0.2)", borderBottom: "1px solid rgba(46,32,19,0.2)", padding: "10px 2px",
                           }}
                         >
                           <div style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em", color: paperAccent, textAlign: "center" }}>RELATED DISCOVERY</div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                            <p style={{ ...serif, fontSize: 13.5, color: paperInk, lineHeight: 1.4, margin: 0, flex: 1, wordBreak: "keep-all" }}>
+                          {/* flex:1 alone lets a long, unbroken belief
+                          statement force this row wider than the safe area
+                          (flex items default to min-width:auto) — min-width:
+                          0 is what actually makes it wrap instead of
+                          pushing the chevron off the page. */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, width: "100%", maxWidth: "100%", minWidth: 0 }}>
+                            <p style={{ ...serif, fontSize: 13.5, color: paperInk, lineHeight: 1.4, margin: 0, flex: 1, minWidth: 0, maxWidth: "100%", wordBreak: "keep-all", overflowWrap: "anywhere" }}>
                               {relatedBelief.discoveryInterpretationOverride ?? relatedBelief.statement}
                             </p>
-                            <span style={{ ...sans, fontSize: 15, color: paperInkMuted, flexShrink: 0 }}>›</span>
+                            <span style={{ ...sans, fontSize: 15, color: paperInkMuted, flexShrink: 0, width: 14, textAlign: "center" }}>›</span>
                           </div>
                         </motion.div>
                       )}
@@ -5425,6 +5766,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             )}
           </div>
 
+          {/* ── Prev / next navigation ── */}
           {current && (older || newer) && (
             <div style={{ flexShrink: 0, padding: "0 24px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 420, margin: "0 auto", width: "90%" }}>
               <motion.span
@@ -5452,6 +5794,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         <BottomNav active="history" onSelect={onNavSelect} vintage />
       </div>
 
+      {/* ── Search / Calendar / Filter sheets ── */}
       <AnimatePresence>
         {sheet === "search" && (
           <HistorySheet title="Search" onClose={() => setSheet(null)}>
@@ -5463,7 +5806,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             {(matchingBeliefs.length > 0 || matchingHypotheses.length > 0) && (
               <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>THOUGHTS</div>
             )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: matchingBeliefs.length > 0 || matchingHypotheses.length > 0 ? 0 : 14 }}>
               {filtered.slice(0, 20).map(({ entry, entryNumber }) => (
                 <motion.div
                   key={entry.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
@@ -5475,10 +5818,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 </motion.div>
               ))}
             </div>
-
             {matchingBeliefs.length > 0 && (
               <>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>UNCONSCIOUS BELIEFS</div>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>UNDERLYING BELIEFS</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {matchingBeliefs.slice(0, 10).map((b) => (
                     <motion.div
@@ -5494,7 +5836,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 </div>
               </>
             )}
-
             {matchingHypotheses.length > 0 && (
               <>
                 <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>AI HYPOTHESES</div>
@@ -5512,7 +5853,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 </div>
               </>
             )}
-
             {search.trim() && filtered.length === 0 && matchingBeliefs.length === 0 && matchingHypotheses.length === 0 && (
               <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "8px 2px", marginTop: 14 }}>Nothing matches "{search.trim()}".</div>
             )}
@@ -5588,7 +5928,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} color={dkBody} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -5662,6 +6002,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   );
 }
 
+
 // ── Screen 14 · Profile ────────────────────────────────────────────────────────
 function ScreenProfile({
   onNavSelect,
@@ -5690,17 +6031,11 @@ function ScreenProfile({
     { value: String(store.beliefs.length), label: "Beliefs discovered" },
     { value: `${streakDays} days`, label: "Streak" },
   ];
-
-  // Web Share API where it exists (mobile browsers, mostly); a clipboard
-  // copy elsewhere — no server round-trip either way, this is purely the
-  // three numbers already shown above, formatted as one sentence. `copied`
-  // is the only user-facing sign the clipboard path worked, since it has
-  // no OS-level share sheet of its own to confirm it.
   const [copied, setCopied] = React.useState(false);
   const shareStats = async () => {
     const text = `${store.entryCount} thoughts logged, ${store.beliefs.length} beliefs discovered, ${streakDays}-day streak on Mindscape.`;
     if (navigator.share) {
-      try { await navigator.share({ text }); } catch { /* user cancelled — not an error */ }
+      try { await navigator.share({ text }); } catch { /* user cancelled */ }
       return;
     }
     if (navigator.clipboard) {
@@ -5708,7 +6043,7 @@ function ScreenProfile({
         await navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } catch { /* clipboard permission denied — silently no-op, same as a cancelled share */ }
+      } catch { /* clipboard permission denied */ }
     }
   };
   const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
@@ -5781,12 +6116,11 @@ function ScreenProfile({
         </div>
 
         {store.entryCount > 0 && (
-          <motion.div
-            role="button" tabIndex={0} onClick={shareStats} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); shareStats(); } }}
-            whileTap={{ opacity: 0.6 }}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", marginBottom: 14, cursor: "pointer" }}
+          <motion.button
+            type="button" onClick={shareStats} whileTap={{ opacity: 0.6 }}
+            style={{ border: "none", background: "transparent", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", marginBottom: 14, cursor: "pointer" }}
           >
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <circle cx="15" cy="5" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
               <circle cx="5" cy="10" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
               <circle cx="15" cy="15" r="2.3" stroke={mdAccentText} strokeWidth="1.4" />
@@ -5795,7 +6129,7 @@ function ScreenProfile({
             <span style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: mdAccentText }}>
               {copied ? "Copied to clipboard" : "Share your progress"}
             </span>
-          </motion.div>
+          </motion.button>
         )}
 
         {/* Design/dev affordance: instantly switches the whole app between
@@ -5840,15 +6174,17 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dividerColor}` }}>
       <div style={{ paddingRight: 16 }}>
-        <div style={{ ...sans, fontSize: 15, fontWeight: modernist ? 800 : 400, color: labelColor }}>{label}</div>
+        <div style={{ ...sans, fontSize: 14, fontWeight: modernist ? 700 : 400, color: labelColor }}>{label}</div>
         {note && <div style={{ ...sans, fontSize: 12, color: noteColor, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
       </div>
-      <motion.div
-        role="button" tabIndex={0} onClick={() => onChange?.(!value)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onChange?.(!value))?.(); } }} whileTap={{ scale: 0.95 }}
-        style={{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start" }}
+      <motion.button
+        type="button" role="switch" aria-checked={value} aria-label={label}
+        onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
+        whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.16)" : "rgba(255,255,255,.10)"}` }}
+        style={{ width: 44, height: 26, borderRadius: 13, border: 0, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start", WebkitTapHighlightColor: "transparent" }}
       >
-        <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff" }} />
-      </motion.div>
+        <motion.span layout transition={{ type: "spring", stiffness: 520, damping: 34 }} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff", display: "block" }} />
+      </motion.button>
     </div>
   );
 }
@@ -5857,7 +6193,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Notifications</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -5871,20 +6207,14 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
         {settings.dailyReminder && (
           <div style={{ padding: "2px 0 18px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <label htmlFor="daily-reminder-time" style={{ ...sans, fontSize: 13, color: mdBody }}>
-                Remind me at
-              </label>
+              <label htmlFor="daily-reminder-time" style={{ ...sans, fontSize: 13, color: mdBody }}>Remind me at</label>
               <input
-                id="daily-reminder-time"
-                type="time"
-                value={settings.dailyReminderTime}
+                id="daily-reminder-time" type="time" value={settings.dailyReminderTime}
                 onChange={(e) => onChange?.({ ...settings, dailyReminderTime: e.target.value })}
                 style={{ ...sans, fontSize: 14, color: mdHeading, border: `1px solid ${mdDivider}`, borderRadius: 10, padding: "6px 10px", backgroundColor: mdCard }}
               />
             </div>
-            <div style={{ ...sans, fontSize: 11.5, color: mdFaint, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Only fires while this app is open in a tab — there's no server behind this yet to reach you when it's closed.
-            </div>
+            <div style={{ ...sans, fontSize: 11.5, color: mdFaint, marginTop: 6, lineHeight: 1.5 }}>Only fires while this app is open in a tab.</div>
           </div>
         )}
         <SettingsToggle
@@ -5906,12 +6236,6 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
   );
 }
 
-// Guests have no account and no cloud sync — clearing site data, switching
-// browsers, or an incognito session ends the session with zero recovery
-// path, and until now there was no way to get a copy out first. This is
-// the one export the whole app has: the real Store shape, straight to a
-// downloaded file, no server round-trip (there's nowhere to send it to
-// even if there were one).
 function downloadStoreAsJson(store: Store) {
   const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -5943,7 +6267,7 @@ function ScreenDataPrivacy({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -5976,21 +6300,18 @@ function ScreenDataPrivacy({
         </div>
 
         <div style={{ marginTop: 28 }}>
-          <div
-            role="button" tabIndex={0}
-            onClick={() => downloadStoreAsJson(s)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); downloadStoreAsJson(s); } }}
-            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${mdDivider}`, cursor: "pointer" }}
+          <motion.button
+            type="button" onClick={() => downloadStoreAsJson(s)} whileTap={{ scale: 0.99, opacity: 0.8 }}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${mdDivider}`, background: "transparent", cursor: "pointer", textAlign: "left", WebkitTapHighlightColor: "transparent" }}
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdHeading }}>Download my data</span>
-          </div>
+          </motion.button>
           <div style={{ ...sans, fontSize: 12, color: mdFaint, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            {isCloudSyncConfigured
-              ? "Saves everything above to a JSON file on this device — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
-              : "Saves everything above to a JSON file on this device. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives."}
+            Exports a local JSON copy of the information Mindscape has stored for you.
           </div>
         </div>
 
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 28 }}>
           <div
             role="button" tabIndex={0}
             onClick={() => (armed ? onResetData?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onResetData?.() : setArmed(true)))?.(); } }}
@@ -6041,7 +6362,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Help</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There are patterns in your mind. You just can't see them from inside.
@@ -6095,7 +6416,7 @@ function ScreenLegalDocument({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>{title}</div>
         <div style={{ ...mono, fontSize: 11, color: mdFaint, marginTop: 6 }}>Last updated {lastUpdated}</div>
       </div>
@@ -6248,9 +6569,9 @@ function ScreenPaywall({
 }: {
   onBack?: () => void;
   onContinue?: (plan: ProPlan) => void;
-  // Set only when this screen is standing in for a real tab (currently just
-  // "analysis" — the only gated screen whose real version has its own
-  // BottomNav; see the "analysis" case in the App shell). Keeps this a full-
+  // Set only when this screen is standing in for a real tab ("analysis" or
+  // "premium" — the only gated screens whose real version has its own
+  // BottomNav; see those cases in the App shell). Keeps this a full-
   // screen modal everywhere else it's used (from Profile, from the post-
   // recording upsell), matching those entry points' own real screens, none
   // of which have a tab bar either.
@@ -6260,9 +6581,9 @@ function ScreenPaywall({
   const [selected, setSelected] = React.useState<ProPlan>("yearly");
   const plan = PRO_PLANS.find((p) => p.id === selected)!;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
@@ -6283,8 +6604,8 @@ function ScreenPaywall({
             <div key={f.title} style={{ display: "flex", gap: 12, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
               <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: mdAccentSoft, color: mdAccentText, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>✓</span>
               <div>
-                <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>{f.title}</div>
-                <div style={{ ...sans, fontSize: 12.5, color: mdBody, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{f.detail}</div>
+                <div style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading }}>{f.title}</div>
+                <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{f.detail}</div>
               </div>
             </div>
           ))}
@@ -6313,7 +6634,7 @@ function ScreenPaywall({
                   </span>
                   <div>
                     <div style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading }}>{p.label}</div>
-                    <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{p.billedNote}</div>
+                    <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{p.billedNote}</div>
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -6329,11 +6650,7 @@ function ScreenPaywall({
         <PrimaryBtn onClick={() => onContinue?.(selected)} modernist>Continue — {plan.price}{plan.period}</PrimaryBtn>
         <div style={{ ...sans, fontSize: 11, color: mdFaint, textAlign: "center", marginTop: 10 }}>Cancel anytime. No commitment.</div>
       </div>
-      {/* Stands in for a vintage-themed tab (analysis/discoveryAnalysis/
-      premium — see the App shell's cases) whenever activeTab is set, so it
-      needs the same nav variant those real tabs use, not modernist's flat
-      bar — see the comment on activeTab above. */}
-      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} vintage />}
+      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} modernist />}
     </div>
   );
 }
@@ -6372,15 +6689,15 @@ function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 0", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
-        <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 14 }}>Payment</div>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <BackButton onClick={onBack} />
+        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Payment</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
           <div>
-            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
-            <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
+            <div style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{planInfo.billedNote}</div>
           </div>
           <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 12, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
         </div>
@@ -6415,28 +6732,27 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>← Back</motion.span>
+        <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
           <div>
-            <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
-            <div style={{ ...sans, fontSize: 11.5, color: mdBody, marginTop: 2 }}>{planInfo.billedNote}</div>
+            <div style={{ ...sans, fontSize: 14, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
+            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{planInfo.billedNote}</div>
           </div>
           <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 11, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
         </div>
 
         <div style={{ marginTop: 28 }}>
-          <div
-            role="button" tabIndex={0}
-            onClick={() => (armed ? onCancel?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onCancel?.() : setArmed(true)))?.(); } }}
-            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
+          <motion.button
+            type="button" aria-pressed={armed}
+            onClick={() => (armed ? onCancel?.() : setArmed(true))}
+            whileTap={{ scale: 0.985 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(164,74,74,.13)" }}
+            style={{ ...sans, width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer", fontSize: 14, fontWeight: 600, color: mdWarn, WebkitTapHighlightColor: "transparent" }}
           >
-            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
-              {armed ? "Are you sure? Tap again to cancel" : "Cancel subscription"}
-            </span>
-          </div>
+            {armed ? "Are you sure? Tap again to cancel" : "Cancel subscription"}
+          </motion.button>
           {armed && (
             <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
               You'll immediately lose access to your Brain Map, hypotheses, and analysis. Your recorded entries stay right where they are.
@@ -6469,24 +6785,26 @@ function useIsMobileViewport(): boolean {
 
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = React.useState("splash");
+  const [screen, setScreen] = React.useState("quote");
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
   // so its back button needs to know which one to return to.
   const [investigateReturnTo, setInvestigateReturnTo] = React.useState<"hypothesisDetail" | "discoveryAnalysis">("hypothesisDetail");
+  // Same idea, for the Brain Map: it's now reachable from both Home's jar
+  // and the Mind tab's constellation, and "back" needs to return wherever
+  // the trip actually started instead of always landing on Home.
+  const [brainMapReturnTo, setBrainMapReturnTo] = React.useState<"home" | "analysis">("home");
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
-  // Set the instant a free-tier entry lands on the one-time upsell moment
-  // (UPSELL_PROMPT_AT_ENTRY_COUNT), read back after the session-summary
-  // beat to decide whether it's followed by the soft paywall or just home
-  // — see the "processing"/"sessionSummary" cases below.
   const [pendingUpsell, setPendingUpsell] = React.useState(false);
   // Set right before navigating to "brainmap" whenever the trip started
-  // from a region shortcut (see HomeRegionShortcuts) rather than the
-  // Brain Map card's own expand button — null just opens the map
-  // unfiltered, same as always.
+  // from a region-filtered entry point rather than the Brain Map card's own
+  // expand button — null just opens the map unfiltered, same as always.
+  // (Home no longer has a region-shortcut row — see the vintage ScreenHome
+  // comment — so today this is always null coming from Home; left in place
+  // for whatever else ends up wanting a filtered entry point.)
   const [brainMapInitialRegion, setBrainMapInitialRegion] = React.useState<CognitiveRegion | null>(null);
   // The one data provider: `store` is whichever dataset is currently active
   // (curated demo content, or the real on-device store — see
@@ -6496,18 +6814,27 @@ export default function App() {
   // Demo Mode happens to be on.
   const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore } = useAppData();
 
-  // Best-effort "reflect on today" reminder. There's no service worker or
-  // push infra behind this app (see ScreenNotificationSettings' own
-  // caption to the user about this) — so it's the plain Notification API,
-  // ticked from this always-mounted root, and it can only ever fire while
-  // a tab is open. Checked once a minute; a localStorage date-stamp keeps
-  // it from firing twice inside the same day if the tick and the reload
-  // timing happen to line up.
+  // A refresh or tab-close mid-analysis silently throws away the in-flight
+  // /api/analyze call (and, for a Pro entry, the thought itself — it isn't
+  // saved to history until mergeAnalysisIntoStore runs in onDone below).
+  // Scoped to exactly the "processing" screen: armed the moment it mounts,
+  // torn down the moment the screen changes away from it for any reason
+  // (a real result, an error routing to thinkComplete, or Cancel routing
+  // home), so normal navigation is never blocked once analysis is settled.
+  React.useEffect(() => {
+    if (screen !== "processing") return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [screen]);
+
   React.useEffect(() => {
     if (!store.settings.dailyReminder) return;
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "default") Notification.requestPermission();
-
     const check = () => {
       if (Notification.permission !== "granted") return;
       const now = new Date();
@@ -6515,12 +6842,10 @@ export default function App() {
       if (hhmm !== store.settings.dailyReminderTime) return;
       const todayStr = formatDateDots(now);
       let lastFired = "";
-      try { lastFired = localStorage.getItem(DAILY_REMINDER_LAST_FIRED_KEY) ?? ""; } catch { /* private mode */ }
+      try { lastFired = localStorage.getItem(DAILY_REMINDER_LAST_FIRED_KEY) ?? ""; } catch {}
       if (lastFired === todayStr) return;
-      try { localStorage.setItem(DAILY_REMINDER_LAST_FIRED_KEY, todayStr); } catch { /* private mode */ }
-      new Notification("There's a pattern in your thinking.", {
-        body: "Take a minute to reflect on today.",
-      });
+      try { localStorage.setItem(DAILY_REMINDER_LAST_FIRED_KEY, todayStr); } catch {}
+      new Notification("There's a pattern in your thinking.", { body: "Take a minute to reflect on today." });
     };
     check();
     const interval = setInterval(check, 30000);
@@ -6750,6 +7075,7 @@ export default function App() {
 
   let content: React.ReactNode = null;
   switch (screen) {
+    case "quote": content = <ScreenQuoteOfTheDay onDone={() => setScreen("splash")} />; break;
     case "splash": content = <ScreenSplash onDone={() => setScreen("auth")} />; break;
     case "auth": content = <ScreenAuth onEmailStart={() => setScreen(realStore.account ? "login" : "signup")} onGuest={() => setScreen("onboarding")} />; break;
     case "login": content = (
@@ -6789,15 +7115,15 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={() => setScreen("think")}
-        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setScreen("brainmap"); }}
+        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
-      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen("home")} modernist initialActiveRegion={brainMapInitialRegion} />
+      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} />
     ) : (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
+      <ScreenPaywall onBack={() => setScreen(brainMapReturnTo)} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
     case "analysis": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall
@@ -6807,7 +7133,11 @@ export default function App() {
         onNavSelect={goToTab}
       />
     ) : (
-      <ScreenAnalysis onNavSelect={goToTab} onOpenBrainMap={() => { setBrainMapInitialRegion(null); setScreen("brainmap"); }} store={store} />
+      <ScreenAnalysis
+        onNavSelect={goToTab}
+        onOpenBrainMap={() => { setBrainMapInitialRegion(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
+        store={store}
+      />
     ); break;
     case "discoveryAnalysis": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall
@@ -6820,6 +7150,7 @@ export default function App() {
       <ScreenDiscoveryAnalysis
         onNavSelect={goToTab}
         store={store}
+        updateStore={updateStore}
         onAgreeHypothesis={agreeToHypothesis}
         onDisagreeHypothesis={disagreeWithHypothesis}
         onInvestigateHypothesis={(index) => {
@@ -6859,11 +7190,9 @@ export default function App() {
             updateStore((prev) => appendUnanalyzedEntry(prev, text));
             setScreen("crisisSupport");
           } else {
-            // Every tier gets a real /api/analyze call now — the free/Pro
-            // line moved from "analyzed at all" to "does this entry feed
-            // the accumulated belief/hypothesis network" (see
-            // mergeAnalysisIntoStore's `accumulate` param, applied once
-            // the result comes back in the "processing" case below).
+            // Every tier gets a one-entry analysis. Premium controls whether
+            // that entry is allowed to accumulate into the longitudinal
+            // belief/hypothesis/connection network once the result returns.
             setScreen("processing");
           }
         }}
@@ -6885,36 +7214,14 @@ export default function App() {
         onDone={(result, sessionSummary) => {
           if (result) {
             const accumulate = !MONETIZATION_ENABLED || store.isPro;
-            // The one-time soft-paywall ask (ScreenSoftPaywall) preempts
-            // the usual post-summary "back to home" beat exactly once,
-            // right as the free tier's 3rd recorded entry lands — decided
-            // off the pre-update entryCount since this is a synchronous
-            // read within the same event, not a stale closure. Remembered
-            // in state (not decided again after sessionSummary) so it
-            // can't disagree with itself if entryCount/hasSeenUpgradePrompt
-            // change in between.
             const isUpsellMoment = !accumulate && store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
             const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary, accumulate);
-            // "New hypothesis alerts" — fires the instant this entry
-            // actually surfaced something new: a belief crossing the
-            // evidence bar for the first time (beliefs array grows) or a
-            // cross-pattern meta-insight appearing (hypotheses array
-            // grows). mergeAnalysisIntoStore only ever grows either array
-            // on a genuinely new item — reinforcing an existing one changes
-            // its fields in place, never its length — so this comparison
-            // can't misfire on routine reinforcement.
             if (store.settings.newHypothesisAlert && typeof Notification !== "undefined" && Notification.permission === "granted") {
               const foundNewPattern = merged.beliefs.length > store.beliefs.length || merged.hypotheses.length > store.hypotheses.length;
-              if (foundNewPattern) {
-                new Notification("A new pattern showed up", { body: "Take a look at what your recent thoughts have in common." });
-              }
+              if (foundNewPattern) new Notification("A new pattern showed up", { body: "Take a look at what your recent thoughts have in common." });
             }
             updateStore(() => (isUpsellMoment ? { ...merged, hasSeenUpgradePrompt: true } : merged));
             setPendingUpsell(isUpsellMoment);
-            // A real analysis landed — pass through a brief session-summary
-            // beat (Feature 2's language observation + Feature 3's AI
-            // recap, when either is available) regardless of tier; where it
-            // goes next depends on tier (see the "sessionSummary" case).
             setScreen("sessionSummary");
           } else {
             setScreen("thinkComplete");
@@ -6924,22 +7231,11 @@ export default function App() {
         onCancel={() => setScreen("home")}
       />
     ); break;
-    case "sessionSummary": content = (
-      <ScreenSessionSummary
-        store={store}
-        onDone={() => {
-          // Pro (or monetization disabled): computeDiscovery will pick up
-          // whatever this entry just created/reinforced as "Today's
-          // Discovery" on the Analysis tab. Free tier never accumulated
-          // anything to discover there (see mergeAnalysisIntoStore's
-          // accumulate=false path) and that tab is Pro-gated anyway — its
-          // one-time upsell moment takes over instead, or just home.
-          if (!MONETIZATION_ENABLED || store.isPro) setScreen("discoveryAnalysis");
-          else if (pendingUpsell) setScreen("softPaywall");
-          else setScreen("home");
-        }}
-      />
-    ); break;
+    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => {
+      if (!MONETIZATION_ENABLED || store.isPro) setScreen("discoveryAnalysis");
+      else if (pendingUpsell) setScreen("softPaywall");
+      else setScreen("home");
+    }} />; break;
     case "thinkComplete": content = (
       <ScreenThinkComplete
         error={analysisError}
@@ -7095,18 +7391,25 @@ export default function App() {
   }
 
   const isMobileViewport = useIsMobileViewport();
+  const reduceMotion = useReducedMotion();
+  // Bottom-nav destinations are peers in one persistent app environment.
+  // When moving between them, old/new screens overlap briefly so the nav's
+  // shared layout indicator can actually travel instead of disappearing
+  // with the old screen and reappearing on the new one. Deeper routes keep
+  // the more deliberate wait-style transition.
+  const isPrimaryTab = ["home", "analysis", "discoveryAnalysis", "history", "premium"].includes(screen);
   // The fake "9:41 + battery" status bar is mockup chrome for the desktop
   // preview — a real phone already has its own real status bar, so showing
   // ours too would just be a second, wrong clock sitting under the actual
   // one. Safe-area padding (below) takes over its job of clearing the
   // notch on mobile instead.
-  const showStatusBar = !["splash"].includes(screen) && !isMobileViewport;
+  const showStatusBar = !["quote", "splash"].includes(screen) && !isMobileViewport;
   // Screens ported from the Modernist (light/red) design import — every
   // other screen keeps the dark theme, see the dk*/md* token comments.
   const isModernistScreen = [
-    "home", "brainmap", "analysis", "discoveryAnalysis", "premium", "history", "profile",
+    "home", "brainmap", "analysis", "discoveryAnalysis", "history", "profile", "premium",
     "beliefs", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
-    "splash", "auth", "login", "signup", "onboarding",
+    "quote", "splash", "auth", "login", "signup", "onboarding",
     "notifications", "dataPrivacy", "help",
   ].includes(screen);
 
@@ -7119,6 +7422,7 @@ export default function App() {
   const isThink = screen === "think";
 
   return (
+    <MotionConfig reducedMotion="user">
     <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobileViewport ? 0 : 20 }}>
       <div
         ref={frameRef}
@@ -7128,30 +7432,62 @@ export default function App() {
           borderRadius: isMobileViewport ? 0 : 40,
           overflow: "hidden",
           boxShadow: isMobileViewport ? "none" : "0 20px 60px rgba(0,0,0,0.25)",
-          backgroundColor: isModernistScreen ? mdBg : dkBg,
+          backgroundColor: dkBg,
           display: "flex", flexDirection: "column", position: "relative",
           // Clears the real notch/Dynamic Island whenever the fake status
           // bar isn't the one doing that job (mobile, or the status-bar-
           // less splash screen) — a no-op (0px) anywhere without a real
-          // safe area, so it's always safe to include.
-          paddingTop: showStatusBar ? 0 : "env(safe-area-inset-top)",
+          // safe area, so it's always safe to include. When the fake bar
+          // IS doing that job (desktop preview), this stays the same fixed
+          // value for every screen — switching it per screen (e.g. 0 for
+          // Home, 30 elsewhere) made the whole frame visibly jump on every
+          // screen change, since AnimatePresence crossfades the *content*
+          // but this padding lives on the frame itself, outside that
+          // animation, so it was snapping instantly. Home still runs its
+          // photo edge-to-edge behind the transparent overlay — it just
+          // does that itself now (a negative margin on its own hero, see
+          // ScreenHome) instead of asking the shared frame to change shape
+          // under it.
+          paddingTop: showStatusBar ? 30 : "env(safe-area-inset-top)",
         }}
       >
-        {showStatusBar && <StatusBar modernist={isModernistScreen} />}
-        <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-          <AnimatePresence mode="wait">
+        {/* Animated fallback behind every screen. Screen-specific photos and
+        surfaces still paint themselves above this; this layer only prevents
+        a hard mdBg/dkBg color snap from showing through during a crossfade. */}
+        <motion.div
+          aria-hidden
+          initial={false}
+          animate={{ backgroundColor: isModernistScreen ? mdBg : dkBg }}
+          transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: "easeOut" }}
+          style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
+        />
+        <div style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
+          <AnimatePresence mode={isPrimaryTab ? "sync" : "wait"} initial={false}>
             <motion.div
               key={screen}
-              initial={isThink ? { opacity: 0, scale: 0.97 } : { opacity: 0 }}
-              animate={isThink ? { opacity: 1, scale: 1 } : { opacity: 1 }}
-              exit={isThink ? { opacity: 0, scale: 0.97 } : { opacity: 0 }}
-              transition={isThink ? { duration: 0.5, ease: "easeInOut" } : { duration: 0.25, ease: "easeOut" }}
+              initial={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0.01 : isThink ? 0.24 : isPrimaryTab ? 0.18 : 0.22, ease: "easeOut" }}
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
               {content}
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Genuinely transparent now — an absolute overlay drawn on top of
+        the real screen content instead of a flex row that used to reserve
+        its own strip of the frame's flat mdBg/dkBg fallback color behind
+        it. That fallback color rarely matched whatever screen was actually
+        showing (Home's photo especially), which is what read as a visibly
+        cut-off band sitting on top of the screen. Non-interactive so it
+        never blocks a tap at the very top of whatever's under it. */}
+        {showStatusBar && (
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, pointerEvents: "none" }}>
+            <StatusBar modernist={isModernistScreen} />
+          </div>
+        )}
 
         {/* Session dimming — a faint scrim over the whole frame (status bar
         included), not just ScreenThink's own dark background, so opening
@@ -7161,7 +7497,7 @@ export default function App() {
           aria-hidden
           initial={false}
           animate={{ opacity: isThink ? 1 : 0 }}
-          transition={{ duration: 0.6, ease: "easeInOut" }}
+          transition={{ duration: reduceMotion ? 0.01 : 0.24, ease: "easeOut" }}
           style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.12)", pointerEvents: "none", zIndex: 40 }}
         />
 
@@ -7178,5 +7514,6 @@ export default function App() {
         )}
       </div>
     </div>
+    </MotionConfig>
   );
 }

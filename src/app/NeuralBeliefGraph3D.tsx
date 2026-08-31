@@ -365,9 +365,16 @@ function BrainField({
   hideBackground: boolean;
 }) {
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, 0), []);
+  // Respect the caller's initial Structure View state on the very first
+  // WebGL frame. Previously this always started at full dormant-field
+  // opacity and only faded to zero in useFrame, which made Mind flash the
+  // entire brain tissue for a split second before the scoped constellation
+  // appeared. Capture only the *initial* prop here; later toggles still
+  // animate smoothly through useFrame below.
+  const initialHideBackground = useRef(hideBackground).current;
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: BACKGROUND_FIELD_OPACITY, depthWrite: false, vertexColors: true, fog: true }),
-    []
+    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: initialHideBackground ? 0 : BACKGROUND_FIELD_OPACITY, depthWrite: false, vertexColors: true, fog: true }),
+    [initialHideBackground]
   );
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -515,9 +522,12 @@ function BrainField({
 // specks, especially where many overlap near the core.
 function BrainFieldGlowLayer({ scale, opacity, color, hideBackground }: { scale: number; opacity: number; color: string; hideBackground: boolean }) {
   const geometry = useMemo(() => new THREE.IcosahedronGeometry(1, 0), []);
+  // Same first-frame rule as BrainField: if Structure View is already on,
+  // the glow copies must begin invisible too instead of flashing once.
+  const initialHideBackground = useRef(hideBackground).current;
   const material = useMemo(
-    () => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, fog: true }),
-    [color, opacity]
+    () => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: initialHideBackground ? 0 : opacity, depthWrite: false, fog: true }),
+    [color, opacity, initialHideBackground]
   );
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
@@ -719,6 +729,41 @@ function ClusterHaze({ nodes }: { nodes: ActiveNode[] }) {
 // plays once per belief (see ANIMATED_BELIEF_IDS below), never loops.
 const ACTIVATION_FLASH_SECONDS = 0.75;
 
+// ── Point-of-light rendering for active belief nodes ─────────────────────────
+// Every active node is drawn as four concentric, camera-facing layers
+// instead of one lit sphere: a tiny near-white pinpoint, a small saturated
+// core in the belief's own region color (the only layer still built from
+// real geometry, so it stays the exact same clickable hit target it always
+// was), a soft colored inner glow, and a much larger, extremely faint
+// atmospheric bloom that fades into the surrounding dark. The three glow/
+// point layers are billboarded sprites sharing one small procedurally-drawn
+// radial-gradient texture (created once, below) rather than three more
+// geometries per node — cheap no matter how many beliefs are active, and a
+// soft gradient reads as light falling off, which a flat-alpha sphere edge
+// never quite does.
+function createRadialGlowTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, "rgba(255,255,255,1)");
+  gradient.addColorStop(0.35, "rgba(255,255,255,0.55)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+const GLOW_SPRITE_TEXTURE: THREE.Texture | null = typeof document !== "undefined" ? createRadialGlowTexture() : null;
+
+// The tiny bright pinpoint's fixed hue — near-white/ivory, not a clinical
+// engineering white, so it still reads as warm and organic. Never tinted by
+// region/belief color; only its opacity (via vitality/dimming) ever moves.
+const POINT_LIGHT_COLOR = "#FBF3E2";
+
 function ActiveBeliefNode({
   node,
   isSelected,
@@ -739,7 +784,9 @@ function ActiveBeliefNode({
   onHoverChange: (hovering: boolean) => void;
 }) {
   const ref = useRef<THREE.Mesh>(null);
-  const glowRef = useRef<THREE.Mesh>(null);
+  const pointRef = useRef<THREE.Sprite>(null);
+  const glowRef = useRef<THREE.Sprite>(null);
+  const bloomRef = useRef<THREE.Sprite>(null);
   const haloRef = useRef<THREE.Mesh>(null);
   const orbitRef = useRef<THREE.Mesh>(null);
   const orbitPhase = useMemo(() => stableUnit(`${node.id}-orbit`) * Math.PI * 2, [node.id]);
@@ -818,10 +865,33 @@ function ActiveBeliefNode({
     mat.color.copy(blendedColor);
     mat.emissive.copy(blendedColor);
 
+    // Camera-facing light layers. They inherit the same pulse/vitality/flash
+    // signal as the geometric core, but each occupies a different visual
+    // scale so the node reads as a star rather than a glowing marble.
+    const lightScale = pulse * vitalityScale * visibilityScale;
+    const dormantBrightness = 0.42 + 0.58 * vitalitySmooth.current;
+
+    if (pointRef.current) {
+      const pointMat = pointRef.current.material as THREE.SpriteMaterial;
+      pointMat.opacity = Math.min(1, (0.72 + 0.18 * node.strength + flash * 0.28) * dormantBrightness * visibility.current * (isDimmed ? 0.55 : 1));
+      const pointSize = node.radius * 0.72 * lightScale * springScale.current * (1 + flash * 0.65);
+      pointRef.current.scale.set(pointSize, pointSize, 1);
+    }
+
     if (glowRef.current) {
-      const glowMat = glowRef.current.material as THREE.MeshBasicMaterial;
-      glowMat.opacity = (baseGlowOpacity * emissivePulse * (0.4 + 0.6 * vitalitySmooth.current) + flash * 0.5) * visibility.current;
-      glowRef.current.scale.setScalar(1.55 * pulse * vitalityScale * visibilityScale * (1 + flash * 0.9));
+      const glowMat = glowRef.current.material as THREE.SpriteMaterial;
+      glowMat.color.copy(blendedColor);
+      glowMat.opacity = Math.min(0.72, (0.18 + 0.17 * node.strength + flash * 0.32) * emissivePulse * dormantBrightness * visibility.current * (isDimmed ? 0.42 : 1));
+      const glowSize = node.radius * 3.15 * lightScale * springScale.current * (1 + flash * 0.85);
+      glowRef.current.scale.set(glowSize, glowSize, 1);
+    }
+
+    if (bloomRef.current) {
+      const bloomMat = bloomRef.current.material as THREE.SpriteMaterial;
+      bloomMat.color.copy(blendedColor);
+      bloomMat.opacity = Math.min(0.2, (0.035 + 0.045 * node.strength + (node.isCore ? 0.018 : 0) + flash * 0.09) * dormantBrightness * visibility.current * (isDimmed ? 0.28 : 1));
+      const bloomSize = node.radius * 6.8 * lightScale * (1 + flash * 0.7);
+      bloomRef.current.scale.set(bloomSize, bloomSize, 1);
     }
 
     if (haloRef.current) {
@@ -883,10 +953,42 @@ function ActiveBeliefNode({
         <sphereGeometry args={[node.radius, 12, 12]} />
         <meshBasicMaterial color={SELECTION_GOLD} transparent opacity={0} depthWrite={false} />
       </mesh>
-      <mesh ref={glowRef} scale={1.55}>
-        <sphereGeometry args={[node.radius, 12, 12]} />
-        <meshBasicMaterial color={node.color} transparent opacity={baseGlowOpacity} depthWrite={false} />
-      </mesh>
+      {/* Three billboarded light layers turn the colored geometric core into
+          a star-like point of light without changing its interaction mesh. */}
+      {GLOW_SPRITE_TEXTURE && (
+        <>
+          <sprite ref={bloomRef} renderOrder={1}>
+            <spriteMaterial
+              map={GLOW_SPRITE_TEXTURE}
+              color={node.color}
+              transparent
+              opacity={0}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </sprite>
+          <sprite ref={glowRef} renderOrder={2}>
+            <spriteMaterial
+              map={GLOW_SPRITE_TEXTURE}
+              color={node.color}
+              transparent
+              opacity={baseGlowOpacity}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </sprite>
+          <sprite ref={pointRef} renderOrder={3}>
+            <spriteMaterial
+              map={GLOW_SPRITE_TEXTURE}
+              color={POINT_LIGHT_COLOR}
+              transparent
+              opacity={0.9}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </sprite>
+        </>
+      )}
     </group>
   );
 }
@@ -1043,19 +1145,21 @@ function BrainScene({
   );
 }
 
-// A chrome-free, non-interactive belief preview — real, region-colored
-// belief points (no dormant background tissue field, no OrbitControls,
-// pointer events pass straight through) meant to sit inside a static jar
-// photo on Home, where the whole image is already one tap target
-// (onOpenBrainMap in App.tsx) rather than a per-node interaction surface.
-// A slow constant spin stands in for the drag-to-orbit the full BrainScene
-// offers, since this view isn't meant to be dragged.
+// ── Chrome-free jar preview — Home's bell-jar hero embeds the real belief
+// nodes (same buildActiveNodes promotion, same region colors/pulsing/glow
+// as the full graph above) with none of that graph's own UI: no card
+// background, no Reset/Structure View buttons, no caption, no legend, no
+// dormant background tissue field either — just the real, region-colored
+// belief points, so every point visible in the jar is a real belief and
+// nothing else competes with them. Transparent canvas so the jar photo
+// shows through around it. A slow constant spin stands in for
+// OrbitControls — this view is decorative, not something to drag, and the
+// whole jar image is already one tap target (onOpenBrainMap in App.tsx)
+// rather than a per-node interaction surface, so pointer events pass
+// straight through the canvas.
 function JarBrainSpin({ children }: { children: React.ReactNode }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.5;
-  });
-  return <group ref={ref}>{children}</group>;
+  // Static now — no auto-spin (used to rotate continuously via useFrame).
+  return <group>{children}</group>;
 }
 
 export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
@@ -1089,12 +1193,106 @@ export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
   );
 }
 
+// The tapped-node detail card — same content/behavior whether it's sitting
+// inside the full card chrome or floating directly over a photo in minimal
+// mode (see the `minimal` prop below), so this is shared between both
+// return branches instead of duplicated.
+function NodeDetailCard({
+  selectedNode,
+  structureMode,
+  selectedCluster,
+  selectedContradiction,
+  activeNodes,
+  onSelectId,
+}: {
+  selectedNode: ActiveNode;
+  structureMode: boolean;
+  selectedCluster: string[] | null;
+  selectedContradiction: ActiveNode | null;
+  activeNodes: ActiveNode[];
+  onSelectId: (id: string) => void;
+}) {
+  return (
+    <motion.div
+      key={selectedNode.id}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: 36,
+        background: "rgba(20,15,35,0.92)",
+        border: "1px solid rgba(170,140,255,0.2)",
+        backdropFilter: "blur(8px)",
+        borderRadius: 14,
+        padding: "14px 16px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
+        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
+        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
+      </div>
+      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
+        {selectedNode.statement}
+      </div>
+      <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
+
+      {structureMode && selectedCluster && selectedCluster.length >= 3 && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
+            Reinforces {selectedCluster.length - 1} other beliefs, and they support each other
+          </div>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            {selectedCluster
+              .filter((id) => id !== selectedNode.id)
+              .map((id) => {
+                const member = activeNodes.find((n) => n.id === id);
+                if (!member) return null;
+                return (
+                  <div
+                    key={id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); onSelectId(id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ((e) => { e.stopPropagation(); onSelectId(id); })?.(e); } }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      padding: "6px 8px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,0.04)",
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: member.color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#E8E3F5", lineHeight: 1.4, wordBreak: "keep-all" }}>{member.statement}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+      {structureMode && selectedContradiction && (
+        <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          In tension with "{selectedContradiction.statement}" — this doesn't decide which one is right.
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function NeuralBeliefGraph3D({
   beliefs,
   connections,
   clusters = [],
   height = 360,
   defaultStructureMode = false,
+  minimal = false,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -1110,6 +1308,16 @@ export default function NeuralBeliefGraph3D({
   // actually matter. Still just a starting point, not a lockout — the
   // toggle stays visible and works either direction.
   defaultStructureMode?: boolean;
+  // Chrome-free variant for embedding straight into a photographic scene
+  // (Mind's "constellation in the sky" redesign): no card background/
+  // border/shadow, no Reset/Structure View buttons, no built-in "Drag to
+  // rotate" caption, no region legend — just the transparent canvas with
+  // the exact same real nodes/connections/camera-orbit/tap-to-select/
+  // detail-panel behavior, sized to fill whatever container the caller
+  // gives it (percentage/aspect-ratio friendly) rather than a literal
+  // pixel `height`. The caller is expected to supply its own caption text
+  // and size the wrapping element itself.
+  minimal?: boolean;
 }) {
   const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1186,6 +1394,54 @@ export default function NeuralBeliefGraph3D({
     setSelectedRegion(null);
     controlsRef.current?.reset?.();
   };
+
+  // Minimal: just the transparent canvas + the same tap-to-select detail
+  // card, sized to fill whatever the caller gives it — no card chrome, no
+  // buttons, no caption, no legend, no shrink-on-select animation (that
+  // was keyed off the literal `height` px number, which this mode doesn't
+  // have — the detail card just floats over the unchanged canvas instead).
+  if (minimal) {
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <Canvas
+          dpr={IS_SMALL_SCREEN ? [1, 1.3] : [1, 1.75]}
+          camera={{ position: [0, 0, 7.2], fov: 44 }}
+          gl={{ antialias: true, alpha: true }}
+          onPointerMissed={() => setSelectedId(null)}
+        >
+          <BrainScene
+            activeNodes={activeNodes}
+            connections={connections}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            onSelect={(id) => { setSelectedId(id); if (id) setSelectedRegion(null); }}
+            onHover={setHoveredId}
+            controlsRef={controlsRef}
+            isInteracting={isInteracting}
+            onInteractStart={() => setIsInteracting(true)}
+            onInteractEnd={() => setIsInteracting(false)}
+            justActivatedById={justActivatedById}
+            justActivatedBgIndices={justActivatedBgIndices}
+            structureMode={structureMode}
+            clusters={clusters}
+            contradictionPause={contradictionPause}
+          />
+        </Canvas>
+        <AnimatePresence>
+          {selectedNode && (
+            <NodeDetailCard
+              selectedNode={selectedNode}
+              structureMode={structureMode}
+              selectedCluster={selectedCluster}
+              selectedContradiction={selectedContradiction}
+              activeNodes={activeNodes}
+              onSelectId={setSelectedId}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   // Dark container + info-card treatment ported from the imported design
   // spec's NeuralBeliefGraph3D.dc.html — that file reimplements this whole
@@ -1315,78 +1571,16 @@ export default function NeuralBeliefGraph3D({
         </div>
 
         <AnimatePresence>
-        {selectedNode && (
-          <motion.div
-            key={selectedNode.id}
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            style={{
-              position: "absolute",
-              left: 10,
-              right: 10,
-              bottom: 36,
-              background: "rgba(20,15,35,0.92)",
-              border: "1px solid rgba(170,140,255,0.2)",
-              backdropFilter: "blur(8px)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
-              <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
-              <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
-            </div>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
-              {selectedNode.statement}
-            </div>
-            <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
-
-            {structureMode && selectedCluster && selectedCluster.length >= 3 && (
-              <div style={{ marginTop: 6 }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#7B5CF0", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  Reinforces {selectedCluster.length - 1} other beliefs, and they support each other
-                </div>
-                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
-                  {selectedCluster
-                    .filter((id) => id !== selectedNode.id)
-                    .map((id) => {
-                      const member = activeNodes.find((n) => n.id === id);
-                      if (!member) return null;
-                      return (
-                        <div
-                          key={id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setSelectedId(id); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ((e) => { e.stopPropagation(); setSelectedId(id); })?.(e); } }}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            cursor: "pointer",
-                            padding: "6px 8px",
-                            borderRadius: 8,
-                            background: "rgba(255,255,255,0.04)",
-                          }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: member.color, flexShrink: 0 }} />
-                          <span style={{ fontFamily: "Inter, sans-serif", fontSize: 12, color: "#E8E3F5", lineHeight: 1.4, wordBreak: "keep-all" }}>{member.statement}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-            {structureMode && selectedContradiction && (
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#F0A67A", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                In tension with "{selectedContradiction.statement}" — this doesn't decide which one is right.
-              </div>
-            )}
-          </motion.div>
-        )}
+          {selectedNode && (
+            <NodeDetailCard
+              selectedNode={selectedNode}
+              structureMode={structureMode}
+              selectedCluster={selectedCluster}
+              selectedContradiction={selectedContradiction}
+              activeNodes={activeNodes}
+              onSelectId={setSelectedId}
+            />
+          )}
         </AnimatePresence>
       </div>
 

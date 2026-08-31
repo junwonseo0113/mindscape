@@ -7,7 +7,7 @@
 // empty user store without a single screen's code changing.
 import React from "react";
 import type { Store } from "./types";
-import { loadStore, saveStore } from "./realStore";
+import { loadStore, saveStore, sanitizeStore } from "./realStore";
 import { DEMO_STORE } from "../demo/demoData";
 import { supabase } from "./supabaseClient";
 import { pullStoreFromCloud, pushStoreToCloud } from "./cloudSync";
@@ -109,8 +109,14 @@ export function useAppData() {
     let cancelled = false;
     pullStoreFromCloud(cloudUserId).then((cloud) => {
       if (cancelled || !cloud) return;
-      setRealStore(cloud);
-      saveStore(cloud);
+      // Same field-by-field defaulting loadStore applies to a localStorage
+      // read — a cloud row can just as easily be malformed (written by an
+      // older/newer schema version, or edited by hand in the Supabase
+      // dashboard), and trusting it outright would skip every safeguard
+      // that protects the local path.
+      const sanitized = sanitizeStore(cloud);
+      setRealStore(sanitized);
+      saveStore(sanitized);
     });
     return () => {
       cancelled = true;
