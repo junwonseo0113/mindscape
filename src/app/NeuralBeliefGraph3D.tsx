@@ -93,7 +93,10 @@ export type NeuralBeliefConnection = { a: string; b: string; type?: "root" | "co
 // constant, floored well above zero so an old-but-real belief still reads
 // as present tissue, just quieter, never mistaken for background noise
 // (the metaphor is dormancy/pruning-adjacent dimming, not deletion).
-function recencyFromDate(dateStr?: string): number | null {
+// Exported so History's star catalogue can compute the exact same
+// vitality/dormancy signal the Brain Map itself uses, instead of a second,
+// independently-tuned "recency" concept drifting out of sync with it.
+export function recencyFromDate(dateStr?: string): number | null {
   if (!dateStr) return null;
   const parts = dateStr.split(".").map((s) => parseInt(s, 10));
   if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;

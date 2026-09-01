@@ -1,17 +1,16 @@
 import React from "react";
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
-import NeuralBeliefGraph3D, { JarBrainPreview, REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
+import NeuralBeliefGraph3D, { JarBrainPreview, REGION_CONFIG, resolveRegion, recencyFromDate } from "./NeuralBeliefGraph3D";
 import BrainNodeMapScreen from "./BrainNodeMapScreen";
 import homeHeroImg from "../assets/home-hero.webp";
 import panelHeroImg from "../assets/panel-hero.webp";
+import mindNotebookBgImg from "../assets/mind-notebook-yellowknife.png";
 import premiumVikImg from "../assets/premium-vik.webp";
 import mindSceneImg from "../assets/mind-scene.webp";
 import mindNotebookImg from "../assets/mind-notebook.webp";
 import analysisDeskBgImg from "../assets/analysis-desk-bg.webp";
 import analysisDiscoveryPaperImg from "../assets/analysis-discovery-paper.webp";
 import analysisInsightCardImg from "../assets/analysis-insight-card.webp";
-import historyDeskBgImg from "../assets/history-desk-bg.webp";
-import historyJournalImg from "../assets/history-journal.webp";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
   LanguageObservation,
@@ -1594,7 +1593,6 @@ const QUICK_MOODS: { label: string; intensity: number }[] = [
   { label: "Anxious", intensity: 60 },
   { label: "Sad", intensity: 55 },
   { label: "Frustrated", intensity: 65 },
-  { label: "Tired", intensity: 50 },
 ];
 
 function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Store) => Store) => void }) {
@@ -1609,9 +1607,9 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   };
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
   return (
-    <div style={{ marginTop: 8 }}>
+    <div style={{ width: "fit-content", maxWidth: "100%", margin: "8px auto 0" }}>
       <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: vtgCreamMuted, marginBottom: 6, textShadow: "0 1px 6px rgba(0,0,0,.55)" }}>
-        {justLogged ? `✓ Logged: ${justLogged}` : "Quick check-in"}
+        {justLogged ? `✓ Logged: ${justLogged}` : "Quick Check-In"}
       </div>
       <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
         {QUICK_MOODS.map((m) => (
@@ -1758,8 +1756,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       )}
 
       {(!MONETIZATION_ENABLED || store.isPro) && (
-        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "67.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
-          <div style={{ ...serif, fontSize: 19, color: vtgCream, textShadow: "0 1px 8px rgba(0,0,0,0.55)" }}>Your mind</div>
+        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
+          <div style={{ ...serif, fontSize: 19, color: vtgCream, textShadow: "0 1px 8px rgba(0,0,0,0.55)" }}>Your Mind</div>
           <div style={{ ...sans, fontSize: 12.5, color: vtgCreamMuted, marginTop: 2, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>
             {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
           </div>
@@ -1772,7 +1770,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         )}
       </AnimatePresence>
 
-      <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "77%" }}>
+      <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "72%" }}>
         <motion.div
           role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
           style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: vtgCard, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: vtgCardShadow }}
@@ -2483,13 +2481,40 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
     return [];
   }, [h, b]);
 
-  // Whether the notebook's detail view (the old boxed neuron-card content —
-  // DiscoveryBeliefList + RegionBreakdown) is open. The landing scene itself
+  // Whether the notebook's detail view is open. The landing scene itself
   // never scrolls (spec: "single immersive scene... fits within 100dvh, no
   // vertical scrolling"); this state is what the notebook tap opens into,
   // and that view IS allowed to scroll since it's explicitly a separate
   // detail state, not the main scene.
   const [notebookOpen, setNotebookOpen] = React.useState(false);
+  // Whether the notebook's numeric region breakdown is expanded — same
+  // count/percentage math RegionBreakdown uses elsewhere, just tucked
+  // behind a secondary disclosure here instead of always-on rows, per the
+  // editorial redesign brief ("this is not a dashboard").
+  const [showRegionBreakdown, setShowRegionBreakdown] = React.useState(false);
+  // Discovery beliefs, resolved to full records — same source
+  // DiscoveryBeliefList used (discoveryBeliefIds -> store.beliefs).
+  const notebookBeliefs = React.useMemo(
+    () => discoveryBeliefIds.map((id) => store.beliefs.find((x) => x.id === id)).filter((x): x is StoredBelief => !!x),
+    [discoveryBeliefIds, store.beliefs]
+  );
+  // The connection note(s) between this discovery's own beliefs — same
+  // source DiscoveryBeliefList used for its "note" callout.
+  const notebookNotes = React.useMemo(
+    () => store.connections.filter((c) => discoveryBeliefIds.includes(c.a) && discoveryBeliefIds.includes(c.b) && c.note),
+    [discoveryBeliefIds, store.connections]
+  );
+  // Per-region counts across relatedBrainBeliefs — same source and same
+  // resolveRegion classification RegionBreakdown used, so "active" here can
+  // never disagree with what the brain graph above is actually showing.
+  const notebookRegionCounts = React.useMemo(() => {
+    const counts = new Map<CognitiveRegion, number>();
+    COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
+    relatedBrainBeliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
+    return counts;
+  }, [relatedBrainBeliefs]);
+  const notebookActiveRegions = COGNITIVE_REGIONS.filter((r) => (notebookRegionCounts.get(r) ?? 0) > 0);
+  const notebookInactiveRegions = COGNITIVE_REGIONS.filter((r) => (notebookRegionCounts.get(r) ?? 0) === 0);
 
   return (
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, backgroundColor: "#1c1712", overflow: "hidden" }}>
@@ -2604,44 +2629,149 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, store }: { onNavSelect?: 
         <BottomNav active="analysis" onSelect={onNavSelect} vintage />
       </div>
 
-      {/* ── Notebook detail view — the old boxed content (DiscoveryBeliefList
-      + RegionBreakdown), unchanged in substance, relocated here per spec
-      ("move detailed Mind functionality into the notebook view instead").
-      This state IS allowed to scroll; the landing scene above never is. ── */}
+      {/* ── Notebook detail view — an editorial "private page" over the
+      Yellowknife dusk photo, reading the exact same discovery data
+      DiscoveryBeliefList/RegionBreakdown compute elsewhere (see
+      notebookBeliefs/notebookNotes/notebookRegionCounts above). This is a
+      presentation-only rewrite for this one screen — neither shared
+      component was touched, and DiscoveryBeliefList is still used verbatim
+      by ScreenHypothesisDetail. This state IS allowed to scroll; the
+      landing scene above never is. ── */}
       <AnimatePresence>
         {notebookOpen && (
           <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985 }}
-            transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
+            transition={{ duration: reduceMotion ? 0.01 : 0.28, ease: "easeOut" }}
             style={{
-              position: "absolute", inset: 0, zIndex: 10, display: "flex", flexDirection: "column",
-              backgroundColor: "#e2d3ba", backgroundImage: `url(${panelHeroImg})`, backgroundSize: "cover", backgroundPosition: "top center",
+              position: "absolute", inset: 0, zIndex: 10, display: "flex", flexDirection: "column", overflow: "hidden",
+              // inset:0 on this screen's already-extended root (top:-30
+              // above) is what carries the photo behind the status-bar
+              // safe area too — no separate fix needed here.
+              backgroundImage: `linear-gradient(180deg, rgba(8,9,16,0.42) 0%, rgba(8,9,16,0.08) 20%, rgba(8,9,16,0.1) 62%, rgba(8,9,16,0.5) 100%), url(${mindNotebookBgImg})`,
+              backgroundSize: "cover", backgroundPosition: "center",
             }}
           >
-            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 16px 24px" }}>
-              <div style={{ padding: "44px 4px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 24px 48px" }}>
+              {/* Header — ivory on photo, no card behind it. */}
+              <div style={{ padding: "44px 0 32px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                 <div>
-                  <div style={{ ...serif, fontSize: 28, fontWeight: 400, color: mdHeading, marginBottom: 4 }}>My Mind</div>
-                  <div style={{ ...sans, fontSize: 12.5, color: mdBody }}>The beliefs behind today's discovery, in detail.</div>
+                  <div style={{ ...serif, fontSize: 28, fontWeight: 400, color: "#F3ECDD", marginBottom: 5, textShadow: "0 2px 12px rgba(0,0,0,0.5)" }}>My Mind</div>
+                  <div style={{ ...sans, fontSize: 12.5, color: "rgba(243,236,221,0.72)", textShadow: "0 1px 8px rgba(0,0,0,0.45)" }}>The beliefs behind today's discovery, in detail.</div>
                 </div>
                 <motion.div
                   role="button" tabIndex={0} aria-label="Close notebook" onClick={() => setNotebookOpen(false)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNotebookOpen(false); } }}
                   whileTap={{ opacity: 0.6, scale: 0.94 }}
-                  style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "rgba(32,30,29,0.08)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+                  style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "rgba(243,236,221,0.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
                 >
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 5l10 10M15 5L5 15" stroke={mdHeading} strokeWidth="1.6" strokeLinecap="round" />
+                    <path d="M5 5l10 10M15 5L5 15" stroke="#F3ECDD" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>
                 </motion.div>
               </div>
-              <div style={{ backgroundColor: mdCard, borderRadius: 20, padding: "18px 16px", boxShadow: mdCardShadow }}>
-                <DiscoveryBeliefList beliefIds={discoveryBeliefIds} store={store} modernist />
-                <div style={{ marginTop: 16 }}>
-                  <RegionBreakdown beliefs={relatedBrainBeliefs} />
+
+              {/* SECTION 1 · Beliefs — the statement itself is the visual
+              focus; domain and confidence stay quiet/secondary, no rows or
+              pills. */}
+              {notebookBeliefs.length > 0 && (
+                <div style={{ marginBottom: 40 }}>
+                  <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D9B98A" }}>
+                    The beliefs beneath this discovery
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 26, marginTop: 18 }}>
+                    {notebookBeliefs.map((belief) => (
+                      <div key={belief.id}>
+                        <div style={{ ...sans, fontSize: 11, color: "rgba(243,236,221,0.55)", letterSpacing: "0.03em", marginBottom: 5 }}>{belief.domain}</div>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+                          <div style={{ ...serif, fontSize: 19, lineHeight: 1.42, color: "#F3ECDD", flex: 1, wordBreak: "keep-all", textShadow: "0 1px 10px rgba(0,0,0,0.4)" }}>
+                            {belief.statement}
+                          </div>
+                          <div style={{ ...mono, fontSize: 12, color: "#D9B98A", flexShrink: 0 }}>{belief.confidence}%</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+
+              {/* SECTION 2 · Interpretation — the connective thread between
+              the beliefs above, when one exists (same store.connections
+              note DiscoveryBeliefList surfaced). An observation, never
+              styled as a warning/error. */}
+              {notebookNotes.length > 0 && (
+                <div style={{ marginBottom: 40 }}>
+                  <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D9B98A", marginBottom: 14 }}>
+                    What connects them
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {notebookNotes.map((c, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.6, color: "#F3ECDD",
+                          padding: "20px 22px", borderRadius: 16, wordBreak: "keep-all",
+                          backgroundColor: "rgba(20,16,12,0.32)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+                          border: "1px solid rgba(243,236,221,0.1)",
+                        }}
+                      >
+                        {c.note}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 3 · Areas touched — active categories read as
+              prose, not a colored legend; the full numeric breakdown (same
+              data RegionBreakdown shows elsewhere) stays one tap away
+              instead of being always-on. */}
+              <div>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#D9B98A", marginBottom: 12 }}>
+                  This discovery touches
+                </div>
+                <div style={{ ...serif, fontSize: 18, color: "#F3ECDD", lineHeight: 1.5, wordBreak: "keep-all" }}>
+                  {notebookActiveRegions.length > 0 ? notebookActiveRegions.map((r) => REGION_CONFIG[r].label).join("  ·  ") : "Nothing surfaced yet"}
+                </div>
+                {notebookInactiveRegions.length > 0 && (
+                  <div style={{ ...sans, fontSize: 11.5, color: "rgba(243,236,221,0.32)", marginTop: 8, wordBreak: "keep-all" }}>
+                    {notebookInactiveRegions.map((r) => REGION_CONFIG[r].label).join(" · ")}
+                  </div>
+                )}
+                <motion.div
+                  role="button" tabIndex={0} aria-label={showRegionBreakdown ? "Hide pattern breakdown" : "View pattern breakdown"}
+                  onClick={() => setShowRegionBreakdown((v) => !v)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionBreakdown((v) => !v); } }}
+                  whileTap={{ opacity: 0.6 }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, ...sans, fontSize: 12, fontWeight: 700, color: "#D9B98A", cursor: "pointer" }}
+                >
+                  {showRegionBreakdown ? "Hide pattern breakdown" : "View pattern breakdown"}
+                  <span aria-hidden style={{ display: "inline-block", transform: showRegionBreakdown ? "rotate(90deg)" : "none", transition: "transform 0.2s ease" }}>→</span>
+                </motion.div>
+                <AnimatePresence initial={false}>
+                  {showRegionBreakdown && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: reduceMotion ? 0.01 : 0.22, ease: "easeOut" }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(243,236,221,0.12)" }}>
+                        {COGNITIVE_REGIONS.map((r) => {
+                          const count = notebookRegionCounts.get(r) ?? 0;
+                          const pct = relatedBrainBeliefs.length > 0 ? Math.round((count / relatedBrainBeliefs.length) * 100) : 0;
+                          return (
+                            <div key={r} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <span style={{ ...sans, fontSize: 12.5, color: "rgba(243,236,221,0.65)", flex: 1 }}>{REGION_CONFIG[r].label}</span>
+                              <span style={{ ...mono, fontSize: 11, color: "rgba(243,236,221,0.4)" }}>{count}</span>
+                              <span style={{ ...mono, fontSize: 11, color: "#D9B98A", width: 34, textAlign: "right" }}>{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>
@@ -5443,49 +5573,162 @@ function relatedBeliefForEntry(entry: StoredHistoryEntry, beliefs: StoredBelief[
   return beliefs.find((b) => (b.supportingEntryIds ?? []).includes(entry.id)) ?? null;
 }
 
-// A small outlined circular control (Search/Calendar/Filter) with a label
-// underneath, matching the redesign brief's "simple outlined circular
-// controls... icon + small label underneath."
+// ── History star catalogue ──────────────────────────────────────────────────
+// A belief has no explicit "discovered" field; the two real signals that
+// exist are confidenceHistory (first point = first tracked confidence) and
+// supportingEntryIds (resolved against store.history for a real date).
+// Combines both and falls back to null — never a fabricated date — when
+// neither is present; catalogue-number assignment below stays fully
+// deterministic regardless, via the id tiebreak.
+function beliefFirstDiscoveredDate(belief: StoredBelief, history: StoredHistoryEntry[]): Date | null {
+  const times: number[] = [];
+  (belief.confidenceHistory ?? []).forEach((p) => {
+    const d = parseDotDate(p.date);
+    if (d) times.push(d.getTime());
+  });
+  (belief.supportingEntryIds ?? []).forEach((id) => {
+    const entry = history.find((e) => e.id === id);
+    const d = entry ? parseDotDate(entry.date) : null;
+    if (d) times.push(d.getTime());
+  });
+  if (times.length === 0) return null;
+  return new Date(Math.min(...times));
+}
+
+// One catalogued star — a persistent, non-rejected belief plus everything
+// its cell/detail view need, computed once per store change rather than
+// re-derived per cell. `region`/`vitality` are the exact same
+// resolveRegion/recencyFromDate the Brain Map itself uses (the latter now
+// exported from NeuralBeliefGraph3D for this reuse), so a star here can
+// never silently disagree with what Mind is showing for the same belief.
+type CatalogueStar = {
+  belief: StoredBelief;
+  region: CognitiveRegion;
+  catalogueNumber: number;
+  firstDiscovered: Date | null;
+  vitality: number;
+  appearances: number;
+};
+
+function buildCatalogueStars(store: Store): CatalogueStar[] {
+  // A rejected belief is one the user explicitly said isn't accurate —
+  // excluded from the live Brain Map (see ScreenBeliefMap's own
+  // visibleBeliefs filter) and so excluded here too, for the same reason.
+  const base = store.beliefs
+    .filter((b) => b.userReaction !== "rejected")
+    .map((belief) => ({
+      belief,
+      region: resolveRegion(belief),
+      firstDiscovered: beliefFirstDiscoveredDate(belief, store.history),
+      vitality: recencyFromDate(belief.lastUpdatedAt) ?? 0.4,
+      appearances: belief.evidenceCount || (belief.supportingEntryIds ?? []).length || 1,
+    }));
+  const ordered = [...base].sort((x, y) => {
+    const xt = x.firstDiscovered ? x.firstDiscovered.getTime() : Infinity;
+    const yt = y.firstDiscovered ? y.firstDiscovered.getTime() : Infinity;
+    if (xt !== yt) return xt - yt;
+    return x.belief.id < y.belief.id ? -1 : x.belief.id > y.belief.id ? 1 : 0;
+  });
+  return ordered.map((c, i) => ({ ...c, catalogueNumber: i + 1 }));
+}
+
+// A quiet "astronomical archive" backdrop for the star catalogue —
+// deliberately not a photo (unlike Home/Mind/My Mind): near-black midnight
+// navy, a faint radial atmosphere, and the same grain texture used
+// elsewhere (see GrainOverlay). The catalogue itself, not the backdrop, is
+// the visual focus.
+const historyArchiveBackground: React.CSSProperties = {
+  backgroundColor: "#07080d",
+  backgroundImage: [
+    "radial-gradient(130% 55% at 50% -10%, rgba(42,48,70,0.30) 0%, rgba(42,48,70,0) 58%)",
+    "linear-gradient(180deg, #0c0e17 0%, #08090f 52%, #05060a 100%)",
+  ].join(", "),
+  backgroundSize: "cover",
+  backgroundRepeat: "no-repeat",
+};
+
+// Barely-there film grain — a flat gradient alone reads as a flat rectangle
+// of color; this is what keeps a CSS-only backdrop feeling like an
+// atmosphere instead. An inline SVG fractal-noise filter (no image asset)
+// at very low opacity with `overlay` blending, so it modulates whatever's
+// underneath rather than sitting visibly on top of it.
+function GrainOverlay({ opacity = 0.05 }: { opacity?: number }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute", inset: 0, opacity, mixBlendMode: "overlay", pointerEvents: "none",
+        backgroundImage:
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+      }}
+    />
+  );
+}
+
+// Barely-visible chart hairlines — an old-catalogue coordinate fragment,
+// never more than a few percent opaque. Pure CSS, no image asset.
+function ArchiveChartMarks() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute", inset: 0, opacity: 0.045, pointerEvents: "none",
+        backgroundImage: [
+          "repeating-linear-gradient(0deg, rgba(230,224,209,0.6) 0px, rgba(230,224,209,0.6) 1px, transparent 1px, transparent 84px)",
+          "repeating-linear-gradient(90deg, rgba(230,224,209,0.6) 0px, rgba(230,224,209,0.6) 1px, transparent 1px, transparent 84px)",
+        ].join(", "),
+      }}
+    />
+  );
+}
+
+// A small outlined circular control (Search/Calendar/Filter) — kept as a
+// deliberately understated line-icon treatment for the catalogue: no filled
+// circle background, just the glyph and a thin underline when the sheet it
+// opens is active, per the redesign brief's "subtle line icons/understated
+// controls."
 function HistoryControlButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
     <motion.button
       type="button" aria-label={label} aria-pressed={active || undefined} onClick={onClick}
-      whileTap={{ scale: 0.94, opacity: 0.8 }}
-      whileFocus={{ boxShadow: "0 0 0 3px rgba(245,239,228,.16)" }}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer", border: 0, padding: 0, background: "transparent", WebkitTapHighlightColor: "transparent" }}
+      whileTap={{ opacity: 0.55 }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(230,224,209,.14)" }}
+      style={{
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", border: 0,
+        padding: "3px 3px 6px", background: "transparent", WebkitTapHighlightColor: "transparent",
+        borderBottom: `1.5px solid ${active ? "rgba(217,185,138,0.85)" : "transparent"}`,
+      }}
     >
-      <span
-        style={{
-          width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-          border: `1.3px solid ${active ? "#f5efe4" : "rgba(245,239,228,0.55)"}`,
-          backgroundColor: active ? "rgba(245,239,228,0.16)" : "rgba(20,15,10,0.22)",
-        }}
-      >
-        {icon}
+      <span style={{ opacity: active ? 1 : 0.5, display: "flex" }}>{icon}</span>
+      <span style={{ ...sans, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: active ? "rgba(217,185,138,0.9)" : "rgba(230,224,209,0.42)" }}>
+        {label}
       </span>
-      <span style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.04em", color: "rgba(245,239,228,0.75)" }}>{label}</span>
     </motion.button>
   );
 }
 
-// The shared bottom-sheet chrome for Search/Calendar/Filter — same warm
-// paper-card look the rest of the redesigned app already uses (mdCard),
-// just anchored to the bottom of the screen instead of being a full modal.
+// The shared bottom-sheet chrome for Search/Calendar/Filter — restyled dark
+// (frosted charcoal, not the warm paper card) to match the archive; scoped
+// only to History, so this doesn't touch any other screen's sheets.
 function HistorySheet({ title, onClose, children }: { title: string; onClose?: () => void; children: React.ReactNode }) {
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       role="button" tabIndex={-1} onClick={onClose}
-      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(10,7,5,0.55)", display: "flex", alignItems: "flex-end" }}
+      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(3,4,7,0.65)", display: "flex", alignItems: "flex-end" }}
     >
       <motion.div
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxHeight: "70%", backgroundColor: mdCard, borderRadius: "22px 22px 0 0", padding: "18px 20px 26px", boxShadow: mdCardShadowLg, display: "flex", flexDirection: "column" }}
+        style={{
+          width: "100%", maxHeight: "74%", backgroundColor: "rgba(15,17,25,0.97)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+          borderTop: "1px solid rgba(230,224,209,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(0,0,0,0.45)",
+          display: "flex", flexDirection: "column",
+        }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: 20, color: mdHeading }}>{title}</span>
-          <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: mdBody, cursor: "pointer" }}>Close</motion.span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
+          <span style={{ ...serif, fontSize: 19, color: "#EDE7D7" }}>{title}</span>
+          <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(230,224,209,0.5)", cursor: "pointer" }}>Close</motion.span>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
       </motion.div>
@@ -5493,414 +5736,453 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
   );
 }
 
-// ── Screen 13 · History ───────────────────────────────────────────────────────
-// Redesigned around a real journal metaphor: one recorded thought = one page
-// of historyJournalImg, laid on historyDeskBgImg, navigated chronologically
-// (prev/next + swipe) instead of scrolled as a vertical feed. Entries are
-// re-sorted by actual date here (never trusting store.history's own raw
-// array order, which real vs. demo data happen to store in opposite
-// directions) so "previous = older / next = newer" is correct regardless of
-// which data source is active — a presentation-layer fix, not a change to
-// the underlying data. Search/date-jump/domain-filter are real, working
-// narrowing of this same list (not decorative), reusing findEntryDomain —
-// the only pre-existing per-entry field capable of a "filter" in the first
-// place. ScreenHistoryDetail (situation/automatic thought/emotions/
-// patterns/session recap) is preserved and still reachable via "Read full
-// entry" whenever an entry actually has that extra content.
-function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
-  const reduceMotion = useReducedMotion();
+function CatalogueFilterChip({ label, color, active, disabled, onClick }: { label: string; color?: string; active: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <motion.button
+      type="button" onClick={disabled ? undefined : onClick} whileTap={disabled ? undefined : { opacity: 0.6 }} disabled={disabled}
+      style={{
+        display: "flex", alignItems: "center", gap: 6, ...sans, fontSize: 12, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
+        cursor: disabled ? "default" : "pointer", border: `1px solid ${active ? "rgba(217,185,138,0.55)" : "rgba(230,224,209,0.14)"}`,
+        backgroundColor: active ? "rgba(217,185,138,0.14)" : "transparent",
+        color: disabled ? "rgba(230,224,209,0.22)" : active ? "#D9B98A" : "rgba(230,224,209,0.65)",
+      }}
+    >
+      {color && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: color, opacity: disabled ? 0.3 : 0.85, flexShrink: 0 }} />}
+      {label}
+    </motion.button>
+  );
+}
 
-  // Newest-first, by real date value — see the comment above.
-  const sorted = React.useMemo(
-    () => [...store.history].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
-    [store.history]
+function CatalogueFilterRow({ label, note, active, onClick }: { label: string; note: string; active: boolean; onClick: () => void }) {
+  return (
+    <motion.div
+      role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      whileTap={{ opacity: 0.6 }}
+      style={{ padding: "11px 4px", borderBottom: "1px solid rgba(230,224,209,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}
+    >
+      <div>
+        <div style={{ ...serif, fontSize: 14, color: active ? "#D9B98A" : "#EDE7D7" }}>{label}</div>
+        <div style={{ ...sans, fontSize: 10.5, color: "rgba(230,224,209,0.42)", marginTop: 2 }}>{note}</div>
+      </div>
+      {active && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#D9B98A", flexShrink: 0 }} />}
+    </motion.div>
   );
-  const withNumber = React.useMemo(
-    () => sorted.map((entry, i) => ({ entry, entryNumber: sorted.length - i })),
-    [sorted]
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(230,224,209,0.4)", marginBottom: 3 }}>{label}</div>
+      <div style={{ ...serif, fontSize: 15, color: "#EDE7D7", lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
+    </div>
   );
+}
+
+// The star glyph — reuses SparkleGlyph, the same 4-point mark already used
+// for "TODAY'S DISCOVERY" elsewhere, rather than inventing an unrelated
+// star shape. Brightness (opacity) tracks confidence; a soft halo appears
+// only once vitality (see recencyFromDate) is genuinely high — "recently
+// active," not a constant twinkle.
+function CatalogueStarGlyph({ color, size, vitality }: { color: string; size: number; vitality: number }) {
+  const showHalo = vitality > 0.62;
+  return (
+    <div style={{ position: "relative", width: size * 2.6, height: size * 2.6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      {showHalo && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            background: `radial-gradient(circle, ${color}66 0%, ${color}00 72%)`,
+            opacity: 0.3 + (vitality - 0.62) * 0.9,
+          }}
+        />
+      )}
+      <div style={{ opacity: 0.4 + vitality * 0.55, position: "relative" }}>
+        <SparkleGlyph color={color} size={size} />
+      </div>
+    </div>
+  );
+}
+
+// One catalogue cell — number, star, and a short belief label; nothing
+// tabular about it. `dimmed` (search/filter/as-of-date mismatch) fades it
+// rather than removing it, so the grid's overall shape never jumps.
+function CatalogueCell({ star, dimmed, onOpen }: { star: CatalogueStar; dimmed: boolean; onOpen: () => void }) {
+  const color = REGION_CONFIG[star.region].color;
+  const size = 13 + Math.round((star.belief.confidence / 100) * 9);
+  return (
+    <motion.div
+      role="button" tabIndex={0}
+      aria-label={`${REGION_CONFIG[star.region].label} pattern: ${star.belief.statement}`}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      whileTap={{ scale: 0.95 }}
+      animate={{ opacity: dimmed ? 0.2 : 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      style={{
+        position: "relative", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center",
+        padding: "16px 6px 14px", borderRadius: 14, cursor: "pointer", minHeight: 132,
+        border: "1px solid rgba(230,224,209,0.07)",
+      }}
+    >
+      <span style={{ position: "absolute", top: 9, left: 10, ...mono, fontSize: 9, letterSpacing: "0.05em", color: "rgba(230,224,209,0.34)" }}>
+        {String(star.catalogueNumber).padStart(3, "0")}
+      </span>
+      <CatalogueStarGlyph color={color} size={size} vitality={star.vitality} />
+      <div style={{ ...serif, fontSize: 12.5, lineHeight: 1.32, color: "#EDE7D7", marginTop: 10, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", maxWidth: "100%" }}>
+        {star.belief.statement}
+      </div>
+    </motion.div>
+  );
+}
+
+// An intentionally empty catalogue position — room for the collection to
+// grow into, never a fake star. Non-interactive.
+function CatalogueGhostCell() {
+  return <div aria-hidden style={{ borderRadius: 14, border: "1px dashed rgba(230,224,209,0.055)", minHeight: 132 }} />;
+}
+
+// ── Screen 13 · History ───────────────────────────────────────────────────────
+// Redesigned around a "star catalogue" concept: every persistent
+// (non-rejected) belief is the same conceptual node the Brain Map (Mind)
+// already renders, catalogued here by discovery order and grouped into the
+// same six cognitive-region families Mind/Analysis use — never a second,
+// competing notion of what a "pattern" is. The old per-entry journal
+// becomes a star's provenance instead of the primary interface: tap a star,
+// then "View its story" to see the actual recorded thoughts/check-ins
+// behind it, still reachable in full via the pre-existing ScreenHistoryDetail
+// (onOpenEntry) — nothing about that screen or its data changed.
+function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
+  const catalogue = React.useMemo(() => buildCatalogueStars(store), [store]);
+  const families = React.useMemo(() => {
+    const map = new Map<CognitiveRegion, CatalogueStar[]>();
+    COGNITIVE_REGIONS.forEach((r) => map.set(r, []));
+    catalogue.forEach((star) => map.get(star.region)!.push(star));
+    return map;
+  }, [catalogue]);
 
   const [search, setSearch] = React.useState("");
-  const [filterDomain, setFilterDomain] = React.useState<string | null>(null);
   const [sheet, setSheet] = React.useState<"search" | "calendar" | "filter" | null>(null);
-  const [activeId, setActiveId] = React.useState<string | null>(null);
-  const [dir, setDir] = React.useState(1);
+  const [filterMode, setFilterMode] = React.useState<
+    { type: "region"; region: CognitiveRegion } | { type: "active" } | { type: "dormant" } | { type: "recent" } | { type: "recurrent" } | null
+  >(null);
+  const [asOfDate, setAsOfDate] = React.useState<string | null>(null);
+  const [selectedStarId, setSelectedStarId] = React.useState<string | null>(null);
+  const [storyOpen, setStoryOpen] = React.useState(false);
 
-  const availableDomains = React.useMemo(() => {
-    const set = new Map<string, string>(); // domain -> color
-    withNumber.forEach(({ entry }) => {
-      const d = findEntryDomain(entry.id, store.beliefs);
-      if (d) set.set(d.domain, d.color);
-    });
-    return Array.from(set.entries());
-  }, [withNumber, store.beliefs]);
+  const query = search.trim().toLowerCase();
+  const matchesSearch = React.useCallback(
+    (star: CatalogueStar) => {
+      if (!query) return true;
+      if (star.belief.statement.toLowerCase().includes(query)) return true;
+      if (star.belief.domain.toLowerCase().includes(query)) return true;
+      if (REGION_CONFIG[star.region].label.toLowerCase().includes(query)) return true;
+      return (star.belief.supportingEntryIds ?? []).some((id) => {
+        const e = store.history.find((x) => x.id === id);
+        return e ? e.text.toLowerCase().includes(query) : false;
+      });
+    },
+    [query, store.history]
+  );
 
-  const filtered = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return withNumber.filter(({ entry }) => {
-      if (filterDomain) {
-        const d = findEntryDomain(entry.id, store.beliefs);
-        if (!d || d.domain !== filterDomain) return false;
+  const recurrentThreshold = React.useMemo(() => {
+    if (catalogue.length === 0) return Infinity;
+    const sorted = [...catalogue].sort((a, b) => b.appearances - a.appearances);
+    const cut = Math.max(1, Math.ceil(sorted.length * 0.3));
+    return sorted[cut - 1].appearances;
+  }, [catalogue]);
+
+  const matchesFilter = React.useCallback(
+    (star: CatalogueStar) => {
+      if (!filterMode) return true;
+      if (filterMode.type === "region") return star.region === filterMode.region;
+      if (filterMode.type === "active") return star.vitality > 0.5;
+      if (filterMode.type === "dormant") return star.vitality <= 0.5;
+      if (filterMode.type === "recent") {
+        if (!star.firstDiscovered) return false;
+        return (Date.now() - star.firstDiscovered.getTime()) / 86_400_000 <= 30;
       }
-      if (q && !entry.text.toLowerCase().includes(q)) return false;
-      return true;
+      return star.appearances >= recurrentThreshold; // "recurrent"
+    },
+    [filterMode, recurrentThreshold]
+  );
+
+  const asOfCutoff = asOfDate ? parseDotDate(asOfDate) : null;
+  const isAfterCutoff = React.useCallback(
+    (star: CatalogueStar) => (asOfCutoff && star.firstDiscovered ? star.firstDiscovered.getTime() > asOfCutoff.getTime() : false),
+    [asOfCutoff]
+  );
+  const isDimmed = React.useCallback(
+    (star: CatalogueStar) => !matchesSearch(star) || !matchesFilter(star) || isAfterCutoff(star),
+    [matchesSearch, matchesFilter, isAfterCutoff]
+  );
+
+  const calendarMilestones = React.useMemo(() => {
+    const map = new Map<string, number>();
+    catalogue.forEach((star) => {
+      if (!star.firstDiscovered) return;
+      const key = formatDateDots(star.firstDiscovered);
+      map.set(key, (map.get(key) ?? 0) + 1);
     });
-  }, [withNumber, search, filterDomain, store.beliefs]);
+    return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  }, [catalogue]);
 
-  const matchingBeliefs = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return store.beliefs.filter((b) => {
-      if (filterDomain && b.domain !== filterDomain) return false;
-      return b.statement.toLowerCase().includes(q);
-    });
-  }, [store.beliefs, search, filterDomain]);
+  const selectedStar = catalogue.find((s) => s.belief.id === selectedStarId) ?? null;
+  const selectedConnection = selectedStar
+    ? store.connections.find((c) => c.a === selectedStar.belief.id || c.b === selectedStar.belief.id)
+    : null;
+  const selectedConnectedBelief =
+    selectedConnection && selectedStar
+      ? store.beliefs.find((b) => b.id === (selectedConnection.a === selectedStar.belief.id ? selectedConnection.b : selectedConnection.a))
+      : null;
+  const selectedEntries = React.useMemo(() => {
+    if (!selectedStar) return [];
+    return (selectedStar.belief.supportingEntryIds ?? [])
+      .map((id) => store.history.find((e) => e.id === id))
+      .filter((e): e is StoredHistoryEntry => !!e)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }, [selectedStar, store.history]);
 
-  const matchingHypotheses = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return store.hypotheses.filter((h) => {
-      if (filterDomain && !h.domains.includes(filterDomain)) return false;
-      return h.title.toLowerCase().includes(q);
-    });
-  }, [store.hypotheses, search, filterDomain]);
-
-  const activeIdx = Math.max(0, filtered.findIndex((w) => w.entry.id === activeId));
-  const current = filtered[activeIdx] ?? null;
-  const older = filtered[activeIdx + 1] ?? null;
-  const newer = filtered[activeIdx - 1] ?? null;
-
-  const goOlder = () => { if (older) { setDir(1); setActiveId(older.entry.id); } };
-  const goNewer = () => { if (newer) { setDir(-1); setActiveId(newer.entry.id); } };
-
-  const jumpTo = (entryId: string) => { setDir(0); setActiveId(entryId); setSheet(null); };
-
-  const relatedBelief = current ? relatedBeliefForEntry(current.entry, store.beliefs) : null;
-  const annotation = current ? entryAnnotation(current.entry, store.beliefs) : null;
-  const domainInfo = current ? findEntryDomain(current.entry.id, store.beliefs) : null;
-  const mood = current?.entry.analysis?.observation.emotions[0]?.label;
-  // "Read full entry" shows whenever tapping it would genuinely reveal more
-  // than the page already does — either real analysis/recap data (see
-  // ScreenHistoryDetail), or a thought long enough that the 6-line clamp
-  // above is very likely cutting it off.
-  const hasExtra = current ? !!(current.entry.analysis || current.entry.sessionSummary || current.entry.text.length > 260) : false;
-
-  const openFullEntry = () => {
-    if (!current) return;
+  const closeStarSheet = () => { setSelectedStarId(null); setStoryOpen(false); };
+  const openEntryFromStory = (entryId: string) => {
     const detailItems = [...store.history].reverse();
-    const detailIndex = detailItems.findIndex((e) => e.id === current.entry.id);
-    if (detailIndex >= 0) onOpenEntry?.(detailIndex);
+    const idx = detailItems.findIndex((e) => e.id === entryId);
+    if (idx >= 0) onOpenEntry?.(idx);
   };
 
-  const swipeDur = reduceMotion ? 0 : 0.32;
-
   return (
-    <div style={{ position: "relative", height: "100%", backgroundColor: "#1c1712" }}>
-      <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${historyDeskBgImg})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+    // top: -30 (same as Home/Mind above) so the archive backdrop runs
+    // behind the status-bar safe area instead of showing a flat fallback
+    // color there — see those screens for the pattern this reuses.
+    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
+      <ArchiveChartMarks />
+      <GrainOverlay opacity={0.04} />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-          {/* ── Header + controls ── */}
-          <div style={{ padding: "20px 20px 6px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 10 }}>
-            <div>
-              <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: "#f5efe4", textShadow: "0 2px 10px rgba(0,0,0,0.55)" }}>History</div>
-              <div style={{ ...sans, fontSize: 12, color: "rgba(245,239,228,0.82)", marginTop: 3, lineHeight: 1.4, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
-                The thoughts you've recorded<br />over time.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
-              <HistoryControlButton icon={<SearchIconGlyph color="#f5efe4" />} label="Search" active={sheet === "search"} onClick={() => setSheet(sheet === "search" ? null : "search")} />
-              <HistoryControlButton icon={<CalendarIconGlyph color="#f5efe4" />} label="Calendar" active={sheet === "calendar"} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
-              <HistoryControlButton icon={<FilterIconGlyph color="#f5efe4" />} label="Filter" active={sheet === "filter" || !!filterDomain} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+        {/* ── Header + controls ── */}
+        <div style={{ padding: "50px 20px 8px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 10 }}>
+          <div>
+            <div style={{ ...serif, fontSize: 28, fontWeight: 400, color: "#EDE7D7" }}>History</div>
+            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(230,224,209,0.42)", marginTop: 6 }}>
+              Your mind, catalogued over time
             </div>
           </div>
-
-          {/* ── The journal ── */}
-          <div style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "10px 0" }}>
-            {current ? (
-              <motion.div
-                data-tutorial="history-journal"
-                style={{ position: "relative", width: "90%", maxWidth: 420, touchAction: "pan-y" }}
-              >
-                <img src={historyJournalImg} alt="" style={{ width: "100%", height: "auto", display: "block", pointerEvents: "none" }} draggable={false} />
-                {/* The one strict page-safe container every piece of dynamic
-                content lives inside — measured against the actual cream
-                paper area of historyJournalImg (leather cover, stacked-page
-                edge, and bookmark tab all sit outside these insets), so
-                nothing dynamic can ever render into the leather/binding. */}
-                <div style={{ position: "absolute", top: "10%", left: "13%", right: "12%", bottom: "10%", overflow: "hidden", boxSizing: "border-box", maxWidth: "100%" }}>
-                  <AnimatePresence mode="wait" custom={dir}>
-                    <motion.div
-                      key={current.entry.id}
-                      custom={dir}
-                      initial={{ opacity: 0, y: dir === 0 ? 0 : 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: dir === 0 ? 0 : -3 }}
-                      transition={{ duration: swipeDur, ease: [0.22, 1, 0.36, 1] }}
-                      style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}
-                    >
-                      {/* ENTRY number */}
-                      <div style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.16em", color: paperInkMuted }}>ENTRY</div>
-                      <div style={{ ...serif, fontSize: 17, color: paperInk, marginTop: 2 }}>{current.entryNumber}</div>
-                      <div style={{ width: 30, height: 1, backgroundColor: "rgba(46,32,19,0.22)", margin: "8px 0" }} />
-
-                      {/* Date */}
-                      <div style={{ ...serif, fontSize: "clamp(17px, 4.6vw, 20px)", color: paperInk }}>{current.entry.date}</div>
-                      <div style={{ ...sans, fontSize: 11, color: paperInkMuted, marginTop: 3 }}>
-                        {weekdayFromDotDate(current.entry.date)}
-                      </div>
-
-                      {/* Thought quote — capped to ~84% of the safe page
-                      width and centered, so a single long line can never
-                      reach all the way to the safe area's own edge, let
-                      alone the physical page edge beyond it. */}
-                      <div style={{ marginTop: "clamp(14px, 4vw, 20px)", width: "84%", maxWidth: "84%", minWidth: 0, boxSizing: "border-box" }}>
-                        <span style={{ ...serif, fontSize: 34, color: "rgba(46,32,19,0.28)", lineHeight: 1, display: "block", height: 16 }}>"</span>
-                        <p
-                          style={{
-                            ...serif, fontStyle: "italic", fontSize: "clamp(14px, 4vw, 16.5px)", color: paperInk, lineHeight: 1.55, margin: "4px 0 0",
-                            wordBreak: "keep-all", overflowWrap: "anywhere", maxWidth: "100%",
-                            display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden",
-                          }}
-                        >
-                          {current.entry.text}
-                        </p>
-                        {hasExtra && (
-                          <motion.span
-                            role="button" tabIndex={0} onClick={openFullEntry} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFullEntry(); } }}
-                            whileTap={{ opacity: 0.6 }}
-                            style={{ display: "inline-block", marginTop: 8, ...sans, fontSize: 11.5, fontWeight: 700, color: paperAccent, cursor: "pointer" }}
-                          >
-                            Read full entry →
-                          </motion.span>
-                        )}
-                      </div>
-
-                      {/* Margin annotation — dynamic, never baked into the
-                      PNG. Sits in normal flow right after the thought
-                      (rather than absolutely overlaid beside it) so it can
-                      never collide with however many lines the real thought
-                      actually wraps to — still right-aligned and tilted
-                      like a note jotted in the margin, just safely below
-                      the text instead of floating over it. */}
-                      {annotation && (
-                        // paddingRight (not just justify-content: flex-end)
-                        // is what actually matters here — the tilt below
-                        // rotates around the text's own center, so flush
-                        // against the safe area's edge it swings part of
-                        // itself straight into the overflow:hidden clip.
-                        // This padding is that rotation's clearance.
-                        <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, display: "flex", justifyContent: "flex-end", marginTop: 6, paddingRight: "6%", boxSizing: "border-box" }}>
-                          <div
-                            style={{
-                              maxWidth: "58%", boxSizing: "border-box",
-                              ...serif, fontStyle: "italic", fontSize: 11, color: "rgba(150,104,42,0.85)", lineHeight: 1.3, textAlign: "right",
-                              overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-                              transform: `rotate(${hashRotationDeg(current.entry.id)}deg)`, pointerEvents: "none",
-                            }}
-                          >
-                            {annotation}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Metadata row — constrained to the safe page width,
-                      centered, wraps whole [icon+label] units onto a new
-                      line rather than letting any one of them (a long
-                      domain string, say) run past the page edge. */}
-                      {(current.entry.duration || domainInfo || mood) && (
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "clamp(5px, 2vw, 8px)", marginTop: "clamp(12px, 3.5vw, 18px)", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}>
-                          {current.entry.duration && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
-                              <MicGlyph color={paperInkMuted} /> {current.entry.duration}
-                            </span>
-                          )}
-                          {current.entry.duration && (domainInfo || mood) && <MetaDivider color={paperInkMuted} />}
-                          {domainInfo && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
-                              <RegionIconGlyph region={resolveRegion({ domain: domainInfo.domain } as any)} color={paperInkMuted} /> {domainInfo.domain}
-                            </span>
-                          )}
-                          {domainInfo && mood && <MetaDivider color={paperInkMuted} />}
-                          {mood && (
-                            <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: paperInkMuted, whiteSpace: "nowrap", maxWidth: "100%", overflowWrap: "anywhere" }}>
-                              <MoodGlyph color={paperInkMuted} /> {mood}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Related discovery — printed on the page, not a floating card */}
-                      {relatedBelief && (
-                        <motion.div
-                          role="button" tabIndex={0} onClick={() => onNavSelect?.("discoveryAnalysis")}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("discoveryAnalysis"); } }}
-                          whileTap={{ opacity: 0.7 }}
-                          style={{
-                            marginTop: "clamp(14px, 4vw, 20px)", width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", textAlign: "left", cursor: "pointer",
-                            borderTop: "1px solid rgba(46,32,19,0.2)", borderBottom: "1px solid rgba(46,32,19,0.2)", padding: "10px 2px",
-                          }}
-                        >
-                          <div style={{ ...sans, fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em", color: paperAccent, textAlign: "center" }}>RELATED DISCOVERY</div>
-                          {/* flex:1 alone lets a long, unbroken belief
-                          statement force this row wider than the safe area
-                          (flex items default to min-width:auto) — min-width:
-                          0 is what actually makes it wrap instead of
-                          pushing the chevron off the page. */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, width: "100%", maxWidth: "100%", minWidth: 0 }}>
-                            <p style={{ ...serif, fontSize: 13.5, color: paperInk, lineHeight: 1.4, margin: 0, flex: 1, minWidth: 0, maxWidth: "100%", wordBreak: "keep-all", overflowWrap: "anywhere" }}>
-                              {relatedBelief.discoveryInterpretationOverride ?? relatedBelief.statement}
-                            </p>
-                            <span style={{ ...sans, fontSize: 15, color: paperInkMuted, flexShrink: 0, width: 14, textAlign: "center" }}>›</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-            ) : (
-              <div style={{ width: "80%", textAlign: "center", ...sans, fontSize: 13.5, color: "rgba(245,239,228,0.75)", lineHeight: 1.6 }}>
-                {withNumber.length === 0 ? "No thoughts recorded yet." : "No entries match your search."}
-              </div>
-            )}
+          <div style={{ display: "flex", gap: 18, flexShrink: 0, paddingTop: 3 }}>
+            <HistoryControlButton icon={<SearchIconGlyph color="#EDE7D7" />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
+            <HistoryControlButton icon={<CalendarIconGlyph color="#EDE7D7" />} label="Calendar" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
+            <HistoryControlButton icon={<FilterIconGlyph color="#EDE7D7" />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
           </div>
+        </div>
 
-          {/* ── Prev / next navigation ── */}
-          {current && (older || newer) && (
-            <div style={{ flexShrink: 0, padding: "0 24px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 420, margin: "0 auto", width: "90%" }}>
-              <motion.span
-                role="button" tabIndex={0} aria-label="Older entry" onClick={goOlder} whileTap={older ? { opacity: 0.6 } : undefined}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goOlder(); } }}
-                style={{ ...sans, fontSize: 12, fontWeight: 700, color: older ? "rgba(245,239,228,0.85)" : "rgba(245,239,228,0.25)", cursor: older ? "pointer" : "default", textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}
-              >
-                ← {older ? shortMonthDay(older.entry.date) : ""}
-              </motion.span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                {older && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "rgba(245,239,228,0.4)" }} />}
-                <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "rgba(245,239,228,0.85)" }} />
-                {newer && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: "rgba(245,239,228,0.4)" }} />}
-              </div>
-              <motion.span
-                role="button" tabIndex={0} aria-label="Newer entry" onClick={goNewer} whileTap={newer ? { opacity: 0.6 } : undefined}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goNewer(); } }}
-                style={{ ...sans, fontSize: 12, fontWeight: 700, color: newer ? "rgba(245,239,228,0.85)" : "rgba(245,239,228,0.25)", cursor: newer ? "pointer" : "default", textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}
-              >
-                {newer ? shortMonthDay(newer.entry.date) : ""} →
-              </motion.span>
+        {/* ── The catalogue ── */}
+        <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 20px 28px" }}>
+          {/* Even at zero stars, the six family sections still render (see
+          below) — deliberate empty structure the collection grows into,
+          not a blank screen — this hint just explains why. */}
+          {catalogue.length === 0 && (
+            <div style={{ marginTop: 24, ...sans, fontSize: 12.5, color: "rgba(230,224,209,0.48)", lineHeight: 1.6 }}>
+              Nothing catalogued yet. Speak your mind, and your first star will appear below.
             </div>
           )}
+          {asOfDate && (
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: "rgba(217,185,138,0.85)" }}>
+              <span>As catalogued by {asOfDate}</span>
+              <motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span>
+            </div>
+          )}
+          {COGNITIVE_REGIONS.filter((region) => filterMode?.type !== "region" || filterMode.region === region).map((region) => {
+            const stars = families.get(region) ?? [];
+            return (
+              <div key={region} style={{ marginTop: 26 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color, opacity: 0.75, flexShrink: 0 }} />
+                  <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(230,224,209,0.55)" }}>
+                    {REGION_CONFIG[region].label}
+                  </span>
+                  {stars.length > 0 && <span style={{ ...mono, fontSize: 10, color: "rgba(230,224,209,0.3)" }}>{stars.length}</span>}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                  {stars.map((star) => (
+                    <CatalogueCell key={star.belief.id} star={star} dimmed={isDimmed(star)} onOpen={() => { setSelectedStarId(star.belief.id); setStoryOpen(false); }} />
+                  ))}
+                  {stars.length > 0 ? <CatalogueGhostCell key="ghost-trailing" /> : (
+                    <>
+                      <CatalogueGhostCell key="g1" />
+                      <CatalogueGhostCell key="g2" />
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <BottomNav active="history" onSelect={onNavSelect} vintage />
+
+        {/* Dark theme so the bar reads as part of this archive screen
+        instead of the warm vintage/cream bar every photo-lit screen uses —
+        same shared BottomNav component and active-state system either way. */}
+        <BottomNav active="history" onSelect={onNavSelect} dark />
       </div>
+
+      {/* ── Star detail / story sheet ── */}
+      <AnimatePresence>
+        {selectedStar && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
+            role="button" tabIndex={-1} onClick={closeStarSheet}
+            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(3,4,7,0.7)", display: "flex", alignItems: "flex-end" }}
+          >
+            <motion.div
+              initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%", maxHeight: "82%", backgroundColor: "rgba(14,16,24,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                borderTop: "1px solid rgba(230,224,209,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
+                display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(0,0,0,0.5)",
+              }}
+            >
+              {!storyOpen ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexShrink: 0 }}>
+                    <div>
+                      <div style={{ ...mono, fontSize: 10, color: "rgba(230,224,209,0.4)", letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
+                      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: REGION_CONFIG[selectedStar.region].color, marginTop: 4 }}>
+                        {REGION_CONFIG[selectedStar.region].label}
+                      </div>
+                    </div>
+                    <motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(230,224,209,0.5)", cursor: "pointer" }}>Close</motion.span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 18px", flexShrink: 0 }}>
+                    <CatalogueStarGlyph color={REGION_CONFIG[selectedStar.region].color} size={26} vitality={selectedStar.vitality} />
+                  </div>
+                  <div style={{ ...serif, fontSize: 21, lineHeight: 1.42, color: "#EDE7D7", textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
+                    {selectedStar.belief.statement}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 15, overflowY: "auto", minHeight: 0 }}>
+                    <StatRow
+                      label="First observed"
+                      value={selectedStar.firstDiscovered ? `${formatDateDots(selectedStar.firstDiscovered)} · ${weekdayFromDotDate(formatDateDots(selectedStar.firstDiscovered))}` : "Unknown"}
+                    />
+                    <StatRow label="Appeared" value={`${selectedStar.appearances} time${selectedStar.appearances === 1 ? "" : "s"}`} />
+                    <StatRow label="Current strength" value={`${selectedStar.belief.confidence}%`} />
+                    {selectedConnectedBelief && <StatRow label="Strongly connected with" value={selectedConnectedBelief.statement} />}
+                  </div>
+                  {selectedEntries.length > 0 && (
+                    <motion.div
+                      role="button" tabIndex={0} onClick={() => setStoryOpen(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(true); } }}
+                      whileTap={{ opacity: 0.7 }}
+                      style={{ marginTop: 22, ...sans, fontSize: 13, fontWeight: 700, color: "#D9B98A", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
+                    >
+                      View its story →
+                    </motion.div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <motion.span
+                    role="button" tabIndex={0} onClick={() => setStoryOpen(false)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(false); } }}
+                    whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(230,224,209,0.55)", cursor: "pointer", marginBottom: 14, flexShrink: 0 }}
+                  >
+                    ← Back
+                  </motion.span>
+                  <div style={{ ...serif, fontSize: 16, color: "#EDE7D7", marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
+                  <div style={{ ...sans, fontSize: 11.5, color: "rgba(230,224,209,0.45)", marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
+                  <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+                    {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(230,224,209,0.38)", marginBottom: 8 }}>Strength over time</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                          {selectedStar.belief.confidenceHistory!.map((p, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: "rgba(230,224,209,0.62)" }}>
+                              <span>{p.date}</span><span style={{ ...mono, color: "#D9B98A" }}>{p.value}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(230,224,209,0.38)" }}>Appearances</div>
+                    {selectedEntries.map((entry) => (
+                      <motion.div
+                        key={entry.id} role="button" tabIndex={0} onClick={() => openEntryFromStory(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntryFromStory(entry.id); } }}
+                        whileTap={{ opacity: 0.6 }}
+                        style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(230,224,209,0.045)", border: "1px solid rgba(230,224,209,0.07)", cursor: "pointer" }}
+                      >
+                        <div style={{ ...mono, fontSize: 10, color: "rgba(230,224,209,0.4)" }}>{entry.date}</div>
+                        <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: "#EDE7D7", marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          "{entry.text}"
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Search / Calendar / Filter sheets ── */}
       <AnimatePresence>
         {sheet === "search" && (
-          <HistorySheet title="Search" onClose={() => setSheet(null)}>
+          <HistorySheet title="Search the catalogue" onClose={() => setSheet(null)}>
             <input
-              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search your recorded thoughts…"
-              aria-label="Search your recorded thoughts"
-              style={{ ...sans, fontSize: 14, color: mdHeading, border: `1.5px solid ${mdDivider}`, borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
+              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search beliefs, categories, or thoughts…"
+              aria-label="Search the star catalogue"
+              style={{ ...sans, fontSize: 14, color: "#EDE7D7", backgroundColor: "rgba(230,224,209,0.06)", border: "1.5px solid rgba(230,224,209,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
-            {(matchingBeliefs.length > 0 || matchingHypotheses.length > 0) && (
-              <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>THOUGHTS</div>
-            )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: matchingBeliefs.length > 0 || matchingHypotheses.length > 0 ? 0 : 14 }}>
-              {filtered.slice(0, 20).map(({ entry, entryNumber }) => (
-                <motion.div
-                  key={entry.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                  onClick={() => jumpTo(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpTo(entry.id); } }}
-                  style={{ padding: "10px 12px", borderRadius: 10, backgroundColor: mdNeutralTag, cursor: "pointer" }}
-                >
-                  <div style={{ ...mono, fontSize: 10.5, color: mdFaint }}>{entry.date} · Entry {entryNumber}</div>
-                  <div style={{ ...serif, fontSize: 14, color: mdHeading, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{entry.text.slice(0, 96)}{entry.text.length > 96 ? "…" : ""}</div>
-                </motion.div>
-              ))}
+            <div style={{ ...sans, fontSize: 11.5, color: "rgba(230,224,209,0.45)", marginTop: 14, lineHeight: 1.5 }}>
+              {query
+                ? `${catalogue.filter(matchesSearch).length} of ${catalogue.length} stars match "${search.trim()}".`
+                : "Matching stars stay bright on the catalogue; the rest dim."}
             </div>
-            {matchingBeliefs.length > 0 && (
-              <>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>UNDERLYING BELIEFS</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {matchingBeliefs.slice(0, 10).map((b) => (
-                    <motion.div
-                      key={b.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                      onClick={() => { setSheet(null); onNavSelect?.("beliefs"); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSheet(null); onNavSelect?.("beliefs"); } }}
-                      style={{ padding: "10px 12px", borderRadius: 10, backgroundColor: mdNeutralTag, cursor: "pointer" }}
-                    >
-                      <div style={{ ...mono, fontSize: 10.5, color: mdFaint }}>{b.domain}</div>
-                      <div style={{ ...serif, fontSize: 14, color: mdHeading, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </>
-            )}
-            {matchingHypotheses.length > 0 && (
-              <>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdFaint, letterSpacing: "0.06em", marginTop: 16, marginBottom: 6 }}>AI HYPOTHESES</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {matchingHypotheses.slice(0, 10).map((h) => (
-                    <motion.div
-                      key={h.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                      onClick={() => { setSheet(null); onNavSelect?.("hypotheses"); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSheet(null); onNavSelect?.("hypotheses"); } }}
-                      style={{ padding: "10px 12px", borderRadius: 10, backgroundColor: mdNeutralTag, cursor: "pointer" }}
-                    >
-                      <div style={{ ...serif, fontSize: 14, color: mdHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.title}</div>
-                    </motion.div>
-                  ))}
-                </div>
-              </>
-            )}
-            {search.trim() && filtered.length === 0 && matchingBeliefs.length === 0 && matchingHypotheses.length === 0 && (
-              <div style={{ ...sans, fontSize: 13, color: mdBody, padding: "8px 2px", marginTop: 14 }}>Nothing matches "{search.trim()}".</div>
-            )}
           </HistorySheet>
         )}
         {sheet === "calendar" && (
-          <HistorySheet title="Jump to a date" onClose={() => setSheet(null)}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {withNumber.map(({ entry, entryNumber }) => (
-                <motion.div
-                  key={entry.id} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                  onClick={() => jumpTo(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpTo(entry.id); } }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 4px", borderBottom: `1px solid ${mdDivider}`, cursor: "pointer" }}
+          <HistorySheet title="Rewind the catalogue" onClose={() => setSheet(null)}>
+            <div style={{ ...sans, fontSize: 12, color: "rgba(230,224,209,0.55)", lineHeight: 1.6, marginBottom: 14 }}>
+              See which stars had already been discovered by a given date.
+            </div>
+            <div
+              role="button" tabIndex={0} onClick={() => { setAsOfDate(null); setSheet(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(null); setSheet(null); } }}
+              style={{ padding: "10px 8px", borderRadius: 10, backgroundColor: !asOfDate ? "rgba(217,185,138,0.14)" : "transparent", cursor: "pointer", marginBottom: 6 }}
+            >
+              <span style={{ ...serif, fontSize: 14, color: "#EDE7D7" }}>Show the whole catalogue</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 280, overflowY: "auto" }}>
+              {calendarMilestones.map(([date, count]) => (
+                <div
+                  key={date} role="button" tabIndex={0} onClick={() => { setAsOfDate(date); setSheet(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(date); setSheet(null); } }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 8px", borderBottom: "1px solid rgba(230,224,209,0.06)", cursor: "pointer", backgroundColor: asOfDate === date ? "rgba(217,185,138,0.14)" : "transparent", borderRadius: 8 }}
                 >
-                  <span style={{ ...serif, fontSize: 14.5, color: mdHeading }}>{entry.date} <span style={{ ...sans, fontSize: 11, color: mdFaint }}>· {weekdayFromDotDate(entry.date)}</span></span>
-                  <span style={{ ...mono, fontSize: 10.5, color: mdFaint }}>#{entryNumber}</span>
-                </motion.div>
+                  <span style={{ ...serif, fontSize: 14, color: "#EDE7D7" }}>{date} <span style={{ ...sans, fontSize: 10.5, color: "rgba(230,224,209,0.4)" }}>· {weekdayFromDotDate(date)}</span></span>
+                  <span style={{ ...mono, fontSize: 10.5, color: "rgba(230,224,209,0.4)" }}>{count} discovered</span>
+                </div>
               ))}
+              {calendarMilestones.length === 0 && <div style={{ ...sans, fontSize: 13, color: "rgba(230,224,209,0.45)" }}>No dated stars yet.</div>}
             </div>
           </HistorySheet>
         )}
         {sheet === "filter" && (
-          <HistorySheet title="Filter by category" onClose={() => setSheet(null)}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <motion.span
-                role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => { setFilterDomain(null); setSheet(null); }}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFilterDomain(null); setSheet(null); } }}
-                style={{
-                  ...sans, fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 999, cursor: "pointer",
-                  backgroundColor: !filterDomain ? mdAccent : mdNeutralTag, color: !filterDomain ? "#fff" : mdBodyLight,
-                }}
-              >
-                All
-              </motion.span>
-              {availableDomains.map(([domain, color]) => (
-                <motion.span
-                  key={domain} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => { setFilterDomain(domain); setSheet(null); }}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setFilterDomain(domain); setSheet(null); } }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, ...sans, fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 999, cursor: "pointer",
-                    backgroundColor: filterDomain === domain ? color : mdNeutralTag, color: filterDomain === domain ? "#fff" : mdBodyLight,
-                  }}
-                >
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: filterDomain === domain ? "rgba(255,255,255,0.85)" : color }} />
-                  {domain}
-                </motion.span>
+          <HistorySheet title="Filter the catalogue" onClose={() => setSheet(null)}>
+            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(230,224,209,0.4)", marginBottom: 10 }}>By category</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+              <CatalogueFilterChip label="All" active={!filterMode} onClick={() => { setFilterMode(null); setSheet(null); }} />
+              {COGNITIVE_REGIONS.map((region) => (
+                <CatalogueFilterChip
+                  key={region} label={REGION_CONFIG[region].label} color={REGION_CONFIG[region].color}
+                  active={filterMode?.type === "region" && filterMode.region === region}
+                  disabled={(families.get(region)?.length ?? 0) === 0}
+                  onClick={() => { setFilterMode({ type: "region", region }); setSheet(null); }}
+                />
               ))}
-              {availableDomains.length === 0 && <div style={{ ...sans, fontSize: 13, color: mdBody }}>No categorized entries yet to filter by.</div>}
+            </div>
+            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(230,224,209,0.4)", marginBottom: 4 }}>By pattern</div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <CatalogueFilterRow label="Active" note="Recently reinforced" active={filterMode?.type === "active"} onClick={() => { setFilterMode({ type: "active" }); setSheet(null); }} />
+              <CatalogueFilterRow label="Dormant" note="Quieter, not recently reinforced" active={filterMode?.type === "dormant"} onClick={() => { setFilterMode({ type: "dormant" }); setSheet(null); }} />
+              <CatalogueFilterRow label="Recently discovered" note="First observed in the last 30 days" active={filterMode?.type === "recent"} onClick={() => { setFilterMode({ type: "recent" }); setSheet(null); }} />
+              <CatalogueFilterRow label="Most recurrent" note="Appeared the most often" active={filterMode?.type === "recurrent"} onClick={() => { setFilterMode({ type: "recurrent" }); setSheet(null); }} />
             </div>
           </HistorySheet>
         )}
