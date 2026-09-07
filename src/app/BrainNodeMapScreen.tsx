@@ -262,6 +262,7 @@ export default function BrainNodeMapScreen({
   modernist = false,
   autoHighlightIds,
   initialActiveRegion = null,
+  initialSelectedBeliefId = null,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -298,6 +299,12 @@ export default function BrainNodeMapScreen({
   // instead of opening to the unfiltered full map and making the person
   // tap the region again themselves.
   initialActiveRegion?: CognitiveRegion | null;
+  // Opens straight onto one specific belief instead of (or in addition to)
+  // a region — the same tap-a-star result (detail panel open, camera flown
+  // to dead-center on it) as if the person had landed on the unfiltered map
+  // and tapped it themselves. Home's node field uses this so tapping one of
+  // its five real nodes lands here already focused on that exact belief.
+  initialSelectedBeliefId?: string | null;
 }) {
   // Full-screen Brain Map is an immersive night-space even when the caller
   // uses the app's `modernist` flag elsewhere. The previous full-screen
@@ -785,6 +792,18 @@ export default function BrainNodeMapScreen({
     flyToRegion(initialActiveRegion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialActiveRegion]);
+
+  // Same fix, for a specific belief instead of a whole region — Home's node
+  // field passes the tapped node's id here so this screen opens already
+  // flown-in and panel-open on it, rather than requiring a second tap once
+  // the map's caught up. Runs after the effect above (and after the
+  // mount-once scene effect, per the same declaration-order guarantee) so
+  // any initialActiveRegion fly-to is immediately superseded by landing
+  // precisely on the one belief that was actually tapped.
+  useEffect(() => {
+    if (initialSelectedBeliefId) selectBelief(initialSelectedBeliefId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelectedBeliefId]);
 
   // "Network activation" — tapping a real node. Never removes the rest of
   // the brain (point 1/9): everything not part of the tapped node's own

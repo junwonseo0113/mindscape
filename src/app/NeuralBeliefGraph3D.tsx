@@ -776,11 +776,16 @@ const POINT_LIGHT_COLOR = "#FBF3E2";
 // breathe on top of the shared pulse wave, on top of the core's own
 // breathing — the bigger a node renders, the more its halo should visibly
 // swell, while the solid core itself keeps the same restrained wobble.
+// `glowIntensity` scales the glow/bloom sprites' own opacity on top of
+// their existing strength/vitality-driven formula, floor included — a
+// low-evidence belief still gets a clearly visible colored halo on hero/
+// prominent tiers, matching the reference where every node (not just the
+// most-reinforced one) reads as its own small luminous orb.
 const NODE_SCALE_TIERS = {
-  small: { size: 0.75, haloBreathe: 1 },
-  standard: { size: 1, haloBreathe: 1 },
-  prominent: { size: 2.2, haloBreathe: 1.4 },
-  hero: { size: 2.85, haloBreathe: 1.7 },
+  small: { size: 0.75, haloBreathe: 1, glowIntensity: 1 },
+  standard: { size: 1, haloBreathe: 1, glowIntensity: 1 },
+  prominent: { size: 2.2, haloBreathe: 1.4, glowIntensity: 1.6 },
+  hero: { size: 2.85, haloBreathe: 1.7, glowIntensity: 2 },
 } as const;
 type NodeScaleTier = keyof typeof NODE_SCALE_TIERS;
 
@@ -815,7 +820,7 @@ function ActiveBeliefNode({
   // the tier's full, dramatic size.
   sizeOverride?: number;
 }) {
-  const { size: tierSize, haloBreathe } = NODE_SCALE_TIERS[scaleTier];
+  const { size: tierSize, haloBreathe, glowIntensity } = NODE_SCALE_TIERS[scaleTier];
   const sizeScale = sizeOverride ?? tierSize;
   // Every geometry/sprite dimension below is derived from this, never from
   // node.radius directly, so this is the one place size is applied.
@@ -924,7 +929,7 @@ function ActiveBeliefNode({
     if (glowRef.current) {
       const glowMat = glowRef.current.material as THREE.SpriteMaterial;
       glowMat.color.copy(blendedColor);
-      glowMat.opacity = Math.min(0.72, (0.18 + 0.17 * node.strength + flash * 0.32) * emissivePulse * dormantBrightness * visibility.current * (isDimmed ? 0.42 : 1));
+      glowMat.opacity = Math.min(0.72 * glowIntensity, (0.18 + 0.17 * node.strength + flash * 0.32) * emissivePulse * dormantBrightness * visibility.current * (isDimmed ? 0.42 : 1) * glowIntensity);
       const glowSize = r * 3.15 * lightScale * springScale.current * (1 + flash * 0.85);
       glowRef.current.scale.set(glowSize, glowSize, 1);
     }
@@ -932,7 +937,7 @@ function ActiveBeliefNode({
     if (bloomRef.current) {
       const bloomMat = bloomRef.current.material as THREE.SpriteMaterial;
       bloomMat.color.copy(blendedColor);
-      bloomMat.opacity = Math.min(0.2, (0.035 + 0.045 * node.strength + (node.isCore ? 0.018 : 0) + flash * 0.09) * dormantBrightness * visibility.current * (isDimmed ? 0.28 : 1));
+      bloomMat.opacity = Math.min(0.2 * glowIntensity, (0.035 + 0.045 * node.strength + (node.isCore ? 0.018 : 0) + flash * 0.09) * dormantBrightness * visibility.current * (isDimmed ? 0.28 : 1) * glowIntensity);
       const bloomSize = r * 6.8 * lightScale * (1 + flash * 0.7);
       bloomRef.current.scale.set(bloomSize, bloomSize, 1);
     }
@@ -1215,11 +1220,26 @@ function boostForIvory(hex: string): string {
   const c = new THREE.Color(hex);
   const hsl = { h: 0, s: 0, l: 0 };
   c.getHSL(hsl);
-  c.setHSL(hsl.h, Math.min(1, hsl.s * 1.22 + 0.1), Math.max(0, hsl.l - 0.05));
+  c.setHSL(hsl.h, Math.min(1, hsl.s * 1.35 + 0.12), Math.max(0, hsl.l - 0.06));
   return `#${c.getHexString()}`;
 }
 
-export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
+export function JarBrainPreview({
+  beliefs,
+  onSelectNode,
+  onBackgroundTap,
+}: {
+  beliefs: NeuralBeliefNode[];
+  // Fires with the tapped node's belief id — Home wires this to open the
+  // full Brain Map already flown-in and panel-open on that exact belief
+  // (see initialSelectedBeliefId on BrainNodeMapScreen), the same result as
+  // landing on the unfiltered map and tapping it there yourself.
+  onSelectNode?: (id: string) => void;
+  // Fires for a tap that lands in the field but not on any node — Home
+  // wires this to the same generic "open the map" behavior the whole field
+  // used to trigger before individual nodes became their own tap targets.
+  onBackgroundTap?: () => void;
+}) {
   const activeNodes = useMemo(() => buildActiveNodes(beliefs), [beliefs]);
   // Only ever a handful of the full anatomical position table's slots are
   // actually occupied here (whichever ones this person's real beliefs got
@@ -1243,41 +1263,49 @@ export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
   // only. This is a local render-time copy (a new array, not a mutation of
   // `node`), so the real Brain Map's shared position table/spacing is
   // untouched — only how this jar-less preview draws them changes.
+  //
+  // On top of that pan, a short screen-space repulsion relaxation nudges
+  // any two nodes that would otherwise crowd or overlap apart from each
+  // other until every one of them has its own clear space — the reference
+  // "each node its own little sun" formation, rather than beliefs landing
+  // in pairs that visually merge. Every node still gets its full hero/
+  // prominent tier size unconditionally now (no more holding a size back
+  // to dodge an overlap) since separation is handled by nudging position,
+  // not by shrinking. Z is left untouched throughout (only X/Y — the plane
+  // the camera actually looks across — ever move).
   const clusteredNodes = useMemo(() => {
     const k = 0.92;
-    const positioned = activeNodes.map((n) => ({
-      ...n,
-      position: [camX + (n.position[0] - camX) * k, camY + (n.position[1] - camY) * k, n.position[2] * k] as [number, number, number],
-      color: boostForIvory(n.color),
-    }));
-    // The tier sizes above are tuned for a comfortably-spaced constellation,
-    // but two real beliefs can legitimately land almost on the same screen
-    // point (see buildActiveNodes/BACKGROUND_POSITIONS — two slots can be
-    // far apart in depth yet nearly identical in X/Y, which is what the
-    // camera actually sees) — grown to full hero/prominent size, the nearer
-    // one's core+halo could fully bury a close neighbor. Where that's true,
-    // this holds a node back to (at most) its own pre-redesign size instead
-    // — never enlarged past the point of crowding a neighbor, but never
-    // shrunk below what it already looked like before this change either.
-    // An isolated node (the common case) still gets the tier's full size.
-    return positioned.map((n, i) => {
-      let nearestGap = Infinity;
-      positioned.forEach((m, j) => {
-        if (i === j) return;
-        // Screen-space (X/Y only) gap, not full 3D distance — the camera
-        // looks straight down Z, so two beliefs can sit far apart in depth
-        // yet land on almost the same screen point; a 3D distance would
-        // (wrongly) read that pair as safely far apart and never hold either
-        // one back, which is exactly what let one fully eclipse the other.
-        const dx = n.position[0] - m.position[0];
-        const dy = n.position[1] - m.position[1];
-        nearestGap = Math.min(nearestGap, Math.sqrt(dx * dx + dy * dy));
-      });
+    const positioned = activeNodes.map((n) => {
       const tierSize = NODE_SCALE_TIERS[n.isCore ? "hero" : "prominent"].size;
-      const safeSize = nearestGap === Infinity ? tierSize : (nearestGap * 0.45) / n.radius;
-      const sizeOverride = Math.max(1, Math.min(tierSize, safeSize));
-      return { ...n, sizeOverride };
+      return {
+        ...n,
+        position: [camX + (n.position[0] - camX) * k, camY + (n.position[1] - camY) * k, n.position[2] * k] as [number, number, number],
+        color: boostForIvory(n.color),
+        tierSize,
+      };
     });
+    for (let pass = 0; pass < 40; pass++) {
+      for (let i = 0; i < positioned.length; i++) {
+        for (let j = i + 1; j < positioned.length; j++) {
+          const a = positioned[i];
+          const b = positioned[j];
+          const dx = b.position[0] - a.position[0];
+          const dy = b.position[1] - a.position[1];
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          // Target: each core comfortably clear of its neighbor's halo, not
+          // just its core — matched to the tier-scaled radius each will
+          // actually render at.
+          const minDist = (a.radius * a.tierSize + b.radius * b.tierSize) * 2.1;
+          if (dist >= minDist) continue;
+          const push = (minDist - dist) * 0.5;
+          const ux = dist > 0.0001 ? dx / dist : 1;
+          const uy = dist > 0.0001 ? dy / dist : 0;
+          a.position = [a.position[0] - ux * push, a.position[1] - uy * push, a.position[2]];
+          b.position = [b.position[0] + ux * push, b.position[1] + uy * push, b.position[2]];
+        }
+      }
+    }
+    return positioned.map((n) => ({ ...n, sizeOverride: n.tierSize }));
   }, [activeNodes, camX, camY]);
   return (
     <Canvas
@@ -1295,7 +1323,13 @@ export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
       // them comfortably inside the canvas rather than crowding its edges.
       camera={{ position: [camX, camY, 6.4], fov: 36 }}
       gl={{ antialias: true, alpha: true }}
-      style={{ pointerEvents: "none" }}
+      // Interactive now (was pointerEvents:none) so a tap can land on one
+      // specific node — see onSelectNode below. onPointerMissed is R3F's
+      // "the pointer event didn't hit any object" callback, which is how a
+      // tap on the empty space between nodes still falls back to opening
+      // the map generically instead of doing nothing.
+      onPointerMissed={() => onBackgroundTap?.()}
+      style={{ cursor: "pointer" }}
     >
       <ambientLight intensity={1.3} />
       <pointLight position={[4, 5, 6]} intensity={16} color="#E8DEFF" />
@@ -1310,7 +1344,7 @@ export function JarBrainPreview({ beliefs }: { beliefs: NeuralBeliefNode[] }) {
             isDimmed={false}
             isHiddenBySelection={false}
             justActivatedAt={null}
-            onSelect={() => {}}
+            onSelect={() => onSelectNode?.(node.id)}
             onHoverChange={() => {}}
             // The five real belief nodes ARE Home's centerpiece — isCore
             // (already the "most important belief" signal elsewhere in this

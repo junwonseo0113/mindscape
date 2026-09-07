@@ -1274,15 +1274,15 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
     {
       screen: "home",
       target: "nav-analysis",
-      title: "See your belief network in Mind",
-      body: "Every confirmed belief shows up here as its own point, connected to whatever it's actually related to. Want to tap in and take a look?",
+      title: "See your beliefs, in detail, in Mind",
+      body: "The beliefs behind what you've been noticing lately, laid out in full — what connects them, and where they show up. Want to tap in and take a look?",
       navTo: "analysis",
     },
     {
       screen: "analysis",
       target: "mind-neurons",
       title: "Your confirmed beliefs, mapped",
-      body: "Each glowing point is a real, confirmed pattern — not everything you've ever said, just what's repeated enough to count.",
+      body: "Each belief here is a real, confirmed pattern — not everything you've ever said, just what's repeated enough to count.",
     },
     {
       screen: "analysis",
@@ -1685,7 +1685,7 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   );
 }
 
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   const [showRegionShortcuts, setShowRegionShortcuts] = React.useState(false);
   const daysAway = daysSinceLastEntry(store.history);
 
@@ -1753,9 +1753,12 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
 
       {(!MONETIZATION_ENABLED || store.isPro) ? (
         <>
-          {/* Generous tap target over the whole node field — opens the
-          real Brain Map. Centered and inset from both edges (not full-
-          width) so the field itself reads as centered on the screen. */}
+          {/* Keyboard/screen-reader path to the Brain Map — a real
+          tabbable, Enter/Space-activatable button underneath the canvas.
+          Sighted mouse/touch users hit the canvas on top instead (see
+          below): tapping a specific node there opens straight onto that
+          node; tapping empty space within the field falls through to this
+          same generic "open the map" behavior via onBackgroundTap. */}
           <motion.div
             data-tutorial="brain-card"
             role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
@@ -1768,16 +1771,20 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           region colors/glow with the full graph in NeuralBeliefGraph3D;
           this is that same real data, just chrome-free and without the old
           jar photo it used to be clipped into), not a separate hand-placed
-          layout. Transparent canvas, pointerEvents:none so the tap target
-          above handles the whole area as one destination — same as the
-          full Brain Map, this view has no connection lines and no per-node
-          tap (see the redesign brief: "Home = a glimpse of your mind,"
-          lines/selection belong to Mind's full network view instead). Sized
-          to be the screen's visual focus — large, filling most of the space
-          between the headline and "Your Mind" — with JarBrainPreview's own
-          camera zoomed in to match (see NeuralBeliefGraph3D.tsx). */}
-          <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", pointerEvents: "none" }}>
-            <JarBrainPreview beliefs={store.beliefs} />
+          layout. Interactive (not pointerEvents:none — see onSelectNode/
+          onBackgroundTap below): tapping one specific node opens the full
+          Brain Map already flown-in and focused on that exact belief,
+          tapping the empty space between nodes falls back to the generic
+          open-the-map behavior above. Sized to be the screen's visual
+          focus — large, filling most of the space between the headline and
+          "Your Mind" — with JarBrainPreview's own camera zoomed in to match
+          (see NeuralBeliefGraph3D.tsx). */}
+          <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
+            <JarBrainPreview
+              beliefs={store.beliefs}
+              onSelectNode={(id) => onOpenBrainMap?.(undefined, id)}
+              onBackgroundTap={() => onOpenBrainMap?.()}
+            />
           </div>
         </>
       ) : (
@@ -2515,7 +2522,7 @@ function SectionCard({ title, subtitle, children, dataTutorial }: { title?: stri
 // "Analysis" tab (see ScreenDiscoveryAnalysis and the "discoveryAnalysis"
 // case in the App shell below), leaving this one to answer a single
 // question: "what does my confirmed belief network actually look like?"
-function ScreenAnalysis({ onNavSelect, onOpenBrainMap, onOpenArtifact, store }: { onNavSelect?: (id: string) => void; onOpenBrainMap?: () => void; onOpenArtifact?: (id: string) => void; store: Store }) {
+function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; store: Store }) {
   const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
   // ScreenDiscoveryAnalysis uses (see there for the fuller machinery this
@@ -2551,14 +2558,6 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, onOpenArtifact, store }: 
       ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
     }));
   }, [store.beliefs, store.connections, store.history, relatedBeliefIds]);
-  const relatedBrainConnections = React.useMemo(() => {
-    if (relatedBeliefIds.size === 0) return store.connections;
-    return store.connections.filter((c) => relatedBeliefIds.has(c.a) && relatedBeliefIds.has(c.b));
-  }, [store.connections, relatedBeliefIds]);
-  const relatedBrainClusters = React.useMemo(
-    () => findBeliefClusters(relatedBrainBeliefs, relatedBrainConnections),
-    [relatedBrainBeliefs, relatedBrainConnections]
-  );
   // Exactly the discovery itself, not its wider "related" context above —
   // a hypothesis IS the relationship between several beliefs, so all of
   // them are the discovery; a belief-kind discovery is just that one
@@ -2571,12 +2570,6 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, onOpenArtifact, store }: 
     return [];
   }, [h, b]);
 
-  // Whether the notebook's detail view is open. The landing scene itself
-  // never scrolls (spec: "single immersive scene... fits within 100dvh, no
-  // vertical scrolling"); this state is what the notebook tap opens into,
-  // and that view IS allowed to scroll since it's explicitly a separate
-  // detail state, not the main scene.
-  const [notebookOpen, setNotebookOpen] = React.useState(false);
   // Whether the notebook's numeric region breakdown is expanded — same
   // count/percentage math RegionBreakdown uses elsewhere, just tucked
   // behind a secondary disclosure here instead of always-on rows, per the
@@ -2608,156 +2601,61 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, onOpenArtifact, store }: 
 
   return (
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
-      {/* ── Header — same shared position/size/spacing every primary
-      screen's header uses (see PRIMARY_HEADER_TOP/SIDE and
-      primaryTitleStyle/primaryTitleSubtitleStyle) — this is the one place
-      that also has a control row sharing the line, hence the
-      flex:1/minWidth:0 wrapper so the (already one-line-safe) subtitle
-      truncates instead of pushing the icons off-edge in a narrower frame. ── */}
-      <div style={{ position: "absolute", top: PRIMARY_HEADER_TOP, left: PRIMARY_HEADER_SIDE, right: PRIMARY_HEADER_SIDE, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, zIndex: 3 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={primaryTitleStyle}>Mind</div>
-          <div style={primaryTitleSubtitleStyle}>
-            Your confirmed beliefs, as a network.
+      {/* Mind now opens straight onto what used to be the "My Mind"
+      notebook you had to tap into from a separate landing scene — that
+      landing scene (the embedded constellation preview + the "My Mind"
+      entry card) is gone; this content IS the Mind tab now. Home already
+      owns "a glimpse of your mind" (its own node field, tap-to-open-the-
+      real-Brain-Map), so nothing here is lost, just no longer duplicated
+      behind an extra tap. Same header+scroll+BottomNav flex-column
+      structure History uses (see PRIMARY_HEADER_TOP/SIDE) rather than the
+      old fixed-viewport "single immersive scene" this replaces — this
+      content was always meant to scroll. */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={primaryTitleStyle}>Mind</div>
+            <div style={primaryTitleSubtitleStyle}>
+              The beliefs behind today's discovery, in detail.
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+            <motion.div
+              role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
+              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <circle cx="8.5" cy="8.5" r="6" stroke={ivHeading} strokeWidth="1.5" />
+                <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </motion.div>
+            <motion.div
+              role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
+              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="7" r="3.4" stroke={ivHeading} strokeWidth="1.5" />
+                <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </motion.div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <circle cx="8.5" cy="8.5" r="6" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </motion.div>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="7" r="3.4" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </motion.div>
-        </div>
-      </div>
 
-      {/* ── The constellation — the visual centerpiece of this screen now
-      (see the redesign brief: "Home = a glimpse of your mind, Mind =
-      explore your mind"), occupying most of the screen instead of being
-      framed inside a small photographic "window." The real Three.js scene
-      (NeuralBeliefGraph3D) is completely untouched — same props, same
-      network/clustering/animation logic — this pass only changed the
-      ivory canvas it now sits directly on and how much room it gets. Same
-      pattern as Home's node field: the graph itself renders
-      pointer-events:none (it still idles/drifts on its own) and a
-      transparent full-area button sits on top so a tap opens the real,
-      expanded Brain Map — not inline node selection here. ── */}
-      <div
-        data-tutorial="mind-neurons"
-        style={{ position: "absolute", left: "4%", right: "4%", top: "15%", height: "44%", zIndex: 2 }}
-      >
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <NeuralBeliefGraph3D
-            beliefs={relatedBrainBeliefs}
-            connections={relatedBrainConnections}
-            clusters={relatedBrainClusters}
-            defaultStructureMode
-            minimal
-          />
-        </div>
-        <motion.div
-          role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }}
-          whileTap={{ opacity: 0.85 }}
-          style={{ position: "absolute", inset: 0, cursor: "pointer" }}
-        />
-      </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: "60%", textAlign: "center", zIndex: 1, pointerEvents: "none" }}>
-        <div style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: ivHeading, letterSpacing: "0.01em" }}>
-          {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
-        </div>
-        <div style={{ ...sans, fontSize: 10.5, color: ivFaint, marginTop: 3 }}>
-          Tap to open your Brain Map
-        </div>
-      </div>
-
-      {/* ── "My Mind" notebook entry — a plain ivory SurfaceCard now
-      (see the redesign brief: "no notebook image"), same tap behavior as
-      the old photographed-book graphic it replaces. ── */}
-      <motion.div
-        role="button" tabIndex={0} aria-label="Open your Mind notebook" onClick={() => setNotebookOpen(true)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNotebookOpen(true); } }}
-        whileTap={{ scale: 0.98, opacity: 0.92 }}
-        style={{
-          position: "absolute", left: 20, right: 20, top: "70%", zIndex: 2,
-          display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: 22,
-          padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}`,
-        }}
-      >
-        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-            <path d="M10 5.5c-1.4-1-3.3-1.3-5-1v10.5c1.7-.3 3.6 0 5 1V5.5ZM10 5.5c1.4-1 3.3-1.3 5-1v10.5c-1.7-.3-3.6 0-5 1" stroke={ivHeading} strokeWidth="1.4" strokeLinejoin="round" />
-          </svg>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-          <span style={{ ...serif, fontSize: 17, color: ivHeading }}>My Mind</span>
-          <span style={{ ...sans, fontSize: 12, color: ivBody }}>The beliefs behind today's discovery, in detail.</span>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-          <path d="M4 10h12M10 4l6 6-6 6" stroke={ivHeading} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </motion.div>
-
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 3 }}>
-        <BottomNav active="analysis" onSelect={onNavSelect} vintage />
-      </div>
-
-      {/* ── Notebook detail view — an editorial "private page" on the same
-      ivory canvas, reading the exact same discovery data
-      DiscoveryBeliefList/RegionBreakdown compute elsewhere (see
-      notebookBeliefs/notebookNotes/notebookRegionCounts above). This is a
-      presentation-only rewrite for this one screen — neither shared
-      component was touched, and DiscoveryBeliefList is still used verbatim
-      by ScreenHypothesisDetail. This state IS allowed to scroll; the
-      landing scene above never is. ── */}
-      <AnimatePresence>
-        {notebookOpen && (
-          <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
-            transition={{ duration: reduceMotion ? 0.01 : 0.28, ease: "easeOut" }}
-            style={{
-              position: "absolute", inset: 0, zIndex: 10, display: "flex", flexDirection: "column", overflow: "hidden",
-              // inset:0 on this screen's already-extended root (top:-30
-              // above) is what carries the ivory canvas behind the
-              // status-bar safe area too — no separate fix needed here.
-              ...ivBackground,
-            }}
-          >
-            <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 24px 48px" }}>
-              {/* Header — charcoal on ivory, no card behind it. */}
-              <div style={{ padding: "44px 0 32px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                <div>
-                  <div style={{ ...serif, fontSize: 28, fontWeight: 400, color: ivHeading, marginBottom: 5 }}>My Mind</div>
-                  <div style={{ ...sans, fontSize: 12.5, color: ivBody }}>The beliefs behind today's discovery, in detail.</div>
-                </div>
-                <motion.div
-                  role="button" tabIndex={0} aria-label="Close notebook" onClick={() => setNotebookOpen(false)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setNotebookOpen(false); } }}
-                  whileTap={{ opacity: 0.6, scale: 0.94 }}
-                  style={{ width: 32, height: 32, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                    <path d="M5 5l10 10M15 5L5 15" stroke={ivHeading} strokeWidth="1.6" strokeLinecap="round" />
-                  </svg>
-                </motion.div>
-              </div>
-
+        {/* ── The notebook content itself — reads the exact same discovery
+        data DiscoveryBeliefList/RegionBreakdown compute elsewhere (see
+        notebookBeliefs/notebookNotes/notebookRegionCounts above); neither
+        shared component was touched, and DiscoveryBeliefList is still used
+        verbatim by ScreenHypothesisDetail. Same PRIMARY_HEADER_SIDE grid as
+        the header above so sections line up under "Mind" instead of
+        starting at their own separate inset (same fix History's own
+        catalogue applies below its header). Keeps the "mind-neurons"
+        data-tutorial target (see buildTutorialSteps) pointed at this
+        section — always rendered regardless of whether there's a discovery
+        yet, unlike the belief list below it, so the tutorial step never
+        aims at something that may not exist. ── */}
+        <div data-tutorial="mind-neurons" className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${PRIMARY_HEADER_SIDE}px 28px` }}>
               {/* SECTION 1 · Beliefs — the statement itself is the visual
               focus; domain and confidence stay quiet/secondary, no rows or
               pills. */}
@@ -2892,10 +2790,10 @@ function ScreenAnalysis({ onNavSelect, onOpenBrainMap, onOpenArtifact, store }: 
                   </div>
                 </div>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+
+        <BottomNav active="analysis" onSelect={onNavSelect} vintage />
+      </div>
     </div>
   );
 }
@@ -7494,6 +7392,11 @@ export default function App() {
   // comment — so today this is always null coming from Home; left in place
   // for whatever else ends up wanting a filtered entry point.)
   const [brainMapInitialRegion, setBrainMapInitialRegion] = React.useState<CognitiveRegion | null>(null);
+  // Same idea, for one specific belief — set when Home's node field is
+  // tapped directly on one of its real nodes (see ScreenHome's
+  // JarBrainPreview onSelectNode below), so the map opens already flown-in
+  // and panel-open on that exact belief instead of the unfiltered overview.
+  const [brainMapInitialBeliefId, setBrainMapInitialBeliefId] = React.useState<string | null>(null);
   // The one data provider: `store` is whichever dataset is currently active
   // (curated demo content, or the real on-device store — see
   // src/app/dataProvider.ts), and every screen below reads only that, with
@@ -7803,13 +7706,13 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={() => setScreen("think")}
-        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
+        onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
-      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} />
+      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
     ) : (
       <ScreenPaywall onBack={() => setScreen(brainMapReturnTo)} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
@@ -7823,7 +7726,6 @@ export default function App() {
     ) : (
       <ScreenAnalysis
         onNavSelect={goToTab}
-        onOpenBrainMap={() => { setBrainMapInitialRegion(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
         onOpenArtifact={(id) => setScreen(id)}
         store={store}
       />
@@ -8067,7 +7969,7 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={() => setScreen("brainmap")} store={store} updateStore={updateStore} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
 
   const isMobileViewport = useIsMobileViewport();
