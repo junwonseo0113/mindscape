@@ -1412,7 +1412,7 @@ export default function BrainNodeMapScreen({
                     alignItems: "center",
                     gap: 7,
                     flex: "0 0 auto",
-                    minHeight: 38,
+                    minHeight: 44,
                     padding: "8px 11px",
                     borderRadius: 999,
                     border: `1px solid ${active ? accentUi : line}`,

@@ -1693,7 +1693,7 @@ function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs
       style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: 12, backdropFilter: "blur(12px)", boxShadow: ivCardShadow }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: ivFaint }}>OPEN A REGION</span>
-        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.92, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
+        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.96, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {COGNITIVE_REGIONS.map((region) => (
@@ -1880,7 +1880,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-          <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>Unlock your Brain Map</div>
+          <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>See your Brain Map</div>
           <div style={{ ...sans, fontSize: 12.5, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
             Upgrade to Pro to see your unconscious beliefs light up and connect.
           </div>
