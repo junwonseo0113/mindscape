@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import {
   handleAnalyze,
@@ -67,7 +69,15 @@ function analyzeApiPlugin(env: Record<string, string>): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), analyzeApiPlugin(env)],
+    plugins: [react(), tailwindcss(), analyzeApiPlugin(env)],
+    resolve: {
+      // shadcn/BKlit UI generated components import via "@/..." — this
+      // mirrors the same alias declared in tsconfig.app.json so both the
+      // TS compiler and Vite's bundler resolve it the same way.
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
     // Without this, Vite's dev server binds only to whatever `localhost`
     // resolves to on this machine — which turned out to be the IPv6
     // loopback ([::1]) only, not IPv4 (127.0.0.1). Node/curl fall back to

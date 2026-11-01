@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "motion/react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import {
@@ -83,6 +84,21 @@ const PULSE_COUNT = 2;
 const sans = { fontFamily: "Inter, sans-serif" };
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const mono = { fontFamily: "'JetBrains Mono', monospace" };
+
+// Visually hidden but still reachable by screen readers — announces which
+// belief the keyboard-focus ring (see keyboardFocusRingRef) is currently
+// sitting on, since the ring itself is a pure sighted-user visual cue
+// (aria-hidden) with nothing else conveying "which node" to assistive tech.
+const srOnlyStyle: React.CSSProperties = {
+  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+  overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0,
+};
+
+// Reused every frame for the keyboard-focused node's world→screen
+// projection instead of allocating a fresh Vector3 per frame — the rest of
+// this file is already careful about per-frame allocation (see the spatial
+// grid / cached colors elsewhere), this keeps that discipline.
+const _keyboardFocusProjVec = new THREE.Vector3();
 
 // A real 4-point sparkle (the "north star" glyph — ✦), not a plain dot: a
 // small solid core plus two tapering rays, one vertical one horizontal.
@@ -382,6 +398,70 @@ export default function BrainNodeMapScreen({
   );
   const [connectionCount, setConnectionCount] = useState(0);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth <= 640);
+  // Read once at mount, same as every other reducedMotion check in this app
+  // (ScreenQuoteOfTheDay, OpeningStars, etc.) — the scene-setup effect below
+  // is itself mount-once, so a mid-session OS preference toggle wouldn't be
+  // picked up there regardless of how reactively this value is read.
+  const reducedMotion = useReducedMotion();
+
+  // ── Keyboard node selection — a real, non-mouse path to pick one of the
+  // raycast-only star points below. keyboardOrderIds is a stable (sorted by
+  // id) cycling order independent of render order; keyboardFocusId is
+  // "browsing" state (Arrow keys move it, nothing else happens yet) that's
+  // promoted to an actual selection (same as a tap — flies the camera,
+  // opens the panel, schedules network activation) only on Enter/Space, via
+  // the existing selectBelief. keyboardFocusIdRef mirrors the state into the
+  // mount-once animate() loop below, which can't see fresh state directly.
+  const keyboardOrderIds = React.useMemo(() => [...beliefs].map((b) => b.id).sort(), [beliefs]);
+  const [keyboardFocusId, setKeyboardFocusId] = useState<string | null>(null);
+  const keyboardFocusIdRef = useRef<string | null>(null);
+  const keyboardFocusRingRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    keyboardFocusIdRef.current = keyboardFocusId;
+  }, [keyboardFocusId]);
+
+  // ── Detail panel focus management. The panel already has real dialog
+  // *content* (close button, linked-belief rows) but previously nothing
+  // moved focus into it, nothing restored focus on close, and it had no
+  // role/aria-modal — a screen-reader user tapping/selecting a node got no
+  // indication anything had opened at all.
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (selected) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      closeButtonRef.current?.focus();
+    } else if (previousFocusRef.current) {
+      // The node that opened this (a canvas click has nothing to refocus,
+      // a keyboard Enter means this is wrapRef itself) may have been
+      // removed/changed in the meantime — focus() on a detached element is
+      // a silent no-op, not a throw, so this is safe either way.
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [selected]);
+
+  // Minimal focus trap while the panel is open — aria-modal="true" below
+  // is a claim that focus can't leave the dialog; without this, Tab from
+  // the last focusable row would otherwise escape straight back to the
+  // canvas behind it, which would make that claim false.
+  const handlePanelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab" || !panelRef.current) return;
+    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+      'button, [tabindex]:not([tabindex="-1"]), a[href], input, select, textarea'
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth <= 640);
@@ -420,11 +500,23 @@ export default function BrainNodeMapScreen({
   const flyTo = (pos: THREE.Vector3, target: THREE.Vector3, duration = 850) => {
     const t = three.current;
     if (!t) return;
-    t.camAnim = { from: t.camera.position.clone(), to: pos, fromT: t.controls.target.clone(), toT: target, t0: performance.now(), duration };
     t.controls.autoRotate = false;
     if (t.resumeTimer) clearTimeout(t.resumeTimer);
+    if (reducedMotion) {
+      // No eased camera flight at all — jump straight to the destination.
+      // A rapid pan/zoom toward a tapped node or region is as much a
+      // vestibular trigger as the ambient auto-rotate below, so this isn't
+      // just "shorter," it's the same instant-cut treatment the rest of
+      // the app gives reduced-motion users (duration: 0 everywhere else).
+      t.camAnim = null;
+      t.camera.position.copy(pos);
+      t.controls.target.copy(target);
+      t.controls.update();
+      return;
+    }
+    t.camAnim = { from: t.camera.position.clone(), to: pos, fromT: t.controls.target.clone(), toT: target, t0: performance.now(), duration };
     t.resumeTimer = setTimeout(() => {
-      if (three.current) three.current.controls.autoRotate = true;
+      if (three.current) three.current.controls.autoRotate = !reducedMotion;
     }, 3200);
   };
 
@@ -459,7 +551,11 @@ export default function BrainNodeMapScreen({
     // oversized blobs at this range).
     controls.minDistance = 0.5;
     controls.maxDistance = 11;
-    controls.autoRotate = true;
+    // Continuous auto-rotate is the ambient version of the same
+    // vestibular trigger flyTo's instant-jump path above addresses — never
+    // started at all under reduced motion, and never handed back on by
+    // either resume path below.
+    controls.autoRotate = !reducedMotion;
     controls.autoRotateSpeed = 0.42;
     controls.addEventListener("start", () => {
       controls.autoRotate = false;
@@ -471,7 +567,7 @@ export default function BrainNodeMapScreen({
       if (three.current) {
         if (three.current.resumeTimer) clearTimeout(three.current.resumeTimer);
         three.current.resumeTimer = setTimeout(() => {
-          if (three.current) three.current.controls.autoRotate = true;
+          if (three.current) three.current.controls.autoRotate = !reducedMotion;
         }, 2400);
       }
     });
@@ -737,6 +833,32 @@ export default function BrainNodeMapScreen({
         if (p >= 1) t.camAnim = null;
       }
       t.controls.update();
+
+      // Keyboard-focus ring — world→screen projection of whichever node
+      // Arrow-key browsing currently points at, recomputed every frame since
+      // the camera auto-rotates/flies independently of keyboard input. Set
+      // imperatively on the DOM node (not React state) for the same reason
+      // the rest of this loop mutates buffer attributes directly: a focus
+      // ring tracking a moving camera is 60fps work, not a React re-render.
+      const ring = keyboardFocusRingRef.current;
+      if (ring) {
+        const focusId = keyboardFocusIdRef.current;
+        const idx = focusId ? t.indexOfBelief.get(focusId) : undefined;
+        if (idx != null) {
+          const p = t.positions[idx];
+          _keyboardFocusProjVec.set(p[0], p[1], p[2]).project(t.camera);
+          const w = wrapRef.current?.clientWidth ?? 0;
+          const h = wrapRef.current?.clientHeight ?? 0;
+          const behind = _keyboardFocusProjVec.z > 1 || _keyboardFocusProjVec.z < -1;
+          const sx = (_keyboardFocusProjVec.x * 0.5 + 0.5) * w;
+          const sy = (-_keyboardFocusProjVec.y * 0.5 + 0.5) * h;
+          ring.style.transform = `translate(${sx}px, ${sy}px)`;
+          ring.style.opacity = behind ? "0" : "1";
+        } else {
+          ring.style.opacity = "0";
+        }
+      }
+
       t.renderer.render(t.scene, t.camera);
     };
     animate();
@@ -928,6 +1050,55 @@ export default function BrainNodeMapScreen({
       const target = new THREE.Vector3(p[0], p[1], p[2]);
       const offset = t.camera.position.clone().sub(t.controls.target);
       flyTo(target.clone().add(offset), target, 750);
+    }
+  };
+
+  // Builds the aria-live announcement for the currently keyboard-focused
+  // node — "which node, out of how many" plus enough of the belief itself
+  // to be useful without reading the whole statement twice (the panel
+  // itself reads the rest once Enter actually opens it).
+  const describeKeyboardFocus = (beliefId: string): string => {
+    const i = keyboardOrderIds.indexOf(beliefId);
+    const belief = beliefsRef.current.find((b) => b.id === beliefId);
+    if (!belief) return "";
+    return `Node ${i + 1} of ${keyboardOrderIds.length}: ${belief.statement}. Press Enter to open.`;
+  };
+
+  // Arrow keys browse (just moves the ring + live-region announcement,
+  // no camera flight — flying on every arrow press would fight a
+  // reduced-motion user even harder than the thing flyTo itself already
+  // guards against); Enter/Space commits via the exact same selectBelief a
+  // tap uses, so a keyboard selection is indistinguishable downstream from
+  // a mouse one. Escape clears whichever of (open panel, browse focus) is
+  // currently active, innermost first.
+  const handleMapKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      if (keyboardOrderIds.length === 0) return;
+      e.preventDefault();
+      setKeyboardFocusId((cur) => {
+        const i = cur ? keyboardOrderIds.indexOf(cur) : -1;
+        return keyboardOrderIds[(i + 1 + keyboardOrderIds.length) % keyboardOrderIds.length];
+      });
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      if (keyboardOrderIds.length === 0) return;
+      e.preventDefault();
+      setKeyboardFocusId((cur) => {
+        const i = cur ? keyboardOrderIds.indexOf(cur) : 0;
+        return keyboardOrderIds[(i - 1 + keyboardOrderIds.length) % keyboardOrderIds.length];
+      });
+    } else if (e.key === "Enter" || e.key === " ") {
+      if (keyboardFocusId) {
+        e.preventDefault();
+        selectBelief(keyboardFocusId);
+      }
+    } else if (e.key === "Escape") {
+      if (selected) {
+        e.preventDefault();
+        setSelected(null);
+      } else if (keyboardFocusId) {
+        e.preventDefault();
+        setKeyboardFocusId(null);
+      }
     }
   };
 
@@ -1125,7 +1296,14 @@ export default function BrainNodeMapScreen({
       )}
 
       {/* ── Canvas + overlays ── */}
-      <div ref={wrapRef} style={{ position: "relative", flex: 1, minHeight: 0 }}>
+      <div
+        ref={wrapRef}
+        tabIndex={0}
+        role="group"
+        aria-label={`Brain map, ${totalBeliefs} belief nodes. Use arrow keys to browse, Enter to open the focused node, Escape to clear.`}
+        onKeyDown={handleMapKeyDown}
+        style={{ position: "relative", flex: 1, minHeight: 0 }}
+      >
         <canvas
           ref={canvasRef}
           onClick={(e) => {
@@ -1294,10 +1472,43 @@ export default function BrainNodeMapScreen({
           </div>
         )}
 
+        {/* Keyboard-focus ring — positioned imperatively every frame from
+            inside animate() (see keyboardFocusRingRef), not from React
+            state; this div only needs to exist in the DOM. aria-hidden
+            because it's a sighted-only cue — describeKeyboardFocus's
+            aria-live text below is what actually reaches screen readers. */}
+        <div
+          ref={keyboardFocusRingRef}
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: 22,
+            height: 22,
+            marginLeft: -11,
+            marginTop: -11,
+            borderRadius: "50%",
+            border: `2px solid ${accentUi}`,
+            boxShadow: `0 0 0 3px ${accentUiSoft}`,
+            pointerEvents: "none",
+            opacity: 0,
+          }}
+        />
+        <div aria-live="polite" style={srOnlyStyle}>
+          {keyboardFocusId ? describeKeyboardFocus(keyboardFocusId) : ""}
+        </div>
+
         {/* ── Right slide-in detail panel ── */}
         <div
+          ref={panelRef}
           data-testid="node-panel"
           data-open={selected ? "true" : "false"}
+          role="dialog"
+          aria-modal={selected ? true : undefined}
+          aria-hidden={!selected}
+          aria-label={selected ? selected.statement : undefined}
+          onKeyDown={handlePanelKeyDown}
           style={{
             position: "absolute",
             top: isMobile ? "auto" : 0,
@@ -1339,7 +1550,7 @@ export default function BrainNodeMapScreen({
                 >
                   {REGION_CONFIG[selected.region].label}
                 </span>
-                <button type="button" aria-label="Close belief details" data-testid="node-panel-close" onClick={() => setSelected(null)} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 8, margin: -8 }}>
+                <button ref={closeButtonRef} type="button" aria-label="Close belief details" data-testid="node-panel-close" onClick={() => setSelected(null)} style={{ background: "transparent", border: "none", cursor: "pointer", color: inkMid, padding: 8, margin: -8 }}>
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                     <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>

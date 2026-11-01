@@ -3,3 +3,4 @@ dist
 *.log
 .env
 _qa_screenshot*.cjs
+src/graphify-out

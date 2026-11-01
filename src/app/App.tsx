@@ -1,5 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
+import { animate } from "animejs";
 // Every full-bleed screen photo this file used to import (home-hero/mind-
 // scene/mind-notebook(-yellowknife)/analysis-dusk-coast/unconscious-
 // patterns-bg/drift-arctic-dusk) is gone — see the ivory redesign pass.
@@ -719,13 +720,14 @@ function OpeningStars() {
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
+  const reducedMotion = useReducedMotion();
   React.useEffect(() => {
     const t = setTimeout(() => onDone?.(), 2200);
     return () => clearTimeout(t);
   }, [onDone]);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <OpeningStars /><motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <OpeningStars /><motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}>
           Mindscape
         </div>
@@ -1026,32 +1028,100 @@ const MINI_BRAIN_DOTS: { x: number; y: number; r: number }[] = [
 // reads as a preview of that mechanic, not a different one. What's typed
 // here is never saved anywhere — purely a demonstration, matching the "no
 // pressure" tone the rest of onboarding already has.
+// The activation point sits in the midline gap between hemispheres (see
+// the circle at cx=50/cy=44 below) — every background dot's ripple delay
+// is its own distance from that point, so the wave reads as actually
+// originating there and propagating outward through both hemispheres,
+// not a generic stagger-by-list-order.
+const BRAIN_DEMO_ACTIVATION_POINT = { x: 50, y: 44 };
+
 function OnboardingBrainDemo() {
   const [text, setText] = React.useState("");
   const [activated, setActivated] = React.useState(false);
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const reducedMotion = useReducedMotion();
   const tryIt = () => {
     if (!text.trim()) return;
     setActivated(true);
   };
+
+  // Anime.js owns this ripple specifically because it's a radial wave over
+  // 20 independent elements, each with its own distance-derived delay and a
+  // two-stage opacity+scale tween — a shape of animation Motion's
+  // declarative variants don't express without manually splitting into 20
+  // separate motion components. Everything else in this demo (the input,
+  // the "Try it" button, the tapped-node pop/ring) stays on Motion.
+  //
+  // Animates `scale` (a transform), not `r` — `r` is an SVG geometry
+  // property that forces layout/paint on every frame across 20 elements;
+  // `transform: scale()` is compositor-only. Each dot's own
+  // transform-box/transform-origin (set below) is what makes that scale
+  // happen around its own center instead of the shared <svg>'s origin.
+  React.useEffect(() => {
+    if (!activated || !svgRef.current) return;
+    const dots = svgRef.current.querySelectorAll<SVGCircleElement>(".bg-dot");
+    // Reduced motion: jump straight to the lit state and back with no
+    // propagating wave (delay 0) and no eased travel (duration 0) — the
+    // same "duration: reducedMotion ? 0 : …" convention this file already
+    // uses in ScreenQuoteOfTheDay/OpeningStars, just applied to an
+    // imperative anime.js call instead of a declarative transition prop.
+    animate(dots, {
+      opacity: [
+        { to: 0.85, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
+        { to: 0.28, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
+      ],
+      scale: [
+        { to: 1.7, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
+        { to: 1, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
+      ],
+      // Always a function (not a reducedMotion ? 0 : fn ternary) — a union
+      // between a plain number and a per-target function there confuses
+      // anime.js's TweenParamValue overload resolution. `el: any` (rather
+      // than `SVGCircleElement`) is deliberate too: anime's own
+      // FunctionValue type expects `(target?: Target, …)` where Target is
+      // a broad union, so narrowing the param type makes this function not
+      // assignable to it under contravariant checking — immediately cast
+      // below instead, since every real target here is in fact one.
+      delay: (el: any) => {
+        if (reducedMotion) return 0;
+        const circle = el as SVGCircleElement;
+        const dx = Number(circle.dataset.x) - BRAIN_DEMO_ACTIVATION_POINT.x;
+        const dy = Number(circle.dataset.y) - BRAIN_DEMO_ACTIVATION_POINT.y;
+        return Math.hypot(dx, dy) * 9; // ms per viewBox unit of distance — the wave's propagation speed
+      },
+    });
+  }, [activated, reducedMotion]);
+
   return (
     <div style={{ width: "100%" }}>
-      <svg width="100%" height="120" viewBox="0 0 100 80" style={{ display: "block" }}>
+      <svg ref={svgRef} width="100%" height="120" viewBox="0 0 100 80" style={{ display: "block" }}>
         {MINI_BRAIN_DOTS.map((d, i) => (
-          <circle key={i} cx={d.x} cy={d.y} r={d.r} fill={mdAccent} opacity={0.28} />
+          <circle
+            key={i}
+            className="bg-dot"
+            data-x={d.x}
+            data-y={d.y}
+            cx={d.x}
+            cy={d.y}
+            r={d.r}
+            fill={mdAccent}
+            opacity={0.28}
+            style={{ transformBox: "fill-box", transformOrigin: "center" }}
+          />
         ))}
         {activated && (
           <>
             <motion.circle
               cx={50} cy={44} fill={mdAccent}
-              initial={{ r: 0, opacity: 0 }}
+              initial={{ r: reducedMotion ? 3.2 : 0.6, opacity: reducedMotion ? 1 : 0 }}
               animate={{ r: 3.2, opacity: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              transition={{ duration: reducedMotion ? 0 : 0.5, ease: "easeOut" }}
             />
             <motion.circle
               cx={50} cy={44} r={3.2} fill="none" stroke={mdAccent} strokeWidth={0.6}
               initial={{ opacity: 0.6, scale: 1 }}
               animate={{ opacity: 0, scale: 2.8 }}
-              transition={{ duration: 0.9, ease: "easeOut" }}
+              transition={{ duration: reducedMotion ? 0 : 0.9, ease: "easeOut" }}
             />
           </>
         )}
