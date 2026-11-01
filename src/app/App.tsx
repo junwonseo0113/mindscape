@@ -28,8 +28,8 @@ import {
   StoredHypothesis,
   StoredSettings,
   emptyStore,
-  formatDateDots,
 } from "./types";
+import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
 import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
@@ -2152,18 +2152,6 @@ function computeWeeklySummary(history: StoredHistoryEntry[]): { entryCount: numb
   return { entryCount: recent.length, topPattern };
 }
 
-// Monday-anchored week bucket — no isoWeek library in this project, so
-// this is plain date arithmetic. Keyed by that Monday's own dot-date
-// string (via formatDateDots) so the bucket key doubles as something
-// parseDotDate/shortMonthDay can already read back out, rather than
-// inventing a separate label format.
-function mondayOfWeek(d: Date): Date {
-  const copy = new Date(d);
-  const daysSinceMonday = (copy.getDay() + 6) % 7; // Sun=0..Sat=6 -> Mon=0..Sun=6
-  copy.setDate(copy.getDate() - daysSinceMonday);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
 
 type SelfTalkWeek = {
   weekStart: string;
@@ -5667,50 +5655,6 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
   );
 }
 
-// Parses "YYYY.MM.DD" (formatDateDots) into a local Date at midnight, or
-// null if it doesn't parse — shared by the streak calculator and history
-// grouping below so both agree on exactly what counts as "the same day."
-function parseDotDate(dateStr: string): Date | null {
-  const parts = dateStr.split(".").map((s) => parseInt(s, 10));
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  const [y, m, d] = parts;
-  const dt = new Date(y, m - 1, d);
-  return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-// "Today"/"Yesterday" relative to now, else the raw date — matches the
-// History screen's original mockup group headers without fabricating
-// anything the date itself doesn't say.
-function relativeDayLabel(dateStr: string): string {
-  const d = parseDotDate(dateStr);
-  if (!d) return dateStr;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return dateStr;
-}
-
-// A fuller "N days/weeks ago" ladder than relativeDayLabel's Today/Yesterday
-// pair — used only by Recent Insights' small-caps date badge (see the
-// supplied concept reference: "YESTERDAY" / "3 DAYS AGO" / "1 WEEK AGO"),
-// so relativeDayLabel's own two-step behavior for History stays untouched.
-function relativeInsightLabel(dateStr: string): string {
-  const d = parseDotDate(dateStr);
-  if (!d) return dateStr;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  const weeks = Math.round(diffDays / 7);
-  if (weeks <= 1) return "1 week ago";
-  if (weeks < 5) return `${weeks} weeks ago`;
-  return dateStr;
-}
-
 // The design spec colors each history entry by domain, which this app's
 // entries don't carry directly (only beliefs have a domain) — so this
 // looks up whichever belief this entry actually supported, and borrows
@@ -5791,21 +5735,6 @@ function FilterIconGlyph({ color }: { color: string }) {
 }
 
 // ── History helpers ───────────────────────────────────────────────────────────
-const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const SHORT_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// No time-of-day is ever actually recorded (StoredHistoryEntry has only
-// `date`) — this derives the one thing that genuinely IS recoverable from a
-// real date, the weekday, rather than inventing a clock time the concept
-// mockup showed.
-function weekdayFromDotDate(dateStr: string): string {
-  const d = parseDotDate(dateStr);
-  return d ? WEEKDAY_NAMES[d.getDay()] : "";
-}
-function shortMonthDay(dateStr: string): string {
-  const d = parseDotDate(dateStr);
-  return d ? `${SHORT_MONTH_NAMES[d.getMonth()]} ${d.getDate()}` : dateStr;
-}
 
 // A small stable (not re-randomized every render) tilt for the margin
 // annotation — same id always yields the same angle, so it doesn't jitter

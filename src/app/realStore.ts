@@ -30,8 +30,8 @@ import {
   ThoughtObservation,
   defaultSettings,
   emptyStore,
-  formatDateDots,
 } from "./types";
+import { formatDateDots } from "./dateUtils";
 import { MIN_SUPPORTING_ENTRIES_FOR_BELIEF, deriveStatus, initialConfidenceOnPromotion, nextConfidence } from "./analysisFramework";
 import { computeLanguageObservation } from "./cognitiveLexicon";
 
