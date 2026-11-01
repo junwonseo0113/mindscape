@@ -4,3 +4,6 @@ dist
 .env
 _qa_screenshot*.cjs
 src/graphify-out
+
+*storybook.log
+storybook-static
