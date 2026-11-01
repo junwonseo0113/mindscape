@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
-import { animate } from "animejs";
+import { animate, stagger } from "animejs";
 // Every full-bleed screen photo this file used to import (home-hero/mind-
 // scene/mind-notebook(-yellowknife)/analysis-dusk-coast/unconscious-
 // patterns-bg/drift-arctic-dusk) is gone — see the ivory redesign pass.
@@ -727,17 +727,40 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   }, [onDone]);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <OpeningStars /><motion.div initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reducedMotion ? 0 : 0.6 }} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}>
+      <OpeningStars />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {/* Staggered reveal instead of one fade block — reads in the same
+            order a person would actually read it (kicker, then the line
+            that's the point, then the quieter follow-on), echoing this
+            screen's own reflective/serif voice rather than arriving as a
+            flat announcement. Each stage still finishes well inside the
+            fixed 2200ms auto-advance above — this changes how the wait
+            feels, not how long it is. */}
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0, ease: [0.16, 1, 0.3, 1] }}
+          style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}
+        >
           Mindscape
-        </div>
-        <div style={{ ...serif, fontSize: 26, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        </motion.div>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0 : 0.55, delay: reducedMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
+          style={{ ...serif, fontSize: 26, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}
+        >
           There's a pattern<br />in your thinking.
-        </div>
-        <div style={{ ...sans, fontSize: 14, color: OPENING_MUTED, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
+        </motion.div>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0 : 0.5, delay: reducedMotion ? 0 : 0.4, ease: [0.16, 1, 0.3, 1] }}
+          style={{ ...sans, fontSize: 14, color: OPENING_MUTED, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}
+        >
           You just can't see it from the inside.
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -4186,6 +4209,93 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
 const ANALYZE_TIMEOUT_MS = 25000;
 const CANCEL_AFFORDANCE_DELAY_MS = 6000;
 
+// A small, deterministic node-and-link cluster around a center "seed" —
+// the same visual grammar as the Brain Map's own star field and the
+// onboarding ripple (MINI_BRAIN_DOTS), scaled down to a single focal
+// moment. Not decoration: the processing screen's own copy says
+// "Connecting it to past conversations" — this animates that literal
+// claim instead of showing an unrelated generic spinner.
+const PROCESSING_SATELLITES = [
+  { x: 27, y: 37 },
+  { x: 73, y: 34 },
+  { x: 33, y: 73 },
+  { x: 70, y: 71 },
+];
+
+function ProcessingConstellation({ step, reducedMotion }: { step: number; reducedMotion: boolean }) {
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const seedRef = React.useRef<SVGCircleElement>(null);
+
+  // Step 0 "Listening": just the seed, breathing — nothing to connect to
+  // yet. Declarative Motion loop, consistent with how the rest of this
+  // file handles simple infinite idle states.
+  React.useEffect(() => {
+    if (!seedRef.current) return;
+    if (reducedMotion) {
+      seedRef.current.style.opacity = "1";
+      return;
+    }
+    const controls = animate(seedRef.current, {
+      scale: [{ to: 1.25, duration: 900, ease: "inOutSine" }, { to: 1, duration: 900, ease: "inOutSine" }],
+      loop: true,
+    });
+    return () => { controls.pause(); };
+  }, [reducedMotion]);
+
+  // Step 1 "Connecting it to past conversations": satellites and their
+  // links to the seed draw in together, staggered outward — the one-shot
+  // authored moment this screen earns. pathLength=1 on each <line> lets
+  // the dash animation work without computing real pixel lengths.
+  React.useEffect(() => {
+    if (step !== 1 || !svgRef.current) return;
+    const links = svgRef.current.querySelectorAll<SVGLineElement>(".link");
+    const satellites = svgRef.current.querySelectorAll<SVGCircleElement>(".satellite");
+    if (reducedMotion) {
+      links.forEach((l) => { l.style.opacity = "1"; l.style.strokeDashoffset = "0"; });
+      satellites.forEach((s) => { s.style.opacity = "1"; });
+      return;
+    }
+    animate(links, {
+      opacity: [0, 1],
+      strokeDashoffset: [1, 0],
+      duration: 500,
+      delay: stagger(90),
+      ease: "outQuad",
+    });
+    animate(satellites, {
+      opacity: [0, 1],
+      scale: [0.4, 1],
+      duration: 400,
+      delay: stagger(90, { start: 120 }),
+      ease: "outBack",
+    });
+  }, [step, reducedMotion]);
+
+  // Step 2 "Double-checking the pattern": everything that's now connected
+  // settles into one synchronized soft pulse — "the pattern is confirmed,"
+  // not a new idle state fighting the step-0 seed breathing above.
+  React.useEffect(() => {
+    if (step !== 2 || !svgRef.current || reducedMotion) return;
+    const all = svgRef.current.querySelectorAll<SVGElement>(".seed, .satellite");
+    animate(all, {
+      opacity: [{ to: 1, duration: 260 }, { to: 0.75, duration: 500 }, { to: 1, duration: 500 }],
+      ease: "inOutSine",
+    });
+  }, [step, reducedMotion]);
+
+  return (
+    <svg ref={svgRef} width="68" height="68" viewBox="0 0 100 100" aria-hidden="true">
+      {PROCESSING_SATELLITES.map((p, i) => (
+        <line key={i} className="link" x1={50} y1={50} x2={p.x} y2={p.y} stroke={dkAccent} strokeWidth="1.5" opacity={step >= 1 ? 1 : 0} pathLength={1} strokeDasharray={1} strokeDashoffset={step >= 1 ? 0 : 1} />
+      ))}
+      {PROCESSING_SATELLITES.map((p, i) => (
+        <circle key={i} className="satellite" cx={p.x} cy={p.y} r={3.2} fill={dkAccent} opacity={step >= 1 ? 1 : 0} />
+      ))}
+      <circle ref={seedRef} className="seed" cx={50} cy={50} r={5} fill={dkAccent} style={{ filter: `drop-shadow(0 0 6px ${dkAccentSoft})`, transformOrigin: "50px 50px" }} />
+    </svg>
+  );
+}
+
 function ScreenProcessing({
   text,
   matchableBeliefs,
@@ -4219,6 +4329,7 @@ function ScreenProcessing({
   const STEPS = ["Listening", "Connecting it to past conversations", "Double-checking the pattern"];
   const [step, setStep] = React.useState(0);
   const [showCancel, setShowCancel] = React.useState(false);
+  const reducedMotion = useReducedMotion();
 
   React.useEffect(() => {
     if (text) return;
@@ -4291,11 +4402,7 @@ function ScreenProcessing({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: dkBg, padding: 32 }}>
-      <motion.div
-        animate={{ scale: [0.9, 1.15, 0.9], opacity: [0.55, 1, 0.55] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-        style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: dkAccent, boxShadow: `0 0 24px 6px ${dkAccentSoft}` }}
-      />
+      <ProcessingConstellation step={step} reducedMotion={!!reducedMotion} />
       <div style={{ ...sans, fontSize: 14, color: dkBodyLight, marginTop: 22 }}>{STEPS[step]}</div>
       {showCancel && (
         <motion.span
