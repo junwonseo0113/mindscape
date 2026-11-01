@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-01T20:16:26Z",
+  "title": "Design System: Mindscape",
+  "extensions": {
+    "colorMeta": {
+      "deep-charcoal-ink": { "role": "primary", "displayName": "Deep Charcoal Ink", "canonical": "#2A2621", "tonalRamp": ["#15130F", "#211E1A", "#2A2621", "#3E3A34", "#564F47", "#8A8277", "#C3BCB0", "#F4F0E8"] },
+      "warm-paper-1": { "role": "neutral", "displayName": "Warm Paper (stop 1)", "canonical": "#F4F0E8", "tonalRamp": ["#17150F", "#3A3528", "#5C5440", "#8A8061", "#B5AA89", "#D6CDB5", "#EEE9DF", "#F4F0E8"] },
+      "surface-solid": { "role": "neutral", "displayName": "Surface Solid", "canonical": "#FBF8F2", "tonalRamp": ["#19170F", "#3C371E", "#60582C", "#8E8347", "#B8AD71", "#DAD1A9", "#F0EBDE", "#FBF8F2"] },
+      "border": { "role": "neutral", "displayName": "Border", "canonical": "rgba(42,38,33,0.08)" },
+      "divider": { "role": "neutral", "displayName": "Divider", "canonical": "rgba(42,38,33,0.1)" },
+      "body-ink": { "role": "neutral", "displayName": "Body Ink", "canonical": "rgba(42,38,33,0.6)" },
+      "faint-ink": { "role": "neutral", "displayName": "Faint Ink", "canonical": "rgba(42,38,33,0.4)" },
+      "md-signal-vermillion": { "role": "accent", "displayName": "Signal Vermillion (Modernist mode)", "canonical": "#ec3013", "tonalRamp": ["#3A0A03", "#6B1406", "#9C1E09", "#c6280c", "#ec3013", "#f16445", "#f7a08c", "#fde3dc"] },
+      "crimson-activation": { "role": "state", "displayName": "Network-Activation Crimson (dark-immersive mode)", "canonical": "#ff3b57" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Single-moment headlines and the reflective/epigraph voice. Always serif, often italic." },
+      "body": { "displayName": "Body", "purpose": "Interface copy, statements, descriptions." },
+      "label": { "displayName": "Label", "purpose": "Tracked uppercase mono for dates, counts, and section eyebrows only — never prose." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 10px 28px rgba(120,105,80,0.10)", "purpose": "The one ambient card shadow used throughout the ivory theme, regardless of card importance." },
+      { "name": "focus-ring", "value": "0 0 0 3px rgba(42,38,33,0.14)", "purpose": "Keyboard focus ring, tinted to the active theme/region's own color (this is the ivory-theme default tint)." }
+    ],
+    "motion": [
+      { "name": "tap-scale-soft", "value": "scale(0.94) to scale(0.99)", "purpose": "Gentle press feedback on buttons/chips/cards — varies per component, never a hard mechanical snap." },
+      { "name": "panel-slide", "value": "transform 0.28s cubic-bezier(.2,.7,.3,1)", "purpose": "Slide-in transition for side panels (e.g. Brain Map belief detail)." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "480px" },
+      { "name": "tablet", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Full-width primary action button — the ivory theme's one emphasis color (Deep Charcoal Ink) carrying the weight, not a separate accent.",
+      "html": "<button class=\"ds-btn-primary\">Continue</button>",
+      "css": ".ds-btn-primary { background: #2A2621; color: #FBF8F2; border-radius: 12px; padding: 13px 18px; min-height: 48px; width: 100%; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-size: 15px; font-weight: 600; border: none; transition: transform 0.15s ease, opacity 0.15s ease; } .ds-btn-primary:hover { opacity: 0.92; } .ds-btn-primary:focus-visible { box-shadow: 0 0 0 3px rgba(42,38,33,0.14); outline: none; } .ds-btn-primary:active { transform: scale(0.97); opacity: 0.85; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Default translucent surface card resting on the warm-paper background — the ambient card-rest shadow is the only elevation treatment in the system.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-label\">LABEL</div><div class=\"ds-card-title\">Card title</div></div>",
+      "css": ".ds-card { background: rgba(255,253,248,0.66); border: 1px solid rgba(42,38,33,0.08); border-radius: 14px; padding: 18px 20px; box-shadow: 0 10px 28px rgba(120,105,80,0.10); } .ds-card-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(42,38,33,0.4); margin-bottom: 6px; } .ds-card-title { font-family: 'Instrument Serif', Georgia, serif; font-size: 20px; color: #2A2621; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pill-shaped tag/filter chip; fills with a tinted color only when actively selected.",
+      "html": "<button class=\"ds-chip\">Identity</button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; border-radius: 999px; background: #FBF8F2; color: #2A2621; padding: 6px 11px; font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 500; border: 1px solid rgba(42,38,33,0.08); transition: transform 0.15s ease; } .ds-chip:hover { opacity: 0.9; } .ds-chip:active { transform: scale(0.96); } .ds-chip:focus-visible { box-shadow: 0 0 0 3px rgba(42,38,33,0.14); outline: none; }"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input; border shifts to the theme's warn color on error, never the accent/primary ink.",
+      "html": "<input class=\"ds-input\" placeholder=\"Try typing anything…\" />",
+      "css": ".ds-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(42,38,33,0.1); background: #FBF8F2; color: #2A2621; font-family: 'Inter', sans-serif; font-size: 14px; outline: none; transition: border-color 0.15s ease; } .ds-input:focus { border-color: #2A2621; } .ds-input.ds-input-error { border-color: #a85a1a; }"
+    },
+    {
+      "name": "Modernist Primary Button",
+      "kind": "button",
+      "refersTo": "md-button-primary",
+      "description": "Modernist-mode (named exception) button using the app's one true accent color, Signal Vermillion — only valid on Auth/Profile/Belief Map/Settings surfaces.",
+      "html": "<button class=\"ds-btn-modernist\">Start</button>",
+      "css": ".ds-btn-modernist { background: #ec3013; color: #ffffff; border-radius: 12px; padding: 13px 18px; min-height: 48px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 800; border: none; transition: background 0.15s ease, transform 0.15s ease; } .ds-btn-modernist:hover { background: #dd2b0f; } .ds-btn-modernist:active { transform: scale(0.97); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Mirror",
+    "overview": "Mindscape is a mental-health journaling app whose entire visual identity rests on one idea, stated directly in its own interface copy: the interface is quiet, the user's mind provides the color. The ivory canvas, restrained charcoal typography, and near-total absence of an accent hue are not minimalism for its own sake — they're a deliberate refusal to compete with the one thing that's actually supposed to carry color and life on screen: the person's own belief data, rendered as a 3D star field. Until that data exists or is tapped, the system itself stays almost monochrome on purpose. This is a direct rejection of the cold blue/white 'medical dashboard' look most mental-health software defaults to.",
+    "keyCharacteristics": [
+      "Warm, paper-like, almost colorless by default — color is earned by real user data, not decoration",
+      "Serif italic for voice/epigraph moments, sans for interface, mono for small tracked labels",
+      "Soft, ambient, warm-tinted shadows — never sharp or state-driven",
+      "Generously sized, softly tactile components (48px tap targets, gentle 0.94-0.99 tap-scale)",
+      "The 3D belief star-field is the one true signature element and the app's actual color source"
+    ],
+    "rules": [
+      { "name": "The One Ink Rule", "body": "The ivory theme has exactly one hue (Deep Charcoal Ink) at varying opacity for every text, border, and emphasis need. Don't introduce a second color to signal state or hierarchy — opacity and weight do that job.", "section": "colors" },
+      { "name": "The Voice-Switch Rule", "body": "Serif italic means the app or user's own reflective voice. Sans means interface. Mono means data/metadata. Don't use serif for interface chrome or sans for a reflective/epigraph moment.", "section": "typography" },
+      { "name": "The One Shadow Rule", "body": "Don't add a second elevation tier for 'more important' cards — importance is expressed through typography and ink opacity, not a heavier shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the ivory theme to one hue (Deep Charcoal Ink) at varying opacity for all text/border/emphasis needs.",
+      "Do use the ambient warm-tinted card shadow consistently rather than inventing elevation tiers.",
+      "Do reserve serif italic for voice/reflective moments and keep interface chrome in Inter.",
+      "Do let the belief star field carry color and motion — keep everything else around it quiet by comparison."
+    ],
+    "donts": [
+      "Don't introduce a second accent color into the ivory theme to signal state — that's what Modernist mode is for, on its own separate screens.",
+      "Don't treat Modernist or dark-immersive mode as the system to extend elsewhere — they're deliberate exceptions for specific surfaces, not the default.",
+      "Don't add a sharp/cold 'medical dashboard' visual anywhere in the ivory theme — it's the system's explicit anti-reference.",
+      "Don't make cards' shadows heavier to signal importance; use ink weight/opacity instead."
+    ]
+  }
+}
