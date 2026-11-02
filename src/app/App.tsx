@@ -1,3 +1,8 @@
+import IdealSelfScreen from "./idealSelf/IdealSelfScreen";
+import { deleteIdealSelfForReset } from "./idealSelf/client";
+import { night as nightPalette, nightBackground } from "./nightTheme";
+import StargazingNav from "./StargazingNav";
+import StargazingHome, { type HomeProps } from "./StargazingHome";
 import React from "react";
 import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
 import { animate, stagger } from "animejs";
@@ -57,177 +62,92 @@ const DAILY_REMINDER_LAST_FIRED_KEY = "mijeong.lastDailyReminderFiredDate";
 const WEEKLY_SUMMARY_LAST_FIRED_KEY = "mijeong.lastWeeklySummaryFiredDate";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-// A quiet, editorial palette — this app's job is to reveal patterns calmly,
-// not to alarm or entertain. Warm paper background, plum as the single
-// "insight" accent color (used only for AI-surfaced observations, nowhere
-// else), so its appearance always means "the AI noticed something."
-const ink = "#1C1B1F";
-const inkSoft = "#403E45";
-const mid = "#6E6B74";
-const subtle = "#93909B";
-const faint = "#C4C1C9";
-const hair = "rgba(28,27,31,0.09)";
-const surface = "#F4F1EC";
-const page = "#FFFFFF";
-const accent = "#5B4B8A";
-const accentSoft = "#F0EDF8";
-const tension = "#B5533C";
-const tensionSoft = "rgba(181,83,60,0.08)";
-// Apple-style "grouped list" elevation for cards sitting on the surface-tinted
-// Analysis screen — a soft two-layer shadow instead of a border, so cards
-// read as raised without needing a harder edge.
-const cardShadow = "0 1px 2px rgba(28,27,31,0.05), 0 6px 18px rgba(28,27,31,0.045)";
-
-// ── Dark theme — Home, Analysis, History, Profile, per the imported
-// design spec (claude.ai/design project "Design spec for analysis page":
-// Home/Analysis/History/Profile screens.dc.html). Every other screen
-// (onboarding, login, think-out-loud, etc.) still uses the light palette above — those weren't
-// part of this import.
-const dkBg = "#0a0716";
-const dkCard = "#14101f";
-const dkCardBorder = "rgba(150,120,255,0.10)";
-const dkCardShadow = "0 8px 24px rgba(0,0,0,0.35)";
-const dkHeading = "#F2EEFA";
-const dkBody = "#8b83a3";
-const dkBodyLight = "#E8E3F5";
-const dkAccent = "#7B5CF0";
-const dkAccentLight = "#B39CFF";
-const dkAccentSoft = "rgba(123,92,240,0.14)";
-const dkAccentTag = "rgba(123,92,240,0.22)";
-const dkAccentTagText = "#D6C8FF";
-const dkTrack = "#241c38";
-const dkWarn = "#D98A4A";
-const dkWarnSoft = "rgba(224,138,74,0.14)";
-const dkWarnTag = "rgba(224,138,74,0.22)";
-const dkWarnTagText = "#F0B78A";
-const dkWarnLabel = "#B5652E";
-const dkDivider = "rgba(150,120,255,0.14)";
-// History/Profile only — a faint scattered-star texture behind the flat dark
-// background, straight from those two files' <style> block.
-const dkStarfield: React.CSSProperties = {
-  backgroundColor: dkBg,
-  backgroundImage: [
-    "radial-gradient(1.4px 1.4px at 12% 18%, rgba(255,255,255,.55), transparent 60%)",
-    "radial-gradient(1px 1px at 32% 68%, rgba(255,255,255,.35), transparent 60%)",
-    "radial-gradient(1.6px 1.6px at 55% 12%, rgba(200,180,255,.5), transparent 60%)",
-    "radial-gradient(1px 1px at 72% 45%, rgba(255,255,255,.4), transparent 60%)",
-    "radial-gradient(1.3px 1.3px at 88% 78%, rgba(180,150,255,.45), transparent 60%)",
-    "radial-gradient(1px 1px at 8% 82%, rgba(255,255,255,.3), transparent 60%)",
-    "radial-gradient(1.2px 1.2px at 95% 22%, rgba(255,255,255,.4), transparent 60%)",
-  ].join(","),
-  backgroundSize: "420px 420px",
-  backgroundRepeat: "repeat",
-};
-
+// Legacy token names are aliases of one shared night palette. Keeping the
+// aliases avoids changing screen behavior while removing competing themes.
+const ink = nightPalette.text;
+const inkSoft = nightPalette.body;
+const mid = nightPalette.muted;
+const subtle = nightPalette.muted;
+const faint = nightPalette.muted;
+const hair = nightPalette.border;
+const surface = nightPalette.surface;
+const page = nightPalette.background;
+const accent = nightPalette.gold;
+const accentSoft = nightPalette.goldSoft;
+const tension = nightPalette.warning;
+const tensionSoft = nightPalette.goldSoft;
+const dkBg = nightPalette.background;
+const dkCard = nightPalette.surface;
+const dkCardBorder = nightPalette.border;
+const dkCardShadow = nightPalette.shadow;
+const dkHeading = nightPalette.text;
+const dkBody = nightPalette.body;
+const dkBodyLight = nightPalette.text;
+const dkAccent = nightPalette.gold;
+const dkAccentLight = nightPalette.goldHover;
+const dkAccentSoft = nightPalette.goldSoft;
+const dkAccentTag = nightPalette.surfaceRaised;
+const dkAccentTagText = nightPalette.gold;
+const dkTrack = nightPalette.surfaceRaised;
+const dkWarn = nightPalette.warning;
+const dkWarnSoft = nightPalette.goldSoft;
+const dkWarnTag = nightPalette.surfaceRaised;
+const dkWarnTagText = nightPalette.warning;
+const dkWarnLabel = nightPalette.warning;
+const dkDivider = nightPalette.border;
+const mdBg = nightPalette.background;
+const mdCard = nightPalette.surface;
+const mdCardShadow = nightPalette.shadow;
+const mdCardShadowLg = nightPalette.shadow;
+const mdHeading = nightPalette.text;
+const mdBody = nightPalette.body;
+const mdBodyLight = nightPalette.text;
+const mdFaint = nightPalette.muted;
+const mdAccent = nightPalette.gold;
+const mdAccentHover = nightPalette.goldHover;
+const mdAccentText = nightPalette.gold;
+const mdAccentSoft = nightPalette.goldSoft;
+const mdAccentTag = nightPalette.surfaceRaised;
+const mdAccentTagText = nightPalette.gold;
+const mdTrack = nightPalette.surfaceRaised;
+const mdDivider = nightPalette.border;
+const mdNeutralTag = nightPalette.surfaceRaised;
+const mdNeutralTagText = nightPalette.body;
+const mdWarn = nightPalette.warning;
+const mdWarnSoft = nightPalette.goldSoft;
+const mdWarnTag = nightPalette.surfaceRaised;
+const paperInk = nightPalette.text;
+const paperInkMuted = nightPalette.body;
+const mdWarnTagText = nightPalette.warning;
+const mdWarnLabel = nightPalette.warning;
+const vtgDusk = nightPalette.background;
+const vtgInk = nightPalette.text;
+const vtgInkMuted = nightPalette.body;
+const vtgAccent = nightPalette.gold;
+const vtgCream = nightPalette.text;
+const vtgCreamMuted = nightPalette.body;
+const vtgCard = nightPalette.surface;
+const vtgCardShadow = nightPalette.shadow;
+const ivBg1 = nightPalette.backgroundTop;
+const ivBg2 = nightPalette.backgroundMid;
+const ivBg3 = nightPalette.background;
+const ivSurface = nightPalette.surface;
+const ivSurfaceSolid = nightPalette.surface;
+const ivCardShadow = nightPalette.shadow;
+const ivBorder = nightPalette.border;
+const ivHeading = nightPalette.text;
+const ivBody = nightPalette.body;
+const ivFaint = nightPalette.muted;
+const ivDivider = nightPalette.border;
+const cardShadow = nightPalette.shadow;
+const paperAccent = nightPalette.gold;
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
 const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
+const ivBackground: React.CSSProperties = nightBackground;
+const dkStarfield: React.CSSProperties = nightBackground;
 
-// ── Modernist theme — per the imported claude.ai/design "Modernist" design
-// system (project 18c81e97, Undecided - Modernist redesign.dc.html): a light,
-// architectural mono-red-on-white palette replacing the dk* dark theme.
-// Values are the design system's own CSS custom properties resolved to
-// literal strings (styles.css: --color-bg/--color-text/--color-accent and
-// their OKLCH tonal ramps) — this app has no external stylesheet, so every
-// screen reads these as plain inline-style constants instead of `.tag`/
-// `.btn` classes, same convention as the old dk* tokens.
-const mdBg = "#f3f2f2";
-const mdCard = "#ffffff";
-const mdCardShadow = "0 1px 2px rgba(45,43,43,0.14)";
-const mdCardShadowLg = "0 12px 32px rgba(45,43,43,0.22)";
-const mdHeading = "#201e1d";
-const mdBody = "rgba(32,30,29,0.62)";
-const mdBodyLight = "rgba(32,30,29,0.85)";
-const mdFaint = "rgba(32,30,29,0.42)";
-const mdAccent = "#ec3013";
-const mdAccentHover = "#dd2b0f";
-const mdAccentText = "#ae1800"; // deep ramp step — the design system's own rule for accent-colored body/paragraph text (the accent itself is only 3:1 against this ground, not enough for small text)
-const mdAccentSoft = "#fff2ef";
-const mdAccentTag = "#ffe0d9";
-const mdAccentTagText = "#7c1405";
-const mdTrack = "#d7d3d3";
-const mdDivider = "rgba(32,30,29,0.14)";
-const mdNeutralTag = "#f8f4f4";
-const mdNeutralTagText = "#444141";
-// Warn ramp — a distinct muted amber (not the red accent) for "conflicting
-// evidence"/caution states, same relationship dkWarn has to dkAccent in the
-// dark theme: a second, clearly different hue reserved for that one job,
-// never competing with the mono-red accent everywhere else.
-const mdWarn = "#a85a1a";
-const mdWarnSoft = "rgba(168,90,26,0.10)";
-const mdWarnTag = "rgba(168,90,26,0.14)";
-// The Analysis tab's paper-and-desk redesign — ink colors for text that
-// sits directly on the physical paper assets (discovery-paper/insight-card),
-// deliberately warm brown rather than mdHeading's neutral near-black so it
-// reads as actually written on old paper. mdAccentText (already the
-// design system's own toned-down red ramp step, not the bright mdAccent)
-// is reused as-is for the one restrained red accent this screen keeps.
-const paperInk = "#2e2013";
-const paperInkMuted = "rgba(46,32,19,0.68)";
-const paperAccent = mdAccentText;
-const mdWarnTagText = "#7a4310";
-const mdWarnLabel = "#7a4310";
-
-// ── Vintage theme — Home only, ported from a photographed-jar mockup: a
-// warm sepia still life (an empty bell jar, dried flowers, old books) fills
-// the whole top of the screen as one photo. Every value here was sampled
-// directly from that photo (not invented) so the real text overlaid on top
-// of it — date, headline, belief/connection counts — sits on colors that
-// actually belong to the image behind it.
-const vtgDusk = "#241a10"; // dark wood desk, bottom of the frame
-const vtgInk = "#1c1108"; // headline/body text sitting on the photo's cream half
-const vtgInkMuted = "#5c4c3a"; // secondary text on the photo's cream half
-const vtgAccent = "#9c1c0e"; // date stamp, record icon, active nav item
-const vtgCream = "#f3ead9"; // headings sitting on the dark half
-const vtgCreamMuted = "rgba(243,234,217,0.62)"; // secondary text on the dark half
-const vtgCard = "#ddccb7"; // the two floating tan cards (CTA + nav)
-const vtgCardShadow = "0 10px 28px rgba(0,0,0,0.35)";
-
-// ── Ivory design system ──────────────────────────────────────────────────────
-// The one shared visual language for Home/Mind/Analysis/History/Profile,
-// replacing the old per-screen photographic backdrops (the vintage jar/
-// desk/night-study/arctic-dusk photos above, mind-scene.webp, the dark
-// navy Premium surfaces, Profile's stark white-and-red Modernist theme)
-// with a single quiet warm-ivory canvas. The principle this whole redesign
-// pass follows: the interface is quiet, the user's own belief nodes (see
-// the Node component) provide the color — so every token here stays
-// deliberately restrained (warm neutrals, deep charcoal, muted taupe),
-// with no accent color of its own. Where a screen still needs an "active/
-// selected" indication (nav, toggles), it's ivHeading itself — charcoal,
-// never a saturated hue — not a substitute accent color.
-const ivBg1 = "#F4F0E8";
-const ivBg2 = "#F2EEE6";
-const ivBg3 = "#EEE9DF";
-// The page background is a very soft warm gradient built from the three
-// stops above (never a flat single color, never a photo) — see
-// AppBackground below.
-const ivBackground: React.CSSProperties = {
-  backgroundColor: ivBg2,
-  backgroundImage: [
-    "radial-gradient(120% 70% at 15% -10%, rgba(255,252,246,0.9) 0%, rgba(255,252,246,0) 55%)",
-    "radial-gradient(130% 80% at 100% 110%, rgba(238,231,215,0.7) 0%, rgba(238,231,215,0) 60%)",
-    `linear-gradient(160deg, ${ivBg1} 0%, ${ivBg2} 45%, ${ivBg3} 100%)`,
-  ].join(", "),
-};
-const ivSurface = "rgba(255,253,248,0.66)"; // restrained translucent card fill over the ivory base
-const ivSurfaceSolid = "#FBF8F2"; // for a card that needs to sit fully opaque above dense content
-const ivCardShadow = "0 10px 28px rgba(120,105,80,0.10)";
-const ivBorder = "rgba(42,38,33,0.08)";
-const ivHeading = "#2A2621"; // deep charcoal — never pure black, never a saturated accent
-const ivBody = "rgba(42,38,33,0.6)"; // muted taupe-gray
-const ivFaint = "rgba(42,38,33,0.4)";
-const ivDivider = "rgba(42,38,33,0.1)";
-
-// ── Shared primary-screen header system ─────────────────────────────────────
-// Mind, Analysis, and History all position, size, and space their title and
-// subtitle from these same values instead of each eyeballing its own — see
-// the cross-screen consistency pass. Home keeps its own unique hero
-// treatment (it's the landing screen, not part of this shared system).
-// Kept as shared VALUES rather than a shared component: each screen's
-// header sits in a structurally different context (Mind: absolute over a
-// fixed scene; Analysis/History: the top of a flex/scroll column), so
-// literally sharing a component risked restructuring more of each screen
-// than this consistency pass calls for.
+// Consistent primary-screen spacing, with a reflective serif title.
 const PRIMARY_HEADER_TOP = 34; // px down from each screen's own full-bleed top edge
 const PRIMARY_HEADER_SIDE = 30; // px — same left/right grid every primary screen's own body content already uses
 // "Deep charcoal / muted taupe / quieter taupe" — the three text weights
@@ -334,119 +254,8 @@ function NavIcon({ id, color, size = 23 }: { id: string; color: string; size?: n
 // variants share the ported NavIcon set and the animated sliding selection
 // pill (also from the friend's parallel session) instead of each having
 // their own placeholder indicator.
-function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: string; onSelect?: (id: string) => void; dark?: boolean; modernist?: boolean; vintage?: boolean }) {
-  const items = [
-    { id: "home", label: "Home" },
-    { id: "analysis", label: "Mind" },
-    // Split out of Mind — Mind itself is now just the belief-network graph
-    // (see ScreenAnalysis), and everything that used to sit below it there
-    // (today's discovery, evidence, evolution, reflection) moved here to
-    // its own tab (see ScreenDiscoveryAnalysis and the App shell's
-    // "discoveryAnalysis" case).
-    { id: "discoveryAnalysis", label: "Analysis" },
-    { id: "history", label: "History" },
-    // Profile used to live here, but Home's top-right icon already opens it
-    // (see ScreenHome) — that's still true, and the slot that briefly held a
-    // standalone Premium tab is gone too: Premium is no longer a separate
-    // destination (see the "Premium as a layer, not a tab" pass) — its
-    // features now live inside Mind/Analysis/History, gated by
-    // store.isPro (toggled from Profile), and the bar goes back to exactly
-    // Home/Mind/Analysis/History.
-  ];
-  const activeColor = vintage ? ivHeading : modernist ? mdAccentText : dark ? dkAccentLight : "#6B6EF6";
-  const inactiveColor = vintage ? "#ADA290" : modernist ? "#8b8785" /* --color-neutral-600 */ : dark ? "#726A8A" : "#8B8A92";
-  // `vintage` now means the ivory theme (Home/Mind/Analysis/History, all
-  // sharing one floating nav bar) — kept the original prop name to avoid
-  // rippling a rename through every call site, but the "vintage" tan photo
-  // palette this branch used to draw from is gone; see ivHeading/ivSurface
-  // etc. above. It still skips the sliding pill entirely — the reference
-  // design marks the active tab with color + a small dot underneath
-  // instead of a highlight chip.
-  const pillColor = modernist ? mdAccentSoft : dark ? "rgba(123,92,240,0.16)" : "#F0EEFF";
-  const themeKey = modernist ? "modernist" : dark ? "dark" : "light";
-  // This ivory bar nests two layers instead of putting border-radius,
-  // backdrop-blur, and box-shadow all on one element: a blurred backdrop
-  // only reliably clips to a rounded corner when something with overflow:
-  // hidden sits between it and the edge, but overflow:hidden on that same
-  // element would just as reliably clip its OWN box-shadow (shadows render
-  // outside the box, right where overflow:hidden cuts them off). Split in
-  // two, each half only carries what it can render correctly: the outer
-  // div is transparent and just places the shadow + margins; the inner
-  // div is what actually has the ivory fill/blur, clipped clean by its own
-  // overflow:hidden so the rounded corners never show a leftover square
-  // corner of unclipped background/blur behind them. The other themes
-  // don't combine backdrop-blur with a border-radius in the first place,
-  // so they're unaffected and keep the single-div version.
-  const barStyle: React.CSSProperties = {
-    position: modernist || dark || vintage ? "sticky" : "static",
-    bottom: modernist || dark || vintage ? 0 : undefined,
-    display: "flex",
-    // The floating ivory bar (this bar and Home's "Speak your mind" card
-    // above it) sits free of the frame edge — a margin + full border-
-    // radius instead of the other themes' edge-to-edge bar with just a
-    // top hairline. Its own margin/shadow live on the outer wrapper below
-    // instead of here — see the comment above.
-    borderTop: vintage ? "none" : `1px solid ${modernist ? mdDivider : dark ? dkDivider : hair}`,
-    borderRadius: vintage ? 26 : 0,
-    backgroundColor: vintage ? "rgba(251,248,242,0.92)" : modernist ? "rgba(255,255,255,0.82)" : dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
-    backdropFilter: "blur(12px)",
-    overflow: vintage ? "hidden" : "visible",
-    padding: "8px 10px",
-    // Real value on a notched/gesture-nav phone (clears the home
-    // indicator so nothing renders under it), 0px everywhere else —
-    // always safe to include unconditionally. The ivory bar already has
-    // its own bottom margin standing in for that gap (on the outer wrapper).
-    paddingBottom: vintage ? "8px" : "calc(8px + env(safe-area-inset-bottom))",
-    flexShrink: vintage ? undefined : 0,
-  };
-  const bar = (
-    <div style={barStyle}>
-      {items.map((item) => {
-        const isActive = active === item.id;
-        const color = isActive ? activeColor : inactiveColor;
-        return (
-          <motion.div
-            key={item.id}
-            data-tutorial={`nav-${item.id}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect?.(item.id)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
-            whileTap={{ opacity: 0.7 }}
-            style={{ flex: 1, position: "relative", display: "flex", justifyContent: "center", padding: "2px 4px", cursor: "pointer" }}
-          >
-            {isActive && !vintage && (
-              <motion.div
-                layoutId={`navSelectedPill-${themeKey}`}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                style={{ position: "absolute", inset: "0 6px", borderRadius: 18, backgroundColor: pillColor, zIndex: 0 }}
-              />
-            )}
-            <div style={{ position: "relative", zIndex: 1, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-              <NavIcon id={item.id} color={color} />
-              <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? (modernist ? 800 : 600) : (modernist ? 500 : 400), color }}>{item.label}</span>
-              {vintage && isActive && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: ivHeading }} />}
-            </div>
-          </motion.div>
-        );
-      })}
-    </div>
-  );
-  if (!vintage) return bar;
-  // Outer wrapper: transparent, carries only what needs to render outside
-  // the inner div's overflow:hidden clip (the shadow) or outside its own
-  // box entirely (the margins placing this pill free of the frame edge).
-  return (
-    <div
-      style={{
-        position: "sticky", bottom: 0, flexShrink: 0,
-        margin: "0 20px", marginBottom: "calc(14px + env(safe-area-inset-bottom))",
-        borderRadius: 26, boxShadow: ivCardShadow,
-      }}
-    >
-      {bar}
-    </div>
-  );
+function BottomNav({ active, onSelect }: { active: string; onSelect?: (id: string) => void; dark?: boolean; modernist?: boolean; vintage?: boolean }) {
+  return <StargazingNav active={active} onSelect={onSelect} />;
 }
 
 function PrimaryBtn({ children, onClick, disabled, modernist = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean }) {
@@ -461,7 +270,7 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false }: { childr
       style={{
         ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
         backgroundColor: disabled ? (modernist ? mdTrack : dkTrack) : (modernist ? mdAccent : dkAccent),
-        color: disabled ? (modernist ? "#a29d9d" : "#6E6580") : "#fff",
+        color: disabled ? nightPalette.muted : nightPalette.background,
         border: 0, borderRadius: 14, fontSize: 16, fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.72 : 1,
         WebkitTapHighlightColor: "transparent",
@@ -703,9 +512,9 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
   );
 }
 
-const OPENING_BG = "#11192A";
-const OPENING_TEXT = "#F3EEE4";
-const OPENING_MUTED = "rgba(243,238,228,.62)";
+const OPENING_BG = nightPalette.background;
+const OPENING_TEXT = nightPalette.text;
+const OPENING_MUTED = nightPalette.body;
 
 function OpeningStars() {
   const reducedMotion = useReducedMotion();
@@ -818,7 +627,7 @@ function TextField({ label, type = "text", value, onChange, placeholder, error, 
           // any input under 16px, which then has to be manually pinched back
           // out. Below that threshold it's a real mobile bug, not a style nit.
           fontSize: 16, color: dark ? OPENING_TEXT : mdHeading,
-          backgroundColor: dark ? "rgba(255,255,255,.055)" : mdCard, outline: "none",
+          backgroundColor: dark ? nightPalette.surface : mdCard, outline: "none",
           colorScheme: dark ? "dark" : "light",
         }}
       />
@@ -887,7 +696,7 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
         <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Don't have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: nightPalette.gold, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
         </div>
       </div>
     </div>
@@ -960,11 +769,11 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
           <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        {info && <div style={{ ...sans, fontSize: 12.5, color: "#D9CFF7", marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
+        {info && <div style={{ ...sans, fontSize: 12.5, color: nightPalette.gold, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
         <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Already have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: nightPalette.gold, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
         </div>
       </div>
     </div>
@@ -1166,7 +975,7 @@ function OnboardingBrainDemo() {
             role="button" tabIndex={0} onClick={tryIt} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (tryIt)?.(); } }} whileTap={text.trim() ? { scale: 0.96 } : undefined}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px", borderRadius: 10,
-              backgroundColor: text.trim() ? mdAccent : mdTrack, color: text.trim() ? "#fff" : "#a29d9d",
+              backgroundColor: text.trim() ? mdAccent : mdTrack, color: text.trim() ? nightPalette.background : "#a29d9d",
               ...sans, fontSize: 13, fontWeight: 700, cursor: text.trim() ? "pointer" : "default", flexShrink: 0,
             }}
           >
@@ -1525,7 +1334,7 @@ function TutorialOverlay({
       <motion.span
         role="button" tabIndex={0} onClick={onSkip} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSkip)?.(); } }} whileTap={{ opacity: 0.6 }}
         style={{
-          position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
+          position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.background,
           backgroundColor: "rgba(0,0,0,0.35)", padding: "6px 12px", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)",
           pointerEvents: "auto",
         }}
@@ -1580,7 +1389,7 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivHeading }}>{label}</span>
-        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: ivHeading, backgroundColor: "rgba(42,38,33,0.06)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
+        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
       </div>
       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
     </motion.div>
@@ -1716,12 +1525,12 @@ function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs
       style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: 12, backdropFilter: "blur(12px)", boxShadow: ivCardShadow }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: ivFaint }}>OPEN A REGION</span>
-        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.96, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
+        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.96, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(236,210,168,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {COGNITIVE_REGIONS.map((region) => (
           <motion.button key={region} onClick={() => onSelectRegion(region)} whileTap={{ scale: 0.96 }}
-            style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${ivBorder}`, borderRadius: 999, background: "rgba(42,38,33,0.03)", padding: "8px 10px", cursor: "pointer", color: ivHeading }}>
+            style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${ivBorder}`, borderRadius: 999, background: "rgba(236,210,168,0.03)", padding: "8px 10px", cursor: "pointer", color: ivHeading }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
             <span style={{ ...sans, fontSize: 11.5 }}>{REGION_CONFIG[region].label}</span>
             <span style={{ ...mono, fontSize: 10.5, color: ivFaint }}>{counts.get(region) ?? 0}</span>
@@ -1770,7 +1579,7 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
       <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
         {QUICK_MOODS.map((m) => (
           <motion.button key={m.label} type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)} whileTap={{ scale: 0.95, opacity: 0.82 }} style={{ flexShrink: 0, border: 0, padding: "6px 11px", borderRadius: 999, cursor: "pointer", backgroundColor: justLogged === m.label ? ivHeading : ivSurfaceSolid, boxShadow: "0 4px 14px rgba(120,105,80,0.12)", WebkitTapHighlightColor: "transparent" }}>
-            <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: justLogged === m.label ? "#fff" : ivHeading }}>{m.label}</span>
+            <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: justLogged === m.label ? nightPalette.background : ivHeading }}>{m.label}</span>
           </motion.button>
         ))}
       </div>
@@ -1778,206 +1587,8 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   );
 }
 
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
-  const [showRegionShortcuts, setShowRegionShortcuts] = React.useState(false);
-  const daysAway = daysSinceLastEntry(store.history);
-
-  return (
-    <div
-      style={{
-        position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden",
-        // Every other screen just fills its slot (height: 100%) below the
-        // App shell's fixed status-bar clearance. Home is the one screen
-        // whose composition is meant to run edge-to-edge under the
-        // transparent status bar overlay (see the App shell), so instead
-        // of asking the shared frame to change shape for it — the actual
-        // cause of an earlier bug where switching screens made the whole
-        // frame visibly jump — Home extends itself 30px above its given
-        // slot instead. Header, node field, mind summary, Speak-your-mind
-        // card, and nav all sit on the one ivory canvas by percentage, all
-        // visible at once with no overflow:auto anywhere (unchanged from
-        // before — only the backdrop and every surface's styling changed).
-      }}
-    >
-      {/* top is a fixed px, not a %, specifically so it stays clear of
-      the real device status bar / the desktop preview's transparent
-      "9:41" overlay (see the App shell) regardless of screen height. */}
-      <div style={{ position: "absolute", top: 34, left: 24, right: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <span style={{ ...mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: ivFaint }}>{formatDateDots(new Date())}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Search stands in for "look back through what I've said" —
-          the closest real destination for that is History, so it
-          routes there rather than being decorative. */}
-          <motion.div
-            role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-              <circle cx="8.5" cy="8.5" r="6" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </motion.div>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="7" r="3.4" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </motion.div>
-        </div>
-      </div>
-
-      <div style={{ position: "absolute", top: "7%", left: 24, right: 24 }}>
-        <div style={{ ...serif, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
-          What thought crossed<br />your mind today?
-        </div>
-        {/* One restrained line of supporting copy, matching the reference
-        screen's own quiet epigrammatic voice (see the opening flow's
-        "There's a pattern in your thinking" for the same register) —
-        static and short, not a marketing block. */}
-        <div style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, marginTop: 8 }}>
-          A quieter mind begins here.
-        </div>
-      </div>
-
-      {(!MONETIZATION_ENABLED || store.isPro) ? (
-        <>
-          {/* Keyboard/screen-reader path to the Brain Map — a real
-          tabbable, Enter/Space-activatable button underneath the canvas.
-          Sighted mouse/touch users hit the canvas on top instead (see
-          below): tapping a specific node there opens straight onto that
-          node; tapping empty space within the field falls through to this
-          same generic "open the map" behavior via onBackgroundTap. */}
-          <motion.div
-            data-tutorial="brain-card"
-            role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }}
-            whileTap={{ opacity: 0.85 }}
-            style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", cursor: "pointer" }}
-          />
-          {/* The real, live node field — the exact same belief nodes the
-          Brain Map itself renders (JarBrainPreview shares buildActiveNodes/
-          region colors/glow with the full graph in NeuralBeliefGraph3D;
-          this is that same real data, just chrome-free and without the old
-          jar photo it used to be clipped into), not a separate hand-placed
-          layout. Interactive (not pointerEvents:none — see onSelectNode/
-          onBackgroundTap below): tapping one specific node opens the full
-          Brain Map already flown-in and focused on that exact belief,
-          tapping the empty space between nodes falls back to the generic
-          open-the-map behavior above. Sized to be the screen's visual
-          focus — large, filling most of the space between the headline and
-          "Your Mind" — with JarBrainPreview's own camera zoomed in to match
-          (see NeuralBeliefGraph3D.tsx). */}
-          <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
-            <JarBrainPreview
-              beliefs={store.beliefs}
-              onSelectNode={(id) => onOpenBrainMap?.(undefined, id)}
-              onBackgroundTap={() => onOpenBrainMap?.()}
-            />
-          </div>
-
-          {/* With zero beliefs, JarBrainPreview's canvas has nothing to
-          draw — buildActiveNodes([]) is empty, so the field renders fully
-          blank. Rather than a brand-new user's very first Home screen
-          showing a dead 43%-height gap under the headline with no
-          explanation, a single quiet breathing dot marks where their first
-          belief will appear — same breathing idiom as NeuronOrb below (
-          scale 1→1.04, 2.5s, easeInOut), just resting rather than inviting
-          a tap, since there's nothing here yet to open. pointerEvents:none
-          so it never competes with the real "Open your Brain Map" button/
-          canvas layered underneath it. */}
-          {store.beliefs.length === 0 && (
-            <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
-              <motion.div
-                animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)",
-                  boxShadow: "0 0 18px rgba(166,143,94,0.35)",
-                }}
-              />
-              <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: ivFaint, textAlign: "center" }}>
-                Your first thought will appear here.
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        // Locked teaser instead of quietly rendering an always-empty
-        // field — a free store's beliefs/connections never populate
-        // (see appendUnanalyzedEntry in realStore.ts), so without this
-        // a free user would just see an empty field forever with no
-        // explanation why. Routes through onOpenBrainMap/"brainmap"
-        // rather than a separate handler — that route already renders
-        // ScreenPaywall for a non-Pro store.
-        <motion.div
-          data-tutorial="brain-card"
-          role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-          style={{
-            position: "absolute", left: "18%", right: "18%", top: "22%", height: "36%",
-            backgroundColor: ivSurface, border: `1px solid ${ivBorder}`, cursor: "pointer", borderRadius: 24,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
-          }}
-        >
-          <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="4.5" y="9" width="11" height="8" rx="2" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </span>
-          <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>See your Brain Map</div>
-          <div style={{ ...sans, fontSize: 12.5, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
-            Upgrade to Pro to see your unconscious beliefs light up and connect.
-          </div>
-        </motion.div>
-      )}
-
-      {(!MONETIZATION_ENABLED || store.isPro) && (
-        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
-          <div style={{ ...serif, fontSize: 16, color: ivHeading }}>Your Mind</div>
-          <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 2 }}>
-            {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
-          </div>
-        </motion.div>
-      )}
-
-      <AnimatePresence>
-        {showRegionShortcuts && (
-          <HomeRegionShortcutSheet beliefs={store.beliefs} onClose={() => setShowRegionShortcuts(false)} onSelectRegion={(region) => { setShowRegionShortcuts(false); onOpenBrainMap?.(region); }} />
-        )}
-      </AnimatePresence>
-
-      <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "72%" }}>
-        <motion.div
-          role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-          style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
-        >
-          <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <WaveformIcon color="#fff" />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-            <span style={{ ...serif, fontSize: 17, color: ivHeading }}>Speak your mind</span>
-            <span style={{ ...sans, fontSize: 12, color: ivBody }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M4 10h12M10 4l6 6-6 6" stroke={ivHeading} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </motion.div>
-        <QuickMoodCheckIn updateStore={updateStore} />
-      </div>
-
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
-        <BottomNav active="home" onSelect={onNavSelect} vintage />
-      </div>
-    </div>
-  );
+function ScreenHome(props: HomeProps & {updateStore?: (updater: (prev: Store) => Store) => void}) {
+  return <StargazingHome {...props} />;
 }
 
 // Per-region count of active beliefs, using the exact same region
@@ -2068,7 +1679,7 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
     .slice(0, 6);
 
   if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.55)" }}>No emotion data yet. It'll show up here after you leave a few thoughts.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: nightPalette.body }}>No emotion data yet. It'll show up here after you leave a few thoughts.</div>;
   }
 
   const maxAvg = rows[0].avg || 1;
@@ -2077,11 +1688,11 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
       {rows.map((r) => (
         <div key={r.label}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 11.5, color: "rgba(42,38,33,0.5)" }}>{r.avg} · {r.count}×</span>
+            <span style={{ ...sans, fontSize: 13, color: nightPalette.text }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: nightPalette.body }}>{r.avg} · {r.count}×</span>
           </div>
-          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
+          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.08)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)" }} />
           </div>
         </div>
       ))}
@@ -2118,7 +1729,7 @@ function ValueDirectionShifts({ history }: { history: StoredHistoryEntry[] }) {
     .slice(0, 6);
 
   if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.55)" }}>No value-direction data yet. It'll show up here after you leave a few thoughts.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: nightPalette.body }}>No value-direction data yet. It'll show up here after you leave a few thoughts.</div>;
   }
 
   return (
@@ -2126,12 +1737,12 @@ function ValueDirectionShifts({ history }: { history: StoredHistoryEntry[] }) {
       {rows.map((r) => (
         <div key={r.label}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 11.5, color: "rgba(42,38,33,0.5)" }}>{r.toward} toward · {r.away} away</span>
+            <span style={{ ...sans, fontSize: 13, color: nightPalette.text }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: nightPalette.body }}>{r.toward} toward · {r.away} away</span>
           </div>
-          <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}>
-            <div style={{ height: "100%", width: `${(r.toward / r.total) * 100}%`, backgroundColor: "rgba(42,38,33,0.5)" }} />
-            <div style={{ height: "100%", width: `${(r.away / r.total) * 100}%`, backgroundColor: "rgba(42,38,33,0.3)" }} />
+          <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(236,210,168,0.08)" }}>
+            <div style={{ height: "100%", width: `${(r.toward / r.total) * 100}%`, backgroundColor: "rgba(236,210,168,0.5)" }} />
+            <div style={{ height: "100%", width: `${(r.away / r.total) * 100}%`, backgroundColor: "rgba(236,210,168,0.3)" }} />
           </div>
         </div>
       ))}
@@ -2156,7 +1767,7 @@ function CognitivePatternFrequency({ history }: { history: StoredHistoryEntry[] 
     .slice(0, 6);
 
   if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.55)" }}>No recurring thinking patterns yet. It'll show up here after you leave a few thoughts.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: nightPalette.body }}>No recurring thinking patterns yet. It'll show up here after you leave a few thoughts.</div>;
   }
 
   const maxCount = rows[0].count || 1;
@@ -2165,11 +1776,11 @@ function CognitivePatternFrequency({ history }: { history: StoredHistoryEntry[] 
       {rows.map((r) => (
         <div key={r.label}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 11.5, color: "rgba(42,38,33,0.5)" }}>{r.count}×</span>
+            <span style={{ ...sans, fontSize: 13, color: nightPalette.text }}>{r.label}</span>
+            <span style={{ ...mono, fontSize: 11.5, color: nightPalette.body }}>{r.count}×</span>
           </div>
-          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(r.count / maxCount) * 100}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
+          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.08)", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${(r.count / maxCount) * 100}%`, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)" }} />
           </div>
         </div>
       ))}
@@ -2251,7 +1862,7 @@ function buildSelfTalkWeeks(history: StoredHistoryEntry[], maxWeeks = 8): SelfTa
 function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
   const weeks = buildSelfTalkWeeks(history);
   if (weeks.length < 2) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.55)" }}>Not enough weeks of recorded language yet — this fills in once you've written across a few different weeks.</div>;
+    return <div style={{ ...sans, fontSize: 13, color: nightPalette.body }}>Not enough weeks of recorded language yet — this fills in once you've written across a few different weeks.</div>;
   }
 
   const w = 280;
@@ -2277,20 +1888,20 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.55)" }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body }}>
           Reflective language ("think," "realize," "notice"...) per 100 words, by week
         </div>
         <svg role="img" aria-label={sparklineLabel} width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 6, display: "block" }}>
-          <polyline points={points} fill="none" stroke="rgba(42,38,33,0.55)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points={points} fill="none" stroke="rgba(236,210,168,0.55)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ ...mono, fontSize: 9.5, color: "rgba(42,38,33,0.45)" }}>{shortMonthDay(weeks[0].weekStart)}</span>
-          <span style={{ ...mono, fontSize: 9.5, color: "rgba(42,38,33,0.45)" }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
+          <span style={{ ...mono, fontSize: 9.5, color: nightPalette.muted }}>{shortMonthDay(weeks[0].weekStart)}</span>
+          <span style={{ ...mono, fontSize: 9.5, color: nightPalette.muted }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
         </div>
       </div>
 
       <div>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.55)", marginBottom: 10 }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body, marginBottom: 10 }}>
           "I" vs. "we/they," by week
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2299,14 +1910,14 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
             return (
               <div key={wk.weekStart}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ ...sans, fontSize: 11, color: "#2A2621" }}>{shortMonthDay(wk.weekStart)}</span>
-                  {total > 0 && <span style={{ ...mono, fontSize: 10, color: "rgba(42,38,33,0.45)" }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
+                  <span style={{ ...sans, fontSize: 11, color: nightPalette.text }}>{shortMonthDay(wk.weekStart)}</span>
+                  {total > 0 && <span style={{ ...mono, fontSize: 10, color: nightPalette.muted }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
                 </div>
-                <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}>
+                <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(236,210,168,0.08)" }}>
                   {total > 0 && (
                     <>
-                      <div style={{ height: "100%", width: `${(wk.firstPersonSingularCount / total) * 100}%`, backgroundColor: "rgba(42,38,33,0.5)" }} />
-                      <div style={{ height: "100%", width: `${(wk.collectiveOrOtherCount / total) * 100}%`, backgroundColor: "rgba(42,38,33,0.3)" }} />
+                      <div style={{ height: "100%", width: `${(wk.firstPersonSingularCount / total) * 100}%`, backgroundColor: "rgba(236,210,168,0.5)" }} />
+                      <div style={{ height: "100%", width: `${(wk.collectiveOrOtherCount / total) * 100}%`, backgroundColor: "rgba(236,210,168,0.3)" }} />
                     </>
                   )}
                 </div>
@@ -2363,9 +1974,9 @@ function buildRecordingHeatmapWeeks(history: StoredHistoryEntry[], numWeeks = RE
 
 function heatmapCellColor(count: number, isFuture: boolean): string {
   if (isFuture) return "transparent";
-  if (count === 0) return "rgba(42,38,33,0.07)";
-  if (count === 1) return "rgba(42,38,33,0.3)";
-  return "rgba(42,38,33,0.55)";
+  if (count === 0) return "rgba(236,210,168,0.07)";
+  if (count === 1) return "rgba(236,210,168,0.3)";
+  return "rgba(236,210,168,0.55)";
 }
 
 // Premium's "consistency" view — same spirit as Profile's streak stat,
@@ -2403,13 +2014,13 @@ function RecordingHeatmap({ history }: { history: StoredHistoryEntry[] }) {
         ))}
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-        <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.45)" }}>{totalDaysRecorded} day{totalDaysRecorded === 1 ? "" : "s"} recorded in the last {RECORDING_HEATMAP_WEEKS} weeks</span>
+        <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>{totalDaysRecorded} day{totalDaysRecorded === 1 ? "" : "s"} recorded in the last {RECORDING_HEATMAP_WEEKS} weeks</span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ ...sans, fontSize: 9.5, color: "rgba(42,38,33,0.45)" }}>Less</span>
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.07)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.3)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.55)" }} />
-          <span style={{ ...sans, fontSize: 9.5, color: "rgba(42,38,33,0.45)" }}>More</span>
+          <span style={{ ...sans, fontSize: 9.5, color: nightPalette.muted }}>Less</span>
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.07)" }} />
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.3)" }} />
+          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.55)" }} />
+          <span style={{ ...sans, fontSize: 9.5, color: nightPalette.muted }}>More</span>
         </div>
       </div>
     </div>
@@ -2432,7 +2043,7 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist, night }
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${ivHeading}`, backgroundColor: ivHeading, cursor: disabled ? "default" : "pointer" }}
         >
-          <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: "#fff" }}>I agree</span>
+          <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: nightPalette.background }}>I agree</span>
         </motion.div>
         <motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
@@ -2450,7 +2061,7 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist, night }
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, backgroundColor: mdHeading, cursor: disabled ? "default" : "pointer" }}
         >
-          <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: "#fff" }}>I agree</span>
+          <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: nightPalette.background }}>I agree</span>
         </motion.div>
         <motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
@@ -2468,7 +2079,7 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist, night }
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, backgroundColor: dkAccent, cursor: disabled ? "default" : "pointer" }}
         >
-          <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: "#fff" }}>I agree</span>
+          <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: nightPalette.background }}>I agree</span>
         </motion.div>
         <motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
@@ -2485,13 +2096,13 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist, night }
         role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
-        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>I agree</span>
+        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? nightPalette.background : ink }}>I agree</span>
       </motion.div>
       <motion.div
         role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
-        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>Doesn't feel right</span>
+        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? nightPalette.background : ink }}>Doesn't feel right</span>
       </motion.div>
     </div>
   );
@@ -3199,6 +2810,7 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
 }
 
 function ScreenDiscoveryAnalysis({
+  initialTarget,
   onNavSelect,
   store,
   updateStore,
@@ -3209,6 +2821,7 @@ function ScreenDiscoveryAnalysis({
   onDisagreeBeliefDiscovery,
   reinterpretingKey,
 }: {
+  initialTarget?: DiscoveryTarget | null;
   onNavSelect?: (id: string) => void;
   store: Store;
   updateStore: (updater: (prev: Store) => Store) => void;
@@ -3262,7 +2875,7 @@ function ScreenDiscoveryAnalysis({
   // Dig deeper) is open for that specific target, which may be Today's
   // Discovery or any Recent Insight — same shape, same component, so both
   // entry points share one implementation.
-  const [examineTarget, setExamineTarget] = React.useState<DiscoveryTarget | null>(null);
+  const [examineTarget, setExamineTarget] = React.useState<DiscoveryTarget | null>(initialTarget ?? null);
   const examine = examineTarget ? resolveDiscoveryTarget(store, examineTarget) : null;
   const hIndex = examineTarget?.kind === "hypothesis" ? examineTarget.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
@@ -3392,7 +3005,7 @@ function ScreenDiscoveryAnalysis({
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <svg width="72" height="72" viewBox="0 0 96 96">
-                      <circle cx="48" cy="48" r="44" fill="rgba(42,38,33,0.05)" />
+                      <circle cx="48" cy="48" r="44" fill="rgba(236,210,168,0.05)" />
                       <circle cx="34" cy="44" r="5" fill={ivFaint} />
                       <circle cx="62" cy="44" r="5" fill={ivFaint} />
                       <path d="M36 60 Q48 68 60 60" stroke={ivFaint} strokeWidth="3" fill="none" strokeLinecap="round" />
@@ -3927,7 +3540,7 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
           width: 10,
           height: 10,
           borderRadius: "50%",
-          backgroundColor: recording ? "#FFD9C7" : "#E8E3F5",
+          backgroundColor: recording ? nightPalette.goldHover : nightPalette.gold,
           boxShadow: recording ? "0 0 14px 4px rgba(232,128,100,0.65)" : "0 0 14px 4px rgba(180,165,230,0.55)",
         }}
       />
@@ -3935,14 +3548,14 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
   );
 }
 
-function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
+function ScreenThink({ onDone, onBack, initialMode = "text" }: { onDone?: (text: string) => void; onBack?: () => void; initialMode?: "text" | "voice" }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
   // Text-first: voice self-reports lower self-disclosure than text at the
   // same response length (perceived anonymity drops with voice) — text is
   // the default, voice is the opt-in via the toggle below, not the other
   // way around.
-  const [textMode, setTextMode] = React.useState(true);
+  const [textMode, setTextMode] = React.useState(initialMode !== "voice");
   const [text, setText] = React.useState("");
   const [promptHint] = React.useState(() => pickThinkPrompt());
   const [transcript, setTranscript] = React.useState("");
@@ -4736,29 +4349,29 @@ function ConnectionSpark({ aLabel, bLabel }: { aLabel: string; bLabel: string })
     <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: h, display: "block", overflow: "visible" }}>
       <motion.line
         x1={ax} y1={ay} x2={bx} y2={by}
-        stroke={"#2A2621"} strokeWidth={1.6}
+        stroke={nightPalette.text} strokeWidth={1.6}
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 0.5 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
       />
       <motion.circle
-        r={3} fill={"#2A2621"}
+        r={3} fill={nightPalette.text}
         initial={{ opacity: 0, cx: ax, cy: ay }}
         animate={{ opacity: [0, 1, 1, 0], cx: [ax, ax, bx, bx], cy: [ay, ay, by, by] }}
         transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.9, delay: 0.8, ease: "easeInOut", times: [0, 0.08, 0.92, 1] }}
       />
       <motion.circle
-        cx={ax} cy={ay} r={r} fill={"rgba(42,38,33,0.06)"} stroke={"#2A2621"} strokeOpacity={0.5} strokeWidth={1.2}
+        cx={ax} cy={ay} r={r} fill={"rgba(236,210,168,0.06)"} stroke={nightPalette.text} strokeOpacity={0.5} strokeWidth={1.2}
         initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, ease: "backOut" }}
         style={{ transformOrigin: `${ax}px ${ay}px` }}
       />
       <motion.circle
-        cx={bx} cy={by} r={r} fill={"rgba(42,38,33,0.06)"} stroke={"#2A2621"} strokeOpacity={0.5} strokeWidth={1.2}
+        cx={bx} cy={by} r={r} fill={"rgba(236,210,168,0.06)"} stroke={nightPalette.text} strokeOpacity={0.5} strokeWidth={1.2}
         initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, delay: 0.15, ease: "backOut" }}
         style={{ transformOrigin: `${bx}px ${by}px` }}
       />
-      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: "#2A2621" }}>{aLabel}</text>
-      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: "#2A2621" }}>{bLabel}</text>
+      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: nightPalette.text }}>{aLabel}</text>
+      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: nightPalette.text }}>{bLabel}</text>
     </svg>
   );
 }
@@ -4884,11 +4497,11 @@ function ConfidenceTrend({ history }: { history: { date: string; value: number }
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: "rgba(42,38,33,0.58)" }}>Confidence over time · {history.length} entries</span>
-        <span style={{ ...mono, fontSize: 10.5, color: delta > 0 ? "#2A2621" : delta < 0 ? "rgba(42,38,33,0.4)" : "rgba(42,38,33,0.42)" }}>{delta > 0 ? "+" : ""}{delta}</span>
+        <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.body }}>Confidence over time · {history.length} entries</span>
+        <span style={{ ...mono, fontSize: 10.5, color: delta > 0 ? nightPalette.text : delta < 0 ? "rgba(236,210,168,0.4)" : "rgba(236,210,168,0.42)" }}>{delta > 0 ? "+" : ""}{delta}</span>
       </div>
       <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 4, display: "block" }}>
-        <polyline points={points} fill="none" stroke={"#2A2621"} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={points} fill="none" stroke={nightPalette.text} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   );
@@ -4906,7 +4519,7 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
     .filter((e): e is StoredHistoryEntry => !!e && !!e.analysis?.observation.situation);
   const entry = candidateEntries[candidateEntries.length - 1];
   if (!entry?.analysis) {
-    return <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.42)" }}>There isn't a detailed enough entry yet to show this belief's cycle.</div>;
+    return <div style={{ ...sans, fontSize: 12, color: nightPalette.muted }}>There isn't a detailed enough entry yet to show this belief's cycle.</div>;
   }
   const obs = entry.analysis.observation;
   const topEmotion = [...obs.emotions].sort((a, b) => b.intensity - a.intensity)[0];
@@ -4918,25 +4531,25 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
   ];
   return (
     <div>
-      <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
         From your entry on {entry.date}, here's how this belief actually played out, step by step.
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {steps.map((s, i) => (
           <React.Fragment key={s.label}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", color: "#2A2621", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "rgba(236,210,168,0.06)", color: nightPalette.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1, paddingBottom: 4 }}>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: "rgba(42,38,33,0.58)", letterSpacing: "0.04em" }}>{s.label}</div>
-                <div style={{ ...serif, fontSize: 14, color: "#2A2621", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
+                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: nightPalette.body, letterSpacing: "0.04em" }}>{s.label}</div>
+                <div style={{ ...serif, fontSize: 14, color: nightPalette.text, marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
               </div>
             </div>
-            {i < steps.length - 1 && <div style={{ marginLeft: 9, width: 1, height: 14, backgroundColor: "rgba(42,38,33,0.09)" }} />}
+            {i < steps.length - 1 && <div style={{ marginLeft: 9, width: 1, height: 14, backgroundColor: "rgba(236,210,168,0.09)" }} />}
           </React.Fragment>
         ))}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 12, marginLeft: 32 }}>
-          <span style={{ ...sans, fontSize: 15, color: "#2A2621", lineHeight: 1 }}>↺</span>
-          <span style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.58)", fontStyle: "italic", lineHeight: 1.5, wordBreak: "keep-all" }}>
+          <span style={{ ...sans, fontSize: 15, color: nightPalette.text, lineHeight: 1 }}>↺</span>
+          <span style={{ ...sans, fontSize: 11.5, color: nightPalette.body, fontStyle: "italic", lineHeight: 1.5, wordBreak: "keep-all" }}>
             It looks like this action tends to create a similar situation again, and the same thought shows back up.
           </span>
         </div>
@@ -4966,20 +4579,20 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
   // on the other.
   const [reframeFlipped, setReframeFlipped] = React.useState(false);
   return (
-    <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${"rgba(42,38,33,0.09)"}` }}>
+    <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${"rgba(236,210,168,0.09)"}` }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.04em" }}>{belief.domain}</span>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.04em" }}>{belief.domain}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: "rgba(42,38,33,0.4)" }}>Conflicting entries exist</span>}
-          {belief.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: "#2A2621" }}>Confirmed repeatedly</span>}
-          <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.42)" }}>{belief.evidenceCount} pieces of evidence</span>
+          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.muted }}>Conflicting entries exist</span>}
+          {belief.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.text }}>Confirmed repeatedly</span>}
+          <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{belief.evidenceCount} pieces of evidence</span>
         </div>
       </div>
       {/* Defusion reframe (ACT: "naming the thought") — a recurring visitor,
           not a fact about the person, shown just above the statement it
           reframes so the two read together. */}
       {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: "#2A2621", marginTop: 8 }}>The "{belief.thoughtLabel}" thought keeps showing up</div>
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: nightPalette.text, marginTop: 8 }}>The "{belief.thoughtLabel}" thought keeps showing up</div>
       )}
       {belief.distancedReframe ? (
         <div style={{ marginTop: belief.thoughtLabel ? 4 : 8 }}>
@@ -4992,12 +4605,12 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
               transition={{ duration: 0.2, ease: "easeInOut" }}
               style={{ display: "grid", transformStyle: "preserve-3d" }}
             >
-              <div style={{ ...serif, fontSize: 18, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all", gridArea: "1 / 1", backfaceVisibility: "hidden" }}>
+              <div style={{ ...serif, fontSize: 18, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all", gridArea: "1 / 1", backfaceVisibility: "hidden" }}>
                 {belief.statement}
               </div>
               <div
                 style={{
-                  ...serif, fontSize: 18, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all",
+                  ...serif, fontSize: 18, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all",
                   gridArea: "1 / 1", backfaceVisibility: "hidden", transform: "rotateY(180deg)",
                 }}
               >
@@ -5009,32 +4622,32 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
             role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
             onClick={() => setReframeFlipped((v) => !v)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
-            style={{ ...sans, fontSize: 10.5, color: "rgba(42,38,33,0.42)", marginTop: 8, display: "inline-block", cursor: "pointer" }}
+            style={{ ...sans, fontSize: 10.5, color: nightPalette.muted, marginTop: 8, display: "inline-block", cursor: "pointer" }}
           >
             {reframeFlipped ? "↺ Back to the original" : "See it from a distance ↻"}
           </motion.span>
         </div>
       ) : (
-        <div style={{ ...serif, fontSize: 18, color: "#2A2621", marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
+        <div style={{ ...serif, fontSize: 18, color: nightPalette.text, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
       )}
-      <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 10 }}>
-        <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
+      <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.08)", marginTop: 10 }}>
+        <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)" }} />
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <span style={{ ...mono, fontSize: 10.5, color: "rgba(42,38,33,0.42)" }}>Confidence {belief.confidence}%</span>
+        <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>Confidence {belief.confidence}%</span>
       </div>
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
       {belief.confidenceHistory && <ConfidenceTrend history={belief.confidenceHistory} />}
       {ruminationLikely && (
-        <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.58)", marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 11.5, color: nightPalette.body, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
           This thought has come back often in recent sessions.
         </div>
       )}
       {(patterns.length > 0 || emotion) && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {emotion && (
-            <span style={{ ...sans, fontSize: 10.5, color: "rgba(42,38,33,0.58)", backgroundColor: "rgba(42,38,33,0.08)", padding: "3px 8px", borderRadius: 999 }}>Predominant emotion · {emotion}</span>
+            <span style={{ ...sans, fontSize: 10.5, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 8px", borderRadius: 999 }}>Predominant emotion · {emotion}</span>
           )}
           {patterns.map((p) => {
             const active = openPattern === p;
@@ -5042,7 +4655,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
               <motion.span
                 key={p} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
                 onClick={() => setOpenPattern(active ? null : p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setOpenPattern(active ? null : p))?.(); } }}
-                style={{ ...sans, fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? "#fff" : "#2A2621", backgroundColor: active ? "rgba(42,38,33,0.5)" : "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
+                style={{ ...sans, fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? nightPalette.background : nightPalette.text, backgroundColor: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.06)", padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
               >
                 {p}
               </motion.span>
@@ -5051,16 +4664,16 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
         </div>
       )}
       {openPattern && (
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all", padding: 10, borderRadius: 10, backgroundColor: "rgba(42,38,33,0.06)" }}>
+        <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all", padding: 10, borderRadius: 10, backgroundColor: "rgba(236,210,168,0.06)" }}>
           <div>{COGNITIVE_PATTERN_DESCRIPTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ""}</div>
           {/* Balanced reframe (ported from a parallel session) — most
               cognitive habits started as adaptive, not just a flaw. */}
           {(() => {
             const r = COGNITIVE_PATTERN_REFLECTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_REFLECTIONS] ?? GENERIC_PATTERN_REFLECTION;
             return (
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${"rgba(42,38,33,0.09)"}`, display: "flex", flexDirection: "column", gap: 4 }}>
-                <div><span style={{ fontWeight: 700, color: "#2A2621" }}>What helps</span> · {r.benefit}</div>
-                <div><span style={{ fontWeight: 700, color: "rgba(42,38,33,0.4)" }}>What to watch for</span> · {r.caution}</div>
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${"rgba(236,210,168,0.09)"}`, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div><span style={{ fontWeight: 700, color: nightPalette.text }}>What helps</span> · {r.benefit}</div>
+                <div><span style={{ fontWeight: 700, color: nightPalette.muted }}>What to watch for</span> · {r.caution}</div>
               </div>
             );
           })()}
@@ -5069,8 +4682,8 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {belief.evidenceQuotes.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
           {[...belief.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
-            <div key={qi} style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", lineHeight: 1.5, wordBreak: "keep-all" }}>
-              <span style={{ ...mono, fontSize: 10.5, color: "rgba(42,38,33,0.42)" }}>{q.date}</span> · "{q.quote}"
+            <div key={qi} style={{ ...sans, fontSize: 12, color: nightPalette.body, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>{q.date}</span> · "{q.quote}"
             </div>
           ))}
         </div>
@@ -5079,12 +4692,12 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
         <div style={{ marginTop: 10 }}>
           <motion.span
             role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => setShowLoop((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setShowLoop((v) => !v))?.(); } }}
-            style={{ ...sans, fontSize: 11.5, color: "#2A2621", fontWeight: 600, cursor: "pointer", display: "inline-block" }}
+            style={{ ...sans, fontSize: 11.5, color: nightPalette.text, fontWeight: 600, cursor: "pointer", display: "inline-block" }}
           >
             {showLoop ? "Collapse repeat structure ↑" : "See why this pattern repeats ↓"}
           </motion.span>
           {showLoop && (
-            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: "rgba(42,38,33,0.08)" }}>
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: "rgba(236,210,168,0.08)" }}>
               <FunctionalLoopDiagram belief={belief} history={history} />
             </div>
           )}
@@ -5093,7 +4706,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {onReject && (
         <motion.span
           role="button" tabIndex={0} onClick={() => onReject(belief.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onReject(belief.id))?.(); } }} whileTap={{ opacity: 0.6 }}
-          style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.42)", marginTop: 10, display: "inline-block", cursor: "pointer" }}
+          style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginTop: 10, display: "inline-block", cursor: "pointer" }}
         >
           This observation doesn't match how I see it
         </motion.span>
@@ -5119,11 +4732,11 @@ function BeliefClusterDiagram({ count }: { count: number }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
       {positions.map((p1, i) =>
         positions.slice(i + 1).map((p2, j) => (
-          <line key={`${i}-${i + 1 + j}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={"#2A2621"} strokeOpacity={0.3} strokeWidth={1} />
+          <line key={`${i}-${i + 1 + j}`} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={nightPalette.text} strokeOpacity={0.3} strokeWidth={1} />
         ))
       )}
       {positions.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={8} fill={"rgba(42,38,33,0.06)"} stroke={"#2A2621"} strokeWidth={1.4} />
+        <circle key={i} cx={p.x} cy={p.y} r={8} fill={"rgba(236,210,168,0.06)"} stroke={nightPalette.text} strokeWidth={1.4} />
       ))}
     </svg>
   );
@@ -5139,19 +4752,19 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
     <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.06em" }}>Beliefs That Support Each Other</div>
-      <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Beliefs That Support Each Other</div>
+      <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
         Core beliefs usually don't show up alone — several of them tend to appear together, propping each other up.
       </div>
       {clusters.map((clusterIds, ci) => {
         const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
         if (clusterBeliefs.length === 0) return null;
         return (
-          <div key={ci} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", display: "flex", gap: 14, alignItems: "center" }}>
+          <div key={ci} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", display: "flex", gap: 14, alignItems: "center" }}>
             <BeliefClusterDiagram count={clusterBeliefs.length} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: "#2A2621" }}>{clusterBeliefs.length} beliefs are supporting each other</div>
-              <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.58)", marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+              <div style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: nightPalette.text }}>{clusterBeliefs.length} beliefs are supporting each other</div>
+              <div style={{ ...sans, fontSize: 11.5, color: nightPalette.body, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
                 {clusterBeliefs.map((b) => `'${b.statement}'`).join(", ")}
               </div>
             </div>
@@ -5171,17 +4784,17 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (pairs.length === 0) return null;
   return (
     <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.06em" }}>Tension Between What You've Said</div>
-      <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Tension Between What You've Said</div>
+      <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
         This doesn't decide which one is right. It just places the two side by side.
       </div>
       {pairs.map((p, i) => (
-        <div key={i} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)" }}>
-          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: "#2A2621", lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
-          <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.42)", margin: "8px 0", textAlign: "center" }}>and</div>
-          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: "#2A2621", lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
+        <div key={i} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)" }}>
+          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: nightPalette.text, lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
+          <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, margin: "8px 0", textAlign: "center" }}>and</div>
+          <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: nightPalette.text, lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
           {p.note && (
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${"rgba(42,38,33,0.09)"}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${"rgba(236,210,168,0.09)"}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
               {p.note}
             </div>
           )}
@@ -5212,28 +4825,28 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: nightPalette.body, cursor: "pointer" }}
         >
           ← Back
         </span>
-        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Unconscious Patterns</div>
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
+        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Unconscious Patterns</div>
+        <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
         </div>
-        <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.42)", marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
           {DISCLAIMER_NOTICE}
         </div>
         <div style={{ marginTop: 28 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.06em" }}>Core Unconscious Beliefs</div>
-          <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Core Unconscious Beliefs</div>
+          <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
             Not something you'd say "this is what I believe" out loud — it's the background pattern that keeps showing up in your actual choices and words, regardless of the situation. Circle size / bar length reflects how much real evidence backs it. It takes at least 3 similar entries before one appears here — a single entry is never enough to create one.
           </div>
         </div>
         <div style={{ marginTop: 10 }}>
           {visibleBeliefs.length === 0 ? (
-            <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.42)", padding: "12px 0" }}>No unconscious beliefs discovered yet.</div>
+            <div style={{ ...sans, fontSize: 13, color: nightPalette.muted, padding: "12px 0" }}>No unconscious beliefs discovered yet.</div>
           ) : (
-            <div style={{ backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", borderRadius: 18, overflow: "hidden" }}>
+            <div style={{ backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", borderRadius: 18, overflow: "hidden" }}>
               {visibleBeliefs.map((b, i) => (
                 <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
               ))}
@@ -5244,39 +4857,39 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
-        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: "rgba(42,38,33,0.06)", borderLeft: `2px solid ${"rgba(42,38,33,0.5)"}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "#2A2621", letterSpacing: "0.04em" }}>What's the difference between an unconscious belief and an interpretation?</div>
-          <div style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
+        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: "rgba(236,210,168,0.06)", borderLeft: `2px solid ${"rgba(236,210,168,0.5)"}` }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.text, letterSpacing: "0.04em" }}>What's the difference between an unconscious belief and an interpretation?</div>
+          <div style={{ ...sans, fontSize: 12.5, color: nightPalette.body, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
             An unconscious belief is the thing that quietly runs in the background without you noticing it. An unconscious interpretation is the specific reaction that belief triggers in your actual words and actions at a particular moment. The belief is "why," and the interpretation is "the moment it actually happens." For example, the belief above, "{visibleBeliefs[0]?.statement ?? "I can only start once it's perfect"}," shows up as the concrete interpretation below — "When starting something new → puts it off, telling myself I'm not ready yet" — every time, in a specific action.
           </div>
         </div>
 
         <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.06em" }}>Recurring Unconscious Interpretations</div>
-          <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Recurring Unconscious Interpretations</div>
+          <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
             Moments where "in this situation → I automatically interpret and act this way." More specific than an unconscious belief, with an actual observed trigger.
           </div>
           <div style={{ marginTop: 12 }}>
             {!hasAssumptions ? (
-              <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.42)", padding: "12px 0" }}>No unconscious interpretations discovered yet.</div>
+              <div style={{ ...sans, fontSize: 13, color: nightPalette.muted, padding: "12px 0" }}>No unconscious interpretations discovered yet.</div>
             ) : (
-              <div style={{ backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", borderRadius: 18, overflow: "hidden" }}>
+              <div style={{ backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", borderRadius: 18, overflow: "hidden" }}>
                 {store.assumptions.map((a, i) => (
-                  <div key={a.id} style={{ display: "flex", gap: 14, padding: 18, borderBottom: i < store.assumptions.length - 1 ? `1px solid ${"rgba(42,38,33,0.09)"}` : "none" }}>
-                    <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: "#2A2621", lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
+                  <div key={a.id} style={{ display: "flex", gap: 14, padding: 18, borderBottom: i < store.assumptions.length - 1 ? `1px solid ${"rgba(236,210,168,0.09)"}` : "none" }}>
+                    <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: nightPalette.text, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
                     <div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.58)" }}>{a.trigger}</span>
-                        <span style={{ ...serif, fontSize: 16, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
+                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body }}>{a.trigger}</span>
+                        <span style={{ ...serif, fontSize: 16, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
                       </div>
                       {a.domains && a.domains.length > 0 && (
                         <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                           {a.domains.map((d: string) => (
-                            <span key={d} style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.58)", backgroundColor: "rgba(42,38,33,0.08)", padding: "3px 9px", borderRadius: 999 }}>{d}</span>
+                            <span key={d} style={{ ...sans, fontSize: 11, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 9px", borderRadius: 999 }}>{d}</span>
                           ))}
                         </div>
                       )}
-                      <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.42)", marginTop: 8 }}>Found in {a.count} conversations</div>
+                      <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 8 }}>Found in {a.count} conversations</div>
                     </div>
                   </div>
                 ))}
@@ -5287,8 +4900,8 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
 
         {store.connections.length > 0 && (
           <div style={{ marginTop: 26 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.58)", letterSpacing: "0.06em" }}>Discovered Connections</div>
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Discovered Connections</div>
+            <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
               Two unconscious beliefs that looked different turn out to come from the same root cause.
             </div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -5297,17 +4910,17 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                 const to = visibleBeliefs.find((b) => b.id === c.b);
                 if (!from || !to) return null;
                 return (
-                  <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(42,38,33,0.06)" }}>
+                  <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(236,210,168,0.06)" }}>
                     <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ ...sans, fontSize: 12.5, color: "#2A2621", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: "#2A2621" }}>{from.domain}</span> — "{from.statement}"
+                      <div style={{ ...sans, fontSize: 12.5, color: nightPalette.text, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                        <span style={{ fontWeight: 700, color: nightPalette.text }}>{from.domain}</span> — "{from.statement}"
                       </div>
-                      <div style={{ ...sans, fontSize: 12.5, color: "#2A2621", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: "#2A2621" }}>{to.domain}</span> — "{to.statement}"
+                      <div style={{ ...sans, fontSize: 12.5, color: nightPalette.text, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                        <span style={{ fontWeight: 700, color: nightPalette.text }}>{to.domain}</span> — "{to.statement}"
                       </div>
                     </div>
-                    <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                    <div style={{ ...sans, fontSize: 13, color: nightPalette.body, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                   </div>
                 );
               })}
@@ -5339,36 +4952,36 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
         <span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: nightPalette.body, cursor: "pointer" }}
         >
           ← Back
         </span>
-        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Distance from Your Goal</div>
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
+        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Distance from Your Goal</div>
+        <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
           The gap between the person you said you wanted to be and your recent actual patterns.
         </div>
         <div style={{ marginTop: 28 }}>
         {hasAspiration ? (
           <>
-            <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: `1px solid ${"rgba(42,38,33,0.09)"}` }}>
-              <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.42)" }}>{store.aspirationSetDate}, what you said</div>
-              <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>
+            <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: `1px solid ${"rgba(236,210,168,0.09)"}` }}>
+              <div style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{store.aspirationSetDate}, what you said</div>
+              <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: nightPalette.body, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>
                 "{store.aspiration}"
               </div>
-              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: "#2A2621", cursor: "pointer", display: "inline-block", marginTop: 10 }}>
+              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: nightPalette.text, cursor: "pointer", display: "inline-block", marginTop: 10 }}>
                 Set again
               </motion.span>
             </div>
             {store.driftNotes.length === 0 ? (
-              <div style={{ ...sans, fontSize: 13.5, color: "rgba(42,38,33,0.58)", lineHeight: 1.7, wordBreak: "keep-all" }}>
+              <div style={{ ...sans, fontSize: 13.5, color: nightPalette.body, lineHeight: 1.7, wordBreak: "keep-all" }}>
                 Not enough entries yet to compare. Log a few more thoughts and we'll show you the gap between this and your actual patterns.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {[...store.driftNotes].reverse().map((d, i) => (
-                  <div key={i} style={{ padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)" }}>
-                    <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.42)" }}>{d.date}</div>
-                    <div style={{ ...sans, fontSize: 14, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{d.note}</div>
+                  <div key={i} style={{ padding: 16, borderRadius: 14, backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)" }}>
+                    <div style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{d.date}</div>
+                    <div style={{ ...sans, fontSize: 14, color: nightPalette.body, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{d.note}</div>
                   </div>
                 ))}
               </div>
@@ -5378,10 +4991,10 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
           <>
             <div
               role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }}
-              style={{ padding: 16, borderRadius: 14, backgroundColor: "rgba(42,38,33,0.06)", borderLeft: `2px solid ${"rgba(42,38,33,0.5)"}`, marginBottom: 24, cursor: "pointer" }}
+              style={{ padding: 16, borderRadius: 14, backgroundColor: "rgba(236,210,168,0.06)", borderLeft: `2px solid ${"rgba(236,210,168,0.5)"}`, marginBottom: 24, cursor: "pointer" }}
             >
-              <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: "#2A2621" }}>Tell us who you want to become</div>
-              <div style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.75)", marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+              <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: nightPalette.text }}>Tell us who you want to become</div>
+              <div style={{ ...sans, fontSize: 12.5, color: nightPalette.body, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
                 {examples.length > 0
                   ? "Just leave one sentence, and we'll keep showing you the gap between it and what you actually log. (Examples below.)"
                   : "Just leave one sentence, and we'll keep showing you the gap between it and what you actually log."}
@@ -5390,29 +5003,29 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
             {examples.map((a) => {
               const gap = Math.abs(a.target - a.actual);
               return (
-                <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${"rgba(42,38,33,0.09)"}` }}>
-                  <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.42)" }}>{a.saidDate}, what you said</div>
-                  <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: "rgba(42,38,33,0.75)", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${"rgba(236,210,168,0.09)"}` }}>
+                  <div style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{a.saidDate}, what you said</div>
+                  <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: nightPalette.body, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
                     "{a.said}"
                   </div>
 
                   <div style={{ marginTop: 16 }}>
                     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                      <span style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.58)" }}>{a.label}</span>
-                      <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: "rgba(42,38,33,0.4)" }}>{gap}pp gap</span>
+                      <span style={{ ...sans, fontSize: 12, color: nightPalette.body }}>{a.label}</span>
+                      <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: nightPalette.muted }}>{gap}pp gap</span>
                     </div>
-                    <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 8 }}>
-                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(42,38,33,0.12)" }} />
-                      <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: "rgba(42,38,33,0.42)", left: `${a.target}%` }} />
-                      <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)", left: `${a.actual}%` }} />
+                    <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: "rgba(236,210,168,0.08)", marginTop: 8 }}>
+                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(236,210,168,0.12)" }} />
+                      <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: "rgba(236,210,168,0.42)", left: `${a.target}%` }} />
+                      <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)", left: `${a.actual}%` }} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                      <span style={{ ...sans, fontSize: 10, color: "rgba(42,38,33,0.42)" }}>Target {a.target}%</span>
-                      <span style={{ ...sans, fontSize: 10, color: "#2A2621" }}>Actual {a.actual}%</span>
+                      <span style={{ ...sans, fontSize: 10, color: nightPalette.muted }}>Target {a.target}%</span>
+                      <span style={{ ...sans, fontSize: 10, color: nightPalette.text }}>Actual {a.actual}%</span>
                     </div>
                   </div>
 
-                  <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.58)", marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
+                  <div style={{ ...sans, fontSize: 13, color: nightPalette.body, marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
                 </div>
               );
             })}
@@ -5672,7 +5285,7 @@ function HypothesisDiscoveryBody({
         )}
         {settled && !exhausted && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: mdAccent, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>✓</span>
+            <span style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: mdAccent, color: nightPalette.background, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, lineHeight: 1 }}>✓</span>
             <span style={{ ...sans, fontSize: 12, color: mdBody }}>Logged. This hypothesis's confidence goes up a bit.</span>
           </motion.div>
         )}
@@ -5996,8 +5609,8 @@ function ArchiveChartMarks() {
       style={{
         position: "absolute", inset: 0, opacity: 0.045, pointerEvents: "none",
         backgroundImage: [
-          "repeating-linear-gradient(0deg, rgba(42,38,33,0.6) 0px, rgba(42,38,33,0.6) 1px, transparent 1px, transparent 84px)",
-          "repeating-linear-gradient(90deg, rgba(42,38,33,0.6) 0px, rgba(42,38,33,0.6) 1px, transparent 1px, transparent 84px)",
+          "repeating-linear-gradient(0deg, rgba(236,210,168,0.6) 0px, rgba(236,210,168,0.6) 1px, transparent 1px, transparent 84px)",
+          "repeating-linear-gradient(90deg, rgba(236,210,168,0.6) 0px, rgba(236,210,168,0.6) 1px, transparent 1px, transparent 84px)",
         ].join(", "),
       }}
     />
@@ -6014,15 +5627,15 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
     <motion.button
       type="button" aria-label={label} aria-pressed={active || undefined} onClick={onClick}
       whileTap={{ opacity: 0.55 }}
-      whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(236,210,168,.14)" }}
       style={{
         display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", border: 0,
         padding: "3px 3px 6px", background: "transparent", WebkitTapHighlightColor: "transparent",
-        borderBottom: `1.5px solid ${active ? "rgba(42,38,33,0.75)" : "transparent"}`,
+        borderBottom: `1.5px solid ${active ? "rgba(236,210,168,0.75)" : "transparent"}`,
       }}
     >
       <span style={{ opacity: active ? 1 : 0.5, display: "flex" }}>{icon}</span>
-      <span style={{ ...sans, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: active ? "rgba(42,38,33,0.5)" : "rgba(42,38,33,0.42)" }}>
+      <span style={{ ...sans, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.42)" }}>
         {label}
       </span>
     </motion.button>
@@ -6037,20 +5650,20 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       role="button" tabIndex={-1} onClick={onClose}
-      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(42,38,33,0.24)", display: "flex", alignItems: "flex-end" }}
+      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(236,210,168,0.24)", display: "flex", alignItems: "flex-end" }}
     >
       <motion.div
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxHeight: "74%", backgroundColor: "#FBF8F2", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
-          borderTop: "1px solid rgba(42,38,33,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(120,105,80,0.14)",
+          width: "100%", maxHeight: "74%", backgroundColor: nightPalette.surface, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+          borderTop: "1px solid rgba(236,210,168,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(120,105,80,0.14)",
           display: "flex", flexDirection: "column",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: 19, color: "#2A2621" }}>{title}</span>
-          <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span>
+          <span style={{ ...serif, fontSize: 19, color: nightPalette.text }}>{title}</span>
+          <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer" }}>Close</motion.span>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
       </motion.div>
@@ -6064,9 +5677,9 @@ function CatalogueFilterChip({ label, color, active, disabled, onClick }: { labe
       type="button" onClick={disabled ? undefined : onClick} whileTap={disabled ? undefined : { opacity: 0.6 }} disabled={disabled}
       style={{
         display: "flex", alignItems: "center", gap: 6, ...sans, fontSize: 12, fontWeight: 700, padding: "7px 13px", borderRadius: 999,
-        cursor: disabled ? "default" : "pointer", border: `1px solid ${active ? "rgba(42,38,33,0.45)" : "rgba(42,38,33,0.14)"}`,
-        backgroundColor: active ? "rgba(42,38,33,0.08)" : "transparent",
-        color: disabled ? "rgba(42,38,33,0.22)" : active ? "#2A2621" : "rgba(42,38,33,0.65)",
+        cursor: disabled ? "default" : "pointer", border: `1px solid ${active ? "rgba(236,210,168,0.45)" : "rgba(236,210,168,0.14)"}`,
+        backgroundColor: active ? "rgba(236,210,168,0.08)" : "transparent",
+        color: disabled ? "rgba(236,210,168,0.22)" : active ? nightPalette.text : "rgba(236,210,168,0.65)",
       }}
     >
       {color && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: color, opacity: disabled ? 0.3 : 0.85, flexShrink: 0 }} />}
@@ -6080,13 +5693,13 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
     <motion.div
       role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       whileTap={{ opacity: 0.6 }}
-      style={{ padding: "11px 4px", borderBottom: "1px solid rgba(42,38,33,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}
+      style={{ padding: "11px 4px", borderBottom: "1px solid rgba(236,210,168,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}
     >
       <div>
-        <div style={{ ...serif, fontSize: 14, color: active ? "#2A2621" : "#2A2621" }}>{label}</div>
-        <div style={{ ...sans, fontSize: 10.5, color: "rgba(42,38,33,0.42)", marginTop: 2 }}>{note}</div>
+        <div style={{ ...serif, fontSize: 14, color: active ? nightPalette.text : nightPalette.text }}>{label}</div>
+        <div style={{ ...sans, fontSize: 10.5, color: nightPalette.muted, marginTop: 2 }}>{note}</div>
       </div>
-      {active && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#2A2621", flexShrink: 0 }} />}
+      {active && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: nightPalette.text, flexShrink: 0 }} />}
     </motion.div>
   );
 }
@@ -6094,8 +5707,8 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.4)", marginBottom: 3 }}>{label}</div>
-      <div style={{ ...serif, fontSize: 15, color: "#2A2621", lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
+      <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 3 }}>{label}</div>
+      <div style={{ ...serif, fontSize: 15, color: nightPalette.text, lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
     </div>
   );
 }
@@ -6138,7 +5751,9 @@ function Node({ color, size, intensity }: { color: string; size: number; intensi
           // what keep this reading as "a concentration of light" instead
           // of a lit, shaded 3D ball (a marble/planet).
           position: "relative", width: size, height: size, borderRadius: "50%",
-          backgroundImage: `radial-gradient(circle at 46% 42%, #FFFFFF 0%, #FFFFFF 7%, ${color}D9 24%, ${color}8C 52%, ${color}00 88%)`,
+          backgroundColor: "#fff0d8",
+          clipPath: "polygon(50% 0%, 59% 39%, 100% 50%, 59% 61%, 50% 100%, 41% 61%, 0% 50%, 41% 39%)",
+          filter: `drop-shadow(0 0 4px ${color})`,
           boxShadow: `0 0 ${Math.round(size * 0.6)}px ${color}4D`,
           opacity: 0.6 + intensity * 0.4,
         }}
@@ -6185,7 +5800,7 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
       transition={{ duration: 0.3, ease: "easeOut" }}
       style={{
         display: "flex", alignItems: "center", gap: 14, padding: "13px 2px",
-        borderBottom: isLast ? "none" : "1px solid rgba(42,38,33,0.07)", cursor: "pointer",
+        borderBottom: isLast ? "none" : "1px solid rgba(236,210,168,0.07)", cursor: "pointer",
       }}
     >
       <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
@@ -6334,9 +5949,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             </div>
           </div>
           <div style={{ display: "flex", gap: 18, flexShrink: 0 }}>
-            <HistoryControlButton icon={<SearchIconGlyph color="#2A2621" />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
-            <HistoryControlButton icon={<CalendarIconGlyph color="#2A2621" />} label="Calendar" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
-            <HistoryControlButton icon={<FilterIconGlyph color="#2A2621" />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+            <HistoryControlButton icon={<SearchIconGlyph color={nightPalette.text} />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
+            <HistoryControlButton icon={<CalendarIconGlyph color={nightPalette.text} />} label="Calendar" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
+            <HistoryControlButton icon={<FilterIconGlyph color={nightPalette.text} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
           </div>
         </div>
 
@@ -6349,12 +5964,12 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           below) — deliberate empty structure the collection grows into,
           not a blank screen — this hint just explains why. */}
           {catalogue.length === 0 && (
-            <div style={{ marginTop: 24, ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.48)", lineHeight: 1.6 }}>
+            <div style={{ marginTop: 24, ...sans, fontSize: 12.5, color: nightPalette.muted, lineHeight: 1.6 }}>
               Nothing catalogued yet. Speak your mind, and your first star will appear below.
             </div>
           )}
           {asOfDate && (
-            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: "rgba(42,38,33,0.75)" }}>
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: nightPalette.body }}>
               <span>As catalogued by {asOfDate}</span>
               <motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span>
             </div>
@@ -6369,10 +5984,10 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 not a boxed section header. */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: regionColor, opacity: 0.75, flexShrink: 0 }} />
-                  <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(42,38,33,0.55)", flexShrink: 0 }}>
+                  <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: nightPalette.body, flexShrink: 0 }}>
                     {REGION_CONFIG[region].label}
                   </span>
-                  {stars.length > 0 && <span style={{ ...mono, fontSize: 10, color: "rgba(42,38,33,0.3)", flexShrink: 0 }}>{stars.length}</span>}
+                  {stars.length > 0 && <span style={{ ...mono, fontSize: 10, color: nightPalette.muted, flexShrink: 0 }}>{stars.length}</span>}
                   <span aria-hidden style={{ flex: 1, height: 1, backgroundColor: regionColor, opacity: 0.14, marginLeft: 2 }} />
                 </div>
                 {stars.length > 0 ? (
@@ -6385,7 +6000,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     ))}
                   </div>
                 ) : (
-                  <div style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.32)", padding: "4px 2px 6px" }}>Nothing here yet.</div>
+                  <div style={{ ...sans, fontSize: 12.5, color: nightPalette.muted, padding: "4px 2px 6px" }}>Nothing here yet.</div>
                 )}
               </div>
             );
@@ -6402,7 +6017,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           than replacing or reflowing anything above it. ── */}
           {store.isPro && (
             <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 36 }}>
-              <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(42,38,33,0.55)" }}>
+              <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: nightPalette.body }}>
                 Go deeper — how you've changed
               </div>
 
@@ -6442,14 +6057,14 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             role="button" tabIndex={-1} onClick={closeStarSheet}
-            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(42,38,33,0.28)", display: "flex", alignItems: "flex-end" }}
+            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(236,210,168,0.28)", display: "flex", alignItems: "flex-end" }}
           >
             <motion.div
               initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: "100%", maxHeight: "82%", backgroundColor: "#FBF8F2", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-                borderTop: "1px solid rgba(42,38,33,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
+                width: "100%", maxHeight: "82%", backgroundColor: nightPalette.surface, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                borderTop: "1px solid rgba(236,210,168,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
                 display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(120,105,80,0.16)",
               }}
             >
@@ -6457,17 +6072,17 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 <>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexShrink: 0 }}>
                     <div>
-                      <div style={{ ...mono, fontSize: 10, color: "rgba(42,38,33,0.4)", letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
+                      <div style={{ ...mono, fontSize: 10, color: nightPalette.muted, letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
                       <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: REGION_CONFIG[selectedStar.region].color, marginTop: 4 }}>
                         {REGION_CONFIG[selectedStar.region].label}
                       </div>
                     </div>
-                    <motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span>
+                    <motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer" }}>Close</motion.span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 18px", flexShrink: 0 }}>
                     <Node color={REGION_CONFIG[selectedStar.region].color} size={34} intensity={catalogueOrbIntensity(selectedStar)} />
                   </div>
-                  <div style={{ ...serif, fontSize: 21, lineHeight: 1.42, color: "#2A2621", textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
+                  <div style={{ ...serif, fontSize: 21, lineHeight: 1.42, color: nightPalette.text, textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
                     {selectedStar.belief.statement}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 15, overflowY: "auto", minHeight: 0 }}>
@@ -6483,7 +6098,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     <motion.div
                       role="button" tabIndex={0} onClick={() => setStoryOpen(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(true); } }}
                       whileTap={{ opacity: 0.7 }}
-                      style={{ marginTop: 22, ...sans, fontSize: 13, fontWeight: 700, color: "#2A2621", cursor: "pointer", textAlign: "center", flexShrink: 0 }}
+                      style={{ marginTop: 22, ...sans, fontSize: 13, fontWeight: 700, color: nightPalette.text, cursor: "pointer", textAlign: "center", flexShrink: 0 }}
                     >
                       View its story →
                     </motion.div>
@@ -6493,34 +6108,34 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 <>
                   <motion.span
                     role="button" tabIndex={0} onClick={() => setStoryOpen(false)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(false); } }}
-                    whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.55)", cursor: "pointer", marginBottom: 14, flexShrink: 0 }}
+                    whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer", marginBottom: 14, flexShrink: 0 }}
                   >
                     ← Back
                   </motion.span>
-                  <div style={{ ...serif, fontSize: 16, color: "#2A2621", marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
-                  <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.45)", marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
+                  <div style={{ ...serif, fontSize: 16, color: nightPalette.text, marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
+                  <div style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
                   <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
                     {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
                       <div style={{ marginBottom: 8 }}>
-                        <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.38)", marginBottom: 8 }}>Strength over time</div>
+                        <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 8 }}>Strength over time</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                           {selectedStar.belief.confidenceHistory!.map((p, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: "rgba(42,38,33,0.62)" }}>
-                              <span>{p.date}</span><span style={{ ...mono, color: "#2A2621" }}>{p.value}%</span>
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: nightPalette.body }}>
+                              <span>{p.date}</span><span style={{ ...mono, color: nightPalette.text }}>{p.value}%</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                    <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.38)" }}>Appearances</div>
+                    <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted }}>Appearances</div>
                     {selectedEntries.map((entry) => (
                       <motion.div
                         key={entry.id} role="button" tabIndex={0} onClick={() => openEntryFromStory(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntryFromStory(entry.id); } }}
                         whileTap={{ opacity: 0.6 }}
-                        style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(42,38,33,0.045)", border: "1px solid rgba(42,38,33,0.07)", cursor: "pointer" }}
+                        style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(236,210,168,0.045)", border: "1px solid rgba(236,210,168,0.07)", cursor: "pointer" }}
                       >
-                        <div style={{ ...mono, fontSize: 10, color: "rgba(42,38,33,0.4)" }}>{entry.date}</div>
-                        <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: "#2A2621", marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        <div style={{ ...mono, fontSize: 10, color: nightPalette.muted }}>{entry.date}</div>
+                        <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: nightPalette.text, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           "{entry.text}"
                         </div>
                       </motion.div>
@@ -6540,9 +6155,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             <input
               autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search beliefs, categories, or thoughts…"
               aria-label="Search the star catalogue"
-              style={{ ...sans, fontSize: 14, color: "#2A2621", backgroundColor: "rgba(42,38,33,0.06)", border: "1.5px solid rgba(42,38,33,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
+              style={{ ...sans, fontSize: 14, color: nightPalette.text, backgroundColor: "rgba(236,210,168,0.06)", border: "1.5px solid rgba(236,210,168,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
-            <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.45)", marginTop: 14, lineHeight: 1.5 }}>
+            <div style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginTop: 14, lineHeight: 1.5 }}>
               {query
                 ? `${catalogue.filter(matchesSearch).length} of ${catalogue.length} stars match "${search.trim()}".`
                 : "Matching stars stay bright on the catalogue; the rest dim."}
@@ -6551,34 +6166,34 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         )}
         {sheet === "calendar" && (
           <HistorySheet title="Rewind the catalogue" onClose={() => setSheet(null)}>
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.55)", lineHeight: 1.6, marginBottom: 14 }}>
+            <div style={{ ...sans, fontSize: 12, color: nightPalette.body, lineHeight: 1.6, marginBottom: 14 }}>
               See which stars had already been discovered by a given date.
             </div>
             <div
               role="button" tabIndex={0} onClick={() => { setAsOfDate(null); setSheet(null); }}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(null); setSheet(null); } }}
-              style={{ padding: "10px 8px", borderRadius: 10, backgroundColor: !asOfDate ? "rgba(42,38,33,0.08)" : "transparent", cursor: "pointer", marginBottom: 6 }}
+              style={{ padding: "10px 8px", borderRadius: 10, backgroundColor: !asOfDate ? "rgba(236,210,168,0.08)" : "transparent", cursor: "pointer", marginBottom: 6 }}
             >
-              <span style={{ ...serif, fontSize: 14, color: "#2A2621" }}>Show the whole catalogue</span>
+              <span style={{ ...serif, fontSize: 14, color: nightPalette.text }}>Show the whole catalogue</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 280, overflowY: "auto" }}>
               {calendarMilestones.map(([date, count]) => (
                 <div
                   key={date} role="button" tabIndex={0} onClick={() => { setAsOfDate(date); setSheet(null); }}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(date); setSheet(null); } }}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 8px", borderBottom: "1px solid rgba(42,38,33,0.06)", cursor: "pointer", backgroundColor: asOfDate === date ? "rgba(42,38,33,0.08)" : "transparent", borderRadius: 8 }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 8px", borderBottom: "1px solid rgba(236,210,168,0.06)", cursor: "pointer", backgroundColor: asOfDate === date ? "rgba(236,210,168,0.08)" : "transparent", borderRadius: 8 }}
                 >
-                  <span style={{ ...serif, fontSize: 14, color: "#2A2621" }}>{date} <span style={{ ...sans, fontSize: 10.5, color: "rgba(42,38,33,0.4)" }}>· {weekdayFromDotDate(date)}</span></span>
-                  <span style={{ ...mono, fontSize: 10.5, color: "rgba(42,38,33,0.4)" }}>{count} discovered</span>
+                  <span style={{ ...serif, fontSize: 14, color: nightPalette.text }}>{date} <span style={{ ...sans, fontSize: 10.5, color: nightPalette.muted }}>· {weekdayFromDotDate(date)}</span></span>
+                  <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>{count} discovered</span>
                 </div>
               ))}
-              {calendarMilestones.length === 0 && <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.45)" }}>No dated stars yet.</div>}
+              {calendarMilestones.length === 0 && <div style={{ ...sans, fontSize: 13, color: nightPalette.muted }}>No dated stars yet.</div>}
             </div>
           </HistorySheet>
         )}
         {sheet === "filter" && (
           <HistorySheet title="Filter the catalogue" onClose={() => setSheet(null)}>
-            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.4)", marginBottom: 10 }}>By category</div>
+            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 10 }}>By category</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
               <CatalogueFilterChip label="All" active={!filterMode} onClick={() => { setFilterMode(null); setSheet(null); }} />
               {COGNITIVE_REGIONS.map((region) => (
@@ -6590,7 +6205,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 />
               ))}
             </div>
-            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.4)", marginBottom: 4 }}>By pattern</div>
+            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 4 }}>By pattern</div>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <CatalogueFilterRow label="Active" note="Recently reinforced" active={filterMode?.type === "active"} onClick={() => { setFilterMode({ type: "active" }); setSheet(null); }} />
               <CatalogueFilterRow label="Dormant" note="Quieter, not recently reinforced" active={filterMode?.type === "dormant"} onClick={() => { setFilterMode({ type: "dormant" }); setSheet(null); }} />
@@ -6627,8 +6242,8 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ ...mono, fontSize: 12, color: "#726A8A" }}>{entry.date}</span>
-          {entry.duration && <span style={{ ...mono, fontSize: 11, color: "#726A8A" }}>{entry.duration}</span>}
+          <span style={{ ...mono, fontSize: 12, color: nightPalette.muted }}>{entry.date}</span>
+          {entry.duration && <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{entry.duration}</span>}
         </div>
         <div style={{ ...serif, fontSize: 19, color: dkHeading, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
           {entry.text}
@@ -6745,6 +6360,7 @@ function ScreenProfile({
   };
   const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
     ...(MONETIZATION_ENABLED && store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
+    { label: "Ideal Self", onClick: () => onNavSelect?.("idealSelf") },
     { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
     { label: "Data & Privacy", onClick: () => onOpenSettings?.("dataPrivacy") },
     { label: "Help", onClick: () => onOpenSettings?.("help") },
@@ -6768,14 +6384,14 @@ function ScreenProfile({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16, backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: 20, boxShadow: ivCardShadow, marginBottom: 14 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: "#fff" }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: nightPalette.background }}>
             {initial}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: ivHeading }}>{name}</span>
               {MONETIZATION_ENABLED && store.isPro && (
-                <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, backgroundColor: "rgba(42,38,33,0.06)", padding: "2px 8px", borderRadius: 999 }}>PRO</span>
+                <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 8px", borderRadius: 999 }}>PRO</span>
               )}
             </div>
             {planLabel ? (
@@ -6886,7 +6502,7 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
   const labelColor = modernist ? ivHeading : dark ? dkBodyLight : ink;
   const noteColor = modernist ? ivBody : dark ? dkBody : subtle;
   const dividerColor = modernist ? ivDivider : dark ? dkDivider : hair;
-  const trackOff = modernist ? "rgba(42,38,33,0.12)" : dark ? dkTrack : hair;
+  const trackOff = modernist ? "rgba(236,210,168,0.12)" : dark ? dkTrack : hair;
   const trackOn = modernist ? ivHeading : dkAccent;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dividerColor}` }}>
@@ -6897,10 +6513,10 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
       <motion.button
         type="button" role="switch" aria-checked={value} aria-label={label}
         onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
-        whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(42,38,33,.16)" : "rgba(255,255,255,.10)"}` }}
+        whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(236,210,168,.16)" : "rgba(255,255,255,.10)"}` }}
         style={{ width: 44, height: 26, borderRadius: 13, border: 0, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start", WebkitTapHighlightColor: "transparent" }}
       >
-        <motion.span layout transition={{ type: "spring", stiffness: 520, damping: 34 }} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff", display: "block" }} />
+        <motion.span layout transition={{ type: "spring", stiffness: 520, damping: 34 }} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: nightPalette.background, display: "block" }} />
       </motion.button>
     </div>
   );
@@ -6977,11 +6593,20 @@ function ScreenDataPrivacy({
 }: {
   store: Store;
   onBack?: () => void;
-  onResetData?: () => void;
+  onResetData?: () => void | Promise<void>;
   onOpenPrivacyPolicy?: () => void;
   onOpenTermsOfService?: () => void;
 }) {
   const [armed, setArmed] = React.useState(false);
+  const [resetError, setResetError] = React.useState("");
+  const [resetting, setResetting] = React.useState(false);
+  const resetData = async () => {
+    if (resetting) return;
+    if (!armed) { setArmed(true); return; }
+    setResetting(true); setResetError("");
+    try { await onResetData?.(); } catch { setResetError("Could not delete account data. Nothing on this device was cleared. Please try again."); }
+    finally { setResetting(false); }
+  };
   const s = store;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
@@ -7011,7 +6636,7 @@ function ScreenDataPrivacy({
               ["AI's hypotheses", s?.hypotheses.length ?? 0],
             ].map(([label, count]) => (
               <div key={label as string} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.85)" }}>{label}</span>
+                <span style={{ ...sans, fontSize: 13, color: nightPalette.body }}>{label}</span>
                 <span style={{ ...mono, fontSize: 13, color: ivBody }}>{count}</span>
               </div>
             ))}
@@ -7035,13 +6660,14 @@ function ScreenDataPrivacy({
         <div style={{ marginTop: 28 }}>
           <div
             role="button" tabIndex={0}
-            onClick={() => (armed ? onResetData?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onResetData?.() : setArmed(true)))?.(); } }}
+            aria-disabled={resetting} onClick={() => void resetData()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); void resetData(); } }}
             style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : ivDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
-              {armed ? "Are you sure? Tap again to delete everything" : "Delete all my data"}
+              {resetting ? "Deleting account data?" : armed ? "Are you sure? Tap again to delete everything" : "Delete all my data"}
             </span>
           </div>
+          {resetError && <p role="alert" style={{ color: mdWarn, fontSize: 13 }}>{resetError}</p>}
           {armed && (
             <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 8, lineHeight: 1.5 }}>
               All unconscious beliefs, interpretations, conversation history, and your goal stored on this device will be gone. This can't be undone.
@@ -7345,7 +6971,7 @@ function ScreenPaywall({
                 }}
               >
                 {p.badge && (
-                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: "#fff", backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
+                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: nightPalette.background, backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
                     {p.badge}
                   </span>
                 )}
@@ -7507,6 +7133,8 @@ function useIsMobileViewport(): boolean {
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = React.useState("quote");
+  const [thinkInputMode, setThinkInputMode] = React.useState<"text" | "voice">("text");
+  const [homeReviewTarget, setHomeReviewTarget] = React.useState<DiscoveryTarget | null>(null);
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
@@ -7516,6 +7144,7 @@ export default function App() {
   // and the Mind tab's constellation, and "back" needs to return wherever
   // the trip actually started instead of always landing on Home.
   const [brainMapReturnTo, setBrainMapReturnTo] = React.useState<"home" | "analysis">("home");
+  const [historyDetailReturnTo, setHistoryDetailReturnTo] = React.useState("history");
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
@@ -7625,7 +7254,7 @@ export default function App() {
     if (Notification.permission === "default") Notification.requestPermission();
   }, [store.settings.newHypothesisAlert]);
 
-  const goToTab = (id: string) => setScreen(id);
+  const goToTab = (id: string) => { setHomeReviewTarget(null); setScreen(id); };
 
   // Interactive tour state — see TutorialOverlay/buildTutorialSteps above.
   // Recomputed off store.isPro so a mid-tour upgrade (unlikely, but
@@ -7839,8 +7468,12 @@ export default function App() {
     ); break;
     case "home": content = (
       <ScreenHome
+        mapAccessAllowed={!MONETIZATION_ENABLED || store.isPro}
+        onOpenEntry={(id) => { const index=[...store.history].reverse().findIndex(e=>e.id===id); if(index>=0){setHistoryDetailReturnTo("home");setHistoryEntryIndex(index);setScreen("historyDetail");} }}
+        isDemoMode={isDemoMode}
         onNavSelect={goToTab}
-        onStartThink={() => setScreen("think")}
+        onStartThink={(mode = "text") => { setThinkInputMode(mode); setScreen("think"); }}
+        onReviewInterpretation={(target) => { setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }}
         onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
@@ -7874,6 +7507,7 @@ export default function App() {
       />
     ) : (
       <ScreenDiscoveryAnalysis
+        initialTarget={homeReviewTarget}
         onNavSelect={goToTab}
         store={store}
         updateStore={updateStore}
@@ -7891,6 +7525,7 @@ export default function App() {
     ); break;
     case "think": content = (
       <ScreenThink
+        initialMode={thinkInputMode}
         onBack={() => setScreen("home")}
         onDone={(text) => {
           setThinkText(text);
@@ -8032,10 +7667,11 @@ export default function App() {
       <ScreenHistory
         onNavSelect={goToTab}
         store={store}
-        onOpenEntry={(i) => { setHistoryEntryIndex(i); setScreen("historyDetail"); }}
+        onOpenEntry={(i) => { setHistoryDetailReturnTo("history"); setHistoryEntryIndex(i); setScreen("historyDetail"); }}
       />
     ); break;
-    case "historyDetail": content = <ScreenHistoryDetail index={historyEntryIndex} store={store} onBack={() => setScreen("history")} />; break;
+    case "historyDetail": content = <ScreenHistoryDetail index={historyEntryIndex} store={store} onBack={() => setScreen(historyDetailReturnTo)} />; break;
+    case "idealSelf": content = <IdealSelfScreen onOpenPremium={() => { setPaywallReturnTo("idealSelf"); setScreen("paywall"); }} onBack={() => setScreen("profile")} onSignIn={() => setScreen("auth")} isDemoMode={isDemoMode} onOpenEntry={(id) => { const index=store.history.findIndex(e=>e.id===id); if(index>=0){setHistoryDetailReturnTo("idealSelf");setHistoryEntryIndex(index);setScreen("historyDetail");} }} />; break;
     case "profile": content = (
       <ScreenProfile
         onNavSelect={goToTab}
@@ -8079,7 +7715,8 @@ export default function App() {
       <ScreenDataPrivacy
         store={store}
         onBack={() => setScreen("profile")}
-        onResetData={() => {
+        onResetData={async () => {
+          if (!isDemoMode) await deleteIdealSelfForReset();
           updateStore(() => emptyStore());
           setScreen("profile");
         }}
@@ -8104,7 +7741,8 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
+    default: content = <ScreenHome mapAccessAllowed={!MONETIZATION_ENABLED || store.isPro} onOpenEntry={(id) => { const index=[...store.history].reverse().findIndex(e=>e.id===id); if(index>=0){setHistoryDetailReturnTo("home");setHistoryEntryIndex(index);setScreen("historyDetail");} }} isDemoMode={isDemoMode} onNavSelect={goToTab} onStartThink={(mode = "text") => { setThinkInputMode(mode); setScreen("think"); }}
+        onReviewInterpretation={(target) => { setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
 
   const isMobileViewport = useIsMobileViewport();
@@ -8157,10 +7795,10 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-    <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobileViewport ? 0 : 20 }}>
+    <div style={{ minHeight: "100dvh", backgroundColor: nightPalette.background, display: "flex", alignItems: "center", justifyContent: "center", padding: isMobileViewport ? 0 : 20 }}>
       <div
         ref={frameRef}
-        className={isModernistScreen ? "theme-modernist" : undefined}
+        className="theme-stargazing"
         style={{
           width: isMobileViewport ? "100%" : 393,
           height: isMobileViewport ? "100dvh" : 852,
@@ -8220,7 +7858,7 @@ export default function App() {
         never blocks a tap at the very top of whatever's under it. */}
         {showStatusBar && (
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, pointerEvents: "none" }}>
-            <StatusBar modernist={isModernistScreen} />
+            <StatusBar modernist={false} />
           </div>
         )}
 

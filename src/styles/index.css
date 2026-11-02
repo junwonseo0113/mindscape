@@ -35,21 +35,21 @@ body {
 /* ── Modernist screens' real :focus-visible/:hover states ─────────────────────
    Inline `style` props (used everywhere else in this app) can't express
    pseudo-classes at all, so this is the one place actual CSS is load-
-   bearing rather than decorative — scoped to `.theme-modernist`, which the
+   bearing rather than decorative — scoped to `.theme-stargazing`, which the
    app shell only applies to the frame while a Modernist-token screen
    (Auth/Profile/Belief Map/Settings/etc.) is showing, so vintage and dark-
    theme screens keep the browser default they already override
-   per-component instead. Uses mdAccent (#ec3013), the same accent color
+   per-component instead. Uses mdAccent (#ecd2a8), the same accent color
    those screens already render elsewhere — no new color introduced. */
-.theme-modernist :focus-visible {
-  outline: 2px solid #ec3013;
+.theme-stargazing :focus-visible {
+  outline: 2px solid #ecd2a8;
   outline-offset: 2px;
 }
-.theme-modernist [role="button"] {
+.theme-stargazing [role="button"] {
   transition: background-color 0.12s ease-out;
 }
-.theme-modernist ::selection {
-  background: rgba(236, 48, 19, 0.3);
+.theme-stargazing ::selection {
+  background: rgba(236, 210, 168, 0.25);
 }
 
 /* A scrollable region that stays scrollable but never shows the scrollbar
@@ -190,3 +190,10 @@ body {
     @apply bg-background text-foreground font-sans;
   }
 }
+/* Shared night controls. Solid surfaces retain readable text and clear focus. */
+.theme-stargazing { color: #fff0d8; color-scheme: dark; }
+.theme-stargazing input,.theme-stargazing textarea,.theme-stargazing select { color-scheme: dark; }
+.theme-stargazing input::placeholder,.theme-stargazing textarea::placeholder { color: #aebed1; opacity: 1; }
+.theme-stargazing button,.theme-stargazing [role="button"] { touch-action: manipulation; }
+.theme-stargazing button:focus-visible,.theme-stargazing [role="button"]:focus-visible { outline: 2px solid #ecd2a8; outline-offset: 3px; }
+@media(prefers-reduced-motion:reduce) { .theme-stargazing *, .theme-stargazing *::before, .theme-stargazing *::after { animation-duration: .01ms!important; animation-iteration-count: 1!important; transition-duration: .01ms!important; } }

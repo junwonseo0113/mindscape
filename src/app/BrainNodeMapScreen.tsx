@@ -1,3 +1,5 @@
+import { createHomeNebulaScene } from "./homeNebulaScene";
+import { night } from "./nightTheme";
 import React, { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import * as THREE from "three";
@@ -15,7 +17,6 @@ import {
 } from "./neuralBrainLayout";
 import { NeuralBeliefConnection, NeuralBeliefNode, REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
 import { StoredEvidenceQuote } from "./types";
-import brainMapVoidImg from "../assets/brain-map-void.png";
 
 // ── A dedicated, full-screen, dark "control room" view of the same belief
 // tissue the Home hero card shows in miniature — additive-blended glowing
@@ -64,7 +65,7 @@ const FILTERED_OUT_TINT_DARK = new THREE.Color(0x33364a);
 // connecting lines themselves were removed (see the construction effect's
 // own comment), so the pulse reads purely through which stars light up and
 // in what order, not a traveling line.
-const CRIMSON_R = 1.0, CRIMSON_G = 0.231, CRIMSON_B = 0.341; // #ff3b57
+const CRIMSON_R = 1.0, CRIMSON_G = 0.80, CRIMSON_B = 0.48; // #ff3b57
 // Everything outside the tapped node's own network dims to this — never
 // hidden entirely (point 9: "preserving context of the entire brain").
 const DIM_OPACITY = 0.16;
@@ -268,6 +269,9 @@ type PanelNode = {
   evidenceQuotes: StoredEvidenceQuote[];
 };
 
+export type HomeBrainProjection = {id:string;x:number;y:number;visible:boolean};
+export type HomeBrainControls = {zoom:(factor:number)=>void;reset:()=>void;focus:(id:string|null)=>void};
+
 export default function BrainNodeMapScreen({
   beliefs,
   connections,
@@ -279,6 +283,10 @@ export default function BrainNodeMapScreen({
   autoHighlightIds,
   initialActiveRegion = null,
   initialSelectedBeliefId = null,
+  homePresentation = false,
+  onHomeSelect,
+  onHomeProject,
+  onHomeControls,
 }: {
   beliefs: NeuralBeliefNode[];
   connections: NeuralBeliefConnection[];
@@ -321,30 +329,33 @@ export default function BrainNodeMapScreen({
   // and tapped it themselves. Home's node field uses this so tapping one of
   // its five real nodes lands here already focused on that exact belief.
   initialSelectedBeliefId?: string | null;
+  // Home reuses this scene/camera/geometry, with its own data-node overlay and detail sheet.
+  homePresentation?: boolean;
+  onHomeSelect?: (id:string)=>void;
+  onHomeProject?: (nodes:HomeBrainProjection[],width:number,height:number,tissueCount:number)=>void;
+  onHomeControls?: (controls:HomeBrainControls|null)=>void;
 }) {
   // Full-screen Brain Map is an immersive night-space even when the caller
   // uses the app's `modernist` flag elsewhere. The previous full-screen
   // white control-room treatment was the one major visual outlier in the app
   // and also made the star field harder to read on a phone. Embedded cards
   // still honor the caller's theme.
+  const homeCallbacks = useRef({onHomeSelect,onHomeProject,onHomeControls});
+  homeCallbacks.current={onHomeSelect,onHomeProject,onHomeControls};
   const immersive = !embedded;
-  const bg = immersive ? "#0d1322" : (modernist ? "#ffffff" : bgDark);
-  const panelBg = immersive ? "rgba(15,21,36,0.86)" : (modernist ? "#ffffff" : panelBgDark);
-  const line = immersive ? "rgba(239,235,225,0.14)" : (modernist ? "rgba(32,30,29,0.14)" : lineDark);
-  const ink = immersive ? "#f2eee4" : (modernist ? "#201e1d" : inkDark);
-  const inkSoft = immersive ? "rgba(242,238,228,0.84)" : (modernist ? "rgba(32,30,29,0.85)" : inkSoftDark);
-  const inkMid = immersive ? "rgba(242,238,228,0.62)" : (modernist ? "rgba(32,30,29,0.6)" : inkMidDark);
-  const inkFaint = immersive ? "rgba(242,238,228,0.44)" : (modernist ? "rgba(32,30,29,0.42)" : inkFaintDark);
-  const dormantColor = immersive ? dormantColorDark : (modernist ? new THREE.Color(0x201e1d) : dormantColorDark);
-  const FILTERED_OUT_TINT = immersive ? FILTERED_OUT_TINT_DARK : (modernist ? new THREE.Color(0xd7d3d3) : FILTERED_OUT_TINT_DARK);
-  // The dark theme's generic purple UI-chrome accent (search caret, reset/
-  // expand buttons, region-rail active row, panel tag pill) — swapped for the
-  // Modernist palette's own red accent, not left purple, since Modernist is
-  // explicitly mono-red ("no second accent was chosen").
-  const accentUi = immersive ? "#d8cdbd" : (modernist ? "#ec3013" : "#9184d9");
-  const accentUiSoft = immersive ? "rgba(216,205,189,0.10)" : (modernist ? "rgba(236,48,19,0.12)" : "rgba(145,132,217,0.12)");
-  const accentUiSofter = immersive ? "rgba(216,205,189,0.15)" : (modernist ? "rgba(236,48,19,0.16)" : "rgba(145,132,217,0.16)");
-  const mdNeutralTagLocal = "#f8f4f4";
+  const bg = night.background;
+  const panelBg = night.surface;
+  const line = night.border;
+  const ink = night.text;
+  const inkSoft = night.body;
+  const inkMid = night.muted;
+  const inkFaint = night.muted;
+  const dormantColor = dormantColorDark;
+  const FILTERED_OUT_TINT = FILTERED_OUT_TINT_DARK;
+  const accentUi = night.gold;
+  const accentUiSoft = night.goldSoft;
+  const accentUiSofter = night.goldSoft;
+  const mdNeutralTagLocal = night.surfaceRaised;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const three = useRef<{
@@ -491,7 +502,7 @@ export default function BrainNodeMapScreen({
       // Real belief nodes render their own region color again (see the
       // construction loop above) — matching restores that color, not
       // matching dims to the same muted slate dormant tissue never uses.
-      const c = active ? new THREE.Color(REGION_CONFIG[region].color) : FILTERED_OUT_TINT;
+      const c = active ? new THREE.Color(homePresentation ? "#fff0d8" : REGION_CONFIG[region].color) : FILTERED_OUT_TINT;
       colorAttr.setXYZ(ptIndex, c.r, c.g, c.b);
     });
     colorAttr.needsUpdate = true;
@@ -516,7 +527,7 @@ export default function BrainNodeMapScreen({
     }
     t.camAnim = { from: t.camera.position.clone(), to: pos, fromT: t.controls.target.clone(), toT: target, t0: performance.now(), duration };
     t.resumeTimer = setTimeout(() => {
-      if (three.current) three.current.controls.autoRotate = !reducedMotion;
+      if (three.current) three.current.controls.autoRotate = !reducedMotion && !homePresentation;
     }, 3200);
   };
 
@@ -534,11 +545,12 @@ export default function BrainNodeMapScreen({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(wrap.clientWidth, wrap.clientHeight);
 
+    const homeNebula=homePresentation?createHomeNebulaScene(wrap):null;
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x161826, 0.11);
 
     const camera = new THREE.PerspectiveCamera(50, wrap.clientWidth / wrap.clientHeight, 0.1, 100);
-    camera.position.set(0, 0.2, 6.2);
+    camera.position.set(0, 0.2, homePresentation ? 4.6 : 6.2);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -555,10 +567,11 @@ export default function BrainNodeMapScreen({
     // vestibular trigger flyTo's instant-jump path above addresses — never
     // started at all under reduced motion, and never handed back on by
     // either resume path below.
-    controls.autoRotate = !reducedMotion;
+    controls.autoRotate = !reducedMotion && !homePresentation;
     controls.autoRotateSpeed = 0.42;
     controls.addEventListener("start", () => {
       controls.autoRotate = false;
+      if(homePresentation && three.current)three.current.camAnim=null;
       if (three.current?.resumeTimer) clearTimeout(three.current.resumeTimer);
       setCursor("grabbing");
     });
@@ -567,7 +580,7 @@ export default function BrainNodeMapScreen({
       if (three.current) {
         if (three.current.resumeTimer) clearTimeout(three.current.resumeTimer);
         three.current.resumeTimer = setTimeout(() => {
-          if (three.current) three.current.controls.autoRotate = !reducedMotion;
+          if (three.current) three.current.controls.autoRotate = !reducedMotion && !homePresentation;
         }, 2400);
       }
     });
@@ -635,11 +648,11 @@ export default function BrainNodeMapScreen({
         const belief = beliefsRef.current.find((b) => b.id === beliefId)!;
         const region = resolveRegion(belief);
         counts[region] += 1;
-        const c = new THREE.Color(REGION_CONFIG[region].color);
+        const c = new THREE.Color(homePresentation ? "#fff0d8" : REGION_CONFIG[region].color);
         colorArr[i * 3] = c.r;
         colorArr[i * 3 + 1] = c.g;
         colorArr[i * 3 + 2] = c.b;
-        sizeArr[i] = 0.09 + 0.05 * Math.min(1, (belief.evidenceCount || 1) / 8);
+        sizeArr[i] = homePresentation ? 0.028 : 0.09 + 0.05 * Math.min(1, (belief.evidenceCount || 1) / 8);
       } else {
         colorArr[i * 3] = dormantColor.r;
         colorArr[i * 3 + 1] = dormantColor.g;
@@ -714,6 +727,7 @@ export default function BrainNodeMapScreen({
     driftGeo.setAttribute("position", new THREE.BufferAttribute(driftPos, 3));
     const driftMat = new THREE.PointsMaterial({ size: 0.026, map: tex, transparent: true, opacity: 0.3, color: 0x9397ab, depthWrite: false, blending: THREE.AdditiveBlending });
     const drift = new THREE.Points(driftGeo, driftMat);
+    drift.visible = !homePresentation;
     scene.add(drift);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -745,16 +759,34 @@ export default function BrainNodeMapScreen({
       activationCurrent: activationCurrentArr,
     };
 
+    let homeReturnView:{position:THREE.Vector3;target:THREE.Vector3}|null=null;
+    if(homePresentation) homeCallbacks.current.onHomeControls?.({
+      focus:(id)=>{const t=three.current;if(!t)return;
+        if(id===null){if(homeReturnView){const previous=homeReturnView;homeReturnView=null;flyTo(previous.position,previous.target,650);}return;}
+        const index=t.indexOfBelief.get(id);if(index===undefined)return;
+        if(!homeReturnView)homeReturnView={position:t.camera.position.clone(),target:t.controls.target.clone()};
+        const p=t.positions[index],target=new THREE.Vector3(p[0],p[1],p[2]);
+        const offset=t.camera.position.clone().sub(t.controls.target);
+        // Move into the selected node's immediate neighborhood, rather than
+        // merely translating the overview camera. Never pull an already-close view back.
+        offset.setLength(Math.max(t.controls.minDistance,Math.min(offset.length(),.95)));
+        flyTo(target.clone().add(offset),target,800);
+      },
+      zoom:(factor)=>{const t=three.current;if(!t)return;const offset=t.camera.position.clone().sub(t.controls.target);const distance=Math.min(t.controls.maxDistance,Math.max(t.controls.minDistance,offset.length()/factor));t.camera.position.copy(t.controls.target).add(offset.setLength(distance));t.controls.update();},
+      reset:()=>{const t=three.current;if(!t)return;t.camAnim=null;t.camera.position.copy(t.defaultCamPos);t.controls.target.copy(t.defaultTarget);t.controls.update();},
+    });
+    const projectionVector = new THREE.Vector3();
     let lastFrameMs = performance.now();
     const animate = () => {
       const t = three.current;
       if (!t) return;
       t.rafId = requestAnimationFrame(animate);
+      if(homePresentation && document.hidden) return;
       const nowMs = performance.now();
       const dt = Math.min(0.05, (nowMs - lastFrameMs) / 1000);
       lastFrameMs = nowMs;
       const el = t.clock.getElapsedTime();
-      t.pointsMat.uniforms.uTime.value = el;
+      t.pointsMat.uniforms.uTime.value = homePresentation ? 0 : el;
       t.drift.rotation.y = el * 0.025;
 
       // ── Network activation, eased in real time — see the ref type's own
@@ -859,7 +891,14 @@ export default function BrainNodeMapScreen({
         }
       }
 
+      homeNebula?.render(t.camera);
       t.renderer.render(t.scene, t.camera);
+      if(homePresentation && homeCallbacks.current.onHomeProject){
+        const width=wrap.clientWidth,height=wrap.clientHeight;
+        const projected:HomeBrainProjection[]=[];
+        t.indexOfBelief.forEach((index,id)=>{const p=t.positions[index];projectionVector.set(p[0],p[1],p[2]).project(t.camera);projected.push({id,x:(projectionVector.x*.5+.5)*width,y:(-.5*projectionVector.y+.5)*height,visible:projectionVector.z>=-1&&projectionVector.z<=1&&Math.abs(projectionVector.x)<1.1&&Math.abs(projectionVector.y)<1.1});});
+        homeCallbacks.current.onHomeProject(projected,width,height,t.positions.length);
+      }
     };
     animate();
 
@@ -873,9 +912,14 @@ export default function BrainNodeMapScreen({
       three.current.pointsMat.uniforms.uScale.value = 0.5 * h * three.current.renderer.getPixelRatio();
     };
     window.addEventListener("resize", handleResize);
+    const homeResize=homePresentation?new ResizeObserver(handleResize):null;
+    if(homeResize)homeResize.observe(wrap);
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      homeResize?.disconnect();
+      homeNebula?.dispose();
+      if(homePresentation)homeCallbacks.current.onHomeControls?.(null);
       if (three.current) {
         cancelAnimationFrame(three.current.rafId);
         if (three.current.resumeTimer) clearTimeout(three.current.resumeTimer);
@@ -1006,6 +1050,7 @@ export default function BrainNodeMapScreen({
   const selectBelief = (beliefId: string) => {
     const belief = beliefsRef.current.find((b) => b.id === beliefId);
     if (!belief) return;
+    if(homePresentation){homeCallbacks.current.onHomeSelect?.(beliefId);return;}
     const region = resolveRegion(belief);
     // Keep the connection itself (not just the other id) so each linked
     // belief can carry its own note + root/contradiction kind.
@@ -1143,6 +1188,12 @@ export default function BrainNodeMapScreen({
 
   const totalBeliefs = beliefs.length;
 
+  if(homePresentation) return <div ref={wrapRef} className="home-full-brain-scene" role="group" tabIndex={0} aria-label={`Full 3D Brain Map, ${totalBeliefs} information nodes. Drag to rotate, pinch or scroll to zoom. Arrow keys browse information nodes; Enter opens details.`} onKeyDown={handleMapKeyDown} style={{position:"absolute",inset:0,overflow:"hidden"}}>
+    <div ref={keyboardFocusRingRef} aria-hidden="true" style={{position:"absolute",left:-14,top:-14,width:28,height:28,border:"1px solid #ecd2a8",borderRadius:"50%",opacity:0,pointerEvents:"none",zIndex:2}}/>
+    <span aria-live="polite" style={srOnlyStyle}>{keyboardFocusId?describeKeyboardFocus(keyboardFocusId):""}</span>
+    <canvas ref={canvasRef} aria-label="Full brain-shaped point cloud" onClick={e=>{const id=pickBeliefAt(e.clientX,e.clientY);if(id)selectBelief(id);}} style={{position:"absolute",inset:0,width:"100%",height:"100%",touchAction:"none"}}/>
+  </div>;
+
   return (
     <div
       style={
@@ -1152,7 +1203,7 @@ export default function BrainNodeMapScreen({
               position: "fixed",
               inset: 0,
               backgroundColor: bg,
-              backgroundImage: `linear-gradient(rgba(4,9,20,0.16), rgba(4,9,20,0.34)), url(${brainMapVoidImg})`,
+              backgroundImage: `radial-gradient(ellipse at 60% 30%, ${night.backgroundTop}, ${night.backgroundMid} 48%, ${night.background})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               color: ink,
@@ -1545,7 +1596,7 @@ export default function BrainNodeMapScreen({
                     padding: "3px 9px",
                     borderRadius: 6,
                     background: modernist ? mdNeutralTagLocal : "rgba(145,132,217,0.16)",
-                    color: modernist ? "#444141" : REGION_CONFIG[selected.region].color,
+                    color: modernist ? night.body : REGION_CONFIG[selected.region].color,
                   }}
                 >
                   {REGION_CONFIG[selected.region].label}
@@ -1582,7 +1633,7 @@ export default function BrainNodeMapScreen({
                           flexShrink: 0,
                           padding: "2px 7px",
                           borderRadius: 999,
-                          color: l.kind === "contradiction" ? (modernist ? accentUi : "#ff3b57") : (modernist ? "#444141" : "#9184d9"),
+                          color: l.kind === "contradiction" ? (modernist ? accentUi : "#ff3b57") : (modernist ? night.body : "#9184d9"),
                           background: l.kind === "contradiction" ? (modernist ? "transparent" : "rgba(255,59,87,0.14)") : (modernist ? mdNeutralTagLocal : "rgba(145,132,217,0.16)"),
                           border: l.kind === "contradiction" && modernist ? `1px solid ${accentUi}` : "none",
                         }}
