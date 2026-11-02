@@ -1879,6 +1879,35 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               onBackgroundTap={() => onOpenBrainMap?.()}
             />
           </div>
+
+          {/* With zero beliefs, JarBrainPreview's canvas has nothing to
+          draw — buildActiveNodes([]) is empty, so the field renders fully
+          blank. Rather than a brand-new user's very first Home screen
+          showing a dead 43%-height gap under the headline with no
+          explanation, a single quiet breathing dot marks where their first
+          belief will appear — same breathing idiom as NeuronOrb below (
+          scale 1→1.04, 2.5s, easeInOut), just resting rather than inviting
+          a tap, since there's nothing here yet to open. pointerEvents:none
+          so it never competes with the real "Open your Brain Map" button/
+          canvas layered underneath it. */}
+          {store.beliefs.length === 0 && (
+            <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
+              <motion.div
+                animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)",
+                  boxShadow: "0 0 18px rgba(166,143,94,0.35)",
+                }}
+              />
+              <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: ivFaint, textAlign: "center" }}>
+                Your first thought will appear here.
+              </div>
+            </div>
+          )}
         </>
       ) : (
         // Locked teaser instead of quietly rendering an always-empty
