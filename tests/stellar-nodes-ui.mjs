@@ -35,7 +35,7 @@ try {
         await page.getByRole('button',{name:/pattern:/}).first().click();
         await page.getByText('Current strength',{exact:true}).waitFor();
         await page.screenshot({path:`artifacts/stellar-nodes/${device}-history-detail.png`});
-        await page.getByRole('button',{name:'Close',exact:true}).click();await page.waitForTimeout(500);
+        await page.getByRole('button',{name:'Back to Journal',exact:false}).click();await page.waitForTimeout(500);
       }
       if(screen==='brainmap') assert.ok(await page.locator('canvas').count()>0);
       await page.screenshot({path:`artifacts/stellar-nodes/${device}-${screen}.png`});

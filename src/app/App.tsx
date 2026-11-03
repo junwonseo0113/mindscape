@@ -1,3 +1,4 @@
+import "./journal-node.css";
 import StellarNode from './StellarNode';
 import { getOpeningQuote } from "./dailyQuotes";
 import QuotePortrait from "./QuotePortrait";
@@ -5730,7 +5731,46 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
 // then "View its story" to see the actual recorded thoughts/check-ins
 // behind it, still reachable in full via the pre-existing ScreenHistoryDetail
 // (onOpenEntry) — nothing about that screen or its data changed.
-function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
+function ScreenJournalNode({store,nodeId,onBack,onOpenEntry}:{store:Store;nodeId:string|null;onBack:()=>void;onOpenEntry:(id:string)=>void}) {
+  const heading=React.useRef<HTMLHeadingElement>(null);
+  React.useEffect(()=>{heading.current?.focus();},[nodeId]);
+  const catalogue=buildCatalogueStars(store);
+  const star=catalogue.find(item=>item.belief.id===nodeId);
+  if(!star)return <main className="journal-node-screen"><button className="journal-node-back" onClick={onBack}>← Back to Journal</button><h1 ref={heading} tabIndex={-1}>This star is no longer available</h1><p>Return to Journal to explore your current thoughts.</p></main>;
+  const belief=star.belief,color=REGION_CONFIG[star.region].color;
+  const entries=(belief.supportingEntryIds??[]).map(id=>store.history.find(entry=>entry.id===id)).filter((entry):entry is StoredHistoryEntry=>!!entry).sort((a,b)=>a.date.localeCompare(b.date));
+  const connections=store.connections.filter(connection=>connection.a===belief.id||connection.b===belief.id).flatMap(connection=>{
+    const related=catalogue.find(item=>item.belief.id===(connection.a===belief.id?connection.b:connection.a));
+    return related?[{connection,related}]:[];
+  });
+  return <main className="journal-node-screen" aria-labelledby="journal-node-title">
+    <button type="button" className="journal-node-back" onClick={onBack}>← Back to Journal</button>
+    <header className="journal-node-hero">
+      <StellarNode color={color} size={120} intensity={catalogueOrbIntensity(star)}/>
+      <div className="journal-node-category" style={{color}}>{REGION_CONFIG[star.region].label} · {belief.domain}</div>
+      <h1 id="journal-node-title" ref={heading} tabIndex={-1}>{belief.thoughtLabel||belief.statement}</h1>
+      {belief.thoughtLabel&&<p className="journal-node-caption">{belief.statement}</p>}
+      <p className="journal-node-caption">{belief.userReaction==='accepted'?'An interpretation you reviewed.':'An interpretation to reflect on.'} A pattern, not a fixed fact about you.</p>
+    </header>
+    <dl className="journal-node-facts">
+      <div><dt>First observed</dt><dd>{star.firstDiscovered?formatDateDots(star.firstDiscovered):'Not recorded'}</dd></div>
+      <div><dt>Appearances</dt><dd>{star.appearances}</dd></div>
+      <div><dt>Current strength</dt><dd>{belief.confidence}%</dd></div>
+      <div><dt>Review</dt><dd>{belief.userReaction==='accepted'?'Approved':'Not recorded'}</dd></div>
+    </dl>
+    {!!belief.confidenceHistory?.length&&belief.confidenceHistory.length>1&&<section className="journal-node-section" aria-label="Strength over time"><ConfidenceTrend history={belief.confidenceHistory}/></section>}
+    <section className="journal-node-section"><h2>Supporting entries</h2>
+      {entries.map(entry=><button type="button" className="journal-node-entry" key={entry.id} onClick={()=>onOpenEntry(entry.id)} aria-label={`Read original entry ${entry.date}`}>
+        <time>{entry.date}</time><blockquote>{entry.text}</blockquote><span>Read original entry →</span>
+      </button>)}
+      {entries.length===0&&<p>No linked journal entries are available for this interpretation yet.</p>}
+    </section>
+    {belief.evidenceQuotes.length>0&&<section className="journal-node-section"><h2>Evidence excerpts</h2>{belief.evidenceQuotes.map((evidence,index)=><div className="journal-node-evidence" key={`${evidence.date}:${index}`}><time>{evidence.date}</time><blockquote>{evidence.quote}</blockquote></div>)}</section>}
+    {connections.length>0&&<section className="journal-node-section"><h2>Connections</h2>{connections.map(({connection,related},index)=><div className="journal-node-connection" key={`${related.belief.id}:${index}`}><strong>{related.belief.statement}</strong>{connection.note&&<p>{connection.note}</p>}</div>)}</section>}
+  </main>;
+}
+
+function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: string) => void; store: Store; onOpenStar: (id: string) => void }) {
   const catalogue = React.useMemo(() => buildCatalogueStars(store), [store]);
   const families = React.useMemo(() => {
     const map = new Map<CognitiveRegion, CatalogueStar[]>();
@@ -5745,8 +5785,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     { type: "region"; region: CognitiveRegion } | { type: "active" } | { type: "dormant" } | { type: "recent" } | { type: "recurrent" } | null
   >(null);
   const [asOfDate, setAsOfDate] = React.useState<string | null>(null);
-  const [selectedStarId, setSelectedStarId] = React.useState<string | null>(null);
-  const [storyOpen, setStoryOpen] = React.useState(false);
 
   const query = search.trim().toLowerCase();
   const matchesSearch = React.useCallback(
@@ -5804,29 +5842,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     });
     return Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   }, [catalogue]);
-
-  const selectedStar = catalogue.find((s) => s.belief.id === selectedStarId) ?? null;
-  const selectedConnection = selectedStar
-    ? store.connections.find((c) => c.a === selectedStar.belief.id || c.b === selectedStar.belief.id)
-    : null;
-  const selectedConnectedBelief =
-    selectedConnection && selectedStar
-      ? store.beliefs.find((b) => b.id === (selectedConnection.a === selectedStar.belief.id ? selectedConnection.b : selectedConnection.a))
-      : null;
-  const selectedEntries = React.useMemo(() => {
-    if (!selectedStar) return [];
-    return (selectedStar.belief.supportingEntryIds ?? [])
-      .map((id) => store.history.find((e) => e.id === id))
-      .filter((e): e is StoredHistoryEntry => !!e)
-      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  }, [selectedStar, store.history]);
-
-  const closeStarSheet = () => { setSelectedStarId(null); setStoryOpen(false); };
-  const openEntryFromStory = (entryId: string) => {
-    const detailItems = [...store.history].reverse();
-    const idx = detailItems.findIndex((e) => e.id === entryId);
-    if (idx >= 0) onOpenEntry?.(idx);
-  };
 
   return (
     // The screen plane paints behind the status area; this body uses the shared inset.
@@ -5896,7 +5911,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     {stars.map((star, i) => (
                       <CatalogueCell
                         key={star.belief.id} star={star} dimmed={isDimmed(star)} isLast={i === stars.length - 1}
-                        onOpen={() => { setSelectedStarId(star.belief.id); setStoryOpen(false); }}
+                        onOpen={() => onOpenStar(star.belief.id)}
                       />
                     ))}
                   </div>
@@ -5952,104 +5967,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         <BottomNav active="history" onSelect={onNavSelect} vintage />
       </div>
 
-      {/* ── Star detail / story sheet ── */}
-      <AnimatePresence>
-        {selectedStar && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-            role="button" tabIndex={-1} onClick={closeStarSheet}
-            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(2,9,16,0.65)", display: "flex", alignItems: "flex-end" }}
-          >
-            <motion.div
-              initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                width: "100%", maxHeight: "82%", backgroundColor: nightPalette.surface,
-                borderTop: "1px solid rgba(236,210,168,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
-                display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(120,105,80,0.16)",
-              }}
-            >
-              {!storyOpen ? (
-                <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexShrink: 0 }}>
-                    <div>
-                      <div style={{ ...mono, fontSize: 11, color: nightPalette.muted, letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
-                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: REGION_CONFIG[selectedStar.region].color, marginTop: 4 }}>
-                        {REGION_CONFIG[selectedStar.region].label}
-                      </div>
-                    </div>
-                    <motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer" }}>Close</motion.span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 18px", flexShrink: 0 }}>
-                    <Node color={REGION_CONFIG[selectedStar.region].color} size={34} intensity={catalogueOrbIntensity(selectedStar)} />
-                  </div>
-                  <div style={{ ...serif, fontSize: 21, lineHeight: 1.42, color: nightPalette.text, textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
-                    {selectedStar.belief.statement}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 15, overflowY: "auto", minHeight: 0 }}>
-                    <StatRow
-                      label="First observed"
-                      value={selectedStar.firstDiscovered ? `${formatDateDots(selectedStar.firstDiscovered)} · ${weekdayFromDotDate(formatDateDots(selectedStar.firstDiscovered))}` : "Unknown"}
-                    />
-                    <StatRow label="Appeared" value={`${selectedStar.appearances} time${selectedStar.appearances === 1 ? "" : "s"}`} />
-                    <StatRow label="Current strength" value={`${selectedStar.belief.confidence}%`} />
-                    {selectedConnectedBelief && <StatRow label="Strongly connected with" value={selectedConnectedBelief.statement} />}
-                  </div>
-                  {selectedEntries.length > 0 && (
-                    <motion.div
-                      role="button" tabIndex={0} onClick={() => setStoryOpen(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(true); } }}
-                      whileTap={{ opacity: 0.7 }}
-                      style={{ marginTop: 22, ...sans, fontSize: 13, fontWeight: 700, color: nightPalette.text, cursor: "pointer", textAlign: "center", flexShrink: 0 }}
-                    >
-                      View its story →
-                    </motion.div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <motion.span
-                    role="button" tabIndex={0} onClick={() => setStoryOpen(false)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(false); } }}
-                    whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer", marginBottom: 14, flexShrink: 0 }}
-                  >
-                    ← Back
-                  </motion.span>
-                  <div style={{ ...serif, fontSize: 16, color: nightPalette.text, marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
-                  <div style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
-                  <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
-                    {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
-                      <div style={{ marginBottom: 8 }}>
-                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted, marginBottom: 8 }}>Strength over time</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                          {selectedStar.belief.confidenceHistory!.map((p, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: nightPalette.body }}>
-                              <span>{p.date}</span><span style={{ ...mono, color: nightPalette.text }}>{p.value}%</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted }}>Appearances</div>
-                    {selectedEntries.map((entry) => (
-                      <motion.div
-                        key={entry.id} role="button" tabIndex={0} onClick={() => openEntryFromStory(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntryFromStory(entry.id); } }}
-                        whileTap={{ opacity: 0.6 }}
-                        style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(236,210,168,0.045)", border: "1px solid rgba(236,210,168,0.07)", cursor: "pointer" }}
-                      >
-                        <div style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{entry.date}</div>
-                        <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: nightPalette.text, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          "{entry.text}"
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Search / Calendar / Filter sheets ── */}
       <AnimatePresence>
         {sheet === "search" && (
           <HistorySheet title="Search the catalogue" onClose={() => setSheet(null)}>
@@ -7047,6 +6964,7 @@ export default function App() {
   const [brainMapReturnTo, setBrainMapReturnTo] = React.useState<"home" | "analysis">("home");
   const [historyDetailReturnTo, setHistoryDetailReturnTo] = React.useState("history");
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
+  const [journalNodeId, setJournalNodeId] = React.useState<string | null>(null);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
   const [pendingUpsell, setPendingUpsell] = React.useState(false);
@@ -7568,9 +7486,13 @@ export default function App() {
       <ScreenHistory
         onNavSelect={goToTab}
         store={store}
-        onOpenEntry={(i) => { setHistoryDetailReturnTo("history"); setHistoryEntryIndex(i); setScreen("historyDetail"); }}
+        onOpenStar={(id) => { setJournalNodeId(id); setScreen("journalNode"); }}
       />
     ); break;
+    case "journalNode": content = <ScreenJournalNode store={store} nodeId={journalNodeId} onBack={() => setScreen("history")} onOpenEntry={(id) => {
+      const index=[...store.history].reverse().findIndex(entry=>entry.id===id);
+      if(index>=0){setHistoryDetailReturnTo("journalNode");setHistoryEntryIndex(index);setScreen("historyDetail");}
+    }}/>; break;
     case "historyDetail": content = <ScreenHistoryDetail index={historyEntryIndex} store={store} onBack={() => setScreen(historyDetailReturnTo)} />; break;
     case "idealSelf": content = <IdealSelfScreen onOpenPremium={() => { setPaywallReturnTo("idealSelf"); setScreen("paywall"); }} onBack={() => setScreen("profile")} onSignIn={() => setScreen("auth")} isDemoMode={isDemoMode} onOpenEntry={(id) => { const index=store.history.findIndex(e=>e.id===id); if(index>=0){setHistoryDetailReturnTo("idealSelf");setHistoryEntryIndex(index);setScreen("historyDetail");} }} />; break;
     case "profile": content = (
