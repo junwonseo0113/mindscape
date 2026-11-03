@@ -140,3 +140,13 @@
 /* One full-bleed screen plane; only its content respects the status/safe area. */
 .screen-content{position:absolute;top:var(--app-top-inset,0px);right:0;bottom:0;left:0;display:flex;flex-direction:column;min-height:0}
 .app-screen[data-screen=home]>.screen-content,.app-screen[data-screen=brainmap]>.screen-content{top:0}
+
+/* Gentle atmospheric drift on Mind, Analysis and Journal only. The reading
+   plane stays still; oversized artwork keeps every frame edge covered. */
+.evening-page:has(>.evening-atmosphere-motion){background-image:none;overflow:hidden;isolation:isolate}
+.evening-atmosphere-motion{position:absolute;inset:-4%;z-index:0;pointer-events:none;background:var(--evening-atmosphere) center/100% 100% no-repeat;transform-origin:center;animation:evening-atmosphere-drift 96s ease-in-out infinite alternate;will-change:transform,opacity}
+.evening-page:has(>.evening-atmosphere-motion)>.screen-content{z-index:1}
+.evening-page[data-screen=discoveryAnalysis]>.evening-atmosphere-motion{animation-duration:112s;animation-delay:-28s}
+.evening-page[data-screen=history]>.evening-atmosphere-motion{animation-duration:124s;animation-delay:-54s}
+@keyframes evening-atmosphere-drift{0%{transform:translate(-.7%,-.5%) scale(1.015);opacity:.92}50%{transform:translate(.35%,.4%) scale(1.035);opacity:1}100%{transform:translate(.8%,-.2%) scale(1.02);opacity:.95}}
+@media(prefers-reduced-motion:reduce){.evening-atmosphere-motion{animation:none;transform:none;opacity:1;will-change:auto}}

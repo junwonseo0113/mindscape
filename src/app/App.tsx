@@ -1,5 +1,7 @@
+import UnconsciousPatterns from './UnconsciousPatterns';
 import "./journal-node.css";
 import StellarNode from './StellarNode';
+import EveningAtmosphere from './EveningAtmosphere';
 import { getOpeningQuote } from "./dailyQuotes";
 import QuotePortrait from "./QuotePortrait";
 import "./quote-portrait.css";
@@ -4292,10 +4294,16 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
 // itself in, then a pulse that keeps traveling between them. Used wherever
 // a freshly-found connection between two beliefs needs to feel like it's
 // actually being wired together, not just printed as text.
-function ConnectionSpark({ aLabel, bLabel }: { aLabel: string; bLabel: string }) {
+function ConnectionSpark({ aLabel, bLabel, still = false }: { aLabel: string; bLabel: string; still?: boolean }) {
   const w = 240, h = 48, r = 17;
   const ax = r + 6, ay = h / 2;
   const bx = w - r - 6, by = h / 2;
+  if (still) return <svg viewBox={`0 0 ${w} ${h}`} aria-label={`Connection between ${aLabel} and ${bLabel}`} role="img" style={{width:'100%',height:h,display:'block',overflow:'visible'}}>
+    <line x1={ax} y1={ay} x2={bx} y2={by} stroke={nightPalette.text} strokeWidth={1.6} opacity={0.5}/>
+    {[ax,bx].map(x=><circle key={x} cx={x} cy={ay} r={r} fill="rgba(236,210,168,0.06)" stroke={nightPalette.text} strokeOpacity={0.5} strokeWidth={1.2}/>)}
+    <text x={0} y={ay} textAnchor="start" dominantBaseline="central" style={{...sans,fontSize:11,fontWeight:700,fill:nightPalette.text}}>{aLabel}</text>
+    <text x={w} y={by} textAnchor="end" dominantBaseline="central" style={{...sans,fontSize:11,fontWeight:700,fill:nightPalette.text}}>{bLabel}</text>
+  </svg>;
   return (
     <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: h, display: "block", overflow: "visible" }}>
       <motion.line
@@ -4512,159 +4520,52 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
-function BeliefCard({ belief, history, connections, onReject, isLast }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; isLast?: boolean }) {
-  const [openPattern, setOpenPattern] = React.useState<string | null>(null);
+function BeliefCard({ belief, history, connections, onReject }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void }) {
   const [showLoop, setShowLoop] = React.useState(false);
+  const [reframeFlipped, setReframeFlipped] = React.useState(false);
+  const loopId = React.useId();
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
   const hasLoopData = hasFunctionalLoopData(belief, history);
-  // Rumination-vs-reflection (Trapnell & Campbell): rising confidence with no
-  // new connection and no widening emotional register reads as circling, not
-  // moving. The line stays purely observational — a frequency fact, not a
-  // suggestion to stop or a diagnostic label — same principle as every other
-  // card element here.
   const ruminationLikely = isLikelyRuminating(belief, connections, history);
-  // Distanced self-talk (Kross & Ayduk) — a literal card-flip metaphor for
-  // the reframe itself, not just an expand/collapse: the statement is a
-  // fact-in-1st-person on one face, the same meaning at 2nd-person distance
-  // on the other.
-  const [reframeFlipped, setReframeFlipped] = React.useState(false);
-  return (
-    <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${"rgba(236,210,168,0.09)"}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.04em" }}>{belief.domain}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.muted }}>Conflicting entries exist</span>}
-          {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.text }}>Confirmed repeatedly</span>}
-          <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{belief.evidenceCount} pieces of evidence</span>
-        </div>
-      </div>
-      {/* Defusion reframe (ACT: "naming the thought") — a recurring visitor,
-          not a fact about the person, shown just above the statement it
-          reframes so the two read together. */}
-      {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: nightPalette.text, marginTop: 8 }}>The "{belief.thoughtLabel}" thought keeps showing up</div>
-      )}
-      {belief.distancedReframe ? (
-        <div style={{ marginTop: belief.thoughtLabel ? 4 : 8 }}>
-          <div style={{ perspective: 800 }}>
-            {/* Both faces share one grid cell — lets the container auto-size
-            to whichever face wraps to more lines, instead of an absolutely-
-            positioned back face clipping/overlapping the shorter front. */}
-            <motion.div
-              animate={{ rotateY: reframeFlipped ? 180 : 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              style={{ display: "grid", transformStyle: "preserve-3d" }}
-            >
-              <div style={{ ...serif, fontSize: 18, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all", gridArea: "1 / 1", backfaceVisibility: "hidden" }}>
-                {belief.statement}
-              </div>
-              <div
-                style={{
-                  ...serif, fontSize: 18, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all",
-                  gridArea: "1 / 1", backfaceVisibility: "hidden", transform: "rotateY(180deg)",
-                }}
-              >
-                {belief.distancedReframe}
-              </div>
-            </motion.div>
-          </div>
-          <motion.span
-            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-            onClick={() => setReframeFlipped((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
-            style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 8, display: "inline-block", cursor: "pointer" }}
-          >
-            {reframeFlipped ? "↺ Back to the original" : "See it from a distance ↻"}
-          </motion.span>
-        </div>
-      ) : (
-        <div style={{ ...serif, fontSize: 18, color: nightPalette.text, marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
-      )}
-      <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.08)", marginTop: 10 }}>
-        <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)" }} />
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>Confidence {belief.confidence}%</span>
-      </div>
-      {/* Longitudinal drift (Level 4) — how this belief's confidence has
-          actually moved, not just where it stands right now. */}
-      {belief.confidenceHistory && <ConfidenceTrend history={belief.confidenceHistory} />}
-      {ruminationLikely && (
-        <div style={{ ...sans, fontSize: 11.5, color: nightPalette.body, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          This thought has come back often in recent sessions.
-        </div>
-      )}
-      {(patterns.length > 0 || emotion) && (
-        <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-          {emotion && (
-            <span style={{ ...sans, fontSize: 11, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 8px", borderRadius: 999 }}>Predominant emotion · {emotion}</span>
-          )}
-          {patterns.map((p) => {
-            const active = openPattern === p;
-            return (
-              <motion.span
-                key={p} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-                onClick={() => setOpenPattern(active ? null : p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setOpenPattern(active ? null : p))?.(); } }}
-                style={{ ...sans, fontSize: 11, fontWeight: active ? 700 : 500, color: active ? nightPalette.background : nightPalette.text, backgroundColor: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.06)", padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
-              >
-                {p}
-              </motion.span>
-            );
-          })}
-        </div>
-      )}
-      {openPattern && (
-        <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all", padding: 10, borderRadius: 10, backgroundColor: "rgba(236,210,168,0.06)" }}>
-          <div>{COGNITIVE_PATTERN_DESCRIPTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ""}</div>
-          {/* Balanced reframe (ported from a parallel session) — most
-              cognitive habits started as adaptive, not just a flaw. */}
-          {(() => {
-            const r = COGNITIVE_PATTERN_REFLECTIONS[openPattern as keyof typeof COGNITIVE_PATTERN_REFLECTIONS] ?? GENERIC_PATTERN_REFLECTION;
-            return (
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${"rgba(236,210,168,0.09)"}`, display: "flex", flexDirection: "column", gap: 4 }}>
-                <div><span style={{ fontWeight: 700, color: nightPalette.text }}>What helps</span> · {r.benefit}</div>
-                <div><span style={{ fontWeight: 700, color: nightPalette.muted }}>What to watch for</span> · {r.caution}</div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-      {belief.evidenceQuotes.length > 0 && (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-          {[...belief.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
-            <div key={qi} style={{ ...sans, fontSize: 12, color: nightPalette.body, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{q.date}</span> · "{q.quote}"
-            </div>
-          ))}
-        </div>
-      )}
-      {hasLoopData && (
-        <div style={{ marginTop: 10 }}>
-          <motion.span
-            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }} onClick={() => setShowLoop((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setShowLoop((v) => !v))?.(); } }}
-            style={{ ...sans, fontSize: 11.5, color: nightPalette.text, fontWeight: 600, cursor: "pointer", display: "inline-block" }}
-          >
-            {showLoop ? "Collapse repeat structure ↑" : "See why this pattern repeats ↓"}
-          </motion.span>
-          {showLoop && (
-            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: "rgba(236,210,168,0.08)" }}>
-              <FunctionalLoopDiagram belief={belief} history={history} />
-            </div>
-          )}
-        </div>
-      )}
-      {onReject && (
-        <motion.span
-          role="button" tabIndex={0} onClick={() => onReject(belief.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onReject(belief.id))?.(); } }} whileTap={{ opacity: 0.6 }}
-          style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginTop: 10, display: "inline-block", cursor: "pointer" }}
-        >
-          This observation doesn't match how I see it
-        </motion.span>
-      )}
+  return <article className="patterns-detail-card" aria-label="Belief information">
+    <div className="patterns-detail-meta"><span>{belief.domain}</span><span>{belief.evidenceCount} pieces of evidence</span></div>
+    {belief.status === 'conflicted' && <p className="patterns-detail-status">Conflicting entries exist</p>}
+    {belief.status === 'supported' && <p className="patterns-detail-status">Confirmed repeatedly</p>}
+    {belief.thoughtLabel && <p className="patterns-thought-label">The "{belief.thoughtLabel}" thought keeps showing up</p>}
+    <div aria-live="polite"><h2 className="patterns-detail-statement">{reframeFlipped ? belief.distancedReframe : belief.statement}</h2></div>
+    {belief.distancedReframe && <button type="button" className="patterns-tool" aria-pressed={reframeFlipped} onClick={() => setReframeFlipped(value => !value)}>{reframeFlipped ? '← Back to the original' : 'See it from a distance →'}</button>}
+    <div className="patterns-confidence">
+      <div className="patterns-confidence-bar" aria-hidden="true"><span style={{ width: `${belief.confidence}%` }}/></div>
+      <p>Confidence {belief.confidence}%</p>
     </div>
-  );
+    {belief.confidenceHistory && belief.confidenceHistory.length >= 2 && <details className="patterns-disclosure patterns-history"><summary>Confidence history</summary><ConfidenceTrend history={belief.confidenceHistory}/></details>}
+    {ruminationLikely && <p className="patterns-observation">This thought has come back often in recent sessions.</p>}
+    {emotion && <p className="patterns-emotion">Predominant emotion · {emotion}</p>}
+    {patterns.length > 0 && <section className="patterns-tools-section" aria-label="Cognitive patterns"><h3>Cognitive patterns</h3>
+      {patterns.map(pattern => {
+        const reflection = COGNITIVE_PATTERN_REFLECTIONS[pattern as keyof typeof COGNITIVE_PATTERN_REFLECTIONS] ?? GENERIC_PATTERN_REFLECTION;
+        return <details className="patterns-disclosure patterns-cognitive" key={pattern}>
+          <summary>{pattern}</summary>
+          <div className="patterns-cognitive-content">
+            <p>{COGNITIVE_PATTERN_DESCRIPTIONS[pattern as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? ''}</p>
+            <p><strong>What helps</strong> · {reflection.benefit}</p>
+            <p><strong>What to watch for</strong> · {reflection.caution}</p>
+          </div>
+        </details>;
+      })}
+    </section>}
+    {belief.evidenceQuotes.length > 0 && <details className="patterns-disclosure"><summary>Recent evidence</summary>
+      {[...belief.evidenceQuotes].reverse().slice(0, 2).map((quote, index) => <blockquote className="patterns-evidence" key={index}><time>{quote.date}</time>"{quote.quote}"</blockquote>)}
+    </details>}
+    {hasLoopData && <section className="patterns-disclosure">
+      <button type="button" className="patterns-tool" aria-expanded={showLoop} aria-controls={showLoop ? loopId : undefined} onClick={() => setShowLoop(value => !value)}>{showLoop ? 'Collapse repeat structure ↑' : 'See why this pattern repeats →'}</button>
+      {showLoop && <div className="patterns-loop" id={loopId}><FunctionalLoopDiagram belief={belief} history={history}/></div>}
+    </section>}
+    {onReject && <div className="patterns-reject"><button type="button" className="patterns-tool" onClick={() => onReject(belief.id)}>This observation doesn't match how I see it</button></div>}
+  </article>;
 }
+
 
 // A small circular node/edge diagram for one cluster — deliberately not
 // force-directed (that needs real layout math for a payoff mainly visible
@@ -4703,8 +4604,8 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
     <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Beliefs That Support Each Other</div>
-      <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <div style={{ ...sans, fontSize: 14, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Beliefs That Support Each Other</div>
+      <div style={{ ...sans, fontSize: 14, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
         Core beliefs usually don't show up alone — several of them tend to appear together, propping each other up.
       </div>
       {clusters.map((clusterIds, ci) => {
@@ -4712,10 +4613,10 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
         if (clusterBeliefs.length === 0) return null;
         return (
           <div key={ci} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", display: "flex", gap: 14, alignItems: "center" }}>
-            <BeliefClusterDiagram count={clusterBeliefs.length} />
+            <div><BeliefClusterDiagram count={clusterBeliefs.length}/><div style={{fontSize:12,lineHeight:1.5,color:nightPalette.muted,maxWidth:96,marginTop:8}}>Simplified group illustration</div></div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 12.5, fontWeight: 600, color: nightPalette.text }}>{clusterBeliefs.length} beliefs are supporting each other</div>
-              <div style={{ ...sans, fontSize: 11.5, color: nightPalette.body, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+              <div style={{ ...sans, fontSize: 14, fontWeight: 600, color: nightPalette.text }}>{clusterBeliefs.length} beliefs are supporting each other</div>
+              <div style={{ ...sans, fontSize: 14, color: nightPalette.body, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
                 {clusterBeliefs.map((b) => `'${b.statement}'`).join(", ")}
               </div>
             </div>
@@ -4735,8 +4636,8 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (pairs.length === 0) return null;
   return (
     <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Tension Between What You've Said</div>
-      <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <div style={{ ...sans, fontSize: 14, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Tension Between What You've Said</div>
+      <div style={{ ...sans, fontSize: 14, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
         This doesn't decide which one is right. It just places the two side by side.
       </div>
       {pairs.map((p, i) => (
@@ -4745,7 +4646,7 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
           <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, margin: "8px 0", textAlign: "center" }}>and</div>
           <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: nightPalette.text, lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
           {p.note && (
-            <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${"rgba(236,210,168,0.09)"}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            <div style={{ ...sans, fontSize: 14, color: nightPalette.body, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${"rgba(236,210,168,0.09)"}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
               {p.note}
             </div>
           )}
@@ -4760,122 +4661,52 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
 // waiting is safer") are the same kind of thing at different specificity — one
 // screen now, sectioned, instead of two nearly-redundant ones.
 function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => void; store: Store; onRejectBelief?: (beliefId: string) => void }) {
-  const hasBeliefs = store.beliefs.length > 0;
-  const hasAssumptions = store.assumptions.length > 0;
-  const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
-  return (
-    // Use the shared frame background and a single scrolling content region.
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <span
-          role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: nightPalette.body, cursor: "pointer" }}
-        >
-          ← Back
-        </span>
-        <h1 className="evening-title" style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Unconscious Patterns</h1>
-        <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
-          {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
+  const visibleBeliefs = store.beliefs.filter(belief => belief.userReaction !== 'rejected');
+  const hasVisibleConnections = store.connections.some(connection => visibleBeliefs.some(belief => belief.id === connection.a) && visibleBeliefs.some(belief => belief.id === connection.b));
+  return <UnconsciousPatterns store={store} onBack={onBack}
+    renderBelief={(belief, returnToOverview) => <BeliefCard key={belief.id} belief={belief} history={store.history} connections={store.connections} onReject={onRejectBelief ? id => { onRejectBelief(id); returnToOverview(); } : undefined}/>}
+    about={<>
+      <p>{DISCLAIMER_NOTICE}</p>
+      <h2>Core Unconscious Beliefs</h2>
+      <p>Not something you'd say "this is what I believe" out loud — it's the background pattern that keeps showing up in your actual choices and words, regardless of the situation. Circle size / bar length reflects how much real evidence backs it. It takes at least 3 similar entries before one appears here — a single entry is never enough to create one.</p>
+      <h2>What's the difference between an unconscious belief and an interpretation?</h2>
+      <p>An unconscious belief is the thing that quietly runs in the background without you noticing it. An unconscious interpretation is the specific reaction that belief triggers in your actual words and actions at a particular moment. The belief is "why," and the interpretation is "the moment it actually happens." For example, the belief above, "{visibleBeliefs[0]?.statement ?? "I can only start once it's perfect"}," shows up as the concrete interpretation below — "When starting something new → puts it off, telling myself I'm not ready yet" — every time, in a specific action.</p>
+    </>}
+    renderInterpretations={() => <section aria-label="Recurring Unconscious Interpretations">
+      <h2 className="patterns-section-title">Recurring Unconscious Interpretations</h2>
+      <p className="patterns-section-description">Moments where "in this situation → I automatically interpret and act this way." More specific than an unconscious belief, with an actual observed trigger.</p>
+      {store.assumptions.length === 0 ? <p className="patterns-empty">No unconscious interpretations discovered yet.</p> : store.assumptions.map((assumption, index) => <article className="patterns-interpretation" key={assumption.id}>
+        <span className="patterns-interpretation-number">{String(index + 1).padStart(2, '0')}</span>
+        <div className="patterns-interpretation-body">
+          <p className="patterns-interpretation-trigger">{assumption.trigger}</p>
+          <p className="patterns-interpretation-statement">→ {assumption.interpretation}</p>
+          {assumption.domains && assumption.domains.length > 0 && <div className="patterns-domain-tags">{assumption.domains.map(domain => <span key={domain}>{domain}</span>)}</div>}
+          <p className="patterns-interpretation-count">Found in {assumption.count} conversations</p>
         </div>
-        <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          {DISCLAIMER_NOTICE}
-        </div>
-        <div style={{ marginTop: 28 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Core Unconscious Beliefs</div>
-          <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            Not something you'd say "this is what I believe" out loud — it's the background pattern that keeps showing up in your actual choices and words, regardless of the situation. Circle size / bar length reflects how much real evidence backs it. It takes at least 3 similar entries before one appears here — a single entry is never enough to create one.
-          </div>
-        </div>
-        <div style={{ marginTop: 10 }}>
-          {visibleBeliefs.length === 0 ? (
-            <div style={{ ...sans, fontSize: 13, color: nightPalette.muted, padding: "12px 0" }}>No unconscious beliefs discovered yet.</div>
-          ) : (
-            <div style={{ backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", borderRadius: 18, overflow: "hidden" }}>
-              {visibleBeliefs.map((b, i) => (
-                <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
-        <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
-
-        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: "rgba(236,210,168,0.06)", borderLeft: `2px solid ${"rgba(236,210,168,0.5)"}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.text, letterSpacing: "0.04em" }}>What's the difference between an unconscious belief and an interpretation?</div>
-          <div style={{ ...sans, fontSize: 12.5, color: nightPalette.body, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            An unconscious belief is the thing that quietly runs in the background without you noticing it. An unconscious interpretation is the specific reaction that belief triggers in your actual words and actions at a particular moment. The belief is "why," and the interpretation is "the moment it actually happens." For example, the belief above, "{visibleBeliefs[0]?.statement ?? "I can only start once it's perfect"}," shows up as the concrete interpretation below — "When starting something new → puts it off, telling myself I'm not ready yet" — every time, in a specific action.
-          </div>
-        </div>
-
-        <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Recurring Unconscious Interpretations</div>
-          <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            Moments where "in this situation → I automatically interpret and act this way." More specific than an unconscious belief, with an actual observed trigger.
-          </div>
-          <div style={{ marginTop: 12 }}>
-            {!hasAssumptions ? (
-              <div style={{ ...sans, fontSize: 13, color: nightPalette.muted, padding: "12px 0" }}>No unconscious interpretations discovered yet.</div>
-            ) : (
-              <div style={{ backgroundColor: nightPalette.surface, boxShadow: "none", border: "1px solid rgba(236,210,168,0.08)", borderRadius: 18, overflow: "hidden" }}>
-                {store.assumptions.map((a, i) => (
-                  <div key={a.id} style={{ display: "flex", gap: 14, padding: 18, borderBottom: i < store.assumptions.length - 1 ? `1px solid ${"rgba(236,210,168,0.09)"}` : "none" }}>
-                    <div style={{ ...mono, fontSize: 18, fontWeight: 700, color: nightPalette.text, lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
-                    <div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body }}>{a.trigger}</span>
-                        <span style={{ ...serif, fontSize: 16, color: nightPalette.text, lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
-                      </div>
-                      {a.domains && a.domains.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                          {a.domains.map((d: string) => (
-                            <span key={d} style={{ ...sans, fontSize: 11, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 9px", borderRadius: 999 }}>{d}</span>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 8 }}>Found in {a.count} conversations</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {store.connections.length > 0 && (
-          <div style={{ marginTop: 26 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.06em" }}>Discovered Connections</div>
-            <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Two unconscious beliefs that looked different turn out to come from the same root cause.
-            </div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-              {store.connections.map((c, i) => {
-                const from = visibleBeliefs.find((b) => b.id === c.a);
-                const to = visibleBeliefs.find((b) => b.id === c.b);
-                if (!from || !to) return null;
-                return (
-                  <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(236,210,168,0.06)" }}>
-                    <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
-                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ ...sans, fontSize: 12.5, color: nightPalette.text, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: nightPalette.text }}>{from.domain}</span> — "{from.statement}"
-                      </div>
-                      <div style={{ ...sans, fontSize: 12.5, color: nightPalette.text, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: nightPalette.text }}>{to.domain}</span> — "{to.statement}"
-                      </div>
-                    </div>
-                    <div style={{ ...sans, fontSize: 13, color: nightPalette.body, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      </article>)}
+    </section>}
+    renderConnections={openBelief => <div className="patterns-connections">
+      <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections}/>
+      <ContradictionSection beliefs={visibleBeliefs} connections={store.connections}/>
+      {store.connections.length > 0 && <section className="patterns-existing-section">
+        <h2>Discovered Connections</h2>
+        <p className="patterns-section-description">Two unconscious beliefs that looked different turn out to come from the same root cause.</p>
+        {store.connections.map((connection, index) => {
+          const from = visibleBeliefs.find(belief => belief.id === connection.a);
+          const to = visibleBeliefs.find(belief => belief.id === connection.b);
+          if (!from || !to) return null;
+          return <article key={index} className="patterns-connection-pair">
+            <ConnectionSpark aLabel={from.domain} bLabel={to.domain} still/>
+            {[from, to].map(belief => <button type="button" key={belief.id} className="patterns-connection-belief" data-open-belief={belief.id} aria-label={`View belief: ${belief.statement}`} onClick={() => openBelief(belief.id)}><strong>{belief.domain}</strong> · "{belief.statement}"<span className="patterns-open-label"> — View belief →</span></button>)}
+            <p className="patterns-connection-note">{connection.note}</p>
+          </article>;
+        })}
+      </section>}
+      {!hasVisibleConnections && <p className="patterns-empty">No discovered connections yet.</p>}
+    </div>}
+  />;
 }
+
 
 // ── Screen 10 · Identity Drift ────────────────────────────────────────────────
 // Identity Drift isn't a before/after mood chart — it's a gap between a
@@ -7658,6 +7489,7 @@ export default function App() {
               transition={{ duration: reduceMotion ? 0.01 : isThink ? 0.24 : isPrimaryTab ? 0.18 : 0.22, ease: "easeOut" }}
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
+              {["analysis", "discoveryAnalysis", "history"].includes(screen) && <EveningAtmosphere/>}
               <div className="screen-content">{content}</div>
             </motion.div>
           </AnimatePresence>
