@@ -1,3 +1,4 @@
+import { STELLAR_PROFILE } from './stellarProfile';
 import { createHomeNebulaScene } from "./homeNebulaScene";
 import { night } from "./nightTheme";
 import React, { useEffect, useRef, useState } from "react";
@@ -101,85 +102,25 @@ const srOnlyStyle: React.CSSProperties = {
 // grid / cached colors elsewhere), this keeps that discipline.
 const _keyboardFocusProjVec = new THREE.Vector3();
 
-// A real 4-point sparkle (the "north star" glyph — ✦), not a plain dot: a
-// small solid core plus two tapering rays, one vertical one horizontal.
-// The core stays crisp (solid center, only its own rim feathered) — the
-// rays taper to a point by design, which reads as "a sharp star spike,"
-// not as the shapeless blur a soft-edged circle read as before.
+// Same radial light profile as the DOM nodes on Home and in History.
 function makeStarTexture(): THREE.Texture {
-  const size = 128;
-  const c = size / 2;
-  const cvs = document.createElement("canvas");
-  cvs.width = size;
-  cvs.height = size;
-  const ctx = cvs.getContext("2d")!;
-
-  const drawRay = (length: number, width: number, vertical: boolean) => {
-    ctx.save();
-    ctx.translate(c, c);
-    if (vertical) ctx.rotate(Math.PI / 2);
-    const grad = ctx.createLinearGradient(-length, 0, length, 0);
-    grad.addColorStop(0, "rgba(255,255,255,0)");
-    grad.addColorStop(0.5, "rgba(255,255,255,1)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(-length, -width * 0.1);
-    ctx.lineTo(-width * 0.5, -width * 0.5);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(-width * 0.5, width * 0.5);
-    ctx.lineTo(-length, width * 0.1);
-    ctx.lineTo(0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(length, -width * 0.1);
-    ctx.lineTo(width * 0.5, -width * 0.5);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(width * 0.5, width * 0.5);
-    ctx.lineTo(length, width * 0.1);
-    ctx.lineTo(0, 0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  };
-  drawRay(size * 0.5, size * 0.1, false);
-  drawRay(size * 0.5, size * 0.1, true);
-
-  // Solid crisp core on top of the rays — this is the part that must never
-  // read as soft, per the earlier "not blurry" fix: opaque out to 70% of
-  // its own small radius, only the last 30% anti-aliased.
-  const core = ctx.createRadialGradient(c, c, 0, c, c, size * 0.16);
-  core.addColorStop(0, "rgba(255,255,255,1)");
-  core.addColorStop(0.7, "rgba(255,255,255,1)");
-  core.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(c, c, size * 0.16, 0, Math.PI * 2);
-  ctx.fill();
-
-  const tex = new THREE.CanvasTexture(cvs);
-  // Mipmapping blurs a small point sprite further as the camera moves back
-  // — turn it off and pin to linear filtering so the sparkle stays exactly
-  // this crisp at any distance.
-  tex.generateMipmaps = false;
-  tex.minFilter = THREE.LinearFilter;
-  tex.magFilter = THREE.LinearFilter;
-  return tex;
+  const size = 128, center = size / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  const gradient = context.createRadialGradient(center, center, 0, center, center, center);
+  for (const [radius, alpha] of STELLAR_PROFILE) {
+    gradient.addColorStop(radius, `rgba(255,255,255,${alpha})`);
+  }
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.generateMipmaps = false;
+  texture.minFilter = texture.magFilter = THREE.LinearFilter;
+  return texture;
 }
 
-// ── Star field material — every node (real belief or dormant tissue) gets
-// its own fixed twinkle phase/speed (aTwinkle, seeded via stableUnit so
-// it's stable across reloads, not Math.random) and its own point size
-// (aSize — previously computed per-point but never actually bound to the
-// geometry, so every point silently rendered at the same flat material.size
-// regardless of whether it was a real belief or background dust; binding it
-// here is what makes real "coded" nodes actually read as bigger/brighter
-// stars than the dormant field around them, not just differently colored).
-// gl_PointSize replicates PointsMaterial's own sizeAttenuation formula
-// (size * scale / -mvZ, scale = 0.5 * canvas height in device pixels) so
-// swapping the material doesn't also change the base scale everything was
-// already tuned against.
+// Per-point size, color, twinkle and selection remain data-driven.
 const STAR_VERTEX_SHADER = `
   attribute vec3 color;
   attribute float aSize;
@@ -222,14 +163,7 @@ const STAR_VERTEX_SHADER = `
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
-// Discard near-zero-alpha fragments instead of letting them blend — with
-// AdditiveBlending, every point's soft rim was summing on top of its
-// neighbors' rims in the dense field, so whole regions read as a blurred
-// glow instead of individual dots. Normal (non-additive) blending fixes
-// that. The threshold itself stays low (0.04, just skipping fully-invisible
-// pixels) rather than a hard cutoff — the sparkle's rays are *supposed* to
-// taper to nothing at their tips, that's the star shape, not blur; a high
-// cutoff would just chop the rays off short.
+// Skip the invisible outer halo to keep dense structural points legible.
 const STAR_FRAGMENT_SHADER = `
   uniform sampler2D uMap;
   varying vec3 vColor;
@@ -558,7 +492,7 @@ export default function BrainNodeMapScreen({
     // Was 2.2 — that kept the camera further out than the brain shell's own
     // radius (~1.5 units), so you could never actually get close to
     // individual stars. 0.5 lets you push in past the outer shell, close
-    // enough to read individual sparkle shapes (see the point-size clamp
+    // enough to read individual stellar cores (see the point-size clamp
     // in STAR_VERTEX_SHADER, which keeps this from blowing points up into
     // oversized blobs at this range).
     controls.minDistance = 0.5;
@@ -891,7 +825,7 @@ export default function BrainNodeMapScreen({
         }
       }
 
-      homeNebula?.render(t.camera);
+      homeNebula?.render(t.camera,dt);
       t.renderer.render(t.scene, t.camera);
       if(homePresentation && homeCallbacks.current.onHomeProject){
         const width=wrap.clientWidth,height=wrap.clientHeight;

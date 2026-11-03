@@ -1,3 +1,4 @@
+import StellarNode from './StellarNode';
 import React from "react";
 import {SlidersHorizontal,Plus,Minus,Scan} from "lucide-react";
 import BrainNodeMapScreen,{type HomeBrainProjection,type HomeBrainControls} from "./BrainNodeMapScreen";
@@ -41,7 +42,7 @@ export default function HomeThoughtMap({beliefs,connections,selectedId,onSelect,
       const active=belief.id===highlight,label=belief.thoughtLabel?.replace(/ thought$/i,"")||belief.statement;
       return <button key={belief.id} ref={node=>{if(node)buttons.current.set(belief.id,node);else buttons.current.delete(belief.id);}} className={`home-brain-information-node${active?" is-selected":""}`} data-node-id={belief.id} tabIndex={(focusId??sorted[0]?.id)===belief.id?0:-1} onFocus={()=>setFocusId(belief.id)} aria-label={`Open interpretation: ${belief.thoughtLabel||belief.statement}`} aria-pressed={active} onClick={()=>onSelect(belief.id)} onKeyDown={e=>{
         if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(e.key)){e.preventDefault();e.stopPropagation();const next=sorted[(index+(["ArrowRight","ArrowDown"].includes(e.key)?1:-1)+sorted.length)%sorted.length];setFocusId(next.id);buttons.current.get(next.id)?.focus();}
-      }}><span className="home-brain-node-halo"/><span className="home-brain-node-core"/>{(active||index<3)&&<span className="home-brain-label">{label}</span>}</button>;
+      }}><StellarNode color={active?"#ffc16a":"#ffe2b2"} size={active?57:40}/>{(active||index<3)&&<span className="home-brain-label">{label}</span>}</button>;
     })}</div>
     <details className="observatory-map-tools"><summary aria-label="Map controls and more destinations"><SlidersHorizontal size={17}/></summary><div><div className="observatory-zoom"><button aria-label="Zoom in" onClick={()=>controls.current?.zoom(1.2)}><Plus size={18}/></button><button aria-label="Zoom out" onClick={()=>controls.current?.zoom(1/1.2)}><Minus size={18}/></button><button aria-label="Fit map" onClick={()=>controls.current?.reset()}><Scan size={18}/></button></div><button onClick={onOpenMind}>Open Mind overview</button><button onClick={onOpenFullMap}>Open full Brain Map</button></div></details>
   </div>;

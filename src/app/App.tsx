@@ -1,6 +1,12 @@
+import StellarNode from './StellarNode';
+import { getOpeningQuote } from "./dailyQuotes";
+import QuotePortrait from "./QuotePortrait";
+import "./quote-portrait.css";
+import { eveningTone } from "./eveningTheme";
+import "./evening-screens.css";
 import IdealSelfScreen from "./idealSelf/IdealSelfScreen";
 import { deleteIdealSelfForReset } from "./idealSelf/client";
-import { night as nightPalette, nightBackground } from "./nightTheme";
+import { night as nightPalette } from "./nightTheme";
 import StargazingNav from "./StargazingNav";
 import StargazingHome, { type HomeProps } from "./StargazingHome";
 import React from "react";
@@ -76,8 +82,8 @@ const accent = nightPalette.gold;
 const accentSoft = nightPalette.goldSoft;
 const tension = nightPalette.warning;
 const tensionSoft = nightPalette.goldSoft;
-const dkBg = nightPalette.background;
-const dkCard = nightPalette.surface;
+const dkBg = "var(--evening-ground, #0e1922)";
+const dkCard = "var(--evening-surface, #172630)";
 const dkCardBorder = nightPalette.border;
 const dkCardShadow = nightPalette.shadow;
 const dkHeading = nightPalette.text;
@@ -86,17 +92,17 @@ const dkBodyLight = nightPalette.text;
 const dkAccent = nightPalette.gold;
 const dkAccentLight = nightPalette.goldHover;
 const dkAccentSoft = nightPalette.goldSoft;
-const dkAccentTag = nightPalette.surfaceRaised;
+const dkAccentTag = "var(--evening-raised, #20313b)";
 const dkAccentTagText = nightPalette.gold;
-const dkTrack = nightPalette.surfaceRaised;
+const dkTrack = "var(--evening-raised, #20313b)";
 const dkWarn = nightPalette.warning;
 const dkWarnSoft = nightPalette.goldSoft;
 const dkWarnTag = nightPalette.surfaceRaised;
 const dkWarnTagText = nightPalette.warning;
 const dkWarnLabel = nightPalette.warning;
 const dkDivider = nightPalette.border;
-const mdBg = nightPalette.background;
-const mdCard = nightPalette.surface;
+const mdBg = "var(--evening-ground, #0e1922)";
+const mdCard = "var(--evening-surface, #172630)";
 const mdCardShadow = nightPalette.shadow;
 const mdCardShadowLg = nightPalette.shadow;
 const mdHeading = nightPalette.text;
@@ -107,11 +113,11 @@ const mdAccent = nightPalette.gold;
 const mdAccentHover = nightPalette.goldHover;
 const mdAccentText = nightPalette.gold;
 const mdAccentSoft = nightPalette.goldSoft;
-const mdAccentTag = nightPalette.surfaceRaised;
+const mdAccentTag = "var(--evening-raised, #20313b)";
 const mdAccentTagText = nightPalette.gold;
-const mdTrack = nightPalette.surfaceRaised;
+const mdTrack = "var(--evening-raised, #20313b)";
 const mdDivider = nightPalette.border;
-const mdNeutralTag = nightPalette.surfaceRaised;
+const mdNeutralTag = "var(--evening-raised, #20313b)";
 const mdNeutralTagText = nightPalette.body;
 const mdWarn = nightPalette.warning;
 const mdWarnSoft = nightPalette.goldSoft;
@@ -120,19 +126,19 @@ const paperInk = nightPalette.text;
 const paperInkMuted = nightPalette.body;
 const mdWarnTagText = nightPalette.warning;
 const mdWarnLabel = nightPalette.warning;
-const vtgDusk = nightPalette.background;
+const vtgDusk = "var(--evening-ground, #0e1922)";
 const vtgInk = nightPalette.text;
 const vtgInkMuted = nightPalette.body;
 const vtgAccent = nightPalette.gold;
 const vtgCream = nightPalette.text;
 const vtgCreamMuted = nightPalette.body;
-const vtgCard = nightPalette.surface;
+const vtgCard = "var(--evening-surface, #172630)";
 const vtgCardShadow = nightPalette.shadow;
 const ivBg1 = nightPalette.backgroundTop;
-const ivBg2 = nightPalette.backgroundMid;
+const ivBg2 = "var(--evening-ground, #0e1922)";
 const ivBg3 = nightPalette.background;
-const ivSurface = nightPalette.surface;
-const ivSurfaceSolid = nightPalette.surface;
+const ivSurface = "var(--evening-surface, #172630)";
+const ivSurfaceSolid = "var(--evening-surface, #172630)";
 const ivCardShadow = nightPalette.shadow;
 const ivBorder = nightPalette.border;
 const ivHeading = nightPalette.text;
@@ -143,12 +149,12 @@ const cardShadow = nightPalette.shadow;
 const paperAccent = nightPalette.gold;
 const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
 const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
-const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
-const ivBackground: React.CSSProperties = nightBackground;
-const dkStarfield: React.CSSProperties = nightBackground;
+const mono = { ...sans, fontVariantNumeric: "tabular-nums" as const };
+const ivBackground: React.CSSProperties = {background:"transparent"};
+const dkStarfield: React.CSSProperties = ivBackground;
 
 // Consistent primary-screen spacing, with a reflective serif title.
-const PRIMARY_HEADER_TOP = 34; // px down from each screen's own full-bleed top edge
+const PRIMARY_HEADER_TOP = 26; // px below the shared content inset
 const PRIMARY_HEADER_SIDE = 30; // px — same left/right grid every primary screen's own body content already uses
 // "Deep charcoal / muted taupe / quieter taupe" — the three text weights
 // every primary screen's header should be drawn from, instead of each
@@ -158,12 +164,12 @@ const PRIMARY_HEADER_SIDE = 30; // px — same left/right grid every primary scr
 const HEADER_TEXT_PRIMARY = ivHeading;
 const HEADER_TEXT_SECONDARY = ivBody;
 const HEADER_TEXT_TERTIARY = ivFaint;
-const primaryTitleStyle: React.CSSProperties = { ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: HEADER_TEXT_PRIMARY };
+const primaryTitleStyle: React.CSSProperties = { ...sans, fontSize: 25, fontWeight: 500, letterSpacing: "-.035em", lineHeight: 1.15, color: HEADER_TEXT_PRIMARY };
 // whiteSpace/overflow/textOverflow is a safety net, not the primary fix —
 // every subtitle string itself was shortened to comfortably fit one line;
 // this just guarantees it can never wrap even if a header's control row
 // leaves less room than expected.
-const primaryTitleSubtitleStyle: React.CSSProperties = { ...sans, fontSize: 12, fontWeight: 400, color: HEADER_TEXT_SECONDARY, marginTop: 3, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const primaryTitleSubtitleStyle: React.CSSProperties = { ...sans, fontSize: 12, fontWeight: 400, color: HEADER_TEXT_SECONDARY, marginTop: 3, lineHeight: 1.3, whiteSpace: "normal" };
 
 // ── Status bar ────────────────────────────────────────────────────────────────
 function StatusBar({ modernist }: { modernist?: boolean }) {
@@ -261,17 +267,18 @@ function BottomNav({ active, onSelect }: { active: string; onSelect?: (id: strin
 function PrimaryBtn({ children, onClick, disabled, modernist = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean }) {
   return (
     <motion.button
+      className="evening-primary-action"
       type="button"
       disabled={disabled}
       onClick={onClick}
-      whileHover={disabled ? undefined : { y: -1 }}
+      whileHover={undefined}
       whileTap={disabled ? undefined : { scale: 0.985, opacity: 0.92 }}
-      whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.18)" : "rgba(255,255,255,.14)"}` }}
+      whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${modernist ? "rgba(236,210,168,.18)" : "rgba(255,255,255,.14)"}` }}
       style={{
-        ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
-        backgroundColor: disabled ? (modernist ? mdTrack : dkTrack) : (modernist ? mdAccent : dkAccent),
+        ...sans, width: "100%", minHeight: 52, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
+        backgroundColor: disabled ? (modernist ? mdTrack : dkTrack) : "#faead2",
         color: disabled ? nightPalette.muted : nightPalette.background,
-        border: 0, borderRadius: 14, fontSize: 16, fontWeight: 600,
+        border: 0, borderRadius: 999, fontSize: 15, fontWeight: 500,
         cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.72 : 1,
         WebkitTapHighlightColor: "transparent",
       }}
@@ -284,15 +291,16 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false }: { childr
 function GhostBtn({ children, onClick, modernist = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean }) {
   return (
     <motion.button
+      className="evening-secondary-action"
       type="button"
       onClick={onClick}
-      whileHover={{ backgroundColor: modernist ? "rgba(91,77,130,.045)" : "rgba(255,255,255,.035)" }}
+      whileHover={undefined}
       whileTap={{ scale: 0.985, opacity: 0.72 }}
-      whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.14)" : "rgba(255,255,255,.10)"}` }}
+      whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(236,210,168,.14)" : "rgba(255,255,255,.10)"}` }}
       style={{
-        ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
+        ...sans, width: "100%", minHeight: 52, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
         backgroundColor: "transparent", color: modernist ? mdBody : dkBody,
-        border: `1px solid ${modernist ? mdDivider : dkDivider}`, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer",
+        border: `1px solid ${modernist ? mdDivider : dkDivider}`, borderRadius: 14, fontSize: 14, fontWeight: 500, cursor: "pointer",
         WebkitTapHighlightColor: "transparent",
       }}
     >
@@ -306,8 +314,8 @@ function BackButton({ onClick, color = mdBody }: { onClick?: () => void; color?:
     <motion.button
       type="button" aria-label="Go back" onClick={onClick}
       whileTap={{ opacity: 0.58 }}
-      whileFocus={{ boxShadow: "0 0 0 3px rgba(91,77,130,.12)" }}
-      style={{ ...sans, minHeight: 36, margin: "-8px -10px", padding: "8px 10px", border: 0, borderRadius: 10, background: "transparent", fontSize: 13, color, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(236,210,168,.12)" }}
+      style={{ ...sans, minHeight: 44, margin: "-8px -10px", padding: "8px 10px", border: 0, borderRadius: 10, background: "transparent", fontSize: 13, color, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
     >
       ← Back
     </motion.button>
@@ -343,7 +351,7 @@ function ConfidenceBar({ value, dark, modernist }: { value: number; dark?: boole
 // for the pattern this would follow if a dark consumer ever showed up).
 function ScreenPivot({ kicker, statement, counter, cta }: { kicker?: string; statement: React.ReactNode; counter?: string; cta?: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 24px 14px", minHeight: 0 }}>
         <div style={{ flex: 1.4 }} />
         <div>
@@ -375,7 +383,7 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
     <div style={{ display: "flex", flexDirection: "column" }}>
       {rows.map((row, ri) => (
         <div key={row.label} style={{ paddingTop: ri === 0 ? 0 : 16, paddingBottom: ri < rows.length - 1 ? 16 : 0, borderBottom: ri < rows.length - 1 ? `1px solid ${mdDivider}` : "none" }}>
-          <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: row.accent ? mdAccentText : mdBody, letterSpacing: "0.03em", marginBottom: 10 }}>{row.label}</div>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: row.accent ? mdAccentText : mdBody, letterSpacing: "0.03em", marginBottom: 10 }}>{row.label}</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             {row.steps.map((step, i) => (
               <React.Fragment key={step}>
@@ -394,37 +402,14 @@ function AlignedRowCompare({ rows }: { rows: { label: string; steps: string[]; a
 // This deliberately lives before the branded splash instead of on Home. The
 // old Home quote block competed with the hero photograph, while the opening
 // beat gives the quote its own quiet moment without adding permanent UI.
-// Selection is based on the user's local calendar date, so reopening the app
-// on the same day shows the same line and the quote naturally turns over at
-// midnight without needing persistence or another store field.
-const DAILY_QUOTES = [
-  { text: "We don't see things as they are, we see them as we are.", author: "Anaïs Nin" },
-  { text: "The privilege of a lifetime is to become who you truly are.", author: "Carl Jung" },
-  { text: "No man is free who is not master of himself.", author: "Epictetus" },
-  { text: "Life can only be understood backwards; but it must be lived forwards.", author: "Søren Kierkegaard" },
-  { text: "The quieter you become, the more you are able to hear.", author: "Rumi" },
-  { text: "What you seek is seeking you.", author: "Rumi" },
-  { text: "I am rooted, but I flow.", author: "Virginia Woolf" },
-  { text: "One does not become enlightened by imagining figures of light, but by making the darkness conscious.", author: "Carl Jung" },
-  { text: "The curious paradox is that when I accept myself just as I am, then I can change.", author: "Carl Rogers" },
-  { text: "Your vision will become clear only when you can look into your own heart.", author: "Carl Jung" },
-  { text: "The only journey is the one within.", author: "Rainer Maria Rilke" },
-  { text: "There is no greater agony than bearing an untold story inside you.", author: "Maya Angelou" },
-] as const;
-
-function getDailyQuote(now = new Date()) {
-  // Local midnight is intentional: "today" should follow the person's day,
-  // not UTC, especially around late evening / early morning app opens.
-  const localDayNumber = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86_400_000);
-  return DAILY_QUOTES[((localDayNumber % DAILY_QUOTES.length) + DAILY_QUOTES.length) % DAILY_QUOTES.length];
-}
-
+// Each app launch chooses a random author and a matching quote/portrait.
+// The selection remains fixed while the app is open.
 function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
-  const quote = React.useMemo(() => getDailyQuote(), []);
+  const quote = React.useMemo(() => getOpeningQuote(), []);
   const reducedMotion = useReducedMotion();
 
   React.useEffect(() => {
-    const t = setTimeout(() => onDone?.(), reducedMotion ? 2600 : 3600);
+    const t = setTimeout(() => onDone?.(), reducedMotion ? 6500 : 8500);
     return () => clearTimeout(t);
   }, [onDone, reducedMotion]);
 
@@ -456,41 +441,18 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         overflow: "hidden",
       }}
     >
-      {/* Almost imperceptible star field: enough to connect this opening beat
-          to the Brain Map visual language without turning it into a second
-          hero illustration. */}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {[
-          [13, 17, 1.2, .34], [27, 72, 1.0, .22], [43, 11, 1.5, .28], [58, 83, 1.1, .2],
-          [71, 24, .9, .24], [80, 67, 1.3, .3], [18, 88, .8, .18], [91, 39, 1.0, .2],
-        ].map(([top, left, size, opacity], i) => (
-          <motion.span
-            key={i}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: reducedMotion ? opacity : [opacity * .55, opacity, opacity * .55] }}
-            transition={reducedMotion ? undefined : { duration: 3.4 + (i % 3) * .7, repeat: Infinity, ease: "easeInOut", delay: i * .17 }}
-            style={{ position: "absolute", top: `${top}%`, left: `${left}%`, width: size, height: size, borderRadius: "50%", background: "#FFF9ED", boxShadow: "0 0 7px rgba(255,249,237,.45)" }}
-          />
-        ))}
-      </div>
 
-      <motion.div
-        initial={reducedMotion ? false : { opacity: 0, y: 7 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
-        style={{ ...mono, fontSize: 10.5, letterSpacing: ".17em", textTransform: "uppercase", color: "rgba(243,238,228,.52)", zIndex: 1 }}
-      >
-        Quote of the day
-      </motion.div>
 
-      <div style={{ flex: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
+      <div className="daily-quote-composition" style={{ flex: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
         <motion.div
           initial={reducedMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : .9, delay: reducedMotion ? 0 : .35, ease: "easeOut" }}
-          style={{ width: "100%", transform: "translateY(-2%)" }}
+          className="daily-quote-content"
+          style={{ width: "100%" }}
         >
-          <div style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: "#F3EEE4", wordBreak: "keep-all" }}>
+          <QuotePortrait id={quote.portrait} author={quote.author}/>
+          <div className="daily-quote-passage" style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: "#F3EEE4", wordBreak: "keep-all" }}>
             “{quote.text}”
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 24 }}>
@@ -504,7 +466,7 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: .42 }}
         transition={{ duration: reducedMotion ? 0 : .6, delay: reducedMotion ? 0 : 1.25 }}
-        style={{ ...sans, fontSize: 10.5, letterSpacing: ".04em", textAlign: "center", zIndex: 1 }}
+        style={{ ...sans, fontSize: 11, letterSpacing: ".04em", textAlign: "center", zIndex: 1 }}
       >
         Tap anywhere to continue
       </motion.div>
@@ -512,7 +474,7 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
   );
 }
 
-const OPENING_BG = nightPalette.background;
+const OPENING_BG = "var(--evening-ground, #0e1922)";
 const OPENING_TEXT = nightPalette.text;
 const OPENING_MUTED = nightPalette.body;
 
@@ -535,8 +497,8 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: "transparent", color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
+
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         {/* Staggered reveal instead of one fade block — reads in the same
             order a person would actually read it (kicker, then the line
@@ -549,6 +511,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
           initial={reducedMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0, ease: [0.16, 1, 0.3, 1] }}
+          className="opening-wordmark"
           style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}
         >
           Mindscape
@@ -577,10 +540,10 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 // ── Screen 2 · Auth ───────────────────────────────────────────────────────────
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent", position: "relative", overflow: "hidden" }}>
+
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
+        <h1 className="opening-wordmark" style={{ ...serif, fontSize: 32, fontWeight:400, margin:0, color: OPENING_TEXT, textAlign: "center" }}>Mindscape</h1>
         <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
@@ -594,7 +557,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
         Privacy's own "Download my data" is the one way to get ahead of
         that, so it's worth naming right here rather than only discoverable
         after the fact in Settings. */}
-        <div style={{ ...sans, fontSize: 11.5, color: "rgba(243,238,228,.42)", textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 12, color: nightPalette.muted, textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Browsing as a guest keeps everything only on this device — nothing to restore if it's ever cleared. You can export a copy anytime from Settings.
         </div>
       </div>
@@ -681,13 +644,13 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent", position: "relative", overflow: "hidden" }}>
+
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Welcome back</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Welcome back</h1>
         <div style={{ marginTop: 24 }}>
           <TextField dark label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
           <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
@@ -751,13 +714,13 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent", position: "relative", overflow: "hidden" }}>
+
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Let's create an account</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Let's create an account</h1>
         <div style={{ ...sans, fontSize: 12.5, color: OPENING_MUTED, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
           {isCloudSyncConfigured
             ? "Synced privately to your account, so it's there on any device you log into — never sold, never shared."
@@ -1042,8 +1005,8 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const isInteractive = i === 1;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
-      <OpeningStars />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent", overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
+
       <div style={{ display: "flex", gap: 6, position: "relative", zIndex: 1, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
           <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(243,238,228,.7)" : "rgba(243,238,228,.12)" }} />
@@ -1112,7 +1075,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             placeholder="e.g. I want to be someone who chooses challenge over safety."
             aria-label="What kind of person do you want to become?"
             style={{
-              ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+              ...sans, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
               backgroundColor: "transparent", color: OPENING_TEXT, fontSize: 18, lineHeight: 1.7,
               wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "dark",
             }}
@@ -1389,7 +1352,7 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivHeading }}>{label}</span>
-        {badge && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
+        {badge && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
       </div>
       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
     </motion.div>
@@ -1533,7 +1496,7 @@ function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs
             style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${ivBorder}`, borderRadius: 999, background: "rgba(236,210,168,0.03)", padding: "8px 10px", cursor: "pointer", color: ivHeading }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
             <span style={{ ...sans, fontSize: 11.5 }}>{REGION_CONFIG[region].label}</span>
-            <span style={{ ...mono, fontSize: 10.5, color: ivFaint }}>{counts.get(region) ?? 0}</span>
+            <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{counts.get(region) ?? 0}</span>
           </motion.button>
         ))}
       </div>
@@ -1573,7 +1536,7 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
   return (
     <div style={{ width: "fit-content", maxWidth: "100%", margin: "8px auto 0" }}>
-      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, marginBottom: 6 }}>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, marginBottom: 6 }}>
         {justLogged ? `✓ Logged: ${justLogged}` : "Quick Check-In"}
       </div>
       <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
@@ -1643,7 +1606,7 @@ function DiscoveryBeliefList({ beliefIds, store, modernist = false }: { beliefId
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
         {items.map((belief) => (
           <div key={belief.id} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: tagBg, borderRadius: 12, padding: "10px 12px" }}>
-            <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: tagText, flexShrink: 0 }}>{belief.domain}</span>
+            <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tagText, flexShrink: 0 }}>{belief.domain}</span>
             <span style={{ ...serif, fontSize: 13.5, color: heading, flex: 1, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</span>
             <span style={{ ...mono, fontSize: 11, color: tagText, flexShrink: 0 }}>{belief.confidence}%</span>
           </div>
@@ -1707,7 +1670,7 @@ function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 2px", borderBottom: last ? "none" : `1px solid ${mdDivider}` }}>
       <span style={{ ...sans, fontSize: 13.5, color: mdFaint }}>{label}</span>
-      <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: mdBody, backgroundColor: mdNeutralTag, padding: "3px 9px", borderRadius: 999 }}>Coming soon</span>
+      <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: mdBody, backgroundColor: mdNeutralTag, padding: "3px 9px", borderRadius: 999 }}>Coming soon</span>
     </div>
   );
 }
@@ -1895,8 +1858,8 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
           <polyline points={points} fill="none" stroke="rgba(236,210,168,0.55)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ ...mono, fontSize: 9.5, color: nightPalette.muted }}>{shortMonthDay(weeks[0].weekStart)}</span>
-          <span style={{ ...mono, fontSize: 9.5, color: nightPalette.muted }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
+          <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{shortMonthDay(weeks[0].weekStart)}</span>
+          <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
         </div>
       </div>
 
@@ -1911,7 +1874,7 @@ function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
               <div key={wk.weekStart}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ ...sans, fontSize: 11, color: nightPalette.text }}>{shortMonthDay(wk.weekStart)}</span>
-                  {total > 0 && <span style={{ ...mono, fontSize: 10, color: nightPalette.muted }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
+                  {total > 0 && <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
                 </div>
                 <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(236,210,168,0.08)" }}>
                   {total > 0 && (
@@ -2016,11 +1979,11 @@ function RecordingHeatmap({ history }: { history: StoredHistoryEntry[] }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
         <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>{totalDaysRecorded} day{totalDaysRecorded === 1 ? "" : "s"} recorded in the last {RECORDING_HEATMAP_WEEKS} weeks</span>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ ...sans, fontSize: 9.5, color: nightPalette.muted }}>Less</span>
+          <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>Less</span>
           <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.07)" }} />
           <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.3)" }} />
           <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.55)" }} />
-          <span style={{ ...sans, fontSize: 9.5, color: nightPalette.muted }}>More</span>
+          <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>More</span>
         </div>
       </div>
     </div>
@@ -2180,7 +2143,7 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
               {hasNext && <div style={{ width: 2, flex: 1, backgroundColor: ivDivider, minHeight: 28 }} />}
             </div>
             <div style={{ paddingBottom: 20 }}>
-              <div style={{ ...mono, fontSize: 10.5, color: ivFaint, marginBottom: 3 }}>{p.label}</div>
+              <div style={{ ...mono, fontSize: 11, color: ivFaint, marginBottom: 3 }}>{p.label}</div>
               <p style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: ivBody, margin: 0, lineHeight: 1.4, wordBreak: "keep-all" }}>{p.text}</p>
             </div>
           </div>
@@ -2198,8 +2161,8 @@ function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: strin
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ ...mono, fontSize: 10.5, color: ivFaint }}>{date}</span>
-        {domain && <span style={{ ...sans, fontSize: 10, fontWeight: 700, color: ivHeading, letterSpacing: "0.04em" }}>{domain}</span>}
+        <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{date}</span>
+        {domain && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, letterSpacing: "0.04em" }}>{domain}</span>}
       </div>
       <p style={{ ...serif, fontStyle: "italic", fontSize: 14.5, color: ivBody, margin: 0, lineHeight: 1.5, wordBreak: "keep-all" }}>"{quote}"</p>
     </div>
@@ -2321,7 +2284,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
   const notebookInactiveRegions = COGNITIVE_REGIONS.filter((r) => (notebookRegionCounts.get(r) ?? 0) === 0);
 
   return (
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
       {/* Mind now opens straight onto what used to be the "My Mind"
       notebook you had to tap into from a separate landing scene — that
       landing scene (the embedded constellation preview + the "My Mind"
@@ -2335,14 +2298,14 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={primaryTitleStyle}>Mind</div>
+            <h1 style={{...primaryTitleStyle,margin:0}}>Mind</h1>
             <div style={primaryTitleSubtitleStyle}>
               The beliefs behind today's discovery, in detail.
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
             <motion.div
-              role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
+              className="evening-icon-action" role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
               whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
             >
@@ -2352,7 +2315,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               </svg>
             </motion.div>
             <motion.div
-              role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
+              className="evening-icon-action" role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
               whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
             >
@@ -2382,7 +2345,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               pills. */}
               {notebookBeliefs.length > 0 && (
                 <div style={{ marginBottom: 40 }}>
-                  <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint }}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: ivFaint }}>
                     The beliefs beneath this discovery
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 26, marginTop: 18 }}>
@@ -2412,7 +2375,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               styled as a warning/error. */}
               {notebookNotes.length > 0 && (
                 <div style={{ marginBottom: 40 }}>
-                  <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint, marginBottom: 14 }}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: ivFaint, marginBottom: 14 }}>
                     What connects them
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -2437,7 +2400,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               data RegionBreakdown shows elsewhere) stays one tap away
               instead of being always-on. */}
               <div>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint, marginBottom: 12 }}>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: ivFaint, marginBottom: 12 }}>
                   This discovery touches
                 </div>
                 <div style={{ ...serif, fontSize: 18, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -2494,7 +2457,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               constraint above stays untouched either way. */}
               {store.isPro && (
                 <div style={{ marginTop: 40 }}>
-                  <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint }}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: ivFaint }}>
                     Go deeper
                   </div>
                   <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
@@ -2607,14 +2570,14 @@ function DiscoveryCard({
       style={{
         position: "relative", boxSizing: "border-box", padding: "24px 22px 20px",
         borderRadius: 22, backgroundColor: ivSurfaceSolid,
-        border: `1px solid ${ivBorder}`,
+        border: "none",
         boxShadow: ivCardShadow,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {regionColor && <Node color={regionColor} size={11} intensity={0.7} />}
-        <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-          TODAY'S DISCOVERY
+        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
+          Today's discovery
         </div>
       </div>
 
@@ -2656,7 +2619,7 @@ function DiscoveryCard({
           onClick={onExamine}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExamine?.(); } }}
           whileTap={{ opacity: 0.6 }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+          style={{ display: "inline-flex", alignItems: "center", minHeight: 44, gap: 5, ...sans, fontSize: 12, fontWeight: 600, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
         >
           Examine <span aria-hidden>→</span>
         </motion.div>
@@ -2696,20 +2659,20 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
       whileTap={{ scale: 0.97, opacity: 0.88 }}
       style={{
         flexShrink: 0, width: 160, boxSizing: "border-box", padding: "13px 14px",
-        borderRadius: 14, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`,
+        borderRadius: 14, backgroundColor: ivSurfaceSolid, border: "none",
         display: "flex", flexDirection: "column", gap: 8, cursor: "pointer",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Node color={color} size={13} intensity={intensity} />
-        <span style={{ ...sans, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: ivFaint }}>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "none", color: ivFaint }}>
           {REGION_CONFIG[item.region].label}
         </span>
       </div>
 
       <div
         style={{
-          ...serif, fontSize: 14.5, fontWeight: 400, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all",
+          ...sans, fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all",
           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
         }}
       >
@@ -2727,7 +2690,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
         </div>
       )}
 
-      <div style={{ ...sans, fontSize: 10, color: ivFaint }}>
+      <div style={{ ...sans, fontSize: 11, color: ivFaint }}>
         {metaParts.join(" · ")}
       </div>
     </motion.div>
@@ -2738,7 +2701,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
 // Brought fully into the Mind screen's own design system: the same full-
 // bleed dusk-coast photo (analysisDuskCoastImg — a moonlit shoreline at
 // blue hour, swapped in for the earlier indoor night-study scene) bled up
-// behind the status bar (the "top:-30" trick ScreenAnalysis uses). An earlier pass
+// behind the status bar through the shared screen plane. An earlier pass
 // put Today's Discovery and Recent Insights directly on that photo with no
 // containing surface at all, which — with enough real content on screen —
 // started reading as a feed/dashboard rather than a considered composition.
@@ -2791,7 +2754,7 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
   if (!store.goals.length) return null;
   return (
     <div>
-      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
         WHERE YOU MIGHT BE HEADED
       </div>
       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
@@ -2936,21 +2899,8 @@ function ScreenDiscoveryAnalysis({
   };
 
   return (
-    <div style={{ position: "relative", height: "100%", backgroundColor: ivBg2 }}>
-      {/* No overflowX:"hidden" here (deliberately — see below): setting
-      only one axis to a non-visible value makes the CSS overflow spec
-      compute the OTHER axis's used value as "auto" too, which would clip
-      either branch's negative "top:-30" bleed against the status bar right
-      at this box's own top edge — invisibly reintroducing the exact gap
-      that trick exists to remove. Neither branch below actually needs
-      horizontal clipping from this ancestor: Examine's own scroll
-      container and the landing scene's own scroll region can each own that
-      locally if they ever need it.
-
-      Both Examine and the landing scene now sit on the same shared ivory
-      canvas (ivBackground) rather than a photo — see the ivory redesign
-      pass — so the two still read as one continuous environment, just two
-      different depths into it. ── */}
+    <div style={{ position: "relative", height: "100%", backgroundColor: "transparent" }}>
+      {/* The app shell owns the full-frame background and shared content inset. */}
 
       <AnimatePresence mode="sync" initial={false}>
         {examineTarget ? (
@@ -2961,7 +2911,7 @@ function ScreenDiscoveryAnalysis({
             // its own copy of the ivory canvas, bled up behind the status
             // bar, so switching between the two never reveals a mismatched
             // fallback strip either way.
-            style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
           >
             {/* One scrolling column, edge to edge with the same 30px page
             grid the landing scene uses — everything (Back, the heading,
@@ -2977,7 +2927,7 @@ function ScreenDiscoveryAnalysis({
               >
                 ← Back
               </span>
-              <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</div>
+              <h1 className="evening-title" style={{ ...serif, fontSize: 30, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</h1>
               <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.4 }}>
                 What the AI has learned about you across your thoughts.
               </div>
@@ -2988,7 +2938,7 @@ function ScreenDiscoveryAnalysis({
               <div data-tutorial="today-discovery" style={{ marginTop: 36 }}>
                 {examine ? (
                   <>
-                    <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
+                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
                       {(examineTarget === pinnedDiscovery ? "Today's discovery" : "Recent insight").toUpperCase()}
                     </div>
                     {(h?.thoughtLabel || b?.thoughtLabel) && (
@@ -3045,7 +2995,7 @@ function ScreenDiscoveryAnalysis({
                   evidence, chronological, grouped in the one restrained
                   translucent surface this screen allows itself. ── */}
                   <div style={{ marginTop: 40 }}>
-                    <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
+                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
                       WHY THIS INTERPRETATION
                     </div>
                     <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
@@ -3065,7 +3015,7 @@ function ScreenDiscoveryAnalysis({
 
                     {contradictoryEntries.length > 0 && (
                       <div style={{ marginTop: 24 }}>
-                        <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.1em" }}>
+                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.1em" }}>
                           ENTRIES POINTING THE OTHER WAY
                         </div>
                         <div style={{ marginTop: 12 }}>
@@ -3082,7 +3032,7 @@ function ScreenDiscoveryAnalysis({
                   {/* ── HOW THIS HAS EVOLVED — only when there's a real trail. ── */}
                   {evolutionPoints.length > 0 && (
                     <div style={{ marginTop: 40 }}>
-                      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
                         HOW THIS HAS EVOLVED
                       </div>
                       <div style={{ marginTop: 18 }}>
@@ -3125,7 +3075,7 @@ function ScreenDiscoveryAnalysis({
             // background below reaches all the way to the top of the
             // screen instead of leaving the frame's own fallback color
             // showing through as a strip above the header.
-            style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
           >
             {/* Header — stationary, over the scene, never scrolls, and
             deliberately not inside a card: the background stays visible
@@ -3134,9 +3084,9 @@ function ScreenDiscoveryAnalysis({
             primaryTitleSubtitleStyle) so "Analysis" carries the same
             visual presence "Mind" and "History" do. */}
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0, padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 6px`, boxSizing: "border-box" }}>
-              <div style={primaryTitleStyle}>Analysis</div>
+              <h1 style={{...primaryTitleStyle,margin:0}}>Analysis</h1>
               <div style={primaryTitleSubtitleStyle}>
-                AI interprets your mind, revealing what's really going on.
+                Interpretations to review, with their evidence.
               </div>
             </div>
 
@@ -3181,8 +3131,8 @@ function ScreenDiscoveryAnalysis({
               (its node) rather than just the card's own outer edge — the
               two read as flush at a glance, not merely close. ── */}
               <div style={{ marginTop: 32 }}>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em", paddingLeft: 14 }}>
-                  FURTHER INSIGHTS
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em", paddingLeft: 14 }}>
+                  Further insights
                 </div>
                 {recentInsights.length === 0 ? (
                   <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>No other insights yet — check back as more come into focus.</p>
@@ -3219,7 +3169,7 @@ function ScreenDiscoveryAnalysis({
 function EditorialSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>{title.toUpperCase()}</div>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>{title.toUpperCase()}</div>
       {subtitle && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>{subtitle}</div>}
       <div style={{ marginTop: 16 }}>{children}</div>
     </div>
@@ -3269,7 +3219,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
       than a bold warning-style tag. Same horizontal grid as every other
       section here (this div has no side padding/margin of its own,
       inheriting Premium's shared content column). */}
-      <div style={{ ...sans, fontSize: 10, fontWeight: 600, color: ivFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>For where you are now</div>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivFaint, letterSpacing: "0.025em", textTransform: "none" }}>For where you are now</div>
       {/* mode="wait" + a slow fade — this is meant to feel like turning to
       a new page, not a UI state flipping; see the brief's "no flashy
       animation... contemplative." */}
@@ -3306,7 +3256,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
               <div style={{ textAlign: "right" }}>
                 <div style={{ ...serif, fontSize: 13, color: ivBody }}>— {passage.author}</div>
                 {passage.work && (
-                  <div style={{ ...sans, fontSize: 10, color: ivFaint, marginTop: 2 }}>{passage.work}</div>
+                  <div style={{ ...sans, fontSize: 11, color: ivFaint, marginTop: 2 }}>{passage.work}</div>
                 )}
               </div>
               {portraitSrc && (
@@ -3698,7 +3648,7 @@ function ScreenThink({ onDone, onBack, initialMode = "text" }: { onDone?: (text:
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
         <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
           ✕ Stop
@@ -3720,8 +3670,8 @@ function ScreenThink({ onDone, onBack, initialMode = "text" }: { onDone?: (text:
               placeholder={`${promptHint} Write whatever feels natural.`}
               aria-label="Speak your mind"
               style={{
-                ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
-                backgroundColor: "transparent", color: dkHeading, fontSize: 19, lineHeight: 1.7,
+                ...sans, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+                backgroundColor: "transparent", color: dkHeading, fontSize: 17, lineHeight: 1.85,
                 wordBreak: "keep-all", colorScheme: "dark",
               }}
             />
@@ -4043,7 +3993,7 @@ function ScreenProcessing({
   }, [text]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: dkBg, padding: 32 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: "transparent", padding: 32 }}>
       <ProcessingConstellation step={step} reducedMotion={!!reducedMotion} />
       <div style={{ ...sans, fontSize: 14, color: dkBodyLight, marginTop: 22 }}>{STEPS[step]}</div>
       {showCancel && (
@@ -4069,7 +4019,7 @@ function ScreenProcessing({
 // entry isn't a lesser version of a Pro one, just an unanalyzed one.
 function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         {error ? (
           <>
@@ -4117,7 +4067,7 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
 // the person taps through to plans or dismisses with "Not now."
 function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
           You've recorded three thoughts now.
@@ -4175,7 +4125,7 @@ function ScreenCrisisSupport({ onContinue }: { onContinue?: () => void }) {
     headingRef.current?.focus();
   }, []);
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "48px 28px 24px" }}>
         <div ref={headingRef} tabIndex={-1} style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all", outline: "none" }}>
           It sounds like you might be going through something really hard right now.
@@ -4307,7 +4257,7 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
   if (emotionVarietyLine) lines.push(emotionVarietyLine);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Got it.
@@ -4370,8 +4320,8 @@ function ConnectionSpark({ aLabel, bLabel }: { aLabel: string; bLabel: string })
         initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, delay: 0.15, ease: "backOut" }}
         style={{ transformOrigin: `${bx}px ${by}px` }}
       />
-      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: nightPalette.text }}>{aLabel}</text>
-      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 8.5, fontWeight: 700, fill: nightPalette.text }}>{bLabel}</text>
+      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 11, fontWeight: 700, fill: nightPalette.text }}>{aLabel}</text>
+      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 11, fontWeight: 700, fill: nightPalette.text }}>{bLabel}</text>
     </svg>
   );
 }
@@ -4497,8 +4447,8 @@ function ConfidenceTrend({ history }: { history: { date: string; value: number }
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.body }}>Confidence over time · {history.length} entries</span>
-        <span style={{ ...mono, fontSize: 10.5, color: delta > 0 ? nightPalette.text : delta < 0 ? "rgba(236,210,168,0.4)" : "rgba(236,210,168,0.42)" }}>{delta > 0 ? "+" : ""}{delta}</span>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body }}>Confidence over time · {history.length} entries</span>
+        <span style={{ ...mono, fontSize: 11, color: delta > 0 ? nightPalette.text : delta < 0 ? "rgba(236,210,168,0.4)" : "rgba(236,210,168,0.42)" }}>{delta > 0 ? "+" : ""}{delta}</span>
       </div>
       <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 4, display: "block" }}>
         <polyline points={points} fill="none" stroke={nightPalette.text} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -4538,9 +4488,9 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
         {steps.map((s, i) => (
           <React.Fragment key={s.label}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "rgba(236,210,168,0.06)", color: nightPalette.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "rgba(236,210,168,0.06)", color: nightPalette.text, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1, paddingBottom: 4 }}>
-                <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: nightPalette.body, letterSpacing: "0.04em" }}>{s.label}</div>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: nightPalette.body, letterSpacing: "0.04em" }}>{s.label}</div>
                 <div style={{ ...serif, fontSize: 14, color: nightPalette.text, marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
               </div>
             </div>
@@ -4583,8 +4533,8 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.body, letterSpacing: "0.04em" }}>{belief.domain}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.muted }}>Conflicting entries exist</span>}
-          {belief.status === "supported" && <span style={{ ...sans, fontSize: 10.5, fontWeight: 600, color: nightPalette.text }}>Confirmed repeatedly</span>}
+          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.muted }}>Conflicting entries exist</span>}
+          {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: nightPalette.text }}>Confirmed repeatedly</span>}
           <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{belief.evidenceCount} pieces of evidence</span>
         </div>
       </div>
@@ -4622,7 +4572,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
             role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
             onClick={() => setReframeFlipped((v) => !v)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
-            style={{ ...sans, fontSize: 10.5, color: nightPalette.muted, marginTop: 8, display: "inline-block", cursor: "pointer" }}
+            style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 8, display: "inline-block", cursor: "pointer" }}
           >
             {reframeFlipped ? "↺ Back to the original" : "See it from a distance ↻"}
           </motion.span>
@@ -4634,7 +4584,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
         <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)" }} />
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>Confidence {belief.confidence}%</span>
+        <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>Confidence {belief.confidence}%</span>
       </div>
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
@@ -4647,7 +4597,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {(patterns.length > 0 || emotion) && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {emotion && (
-            <span style={{ ...sans, fontSize: 10.5, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 8px", borderRadius: 999 }}>Predominant emotion · {emotion}</span>
+            <span style={{ ...sans, fontSize: 11, color: nightPalette.body, backgroundColor: "rgba(236,210,168,0.08)", padding: "3px 8px", borderRadius: 999 }}>Predominant emotion · {emotion}</span>
           )}
           {patterns.map((p) => {
             const active = openPattern === p;
@@ -4655,7 +4605,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
               <motion.span
                 key={p} role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
                 onClick={() => setOpenPattern(active ? null : p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setOpenPattern(active ? null : p))?.(); } }}
-                style={{ ...sans, fontSize: 10.5, fontWeight: active ? 700 : 500, color: active ? nightPalette.background : nightPalette.text, backgroundColor: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.06)", padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
+                style={{ ...sans, fontSize: 11, fontWeight: active ? 700 : 500, color: active ? nightPalette.background : nightPalette.text, backgroundColor: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.06)", padding: "3px 8px", borderRadius: 999, cursor: "pointer" }}
               >
                 {p}
               </motion.span>
@@ -4683,7 +4633,7 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
           {[...belief.evidenceQuotes].reverse().slice(0, 2).map((q: StoredEvidenceQuote, qi: number) => (
             <div key={qi} style={{ ...sans, fontSize: 12, color: nightPalette.body, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>{q.date}</span> · "{q.quote}"
+              <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{q.date}</span> · "{q.quote}"
             </div>
           ))}
         </div>
@@ -4813,14 +4763,8 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
   const hasAssumptions = store.assumptions.length > 0;
   const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
   return (
-    // Same full-bleed pattern the rest of Premium's deeper layers use (this
-    // is one level deeper into Mind, reusing its own background rather
-    // than a flat mdBg — see the "do the same for Unconscious Patterns/
-    // Distance from your goal" consistency pass) — top:-30 on the whole root, one
-    // merged scroll region (Back/title/subtitle scroll away with the rest,
-    // same as Examine's own detail view), .no-scrollbar hides the native
-    // scrollbar.
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
+    // Use the shared frame background and a single scrolling content region.
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
       <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
@@ -4829,7 +4773,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         >
           ← Back
         </span>
-        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Unconscious Patterns</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Unconscious Patterns</h1>
         <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
         </div>
@@ -4947,7 +4891,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
     // Same full-bleed ivory canvas as Unconscious Patterns above — see
     // there; was its own separate dusk-arctic-seascape photo, now the same
     // shared background every ivory screen uses.
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
       <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
@@ -4956,7 +4900,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
         >
           ← Back
         </span>
-        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Distance from Your Goal</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: nightPalette.text, marginTop: 14 }}>Distance from Your Goal</h1>
         <div style={{ ...sans, fontSize: 12, color: nightPalette.body, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
           The gap between the person you said you wanted to be and your recent actual patterns.
         </div>
@@ -5020,8 +4964,8 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                       <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: "rgba(236,210,168,0.5)", left: `${a.actual}%` }} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                      <span style={{ ...sans, fontSize: 10, color: nightPalette.muted }}>Target {a.target}%</span>
-                      <span style={{ ...sans, fontSize: 10, color: nightPalette.text }}>Actual {a.actual}%</span>
+                      <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>Target {a.target}%</span>
+                      <span style={{ ...sans, fontSize: 11, color: nightPalette.text }}>Actual {a.actual}%</span>
                     </div>
                   </div>
 
@@ -5041,7 +4985,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
 function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?: string | null; onBack?: () => void; onSave?: (value: string) => void }) {
   const [value, setValue] = React.useState(initialValue ?? "");
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
@@ -5057,7 +5001,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
           placeholder="e.g. I want to be someone who chooses challenge over safety."
           aria-label="Who do you want to become?"
           style={{
-            ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+            ...sans, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
             backgroundColor: "transparent", color: mdHeading, fontSize: 19, lineHeight: 1.7,
             wordBreak: "keep-all", colorScheme: "light",
           }}
@@ -5092,10 +5036,10 @@ function evidenceForHypothesis(h: StoredHypothesis, beliefs: StoredBelief[]): (S
 function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOpen?: (i: number) => void; store: Store }) {
   const items = store.hypotheses;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</h1>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5 }}>Not certain. Agree or push back to help refine it together.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -5195,7 +5139,7 @@ function HypothesisDiscoveryBody({
               <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{e.date}</span>
-                  {e.domain && <span style={{ ...sans, fontSize: 10, color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>}
+                  {e.domain && <span style={{ ...sans, fontSize: 11, color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>}
                 </div>
                 <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
               </div>
@@ -5228,7 +5172,7 @@ function HypothesisDiscoveryBody({
               <div key={i} style={{ padding: 14, borderRadius: 12, backgroundColor: mdWarnSoft, borderLeft: `2px solid ${mdWarn}` }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{entry.date}</span>
-                  <span style={{ ...sans, fontSize: 10, color: mdWarnTagText, backgroundColor: mdWarnTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
+                  <span style={{ ...sans, fontSize: 11, color: mdWarnTagText, backgroundColor: mdWarnTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
                 </div>
                 <div style={{ ...serif, fontSize: 14, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
               </div>
@@ -5317,7 +5261,7 @@ function ScreenHypothesisDetail({
   const h = store.hypotheses[index] ?? store.hypotheses[0];
   if (!h) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
       </div>
@@ -5351,7 +5295,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
     );
   } else if (step === 1) {
     body = (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>The First Time This Showed Up</div>
           <div style={{ marginTop: 16, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
@@ -5364,7 +5308,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
     );
   } else if (step === 2) {
     body = (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>Then and Now, Side by Side</div>
           <div style={{ marginTop: 18 }}>
@@ -5630,12 +5574,12 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
       whileFocus={{ boxShadow: "0 0 0 3px rgba(236,210,168,.14)" }}
       style={{
         display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", border: 0,
-        padding: "3px 3px 6px", background: "transparent", WebkitTapHighlightColor: "transparent",
+        padding: "6px 9px", minHeight: 44, minWidth: 64, background: "transparent", WebkitTapHighlightColor: "transparent",
         borderBottom: `1.5px solid ${active ? "rgba(236,210,168,0.75)" : "transparent"}`,
       }}
     >
-      <span style={{ opacity: active ? 1 : 0.5, display: "flex" }}>{icon}</span>
-      <span style={{ ...sans, fontSize: 8.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: active ? "rgba(236,210,168,0.5)" : "rgba(236,210,168,0.42)" }}>
+      <span style={{ opacity: active ? 1 : 0.8, display: "flex" }}>{icon}</span>
+      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: active ? nightPalette.text : nightPalette.body }}>
         {label}
       </span>
     </motion.button>
@@ -5650,19 +5594,19 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
       role="button" tabIndex={-1} onClick={onClose}
-      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(236,210,168,0.24)", display: "flex", alignItems: "flex-end" }}
+      style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(2,9,16,0.65)", display: "flex", alignItems: "flex-end" }}
     >
       <motion.div
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxHeight: "74%", backgroundColor: nightPalette.surface, backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+          width: "100%", maxHeight: "74%", backgroundColor: nightPalette.surface,
           borderTop: "1px solid rgba(236,210,168,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(120,105,80,0.14)",
           display: "flex", flexDirection: "column",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: 19, color: nightPalette.text }}>{title}</span>
+          <span style={{ ...sans, fontSize: 18, fontWeight: 500, color: nightPalette.text }}>{title}</span>
           <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer" }}>Close</motion.span>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
@@ -5697,7 +5641,7 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
     >
       <div>
         <div style={{ ...serif, fontSize: 14, color: active ? nightPalette.text : nightPalette.text }}>{label}</div>
-        <div style={{ ...sans, fontSize: 10.5, color: nightPalette.muted, marginTop: 2 }}>{note}</div>
+        <div style={{ ...sans, fontSize: 11, color: nightPalette.muted, marginTop: 2 }}>{note}</div>
       </div>
       {active && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: nightPalette.text, flexShrink: 0 }} />}
     </motion.div>
@@ -5707,59 +5651,17 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 3 }}>{label}</div>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted, marginBottom: 3 }}>{label}</div>
       <div style={{ ...serif, fontSize: 15, color: nightPalette.text, lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
     </div>
   );
 }
 
 // ── The shared Node primitive ────────────────────────────────────────────────
-// The one canonical "glowing belief node" component — a tiny near-white
-// core that transitions outward into the category color, wrapped in a soft
-// diffused halo. Originally History's own CatalogueOrb; promoted to the
-// app's shared Node component for the ivory redesign (see the "Global node
-// system" pass) since it already does exactly what that pass asked for:
-// real CSS/DOM (not a baked-in image), a solid luminous center + soft
-// outer glow with no hard neon edge, and colors that read clearly on a
-// light ivory ground (radial gradients to real color stops, not the
-// dark-ground-assuming additive blending the WebGL Brain Map uses) —
-// deliberately the same "dim halo → colored luminous body → bright core"
-// layering the Brain Map's own nodes use (see ActiveBeliefNode/the
-// point+glow+bloom sprite stack in NeuralBeliefGraph3D), so a node here and
-// one there read as the same object seen two ways, not two unrelated
-// marks. Used by Home's node field, Analysis's Discovery/Insight cards, and
-// History's catalogue. `intensity` (0..1) is one knob for "how much this
-// node has earned" — currently a blend of confidence and vitality/recency
-// depending on the caller, but any future reinforcement signal can feed the
-// same prop without this component changing at all.
+// Shared stellar light profile: Home, History and the 3D map use the
+// same concentrated core and radial halo. Category colors stay semantic.
 function Node({ color, size, intensity }: { color: string; size: number; intensity: number }) {
-  const glow = Math.round(size * 2.3);
-  return (
-    <div aria-hidden style={{ position: "relative", width: glow, height: glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-      <div
-        style={{
-          position: "absolute", width: glow, height: glow, borderRadius: "50%",
-          background: `radial-gradient(circle, ${color}47 0%, ${color}17 42%, transparent 72%)`,
-          opacity: 0.42 + intensity * 0.4,
-        }}
-      />
-      <div
-        style={{
-          // A centered highlight (not an off-axis one) and a body that
-          // dissolves to transparent at its own edge — rather than a
-          // crisp, opaque circular silhouette with a corner glint — are
-          // what keep this reading as "a concentration of light" instead
-          // of a lit, shaded 3D ball (a marble/planet).
-          position: "relative", width: size, height: size, borderRadius: "50%",
-          backgroundColor: "#fff0d8",
-          clipPath: "polygon(50% 0%, 59% 39%, 100% 50%, 59% 61%, 50% 100%, 41% 61%, 0% 50%, 41% 39%)",
-          filter: `drop-shadow(0 0 4px ${color})`,
-          boxShadow: `0 0 ${Math.round(size * 0.6)}px ${color}4D`,
-          opacity: 0.6 + intensity * 0.4,
-        }}
-      />
-    </div>
-  );
+  return <StellarNode color={color} size={Math.round(size * 2.3)} intensity={intensity}/>;
 }
 
 // A star's orb size/intensity, in one place so the grid cell and the
@@ -5803,7 +5705,9 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
         borderBottom: isLast ? "none" : "1px solid rgba(236,210,168,0.07)", cursor: "pointer",
       }}
     >
-      <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
+      <div style={{ width: 64, flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ ...serif, fontSize: 15.5, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {star.belief.statement}
@@ -5925,12 +5829,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   };
 
   return (
-    // top: -30 (same as Home/Mind above) so the archive backdrop runs
-    // behind the status-bar safe area instead of showing a flat fallback
-    // color there — see those screens for the pattern this reuses.
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
-      <ArchiveChartMarks />
-      <GrainOverlay opacity={0.04} />
+    // The screen plane paints behind the status area; this body uses the shared inset.
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
+
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
         {/* ── Header + controls — same shared position/size/spacing as
@@ -5941,11 +5842,11 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         minWidth:0 + the shared subtitle style's built-in truncation is
         what keeps it to one line next to History's own three-button
         control row, same technique Mind uses next to its two. ── */}
-        <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
+        <div className="evening-journal-header" style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={primaryTitleStyle}>History</div>
+            <h1 style={{...primaryTitleStyle,margin:0}}>Journal</h1>
             <div style={primaryTitleSubtitleStyle}>
-              Catalogued over time.
+              Your thoughts, connected over time.
             </div>
           </div>
           <div style={{ display: "flex", gap: 18, flexShrink: 0 }}>
@@ -5984,10 +5885,10 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 not a boxed section header. */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: regionColor, opacity: 0.75, flexShrink: 0 }} />
-                  <span style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: nightPalette.body, flexShrink: 0 }}>
+                  <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: nightPalette.body, flexShrink: 0 }}>
                     {REGION_CONFIG[region].label}
                   </span>
-                  {stars.length > 0 && <span style={{ ...mono, fontSize: 10, color: nightPalette.muted, flexShrink: 0 }}>{stars.length}</span>}
+                  {stars.length > 0 && <span style={{ ...mono, fontSize: 11, color: nightPalette.muted, flexShrink: 0 }}>{stars.length}</span>}
                   <span aria-hidden style={{ flex: 1, height: 1, backgroundColor: regionColor, opacity: 0.14, marginLeft: 2 }} />
                 </div>
                 {stars.length > 0 ? (
@@ -6017,7 +5918,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           than replacing or reflowing anything above it. ── */}
           {store.isPro && (
             <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 36 }}>
-              <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: nightPalette.body }}>
+              <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: nightPalette.body }}>
                 Go deeper — how you've changed
               </div>
 
@@ -6057,13 +5958,13 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
             role="button" tabIndex={-1} onClick={closeStarSheet}
-            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(236,210,168,0.28)", display: "flex", alignItems: "flex-end" }}
+            style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(2,9,16,0.65)", display: "flex", alignItems: "flex-end" }}
           >
             <motion.div
               initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: "100%", maxHeight: "82%", backgroundColor: nightPalette.surface, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                width: "100%", maxHeight: "82%", backgroundColor: nightPalette.surface,
                 borderTop: "1px solid rgba(236,210,168,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
                 display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(120,105,80,0.16)",
               }}
@@ -6072,8 +5973,8 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 <>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexShrink: 0 }}>
                     <div>
-                      <div style={{ ...mono, fontSize: 10, color: nightPalette.muted, letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
-                      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: REGION_CONFIG[selectedStar.region].color, marginTop: 4 }}>
+                      <div style={{ ...mono, fontSize: 11, color: nightPalette.muted, letterSpacing: "0.05em" }}>{String(selectedStar.catalogueNumber).padStart(3, "0")}</div>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: REGION_CONFIG[selectedStar.region].color, marginTop: 4 }}>
                         {REGION_CONFIG[selectedStar.region].label}
                       </div>
                     </div>
@@ -6117,7 +6018,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
                     {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
                       <div style={{ marginBottom: 8 }}>
-                        <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 8 }}>Strength over time</div>
+                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted, marginBottom: 8 }}>Strength over time</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                           {selectedStar.belief.confidenceHistory!.map((p, i) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: nightPalette.body }}>
@@ -6127,14 +6028,14 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                         </div>
                       </div>
                     )}
-                    <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted }}>Appearances</div>
+                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted }}>Appearances</div>
                     {selectedEntries.map((entry) => (
                       <motion.div
                         key={entry.id} role="button" tabIndex={0} onClick={() => openEntryFromStory(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntryFromStory(entry.id); } }}
                         whileTap={{ opacity: 0.6 }}
                         style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(236,210,168,0.045)", border: "1px solid rgba(236,210,168,0.07)", cursor: "pointer" }}
                       >
-                        <div style={{ ...mono, fontSize: 10, color: nightPalette.muted }}>{entry.date}</div>
+                        <div style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{entry.date}</div>
                         <div style={{ ...serif, fontStyle: "italic", fontSize: 13.5, color: nightPalette.text, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           "{entry.text}"
                         </div>
@@ -6155,7 +6056,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             <input
               autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search beliefs, categories, or thoughts…"
               aria-label="Search the star catalogue"
-              style={{ ...sans, fontSize: 14, color: nightPalette.text, backgroundColor: "rgba(236,210,168,0.06)", border: "1.5px solid rgba(236,210,168,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
+              style={{ ...sans, fontSize: 16, color: nightPalette.text, backgroundColor: "rgba(236,210,168,0.06)", border: "1.5px solid rgba(236,210,168,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
             <div style={{ ...sans, fontSize: 11.5, color: nightPalette.muted, marginTop: 14, lineHeight: 1.5 }}>
               {query
@@ -6183,8 +6084,8 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(date); setSheet(null); } }}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 8px", borderBottom: "1px solid rgba(236,210,168,0.06)", cursor: "pointer", backgroundColor: asOfDate === date ? "rgba(236,210,168,0.08)" : "transparent", borderRadius: 8 }}
                 >
-                  <span style={{ ...serif, fontSize: 14, color: nightPalette.text }}>{date} <span style={{ ...sans, fontSize: 10.5, color: nightPalette.muted }}>· {weekdayFromDotDate(date)}</span></span>
-                  <span style={{ ...mono, fontSize: 10.5, color: nightPalette.muted }}>{count} discovered</span>
+                  <span style={{ ...serif, fontSize: 14, color: nightPalette.text }}>{date} <span style={{ ...sans, fontSize: 11, color: nightPalette.muted }}>· {weekdayFromDotDate(date)}</span></span>
+                  <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{count} discovered</span>
                 </div>
               ))}
               {calendarMilestones.length === 0 && <div style={{ ...sans, fontSize: 13, color: nightPalette.muted }}>No dated stars yet.</div>}
@@ -6193,7 +6094,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         )}
         {sheet === "filter" && (
           <HistorySheet title="Filter the catalogue" onClose={() => setSheet(null)}>
-            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 10 }}>By category</div>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted, marginBottom: 10 }}>By category</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
               <CatalogueFilterChip label="All" active={!filterMode} onClick={() => { setFilterMode(null); setSheet(null); }} />
               {COGNITIVE_REGIONS.map((region) => (
@@ -6205,7 +6106,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 />
               ))}
             </div>
-            <div style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: nightPalette.muted, marginBottom: 4 }}>By pattern</div>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "none", color: nightPalette.muted, marginBottom: 4 }}>By pattern</div>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <CatalogueFilterRow label="Active" note="Recently reinforced" active={filterMode?.type === "active"} onClick={() => { setFilterMode({ type: "active" }); setSheet(null); }} />
               <CatalogueFilterRow label="Dormant" note="Quieter, not recently reinforced" active={filterMode?.type === "dormant"} onClick={() => { setFilterMode({ type: "dormant" }); setSheet(null); }} />
@@ -6236,7 +6137,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   if (!entry) return null;
   const analysis = entry.analysis;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} color={dkBody} />
       </div>
@@ -6251,14 +6152,14 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
 
         {entry.sessionSummary && (
           <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: dkCard, boxShadow: dkCardShadow }}>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Recap</div>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "none" }}>Recap</div>
             <div style={{ ...sans, fontSize: 13.5, color: dkBodyLight, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{entry.sessionSummary}</div>
           </div>
         )}
 
         {analysis && (
           <>
-            <div style={{ marginTop: 28, ...sans, fontSize: 11, fontWeight: 700, color: dkBody, letterSpacing: "0.06em", textTransform: "uppercase" }}>What Stood Out</div>
+            <div style={{ marginTop: 28, ...sans, fontSize: 11, fontWeight: 700, color: dkBody, letterSpacing: "0.06em", textTransform: "none" }}>What Stood Out</div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {analysis.observation.situation && (
                 <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
@@ -6301,7 +6202,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
 
             {analysis.hypothesis.candidateBelief && (
               <div style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}` }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Belief This Fed Into</div>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "none" }}>Belief This Fed Into</div>
                 <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkHeading, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
               </div>
             )}
@@ -6379,7 +6280,7 @@ function ScreenProfile({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
         <div style={{ padding: "8px 4px 24px" }}>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</div>
+          <h1 className="evening-title" style={{ ...serif, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</h1>
           <div style={{ ...sans, fontSize: 13, color: ivBody }}>We've been tracking your journey.</div>
         </div>
 
@@ -6391,7 +6292,7 @@ function ScreenProfile({
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: ivHeading }}>{name}</span>
               {MONETIZATION_ENABLED && store.isPro && (
-                <span style={{ ...sans, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 8px", borderRadius: 999 }}>PRO</span>
+                <span style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, backgroundColor: "rgba(236,210,168,0.06)", padding: "2px 8px", borderRadius: 999 }}>PRO</span>
               )}
             </div>
             {planLabel ? (
@@ -6524,10 +6425,10 @@ function SettingsToggle({ label, note, value, onChange, dark, modernist }: { lab
 
 function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: StoredSettings; onBack?: () => void; onChange?: (settings: StoredSettings) => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Notifications</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Notifications</h1>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <SettingsToggle
@@ -6609,10 +6510,10 @@ function ScreenDataPrivacy({
   };
   const s = store;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Data & Privacy</h1>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all" }}>
@@ -6707,10 +6608,10 @@ const HELP_ITEMS = [
 
 function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onReplayTutorial?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Help</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Help</h1>
         <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There are patterns in your mind. You just can't see them from inside.
         </div>
@@ -6761,10 +6662,10 @@ function ScreenLegalDocument({
   onBack?: () => void;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>{title}</div>
+        <h1 className="evening-title" style={{ ...sans, fontSize: 25, color: mdHeading, marginTop: 10 }}>{title}</h1>
         <div style={{ ...mono, fontSize: 11, color: mdFaint, marginTop: 6 }}>Last updated {lastUpdated}</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 32px" }}>
@@ -6928,12 +6829,12 @@ function ScreenPaywall({
   const [selected, setSelected] = React.useState<ProPlan>("yearly");
   const plan = PRO_PLANS.find((p) => p.id === selected)!;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "none" }}>Upgrade to Pro</div>
         <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>
           Recording is free.<br />Understanding the pattern isn't yet.
         </div>
@@ -6971,7 +6872,7 @@ function ScreenPaywall({
                 }}
               >
                 {p.badge && (
-                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", color: nightPalette.background, backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
+                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: nightPalette.background, backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
                     {p.badge}
                   </span>
                 )}
@@ -7035,10 +6936,10 @@ function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Payment</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Payment</h1>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
@@ -7077,10 +6978,10 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
   const [armed, setArmed] = React.useState(false);
   const planInfo = PRO_PLANS.find((p) => p.id === store.proPlan) ?? PRO_PLANS[0];
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
+        <h1 className="evening-title" style={{ ...serif, fontSize: 26, color: mdHeading, marginTop: 10 }}>Manage Subscription</h1>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
@@ -7758,7 +7659,8 @@ export default function App() {
   // ours too would just be a second, wrong clock sitting under the actual
   // one. Safe-area padding (below) takes over its job of clearing the
   // notch on mobile instead.
-  const showStatusBar = !["quote", "splash"].includes(screen) && !isMobileViewport;
+  const showStatusBar = !["quote", "splash", "brainmap"].includes(screen) && !isMobileViewport;
+  const isOpeningScreen = eveningTone(screen) === "arrival";
   // Screens ported from the Modernist (light/red) design import — every
   // other screen keeps the dark theme, see the dk*/md* token comments.
   //
@@ -7766,7 +7668,7 @@ export default function App() {
   // the fake status bar's text (see below) — so it needs to match each
   // screen's OWN background, not just its design lineage, or the fallback
   // shows as a wrong-colored strip whenever a screen's status-bar-clearance
-  // padding is visible (every screen not using the "top:-30 bleed" trick).
+  // padding is visible; the screen plane now covers the entire frame.
   // quote/splash/auth/login/signup/onboarding all render on the opening
   // flow's dark OPENING_BG, not mdBg, despite being modernist-sourced
   // screens in every other sense — misclassifying them here is what made
@@ -7785,12 +7687,8 @@ export default function App() {
     "notifications", "dataPrivacy", "help",
   ].includes(screen);
 
-  // Think is the app's one self-disclosure moment — the disinhibition-theory
-  // note this roadmap draws from asks for the whole frame to read as a
-  // slightly more private space while it's open: a faint dimming (not just
-  // ScreenThink's own already-dark background) plus a distinct threshold
-  // motion on the way in and out, instead of the plain fade every other
-  // screen uses.
+  // Recording uses a slower fade and a dimmed frame. Keep page backgrounds
+  // at full size throughout transitions so no edge bands can be exposed.
   const isThink = screen === "think";
 
   return (
@@ -7799,31 +7697,22 @@ export default function App() {
       <div
         ref={frameRef}
         className="theme-stargazing"
+        data-opening={isOpeningScreen ? "true" : "false"}
         style={{
           width: isMobileViewport ? "100%" : 393,
           height: isMobileViewport ? "100dvh" : 852,
           borderRadius: isMobileViewport ? 0 : 40,
           overflow: "hidden",
           boxShadow: isMobileViewport ? "none" : "0 20px 60px rgba(0,0,0,0.25)",
-          backgroundColor: dkBg,
+          backgroundColor: nightPalette.background,
           display: "flex", flexDirection: "column", position: "relative",
-          // Clears the real notch/Dynamic Island whenever the fake status
-          // bar isn't the one doing that job (mobile, or the status-bar-
-          // less splash screen) — a no-op (0px) anywhere without a real
-          // safe area, so it's always safe to include. When the fake bar
-          // IS doing that job (desktop preview), this stays the same fixed
-          // value for every screen — switching it per screen (e.g. 0 for
-          // Home, 30 elsewhere) made the whole frame visibly jump on every
-          // screen change, since AnimatePresence crossfades the *content*
-          // but this padding lives on the frame itself, outside that
-          // animation, so it was snapping instantly. Home still runs its
-          // photo edge-to-edge behind the transparent overlay — it just
-          // does that itself now (a negative margin on its own hero, see
-          // ScreenHome) instead of asking the shared frame to change shape
-          // under it.
-          paddingTop: showStatusBar ? 30 : "env(safe-area-inset-top)",
-        }}
+          // Keep the content viewport fixed while preview clock visibility changes.
+          // All page backgrounds cover the frame; only screen-content receives the inset.
+          paddingTop: 0,
+          "--app-top-inset": isMobileViewport ? "env(safe-area-inset-top, 0px)" : "30px",
+        } as React.CSSProperties}
       >
+        {isOpeningScreen && <div className="opening-sky" aria-hidden="true"/>}
         {/* Animated fallback behind every screen. Screen-specific photos and
         surfaces still paint themselves above this; this layer only prevents
         a hard mdBg/dkBg color snap from showing through during a crossfade. */}
@@ -7832,19 +7721,22 @@ export default function App() {
           initial={false}
           animate={{ backgroundColor: isModernistScreen ? mdBg : dkBg }}
           transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: "easeOut" }}
-          style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
+          style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", opacity:isOpeningScreen?0:1 }}
         />
-        <div style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
+        <div data-opening-viewport style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
           <AnimatePresence mode={isPrimaryTab ? "sync" : "wait"} initial={false}>
             <motion.div
               key={screen}
-              initial={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
+              className={screen === "home" ? "app-screen" : "app-screen evening-page"}
+              data-screen={screen}
+              data-tone={eveningTone(screen)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: reduceMotion ? 0.01 : isThink ? 0.24 : isPrimaryTab ? 0.18 : 0.22, ease: "easeOut" }}
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
-              {content}
+              <div className="screen-content">{content}</div>
             </motion.div>
           </AnimatePresence>
         </div>

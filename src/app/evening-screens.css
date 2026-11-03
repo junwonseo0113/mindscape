@@ -1,0 +1,142 @@
+/* Shared materials, distinct rooms. Home's animated world remains exclusive to Home. */
+.evening-page {
+  --evening-ground: #0e1922;
+  --evening-surface: #1c2d39;
+  --evening-raised: #20313b;
+  --evening-atmosphere: none;
+  background: var(--evening-atmosphere) var(--evening-ground);
+  color: #f8ecd8;
+  color-scheme: dark;
+  font-family: Inter, sans-serif;
+}
+.evening-page[data-tone=arrival] {
+  --evening-ground: #101923;
+  --evening-surface: #1b2732;
+  --evening-atmosphere: radial-gradient(ellipse at 0 0, #35232c 0%, transparent 62%);
+}
+.evening-page[data-tone=journal] {
+  --evening-ground: #151b24;
+  --evening-surface: #28303e;
+  --evening-raised: #2b3540;
+  --evening-atmosphere: radial-gradient(ellipse at 100% 0, #302532 0%, transparent 58%);
+}
+.evening-page[data-tone=mind] {
+  --evening-ground: #0b1a22;
+  --evening-surface: #1b3540;
+  --evening-raised: #20363e;
+  --evening-atmosphere: radial-gradient(ellipse at 0 0, #153039 0%, transparent 57%);
+}
+.evening-page[data-tone=analysis] {
+  --evening-ground: #101a27;
+  --evening-surface: #21364c;
+  --evening-raised: #26394a;
+  --evening-atmosphere: radial-gradient(ellipse at 100% 0, #203049 0%, transparent 54%);
+}
+.evening-page[data-tone=recording] {
+  --evening-ground: #0b1720;
+  --evening-surface: #14252e;
+  --evening-atmosphere: radial-gradient(ellipse at 50% 100%, #26302f 0%, transparent 63%);
+}
+.evening-page[data-tone=aspiration] {
+  --evening-ground: #161c23;
+  --evening-surface: #303338;
+  --evening-raised: #31383d;
+  --evening-atmosphere: radial-gradient(ellipse at 0 0, #352e29 0%, transparent 58%);
+}
+.evening-page[data-tone=membership] {
+  --evening-ground: #121a22;
+  --evening-surface: #202a32;
+  --evening-atmosphere: radial-gradient(ellipse at 100% 100%, #302b28 0%, transparent 65%);
+}
+.evening-page[data-tone=support] { --evening-ground: #122127; --evening-surface: #1c3035; }
+.evening-page:not([data-screen=brainmap]) > .screen-content > :first-child {
+  background: transparent !important;
+}
+.evening-page button, .evening-page input, .evening-page textarea, .evening-page select {
+  font-family: Inter, sans-serif;
+}
+.evening-page input, .evening-page textarea, .evening-page select { color-scheme: dark !important; }
+.evening-page textarea { font-size: 16px; }
+.evening-page .evening-title {
+  margin:0;
+  font-family: Inter, sans-serif !important;
+  font-size: 25px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  letter-spacing: -.035em;
+  color: #f8ecd8;
+}
+.evening-page .evening-icon-action {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.evening-page .night-nav {
+  background: var(--evening-ground);
+  border-top: 1px solid #e6ddce12;
+  padding: 12px 16px max(23px,env(safe-area-inset-bottom));
+  min-height: 93px;
+}
+.evening-page .night-nav button { color: #b8b5b1; font-size: 12px; gap: 6px; }
+.evening-page .night-nav button[aria-current] { color: #fff0d7; }
+.evening-page .night-nav button[aria-current]:after { background: #f4dfbf; }
+.evening-page .night-nav button svg { width: 21px; height: 21px; }
+.evening-page [data-tutorial=profile-stats] > div { background: transparent !important; box-shadow: none !important; }
+.evening-page [data-tutorial=profile-stats] > div + div { border-left: 1px solid #e6ddce1a; }
+.evening-page .ideal-self-screen { background: transparent; color: #f8ecd8; }
+.evening-page .ideal-self-screen h1 { font-family: Inter,sans-serif; font-size: 25px; font-weight: 500; letter-spacing: -.035em; }
+.evening-page .ideal-self-panel, .evening-page .ideal-self-field textarea { background: var(--evening-surface); }
+.evening-page .ideal-self-screen button { border-color: #ded6c72e; border-radius: 12px; }
+.evening-page .ideal-self-primary { background: #faead2 !important; border-radius: 999px !important; }
+.evening-page .ideal-self-panel { padding: 20px; border-radius: 16px; }
+.evening-page .ideal-self-field textarea { font-size: 16px; }
+@media (hover:hover) and (pointer:fine) {
+  .evening-page .evening-icon-action:hover { background: #f4e4c90b; }
+  .evening-page .night-nav button:hover { color: #fff0d7; }
+}
+@media (max-height:720px) {
+  .evening-page .night-nav { min-height:80px; padding-bottom:max(15px,env(safe-area-inset-bottom)); }
+}
+
+.evening-page .evening-journal-header{flex-wrap:wrap;row-gap:14px!important}
+.evening-page .evening-journal-header>div:first-child{flex-basis:100%!important}
+.evening-page .evening-journal-header>div:last-child{gap:12px!important;margin-left:-9px}
+.evening-page [data-tutorial=profile-stats]>div{border-radius:0!important}
+
+@media (hover:hover) and (pointer:fine){.evening-page .evening-primary-action:not(:disabled):hover{background-color:#fff2dd!important}.evening-page .evening-secondary-action:hover{background-color:#f4e4c909!important}}
+
+.evening-page[data-tone=arrival]{--evening-atmosphere:url("../assets/evening/arrival.svg");--evening-accent:#9b5368}
+
+.evening-page[data-tone=journal]{--evening-atmosphere:url("../assets/evening/journal.svg");--evening-accent:#97617c}
+
+.evening-page[data-tone=mind]{--evening-atmosphere:url("../assets/evening/mind.svg");--evening-accent:#3e8e91}
+
+.evening-page[data-tone=analysis]{--evening-atmosphere:url("../assets/evening/analysis.svg");--evening-accent:#586ca5}
+
+.evening-page[data-tone=recording]{--evening-atmosphere:url("../assets/evening/recording.svg");--evening-accent:#85774f}
+
+.evening-page[data-tone=aspiration]{--evening-atmosphere:url("../assets/evening/aspiration.svg");--evening-accent:#a17c4e}
+
+.evening-page[data-tone=membership]{--evening-atmosphere:url("../assets/evening/membership.svg");--evening-accent:#9a7546}
+
+.evening-page[data-tone=account]{--evening-atmosphere:url("../assets/evening/account.svg");--evening-accent:#496c86}
+
+/* Stronger atmosphere, with solid reading surfaces and Home's warm focal points. */
+.evening-page{background-size:100% 100%;background-repeat:no-repeat}
+.evening-page h1{font-size:28px!important;color:#fff0d8;letter-spacing:-.035em}
+.evening-page .night-nav{border-top-color:#dfc7a72b}
+.evening-page .night-nav button[aria-current]{color:#ffe3b6}
+.evening-page .night-nav button[aria-current]:after{height:3px;background:#e8bf83}
+.evening-page .ideal-self-field textarea{border-color:#b6a38a66}
+.evening-page .evening-icon-action{color:#f0d4ab}
+
+/* A persistent full-frame sky keeps the arrival sequence seamless behind the clock. */
+.opening-sky{position:absolute;inset:0;z-index:0;pointer-events:none;background:#101923 url("../assets/evening/arrival.svg") center/100% 100% no-repeat}
+.theme-stargazing[data-opening=true] .evening-page[data-tone=arrival]{background:transparent}
+
+/* One full-bleed screen plane; only its content respects the status/safe area. */
+.screen-content{position:absolute;top:var(--app-top-inset,0px);right:0;bottom:0;left:0;display:flex;flex-direction:column;min-height:0}
+.app-screen[data-screen=home]>.screen-content,.app-screen[data-screen=brainmap]>.screen-content{top:0}
