@@ -20,6 +20,7 @@ export default function UnconsciousPatterns({ store, onBack, renderBelief, rende
   const [aboutOpen, setAboutOpen] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const aboutButton = useRef<HTMLButtonElement>(null);
   const tabs = useRef(new Map<View, HTMLButtonElement>());
   const positions = useRef<Record<View, number>>({ Beliefs: 0, Interpretations: 0, Connections: 0 });
   const returnFocus = useRef<string | null>(null);
@@ -29,14 +30,14 @@ export default function UnconsciousPatterns({ store, onBack, renderBelief, rende
   const selected = visibleBeliefs.find(belief => belief.id === selectedId);
 
   useLayoutEffect(() => {
-    if (scroller.current) scroller.current.scrollTop = selected ? 0 : positions.current[view];
-    if (selected) heading.current?.focus({ preventScroll: true });
+    if (scroller.current) scroller.current.scrollTop = selected || aboutOpen ? 0 : positions.current[view];
+    if (selected || aboutOpen) heading.current?.focus({ preventScroll: true });
     else if (restorePending.current) {
       const target = returnFocus.current ? scroller.current?.querySelector<HTMLButtonElement>(`[data-open-belief="${CSS.escape(returnFocus.current)}"]`) : null;
-      (target ?? tabs.current.get(view))?.focus({ preventScroll: true });
+      (returnFocus.current === 'about' ? aboutButton.current : target ?? tabs.current.get(view))?.focus({ preventScroll: true });
       restorePending.current = false;
     }
-  }, [view, selectedId, !!selected]);
+  }, [view, selectedId, !!selected, aboutOpen]);
 
   function openBelief(beliefId: string) {
     positions.current[view] = scroller.current?.scrollTop ?? 0;
@@ -46,23 +47,29 @@ export default function UnconsciousPatterns({ store, onBack, renderBelief, rende
   function returnToOverview() {
     restorePending.current = true;
     setSelectedId(null);
+    setAboutOpen(false);
+  }
+  function openAbout() {
+    positions.current[view] = scroller.current?.scrollTop ?? 0;
+    returnFocus.current = 'about';
+    setAboutOpen(true);
   }
   function changeView(next: View) {
     positions.current[view] = scroller.current?.scrollTop ?? 0;
     setView(next);
   }
 
-  return <section className="patterns-screen" aria-label="Unconscious Patterns" data-pattern-view={selected ? 'detail' : view}>
+  return <section className="patterns-screen" aria-label={aboutOpen ? 'About this analysis' : 'Unconscious Patterns'} data-pattern-view={aboutOpen ? 'about' : selected ? 'detail' : view}>
     <header className="patterns-header">
       <div className="patterns-topline">
-        <button type="button" className="patterns-back" onClick={selected ? returnToOverview : onBack}>
-          ← {selected ? `Back to ${view}` : 'Back to Mind'}
+        <button type="button" className="patterns-back" onClick={selected || aboutOpen ? returnToOverview : onBack}>
+          ← {selected || aboutOpen ? `Back to ${view}` : 'Back to Mind'}
         </button>
-        {!selected && <button type="button" className="patterns-about-toggle" aria-expanded={aboutOpen} aria-controls={`${id}-about`} onClick={() => setAboutOpen(open => !open)}>About this analysis</button>}
+        {!selected && !aboutOpen && <button ref={aboutButton} type="button" className="patterns-about-toggle" onClick={openAbout}>About this analysis</button>}
       </div>
-      <h1 ref={heading} tabIndex={-1}>{selected ? 'Belief details' : 'Unconscious Patterns'}</h1>
-      {!selected && <p className="patterns-intro">{store.beliefs.length > 0 ? 'Things that keep showing up in your actual words and actions, without you consciously realizing it.' : 'No patterns discovered yet. Log your first thought with "Speak your mind" — we\'ll start finding patterns from there.'}</p>}
-      {!selected && <div className="patterns-tabs" role="tablist" aria-label="Pattern views">
+      <h1 ref={heading} tabIndex={-1}>{aboutOpen ? 'About this analysis' : selected ? 'Belief details' : 'Unconscious Patterns'}</h1>
+      {!selected && !aboutOpen && <p className="patterns-intro">{store.beliefs.length > 0 ? 'Things that keep showing up in your actual words and actions, without you consciously realizing it.' : 'No patterns discovered yet. Log your first thought with "Speak your mind" — we\'ll start finding patterns from there.'}</p>}
+      {!selected && !aboutOpen && <div className="patterns-tabs" role="tablist" aria-label="Pattern views">
         {views.map((item, index) => <button type="button" key={item} role="tab" id={`${id}-${item}`} aria-selected={view === item} aria-controls={`${id}-panel-${item}`} tabIndex={view === item ? 0 : -1} ref={button => { if (button) tabs.current.set(item, button); }} onClick={() => changeView(item)} onKeyDown={event => {
           let next: View | undefined;
           if (event.key === 'ArrowRight') next = views[(index + 1) % views.length];
@@ -73,9 +80,8 @@ export default function UnconsciousPatterns({ store, onBack, renderBelief, rende
         }}>{item}</button>)}
       </div>}
     </header>
-    <div className="patterns-scroll" ref={scroller} onScroll={() => { if (!selected && scroller.current) positions.current[view] = scroller.current.scrollTop; }}>
-      {!selected && <section className="patterns-about" id={`${id}-about`} aria-label="About this analysis" hidden={!aboutOpen}>{about}</section>}
-      {selected ? renderBelief(selected, returnToOverview) : <div role="tabpanel" id={`${id}-panel-${view}`} aria-labelledby={`${id}-${view}`} tabIndex={0}>
+    <div className="patterns-scroll" ref={scroller} onScroll={() => { if (!selected && !aboutOpen && scroller.current) positions.current[view] = scroller.current.scrollTop; }}>
+      {aboutOpen ? <section className="patterns-about" aria-label="About this analysis">{about}</section> : selected ? renderBelief(selected, returnToOverview) : <div role="tabpanel" id={`${id}-panel-${view}`} aria-labelledby={`${id}-${view}`} tabIndex={0}>
         {view === 'Beliefs' && <>
           <h2 className="patterns-section-title">Core Unconscious Beliefs</h2>
           {visibleBeliefs.length === 0 ? <p className="patterns-empty">No unconscious beliefs discovered yet.</p> : <div className="patterns-summaries">

@@ -327,17 +327,16 @@ export type AspirationExample = {
   note: string;
 };
 
-// Premium's "For where you are now" literary match — the passage itself
-// always comes from the curated LITERARY_PASSAGES library (see
-// literaryPassages.ts), never generated text; this just records WHICH
-// passage was selected, why (the themes that won), and against how much
-// data, so the match persists across visits instead of re-selecting every
-// time Premium opens (see literaryPassages.ts's selectLiteraryPassage and
-// App.tsx's LiteraryReflectionPanel).
+// One eligible curated reading, reused inside a discovery/content cache.
 export type StoredLiteraryMatch = {
   passageId: string;
   themes: string[];
   selectedDate: string;
+};
+
+export type StoredLiterarySelection = {
+  signature: string;
+  match: StoredLiteraryMatch | null;
 };
 
 export type Store = {
@@ -380,14 +379,12 @@ export type Store = {
   // once the belief set has actually grown/shrunk since then, not on every
   // Home render. undefined means "never computed."
   goalsBeliefSnapshot?: number;
-  // null/undefined = not enough data yet, or never computed. See
-  // StoredLiteraryMatch and literaryPassages.ts.
+  // Legacy global fields are read only for migration; placeholders are
+  // invalidated during store loading and never used to render a reading.
   literaryMatch?: StoredLiteraryMatch | null;
-  // beliefs.length + history.length at the moment literaryMatch was last
-  // computed — same "only reconsider once there's meaningfully new data"
-  // gate goalsBeliefSnapshot uses, so opening Premium repeatedly never
-  // reshuffles the passage on its own.
   literaryMatchSnapshot?: number;
+  // Per-discovery, content-scoped cache in the existing JSON store.
+  literarySelections?: Record<string, StoredLiterarySelection>;
   // Every completed structured-thinking-lens session, regardless of which
   // lens or what it was linked to — see StoredLensSession above. Forward-
   // compatible longitudinal-intelligence infrastructure only: nothing

@@ -1,3 +1,4 @@
+import { AnalysisCarousel, AnalysisDisclosure, analysisTargetKey, type AnalysisVisit } from './analysisPresentation';
 import UnconsciousPatterns from './UnconsciousPatterns';
 import "./journal-node.css";
 import StellarNode from './StellarNode';
@@ -50,7 +51,7 @@ import { isCloudSyncConfigured } from "./supabaseClient";
 import { cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
-import { LITERARY_PASSAGES, selectLiteraryPassage, buildWhyThisFoundYou } from "./literaryPassages";
+import { eligiblePassages, resolveLiterarySelection, sanitizeLiterarySelections, buildWhyThisFoundYou, type LiteraryTarget } from "./literaryPassages";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 import { pickInputGuidance } from "./inputGuidance";
 
@@ -543,15 +544,9 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 // ── Screen 2 · Auth ───────────────────────────────────────────────────────────
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent", position: "relative", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "center", backgroundColor: "transparent", position: "relative", overflow: "hidden" }}>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <h1 className="opening-wordmark" style={{ ...serif, fontSize: 32, fontWeight:400, margin:0, color: OPENING_TEXT, textAlign: "center" }}>Mindscape</h1>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          Not a journaling app —<br />a tool for understanding how you think
-        </div>
-      </div>
-      <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: "28px", display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn onClick={onEmailStart}>Continue with email</PrimaryBtn>
         <GhostBtn onClick={onGuest}>Browse as a guest</GhostBtn>
         {/* Guest mode has no account behind it, so clearing this device's
@@ -2110,6 +2105,7 @@ function DiscoveryReflection({
       {reinterpreting && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0" }}>
           <motion.div
+            className="discovery-reconsidering-indicator"
             animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
             style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: ivHeading }}
           />
@@ -2163,7 +2159,7 @@ function EvolutionTimeline({ points }: { points: { label: string; text: string; 
 function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+      <div className="analysis-evidence-meta" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{date}</span>
         {domain && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, letterSpacing: "0.04em" }}>{domain}</span>}
       </div>
@@ -2553,83 +2549,16 @@ function RegionIconGlyph({ region, color }: { region: CognitiveRegion; color: st
 // redesign pass. `interpretation` is only shown when it's genuinely
 // distinct from `title` (see ScreenDiscoveryAnalysis) so the card never
 // repeats the same sentence twice.
-function DiscoveryCard({
-  title,
-  interpretation,
-  thoughtCount,
-  confidence,
-  regionColor,
-  onExamine,
-}: {
-  title: string;
-  interpretation: string;
-  thoughtCount: number;
-  confidence: number;
-  regionColor?: string;
-  onExamine?: () => void;
-}) {
-  return (
-    <div
-      style={{
-        position: "relative", boxSizing: "border-box", padding: "24px 22px 20px",
-        borderRadius: 22, backgroundColor: ivSurfaceSolid,
-        border: "none",
-        boxShadow: ivCardShadow,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {regionColor && <Node color={regionColor} size={11} intensity={0.7} />}
-        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
-          Today's discovery
-        </div>
-      </div>
-
-      <p
-        style={{
-          ...serif, fontSize: 22, fontWeight: 400, lineHeight: 1.28, color: ivHeading, margin: "14px 0 0", wordBreak: "keep-all",
-          overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3,
-        }}
-      >
-        {title}
-      </p>
-
-      {interpretation && (
-        <p
-          style={{
-            ...sans, fontSize: 12.5, color: ivBody, lineHeight: 1.5, margin: "8px 0 0", wordBreak: "keep-all",
-            overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
-          }}
-        >
-          {interpretation}
-        </p>
-      )}
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${ivDivider}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: ivBody, whiteSpace: "nowrap", flexShrink: 0 }}>
-            <ThoughtGlyph color={ivBody} /> {thoughtCount} thought{thoughtCount === 1 ? "" : "s"}
-          </span>
-          <MetaDivider color={ivFaint} />
-          <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: ivBody, whiteSpace: "nowrap", minWidth: 0 }}>
-            <ConfidenceGlyph color={ivBody} /> {confidence}% confidence
-          </span>
-        </div>
-
-        <motion.div
-          role="button"
-          tabIndex={0}
-          aria-label="Examine today's discovery"
-          onClick={onExamine}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExamine?.(); } }}
-          whileTap={{ opacity: 0.6 }}
-          style={{ display: "inline-flex", alignItems: "center", minHeight: 44, gap: 5, ...sans, fontSize: 12, fontWeight: 600, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
-        >
-          Examine <span aria-hidden>→</span>
-        </motion.div>
-      </div>
-    </div>
-  );
+function DiscoveryCard({title,interpretation,thoughtCount,confidence,regionColor,onExamine}:{title:string;interpretation:string;thoughtCount:number;confidence:number;regionColor?:string;onExamine?:()=>void}) {
+  return <article className="analysis-featured">
+    <p className="analysis-eyebrow">{regionColor&&<Node color={regionColor} size={13} intensity={0.7}/>}Today's discovery</p>
+    <h2>{title}</h2>
+    {interpretation&&<p className="analysis-preview">{interpretation}</p>}
+    <div className="analysis-featured-meta"><span>{thoughtCount} thought{thoughtCount===1?'':'s'}</span><span>{confidence}% confidence</span></div>
+    <button type="button" className="analysis-examine-action" data-insight-key="featured" aria-label="Examine today's discovery" onClick={onExamine}>Examine<span aria-hidden="true">→</span></button>
+  </article>;
 }
+
 
 // One "Further Insights" card — a small, quiet ivory SurfaceCard in a
 // horizontally-scrolling row. Every field is still real (see
@@ -2645,60 +2574,19 @@ function DiscoveryCard({
 // the fuller statement demoted to quiet supporting text under it, and the
 // relative date folded into one small, muted metadata line at the bottom
 // instead of a bold colored badge up top.
-function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () => void }) {
-  const color = REGION_CONFIG[item.region].color;
-  const intensity = Math.min(1, 0.45 + (item.confidence / 100) * 0.4);
-  const primaryLabel = item.thoughtLabel || item.title;
-  const showSupporting = !!item.thoughtLabel && item.title !== item.thoughtLabel;
-  const metaParts = [
-    item.date ? relativeInsightLabel(item.date) : null,
-    `${item.thoughtCount} thought${item.thoughtCount === 1 ? "" : "s"}`,
-    `${item.confidence}%`,
-  ].filter((p): p is string => !!p);
-
-  return (
-    <motion.div
-      role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
-      whileTap={{ scale: 0.97, opacity: 0.88 }}
-      style={{
-        flexShrink: 0, width: 160, boxSizing: "border-box", padding: "13px 14px",
-        borderRadius: 14, backgroundColor: ivSurfaceSolid, border: "none",
-        display: "flex", flexDirection: "column", gap: 8, cursor: "pointer",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Node color={color} size={13} intensity={intensity} />
-        <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "none", color: ivFaint }}>
-          {REGION_CONFIG[item.region].label}
-        </span>
-      </div>
-
-      <div
-        style={{
-          ...sans, fontSize: 14, fontWeight: 500, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all",
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-        }}
-      >
-        {primaryLabel}
-      </div>
-
-      {showSupporting && (
-        <div
-          style={{
-            ...sans, fontSize: 11, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all",
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-          }}
-        >
-          {item.title}
-        </div>
-      )}
-
-      <div style={{ ...sans, fontSize: 11, color: ivFaint }}>
-        {metaParts.join(" · ")}
-      </div>
-    </motion.div>
-  );
+function InsightCard({item,onOpen}:{item:RecentInsightItem;onOpen?:()=>void}) {
+  const color=REGION_CONFIG[item.region].color;
+  const intensity=Math.min(1,0.45+(item.confidence/100)*0.4);
+  const primaryLabel=item.thoughtLabel||item.title;
+  const showSupporting=!!item.thoughtLabel&&item.title!==item.thoughtLabel;
+  return <button type="button" className="analysis-insight" data-insight-key={item.key} aria-label={`Examine insight: ${item.title}`} onClick={onOpen}>
+    <span className="analysis-eyebrow"><Node color={color} size={13} intensity={intensity}/>{REGION_CONFIG[item.region].label}</span>
+    <h3>{primaryLabel}</h3>
+    {showSupporting&&<p>{item.title}</p>}
+    <span className="analysis-insight-meta">{item.date&&<span>{relativeInsightLabel(item.date)}</span>}<span>{item.thoughtCount} thought{item.thoughtCount===1?'':'s'}</span><span>{item.confidence}% confidence</span></span>
+  </button>;
 }
+
 
 // ── Screen 4.6 · Analysis ──────────────────────────────────────────────────────
 // Brought fully into the Mind screen's own design system: the same full-
@@ -2755,28 +2643,13 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
       .finally(() => { fetchingRef.current = false; });
   }, [needsRefresh, store.beliefs, updateStore]);
   if (!store.goals.length) return null;
-  return (
-    <div>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
-        WHERE YOU MIGHT BE HEADED
-      </div>
-      <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
-        Growth directions inferred from your recurring beliefs.
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
-        {store.goals.slice(0, 3).map((g, i) => (
-          <div key={g.id} style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: i > 0 ? `1px solid ${ivDivider}` : "none" }}>
-            <span style={{ ...mono, fontSize: 12, color: ivFaint, flexShrink: 0, paddingTop: 3 }}>{String(i + 1).padStart(2, "0")}</span>
-            <span style={{ ...serif, fontSize: 15.5, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all" }}>{g.statement}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <section className="analysis-growth" aria-label="Where you might be headed"><h2>Where you might be headed</h2><p className="analysis-growth-intro">Growth directions inferred from your recurring beliefs.</p>{store.goals.slice(0,3).map((goal,index)=><div className="analysis-growth-row" key={goal.id}><span>{String(index+1).padStart(2,'0')}</span><p>{goal.statement}</p></div>)}</section>;
 }
 
 function ScreenDiscoveryAnalysis({
   initialTarget,
+  visit,
+  reconsiderationError,
   onNavSelect,
   store,
   updateStore,
@@ -2788,6 +2661,8 @@ function ScreenDiscoveryAnalysis({
   reinterpretingKey,
 }: {
   initialTarget?: DiscoveryTarget | null;
+  visit: React.MutableRefObject<AnalysisVisit | null>;
+  reconsiderationError: {key:string;message:string}|null;
   onNavSelect?: (id: string) => void;
   store: Store;
   updateStore: (updater: (prev: Store) => Store) => void;
@@ -2799,12 +2674,15 @@ function ScreenDiscoveryAnalysis({
   reinterpretingKey?: string | null;
 }) {
   const reduceMotion = useReducedMotion();
+  const session=React.useRef<AnalysisVisit>(visit.current??{pinned:computeDiscovery(store),target:initialTarget??null,overviewScroll:0,carouselScroll:0,detailScroll:{},disclosures:{}});
+  visit.current=session.current;
+  const overviewScrollRef=React.useRef<HTMLDivElement>(null),detailScrollRef=React.useRef<HTMLDivElement>(null),analysisHeading=React.useRef<HTMLHeadingElement>(null),reviewRef=React.useRef<HTMLElement>(null);
   // Pinned once per visit to this screen so the discovery being discussed
   // never gets silently swapped out mid-conversation — see
   // resolveDiscoveryTarget. This is Today's Discovery specifically — the
   // one thing the landing paper shows — independent of whichever target
   // Examine is currently open on below.
-  const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
+  const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(session.current.pinned);
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const discH = discovery?.kind === "hypothesis" ? store.hypotheses[discovery.index] : null;
   const discB = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
@@ -2841,7 +2719,7 @@ function ScreenDiscoveryAnalysis({
   // Dig deeper) is open for that specific target, which may be Today's
   // Discovery or any Recent Insight — same shape, same component, so both
   // entry points share one implementation.
-  const [examineTarget, setExamineTarget] = React.useState<DiscoveryTarget | null>(initialTarget ?? null);
+  const [examineTarget, setExamineTarget] = React.useState<DiscoveryTarget | null>(session.current.target);
   const examine = examineTarget ? resolveDiscoveryTarget(store, examineTarget) : null;
   const hIndex = examineTarget?.kind === "hypothesis" ? examineTarget.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
@@ -2901,267 +2779,53 @@ function ScreenDiscoveryAnalysis({
     }
   };
 
-  return (
-    <div style={{ position: "relative", height: "100%", backgroundColor: "transparent" }}>
-      {/* The app shell owns the full-frame background and shared content inset. */}
+  session.current.target=examineTarget;
+  const previousTarget=React.useRef<DiscoveryTarget|null>(examineTarget);
+  React.useLayoutEffect(()=>{
+    if(examineTarget){if(detailScrollRef.current)detailScrollRef.current.scrollTop=session.current.detailScroll[thisKey??'']??0;analysisHeading.current?.focus({preventScroll:true});}
+    else {if(overviewScrollRef.current)overviewScrollRef.current.scrollTop=session.current.overviewScroll;
+      if(previousTarget.current){const previousKey=analysisTargetKey(previousTarget.current)!;const key=previousKey===analysisTargetKey(pinnedDiscovery)?'featured':previousKey;document.querySelector<HTMLButtonElement>(`[data-insight-key="${CSS.escape(key)}"]`)?.focus({preventScroll:true});}}
+    previousTarget.current=examineTarget;
+  },[!!examineTarget,thisKey]);
+  function openExamine(target:DiscoveryTarget|null){if(overviewScrollRef.current)session.current.overviewScroll=overviewScrollRef.current.scrollTop;setExamineTarget(target);}
+  return <section className="analysis-workspace" data-analysis-view={examineTarget?'examine':'overview'}>
+    <header className="analysis-header">
+      {examineTarget&&<button type="button" className="analysis-back" aria-label="Back to Analysis" onClick={()=>setExamineTarget(null)}>← Back to Analysis</button>}
+      <h1 ref={analysisHeading} tabIndex={-1}>{examineTarget?'Examine':'Analysis'}</h1>
+      <p>{examineTarget?'What the AI has learned about you across your thoughts.':'Interpretations to review, with their evidence.'}</p>
+    </header>
+    {examineTarget?<div className="analysis-scroll" ref={detailScrollRef} onScroll={event=>{if(thisKey)session.current.detailScroll[thisKey]=event.currentTarget.scrollTop;}}>
+      {examine?<>
+        <section className="analysis-examine-hero" data-tutorial="today-discovery">
+          <p className="analysis-eyebrow">{analysisTargetKey(examineTarget)===analysisTargetKey(pinnedDiscovery)?"Today's discovery":'Recent insight'}</p>
+          {(h?.thoughtLabel||b?.thoughtLabel)&&<p className="analysis-thought-label">The "{h?.thoughtLabel||b?.thoughtLabel}" thought showed up again</p>}
+          <h2>{examine.text}</h2>
+          <p className="analysis-confidence">{h?h.confidence:b?.confidence??0}% confidence</p>
+          <button type="button" className="analysis-jump-review" onClick={()=>{reviewRef.current?.scrollIntoView({block:'start',behavior:reduceMotion?'instant':'smooth'});reviewRef.current?.focus({preventScroll:true});}}>Review this interpretation ↓</button>
+        </section>
+        <section className="analysis-evidence" aria-labelledby="analysis-evidence-title">
+          <h2 id="analysis-evidence-title">Why this interpretation</h2><p className="analysis-section-intro">These are parts where you actually said this.</p>
+          {evidence.length>0?<EvidenceGroup>{evidence.map((item,index)=><EvidenceQuoteCard key={index} date={item.date} quote={item.quote} domain={item.domain}/>)}</EvidenceGroup>:<p className="analysis-empty">No entries to cite as evidence yet.</p>}
+          {contradictoryEntries.length>0&&<div className="analysis-contradictions"><h2>Entries pointing the other way</h2><EvidenceGroup>{contradictoryEntries.map(({belief,entry},index)=><EvidenceQuoteCard key={index} date={entry.date} quote={entry.text} domain={belief.domain}/>)}</EvidenceGroup></div>}
+        </section>
+        {evolutionPoints.length>0&&<AnalysisDisclosure title="How this has evolved" state={session.current.disclosures} name={`${thisKey}:evolution`}><div className="analysis-development"><EvolutionTimeline points={evolutionPoints}/></div></AnalysisDisclosure>}
+        <section className="analysis-review" ref={reviewRef} tabIndex={-1} aria-label="Review interpretation">
+          <DiscoveryReflection reaction={reaction} reinterpreting={reinterpreting} exhausted={exhausted} onReact={handleReact}/>
+          {reaction!=='agree'&&!exhausted&&reconsiderationError?.key===thisKey&&<p className="analysis-error" role="alert">{reconsiderationError.message}</p>}
+          {h?.investigate&&hIndex!==null&&<button type="button" className="analysis-deeper-action" onClick={()=>onInvestigateHypothesis?.(hIndex)}>Dig deeper<span aria-hidden="true">→</span></button>}
+        </section>
+      </>:<p className="analysis-empty">Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>}
+      <section className="analysis-supplement" aria-label="Further reflection">
+        <GoalDirectionsPanel store={store} updateStore={updateStore}/>
+        {store.isPro&&<AnalysisDisclosure title="For where you are now" state={session.current.disclosures} name={`${thisKey}:literary`}><LiteraryReflectionPanel store={store} updateStore={updateStore} target={h?{kind:'hypothesis',id:h.id}:b?{kind:'belief',id:b.id}:null}/></AnalysisDisclosure>}
+      </section>
+    </div>:<div className="analysis-scroll" ref={overviewScrollRef} onScroll={event=>{session.current.overviewScroll=event.currentTarget.scrollTop;}}>
+      <div data-tutorial="today-discovery">{discovery?<DiscoveryCard title={discTitle} interpretation={discInterpretation} thoughtCount={discThoughtCount} confidence={discConfidence} regionColor={discRegionColor} onExamine={()=>openExamine(pinnedDiscovery)}/>:<p className="analysis-empty">Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>}</div>
+      {recentInsights.length>0?<AnalysisCarousel visit={session.current}>{recentInsights.map(item=><InsightCard key={item.key} item={item} onOpen={()=>openExamine(item.target)}/>)}</AnalysisCarousel>:<section className="analysis-further"><h2 className="analysis-section-intro">Further insights</h2><p className="analysis-empty">No other insights yet — check back as more come into focus.</p></section>}
+    </div>}
+    <div className="analysis-nav"><BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage/></div>
+  </section>;
 
-      <AnimatePresence mode="sync" initial={false}>
-        {examineTarget ? (
-          <motion.div
-            key="examine"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
-            // Same full-bleed treatment as the landing scene right below —
-            // its own copy of the ivory canvas, bled up behind the status
-            // bar, so switching between the two never reveals a mismatched
-            // fallback strip either way.
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
-          >
-            {/* One scrolling column, edge to edge with the same 30px page
-            grid the landing scene uses — everything (Back, the heading,
-            every section label, every line of body text) starts at that
-            same left edge. className="no-scrollbar" hides the native
-            scrollbar (same mechanism Recent Insights/My Mind use) while
-            scrolling still works normally. */}
-            <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: "34px 30px calc(28px + env(safe-area-inset-bottom))", boxSizing: "border-box" }}>
-              <span
-                role="button" tabIndex={0} aria-label="Back to Analysis" onClick={() => setExamineTarget(null)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExamineTarget(null); } }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: ivBody, cursor: "pointer" }}
-              >
-                ← Back
-              </span>
-              <h1 className="evening-title" style={{ ...serif, fontSize: 30, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</h1>
-              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.4 }}>
-                What the AI has learned about you across your thoughts.
-              </div>
-
-              {/* ── TODAY'S DISCOVERY (or RECENT INSIGHT) — title, interpretation,
-              confidence. The interpretation is the one dominant element;
-              confidence stays a quiet trailing line, not a bar. ── */}
-              <div data-tutorial="today-discovery" style={{ marginTop: 36 }}>
-                {examine ? (
-                  <>
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
-                      {(examineTarget === pinnedDiscovery ? "Today's discovery" : "Recent insight").toUpperCase()}
-                    </div>
-                    {(h?.thoughtLabel || b?.thoughtLabel) && (
-                      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, margin: "12px 0 0" }}>
-                        The "{h?.thoughtLabel || b?.thoughtLabel}" thought showed up again
-                      </p>
-                    )}
-                    <p style={{ ...serif, fontSize: 22, lineHeight: 1.42, color: ivHeading, margin: "10px 0 0", wordBreak: "keep-all" }}>{examine.text}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
-                      <ConfidenceGlyph color={ivBody} />
-                      <span style={{ ...sans, fontSize: 11.5, color: ivBody }}>{h ? h.confidence : b?.confidence ?? 0}% confidence</span>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    <svg width="72" height="72" viewBox="0 0 96 96">
-                      <circle cx="48" cy="48" r="44" fill="rgba(236,210,168,0.05)" />
-                      <circle cx="34" cy="44" r="5" fill={ivFaint} />
-                      <circle cx="62" cy="44" r="5" fill={ivFaint} />
-                      <path d="M36 60 Q48 68 60 60" stroke={ivFaint} strokeWidth="3" fill="none" strokeLinecap="round" />
-                    </svg>
-                    <p style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.6, margin: 0, maxWidth: 280 }}>Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* ── WHERE YOU MIGHT BE HEADED — independent of which discovery
-              is pinned above (inferred from the whole belief set), so it's
-              not gated behind `examine`. Renders nothing until there are
-              enough beliefs and a first inference has come back — see
-              GoalDirectionsPanel. ── */}
-              <div style={{ marginTop: 40 }}>
-                <GoalDirectionsPanel store={store} updateStore={updateStore} />
-              </div>
-
-              {/* ── FOR WHERE YOU ARE NOW — Premium's interpretive layer:
-              what a thought means in the context of who the person has
-              been becoming, not just what it means on its own. Same
-              LiteraryReflectionPanel moved here from the old standalone
-              Premium tab (unchanged — still the curated LITERARY_PASSAGES
-              match, still the existing author-portrait treatment, no
-              constellation-author redesign here), independent of `examine`
-              same as GoalDirectionsPanel above, only shown once Premium
-              Mode is on (store.isPro, toggled from Profile). ── */}
-              {store.isPro && (
-                <div style={{ marginTop: 40 }}>
-                  <LiteraryReflectionPanel store={store} updateStore={updateStore} />
-                </div>
-              )}
-
-              {examine && (
-                <>
-                  {/* ── WHY THIS INTERPRETATION — the strongest supporting
-                  evidence, chronological, grouped in the one restrained
-                  translucent surface this screen allows itself. ── */}
-                  <div style={{ marginTop: 40 }}>
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
-                      WHY THIS INTERPRETATION
-                    </div>
-                    <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
-                      These are parts where you actually said this.
-                    </div>
-                    <div style={{ marginTop: 14 }}>
-                      {evidence.length > 0 ? (
-                        <EvidenceGroup>
-                          {evidence.map((e, i) => (
-                            <EvidenceQuoteCard key={i} date={e.date} quote={e.quote} domain={e.domain} />
-                          ))}
-                        </EvidenceGroup>
-                      ) : (
-                        <div style={{ ...sans, fontSize: 13, color: ivBody }}>No entries to cite as evidence yet.</div>
-                      )}
-                    </div>
-
-                    {contradictoryEntries.length > 0 && (
-                      <div style={{ marginTop: 24 }}>
-                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.1em" }}>
-                          ENTRIES POINTING THE OTHER WAY
-                        </div>
-                        <div style={{ marginTop: 12 }}>
-                          <EvidenceGroup>
-                            {contradictoryEntries.map(({ belief, entry }, i) => (
-                              <EvidenceQuoteCard key={i} date={entry.date} quote={entry.text} domain={belief.domain} />
-                            ))}
-                          </EvidenceGroup>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* ── HOW THIS HAS EVOLVED — only when there's a real trail. ── */}
-                  {evolutionPoints.length > 0 && (
-                    <div style={{ marginTop: 40 }}>
-                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em" }}>
-                        HOW THIS HAS EVOLVED
-                      </div>
-                      <div style={{ marginTop: 18 }}>
-                        <EvolutionTimeline points={evolutionPoints} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── REFLECTION — the considered version of the hero's
-                  quick react; no label of its own, a direct continuation. ── */}
-                  <div style={{ marginTop: 40 }}>
-                    <DiscoveryReflection
-                      reaction={reaction}
-                      reinterpreting={reinterpreting}
-                      exhausted={exhausted}
-                      onReact={handleReact}
-                    />
-                    {h?.investigate && hIndex !== null && (
-                      <motion.div
-                        role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onInvestigateHypothesis?.(hIndex))?.(); } }} whileTap={{ opacity: 0.6 }}
-                        style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: `1.5px solid ${ivBorder}`, color: ivHeading, borderRadius: 14, padding: 12, ...sans, fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
-                      >
-                        Dig deeper
-                      </motion.div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
-              <BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage />
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="landing"
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 4 }} transition={{ duration: reduceMotion ? 0.01 : 0.2, ease: "easeOut" }}
-            // Bled up by the same 30px the frame's fake status bar reserves
-            // — exactly the trick ScreenAnalysis/Mind uses — so the
-            // background below reaches all the way to the top of the
-            // screen instead of leaving the frame's own fallback color
-            // showing through as a strip above the header.
-            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}
-          >
-            {/* Header — stationary, over the scene, never scrolls, and
-            deliberately not inside a card: the background stays visible
-            around it. Shared position/size/spacing with Mind and History's
-            own headers (see PRIMARY_HEADER_TOP/SIDE and primaryTitleStyle/
-            primaryTitleSubtitleStyle) so "Analysis" carries the same
-            visual presence "Mind" and "History" do. */}
-            <div style={{ position: "relative", zIndex: 2, flexShrink: 0, padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 6px`, boxSizing: "border-box" }}>
-              <h1 style={{...primaryTitleStyle,margin:0}}>Analysis</h1>
-              <div style={primaryTitleSubtitleStyle}>
-                Interpretations to review, with their evidence.
-              </div>
-            </div>
-
-            {/* One scrolling composition beneath the header — Today's
-            Discovery (the hero card), then Further Insights, in that
-            weight, with the background still showing through between them.
-            Merging what used to be a pinned discovery panel above an
-            independently-scrolling insights list into one shared scroll
-            region is also what leaves room for a future Premium
-            longitudinal-intelligence section below Further Insights (see
-            the brief) without restructuring this again — a new section is
-            just another child appended here. */}
-            <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: `10px ${PRIMARY_HEADER_SIDE}px calc(20px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-              {/* ── Today's Discovery — the dominant object on this screen,
-              inside one large ivory SurfaceCard (see DiscoveryCard). ── */}
-              <div data-tutorial="today-discovery">
-                {discovery ? (
-                  <DiscoveryCard
-                    title={discTitle}
-                    interpretation={discInterpretation}
-                    thoughtCount={discThoughtCount}
-                    confidence={discConfidence}
-                    regionColor={discRegionColor}
-                    onExamine={() => setExamineTarget(pinnedDiscovery)}
-                  />
-                ) : (
-                  <div style={{ padding: "20px 0", boxSizing: "border-box" }}>
-                    <p style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.6, margin: 0 }}>Nothing discovered yet. It'll show up here after you leave a few thoughts.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Further Insights — secondary to Today's Discovery, a
-              compact horizontal row of small ivory SurfaceCards (InsightCard)
-              instead of the old vertically-stacked feed, so the screen
-              reads as one deliberate composition rather than a long list of
-              equally-weighted results. Every insight stays reachable —
-              horizontally scrollable rather than capped, so nothing here is
-              hidden behind an extra tap (see recentInsights above). The
-              label itself is nudged right by InsightCard's own left padding
-              (14px) so it lines up with each card's actual content start
-              (its node) rather than just the card's own outer edge — the
-              two read as flush at a glance, not merely close. ── */}
-              <div style={{ marginTop: 32 }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.025em", paddingLeft: 14 }}>
-                  Further insights
-                </div>
-                {recentInsights.length === 0 ? (
-                  <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>No other insights yet — check back as more come into focus.</p>
-                ) : (
-                  <div className="no-scrollbar" style={{ display: "flex", gap: 12, marginTop: 14, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 2 }}>
-                    {recentInsights.map((item) => (
-                      <InsightCard key={item.key} item={item} onOpen={() => setExamineTarget(item.target)} />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Structural room for Premium's longitudinal-intelligence
-              layer (see the brief's "Today's Discovery → Further Insights →
-              Premium deeper interpretation" hierarchy) — intentionally not
-              implemented here; a future section drops in below Further
-              Insights without touching the layout above it. */}
-            </div>
-            <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
-              <BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
 // Premium's section header — the gold-caps label + quiet subtitle pattern
@@ -3188,110 +2852,32 @@ const AUTHOR_PORTRAITS: Record<string, string> = {
   "anais-nin": authorAnaisNinImg,
 };
 
-// "For where you are now" — Premium's literary-match feature. The passage
-// itself always comes straight from LITERARY_PASSAGES (see
-// literaryPassages.ts) — this component's own job is just: compute the
-// match when there's meaningfully new data (recompute gated on
-// literaryMatchSnapshot, same pattern GoalDirectionsPanel uses for goals,
-// so opening Premium repeatedly never reshuffles the passage on its own —
-// see the brief's "not: app opened → random new quote"), persist it, and
-// render it as a page from a book, not another analytics row.
-function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateStore: (updater: (prev: Store) => Store) => void }) {
-  const reduceMotion = useReducedMotion();
-  const snapshot = store.beliefs.length + store.history.length;
-  const needsRefresh = store.literaryMatchSnapshot !== snapshot;
-  React.useEffect(() => {
-    if (!needsRefresh) return;
-    const result = selectLiteraryPassage(store);
-    updateStore((prev) => ({
-      ...prev,
-      literaryMatch: result ? { passageId: result.passage.id, themes: result.themes, selectedDate: formatDateDots(new Date()) } : null,
-      literaryMatchSnapshot: snapshot,
-    }));
-  }, [needsRefresh, store, updateStore, snapshot]);
-
-  const match = store.literaryMatch;
-  const passage = match ? LITERARY_PASSAGES.find((p) => p.id === match.passageId) ?? null : null;
-  const portraitSrc = passage ? AUTHOR_PORTRAITS[passage.authorId] : undefined;
-  const fade = { duration: reduceMotion ? 0.01 : 0.6, ease: "easeOut" as const };
-
-  return (
-    <div>
-      {/* Toned down from a full-strength label — smaller, lighter weight,
-      slightly dimmed — so it reads as a quiet editorial eyebrow rather
-      than a bold warning-style tag. Same horizontal grid as every other
-      section here (this div has no side padding/margin of its own,
-      inheriting Premium's shared content column). */}
-      <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivFaint, letterSpacing: "0.025em", textTransform: "none" }}>For where you are now</div>
-      {/* mode="wait" + a slow fade — this is meant to feel like turning to
-      a new page, not a UI state flipping; see the brief's "no flashy
-      animation... contemplative." */}
-      <AnimatePresence mode="wait" initial={false}>
-        {!passage || !match ? (
-          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
-            <p style={{ ...serif, fontStyle: "italic", fontSize: 16, color: ivBody, lineHeight: 1.55, margin: "18px 0 0", wordBreak: "keep-all" }}>
-              Keep writing.
-            </p>
-            <p style={{ ...sans, fontSize: 13, color: ivFaint, lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
-              As your mind takes shape here, we'll find something worth reading alongside it.
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div key={passage.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
-            {/* The passage itself — short (every LITERARY_PASSAGES entry is
-            excerpt-length, not a paragraph — see literaryPassages.ts),
-            smaller and tighter than a pull-quote, no surrounding box, no
-            decorative quotation-mark glyphs (italics alone signal "this is
-            quoted," the same convention a literary journal uses). */}
-            <p style={{ ...serif, fontStyle: "italic", fontSize: 16.5, lineHeight: 1.55, color: ivHeading, margin: "22px 0 0", wordBreak: "keep-all" }}>
-              {passage.exactText}
-            </p>
-
-            {/* Attribution + a small, quiet portrait sharing one row — the
-            portrait no longer has its own footprint in the passage column;
-            it just sits beside the author's name, the way a journal might
-            set a tiny engraving beside a byline. pointerEvents:"none" and
-            no card/circle/border/glow — a bare, softly-masked illustration
-            at low opacity, present only when this author has one (see
-            AUTHOR_PORTRAITS). Preserved verbatim — no constellation-author
-            redesign here, per the brief. */}
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ ...serif, fontSize: 13, color: ivBody }}>— {passage.author}</div>
-                {passage.work && (
-                  <div style={{ ...sans, fontSize: 11, color: ivFaint, marginTop: 2 }}>{passage.work}</div>
-                )}
-              </div>
-              {portraitSrc && (
-                <img
-                  src={portraitSrc}
-                  alt=""
-                  aria-hidden="true"
-                  draggable={false}
-                  style={{
-                    width: 46, height: 46, objectFit: "cover", objectPosition: "50% 15%", flexShrink: 0,
-                    opacity: 0.85, pointerEvents: "none",
-                    WebkitMaskImage: "radial-gradient(circle at 50% 40%, rgba(0,0,0,1) 45%, rgba(0,0,0,0) 78%)",
-                    maskImage: "radial-gradient(circle at 50% 40%, rgba(0,0,0,1) 45%, rgba(0,0,0,0) 78%)",
-                  }}
-                />
-              )}
-            </div>
-
-            {/* "Why this found you" — always present, not a disclosure to
-            tap open. A quiet ambient observation sitting under the
-            attribution, not an interactive "AI explained itself" affordance
-            — see the redesign brief. No divider line; the generous margin
-            alone separates it from the passage above. */}
-            <p style={{ ...sans, fontStyle: "italic", fontSize: 12, color: ivFaint, lineHeight: 1.6, margin: "24px 0 0", wordBreak: "keep-all" }}>
-              {buildWhyThisFoundYou(match.themes)}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+// Optional reading uses a discovery/content-scoped selection in the existing
+// store. Eligibility is checked again before display, including old caches.
+function LiteraryReflectionPanel({store,updateStore,target}:{store:Store;updateStore:(updater:(prev:Store)=>Store)=>void;target:LiteraryTarget|null}) {
+  const today=formatDateDots(new Date());
+  const resolved=target?resolveLiterarySelection(store,target,today):null;
+  React.useEffect(()=>{
+    if(!target||(!resolved?.needsSave&&!store.literaryMatch))return;
+    updateStore(previous=>{
+      const current=resolveLiterarySelection(previous,target,today);
+      if(!current.needsSave&&!previous.literaryMatch)return previous;
+      return {...previous,literaryMatch:null,literaryMatchSnapshot:undefined,literarySelections:{...sanitizeLiterarySelections(previous.literarySelections),[current.key]:current.selection}};
+    });
+  },[resolved?.key,resolved?.selection.signature,resolved?.needsSave,store.literaryMatch,target,updateStore,today]);
+  const match=resolved?.selection.match;
+  // Re-check eligibility at the display boundary, including old saved selections.
+  const passage=match?eligiblePassages().find(item=>item.id===match.passageId):undefined;
+  const portraitSrc=passage?AUTHOR_PORTRAITS[passage.authorId]:undefined;
+  return <div className="analysis-literary">
+    {!passage||!match?<><p>Keep writing.</p><p>As your mind takes shape here, we'll find something worth reading alongside it.</p></>:<>
+      <p className="analysis-literary-passage">{passage.exactText}</p>
+      <div className="analysis-literary-byline">{portraitSrc&&<img src={portraitSrc} alt={`Portrait of ${passage.author}`} draggable={false}/>}<div><p>— {passage.author}</p>{passage.work&&<small>{passage.work}</small>}</div></div>
+      <p className="analysis-literary-explanation">{buildWhyThisFoundYou(match.themes)}</p>
+    </>}
+  </div>;
 }
+
 
 // ── Screen 4.7 · Premium (retired as a standalone tab) ─────────────────────────
 // This used to be its own bottom-nav tab, rendering ArtifactTile entry
@@ -5111,74 +4697,23 @@ function ScreenHypothesisDetail({
 // as the hypothesis card itself, not a new one. Takes the investigation
 // content directly (rather than looking a hypothesis up itself) since the
 // caller already knows exactly which one is open.
-function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<StoredHypothesis["investigate"]>; onBack?: () => void }) {
-  const inv = investigate;
-  const [step, setStep] = React.useState(0);
-  const steps = 4;
-
-  let body: React.ReactNode;
-  if (step === 0) {
-    body = (
-      <ScreenPivot
-        kicker="Dig deeper"
-        statement={<>Let's find out<br />where this pattern<br />first started.</>}
-        cta={<PrimaryBtn onClick={() => setStep(1)} modernist>Start</PrimaryBtn>}
-      />
-    );
-  } else if (step === 1) {
-    body = (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>The First Time This Showed Up</div>
-          <div style={{ marginTop: 16, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
-            <div style={{ ...mono, fontSize: 11, color: mdFaint }}>{inv.origin.date}</div>
-            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: mdBodyLight, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>"{inv.origin.quote}"</div>
-          </div>
-          <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 18, lineHeight: 1.75, wordBreak: "keep-all" }}>{inv.originNote}</div>
-        </div>
-      </div>
-    );
-  } else if (step === 2) {
-    body = (
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "52px 22px 90px" }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>Then and Now, Side by Side</div>
-          <div style={{ marginTop: 18 }}>
-            <AlignedRowCompare
-              rows={[
-                { label: inv.compareLabel1, steps: inv.compareSteps1 },
-                { label: inv.compareLabel2, steps: inv.compareSteps2, accent: true },
-              ]}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  } else {
-    body = (
-      <ScreenPivot
-        kicker="Connection to another pattern"
-        statement={inv.related}
-        cta={<PrimaryBtn onClick={onBack} modernist>Back to the hypothesis</PrimaryBtn>}
-      />
-    );
-  }
-
-  return (
-    <div style={{ position: "relative", height: "100%" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 22px 0", zIndex: 2 }}>
-        <BackButton onClick={step === 0 ? onBack : () => setStep(step - 1)} />
-        <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{step + 1} / {steps}</span>
-      </div>
-      <div style={{ height: "100%" }}>{body}</div>
-      {step > 0 && step < steps - 1 && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 22px 24px" }}>
-          <PrimaryBtn onClick={() => setStep(step + 1)} modernist>Next</PrimaryBtn>
-        </div>
-      )}
+function ScreenInvestigate({investigate,onBack}:{investigate:NonNullable<StoredHypothesis['investigate']>;onBack?:()=>void}) {
+  const inv=investigate;
+  const [step,setStep]=React.useState(0);
+  const body=React.useRef<HTMLDivElement>(null),heading=React.useRef<HTMLHeadingElement>(null);
+  React.useLayoutEffect(()=>{if(body.current)body.current.scrollTop=0;heading.current?.focus({preventScroll:true});},[step]);
+  return <section className="analysis-investigation" aria-label="Guided investigation">
+    <header className="analysis-investigation-header"><button type="button" className="analysis-back" aria-label={step===0?'Back to the hypothesis':'Previous investigation step'} onClick={step===0?onBack:()=>setStep(value=>value-1)}>← Back</button><span className="analysis-step-count" aria-label={`Step ${step+1} of 4`}>{step+1} / 4</span></header>
+    <div className="analysis-investigation-body" ref={body}>
+      {step===0&&<div className="analysis-investigation-intro"><p>Dig deeper</p><h1 ref={heading} tabIndex={-1}>Let's find out<br/>where this pattern<br/>first started.</h1></div>}
+      {step===1&&<><h1 ref={heading} tabIndex={-1}>The First Time This Showed Up</h1><time>{inv.origin.date}</time><blockquote>"{inv.origin.quote}"</blockquote><p>{inv.originNote}</p></>}
+      {step===2&&<><h1 ref={heading} tabIndex={-1}>Then and Now, Side by Side</h1><div className="analysis-comparison">{[{label:inv.compareLabel1,steps:inv.compareSteps1},{label:inv.compareLabel2,steps:inv.compareSteps2}].map((row,index)=><article key={index}><h2>{row.label}</h2><ol>{row.steps.map((text,stepIndex)=><li key={stepIndex}>{text}</li>)}</ol></article>)}</div></>}
+      {step===3&&<><p>Connection to another pattern</p><h1 ref={heading} tabIndex={-1} className="analysis-investigation-related">{inv.related}</h1></>}
     </div>
-  );
+    <footer className="analysis-investigation-footer"><button type="button" onClick={step===3?onBack:()=>setStep(value=>value+1)}>{step===0?'Start':step===3?'Back to the hypothesis':'Next'}</button></footer>
+  </section>;
 }
+
 
 // The design spec colors each history entry by domain, which this app's
 // entries don't carry directly (only beliefs have a domain) — so this
@@ -6784,6 +6319,8 @@ export default function App() {
   const [screen, setScreen] = React.useState("quote");
   const [thinkInputMode, setThinkInputMode] = React.useState<"text" | "voice">("text");
   const [homeReviewTarget, setHomeReviewTarget] = React.useState<DiscoveryTarget | null>(null);
+  const analysisVisit=React.useRef<AnalysisVisit|null>(null);
+  const [reconsiderationError,setReconsiderationError]=React.useState<{key:string;message:string}|null>(null);
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
@@ -6904,7 +6441,7 @@ export default function App() {
     if (Notification.permission === "default") Notification.requestPermission();
   }, [store.settings.newHypothesisAlert]);
 
-  const goToTab = (id: string) => { setHomeReviewTarget(null); setScreen(id); };
+  const goToTab = (id: string) => { analysisVisit.current=null; setHomeReviewTarget(null); setScreen(id); };
 
   // Interactive tour state — see TutorialOverlay/buildTutorialSteps above.
   // Recomputed off store.isPro so a mid-tour upgrade (unlikely, but
@@ -7018,6 +6555,7 @@ export default function App() {
     if (reinterpretingKey) return;
     const h = store.hypotheses[index];
     if (!h) return;
+    setReconsiderationError(null);
     setReinterpretingKey(key);
     try {
       const quotes = evidenceForHypothesis(h, store.beliefs).map((e) => e.quote);
@@ -7040,6 +6578,7 @@ export default function App() {
       }));
     } catch (err) {
       console.error(err);
+      setReconsiderationError({key,message:"Could not reconsider this observation. Please try again."});
     } finally {
       setReinterpretingKey(null);
     }
@@ -7050,6 +6589,7 @@ export default function App() {
     if (reinterpretingKey) return;
     const b = store.beliefs.find((x) => x.id === beliefId);
     if (!b) return;
+    setReconsiderationError(null);
     setReinterpretingKey(key);
     try {
       const currentText = b.discoveryInterpretationOverride ?? b.statement;
@@ -7073,6 +6613,7 @@ export default function App() {
       }));
     } catch (err) {
       console.error(err);
+      setReconsiderationError({key,message:"Could not reconsider this observation. Please try again."});
     } finally {
       setReinterpretingKey(null);
     }
@@ -7123,7 +6664,7 @@ export default function App() {
         isDemoMode={isDemoMode}
         onNavSelect={goToTab}
         onStartThink={(mode = "text") => { setThinkInputMode(mode); setScreen("think"); }}
-        onReviewInterpretation={(target) => { setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }}
+        onReviewInterpretation={(target) => { analysisVisit.current=null; setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }}
         onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
@@ -7158,6 +6699,8 @@ export default function App() {
     ) : (
       <ScreenDiscoveryAnalysis
         initialTarget={homeReviewTarget}
+        visit={analysisVisit}
+        reconsiderationError={reconsiderationError}
         onNavSelect={goToTab}
         store={store}
         updateStore={updateStore}
@@ -7396,7 +6939,7 @@ export default function App() {
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
     default: content = <ScreenHome mapAccessAllowed={!MONETIZATION_ENABLED || store.isPro} onOpenEntry={(id) => { const index=[...store.history].reverse().findIndex(e=>e.id===id); if(index>=0){setHistoryDetailReturnTo("home");setHistoryEntryIndex(index);setScreen("historyDetail");} }} isDemoMode={isDemoMode} onNavSelect={goToTab} onStartThink={(mode = "text") => { setThinkInputMode(mode); setScreen("think"); }}
-        onReviewInterpretation={(target) => { setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
+        onReviewInterpretation={(target) => { analysisVisit.current=null; setHomeReviewTarget(target); setScreen("discoveryAnalysis"); }} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
 
   const isMobileViewport = useIsMobileViewport();

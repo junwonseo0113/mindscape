@@ -1,31 +1,13 @@
 // ── "For where you are now" — Premium's literary-passage feature ───────────
 //
-// The core rule this whole file exists to enforce: the app SELECTS a real
-// passage from this curated library — it never generates, paraphrases, or
-// reconstructs one from memory. See selectLiteraryPassage below for the
-// pipeline (extract themes from real user data → score candidate passages
-// against those themes → pick the strongest match), and App.tsx's
-// LiteraryReflectionPanel for where the result is displayed and persisted
-// (store.literaryMatch — see types.ts) so it doesn't reshuffle every time
-// Premium opens.
-//
-// COPYRIGHT / ACCURACY — every entry below is currently a clearly-marked
-// PLACEHOLDER (rightsStatus: "placeholder"), not a verified quotation. The
-// author/work/theme pairings are real editorial intent (Nin on freedom vs.
-// security and becoming, Rilke on uncertainty and patience, Woolf on
-// independence and self-perception, Camus on meaning and change genuinely
-// fit those themes) — but the exact_text of a real passage has to come from
-// an actual verified source, not an LLM's memory of how a famous line
-// probably goes, so none of these are eligible to render as a genuine
-// quotation yet. exactText is deliberately kept excerpt-length (what a real
-// curated passage would actually be — a few lines, not a paragraph) and
-// self-marks as pending via plain brackets, rather than through a second
-// on-screen badge — see App.tsx's LiteraryReflectionPanel, which no longer
-// duplicates that signal as a separate "PLACEHOLDER" caption; one quiet
-// marker, not two competing ones. Replacing a placeholder is a one-line
-// edit: swap exactText/source and flip rightsStatus to "public-domain" or
-// "licensed" once a passage has actually been checked against a real
-// edition and its rights confirmed.
+// Readings are selected only from verified, eligible curated records.
+// All four editorial records currently remain placeholders: they are kept
+// for future verification but are never ranked, cached or displayed.
+// Matching is specific to the selected discovery and its evidence. A
+// content signature preserves stable selections and refreshes changed data.
+// The separate opening quote library is not imported here.
+
+import type { Store, StoredBelief, StoredLiteraryMatch, StoredLiterarySelection } from './types';
 
 export type PassageRightsStatus = "public-domain" | "licensed" | "placeholder";
 
@@ -156,44 +138,77 @@ export const MIN_BELIEFS_FOR_LITERARY_MATCH = 3;
 
 export type LiteraryMatchResult = { passage: LiteraryPassage; themes: string[]; topThemeScores: ThemeScore[] };
 
-// Ranks every candidate passage by how much its own theme tags overlap
-// with the user's top themes (weighted by each theme's score, so a
-// passage matching the #1 theme outweighs one only matching a distant
-// #4th) — the closest this gets to "semantic ranking" without an actual
-// embedding model, but it's real overlap against real extracted themes,
-// not a coin flip. Ties break on passage id, so the result is stable.
-export function selectLiteraryPassage(store: Parameters<typeof extractUserThemes>[0]): LiteraryMatchResult | null {
-  if (store.beliefs.filter((b) => (b as any).userReaction !== "rejected").length < MIN_BELIEFS_FOR_LITERARY_MATCH) return null;
-  const themeScores = extractUserThemes(store);
-  if (themeScores.length === 0) return null;
-  const topThemes = themeScores.slice(0, 3);
-  const weightOf = (theme: string) => topThemes.find((t) => t.theme === theme)?.score ?? 0;
+export type LiteraryTarget = {kind:'belief'|'hypothesis';id:string};
+export const eligiblePassages = (library: LiteraryPassage[] = LITERARY_PASSAGES) => library.filter(passage => passage.rightsStatus === 'public-domain' || passage.rightsStatus === 'licensed');
 
-  let best: LiteraryPassage | null = null;
-  let bestScore = -1;
-  for (const passage of LITERARY_PASSAGES) {
-    const overlapScore = passage.themes.reduce((sum, t) => sum + weightOf(t), 0);
-    if (overlapScore > bestScore || (overlapScore === bestScore && best && passage.id < best.id)) {
-      best = passage;
-      bestScore = overlapScore;
-    }
-  }
-  if (!best || bestScore <= 0) return null;
-  return { passage: best, themes: topThemes.map((t) => t.theme), topThemeScores: topThemes };
+function beliefContent(belief: StoredBelief) {
+  return {id:belief.id,domain:belief.domain,statement:belief.discoveryInterpretationOverride??belief.statement,thoughtLabel:belief.thoughtLabel,confidence:belief.confidence,status:belief.status,possibleCognitivePatterns:belief.possibleCognitivePatterns,evidence:belief.evidenceQuotes,supporting:belief.supportingEntryIds,contradictory:belief.contradictoryEntryIds};
 }
 
-// Composed from templates, not free-generated text — deterministic, and
-// grounded in the actual themes that won (see selectLiteraryPassage) rather
-// than an LLM improvising an explanation. Takes just the theme names (what
-// StoredLiteraryMatch persists — see types.ts) rather than the full
-// LiteraryMatchResult, so this reads back correctly from a saved store on a
-// later visit, not only right after a fresh computation. Hedged language
-// throughout per the brief: observation, never diagnosis or certainty.
-export function buildWhyThisFoundYou(themes: string[]): string {
-  const [first, second] = themes;
-  if (!first) return "";
-  if (second) {
-    return `Your recent thoughts return several times to ${first}, alongside a quieter thread around ${second}. This passage reflects a tension that shows up between the two.`;
+/** Unrelated beliefs affect only the original minimum-data eligibility. */
+function discoveryContext(store: Store, target: LiteraryTarget) {
+  const hypothesis=target.kind==='hypothesis'?store.hypotheses.find(item=>item.id===target.id):undefined;
+  const belief=target.kind==='belief'?store.beliefs.find(item=>item.id===target.id&&item.userReaction!=='rejected'):undefined;
+  if(!hypothesis&&!belief)return null;
+  const related=belief?[belief]:store.beliefs.filter(item=>hypothesis!.relatedBeliefIds.includes(item.id)&&item.userReaction!=='rejected');
+  const entryIds=new Set(related.flatMap(item=>[...(item.supportingEntryIds??[]),...(item.contradictoryEntryIds??[])]));
+  const entries=store.history.filter(entry=>entryIds.has(entry.id)).map(entry=>({id:entry.id,date:entry.date,text:entry.text})).sort((a,b)=>a.id.localeCompare(b.id));
+  const selected=belief?beliefContent(belief):{id:hypothesis!.id,domain:hypothesis!.domains.join(' '),statement:hypothesis!.title,thoughtLabel:hypothesis!.thoughtLabel,confidence:hypothesis!.confidence,evidence:hypothesis!.evidence,relatedBeliefIds:hypothesis!.relatedBeliefIds,investigate:hypothesis!.investigate};
+  const quotes=hypothesis?.evidence?.length?hypothesis.evidence:related.flatMap(item=>item.evidenceQuotes);
+  return {selected,related:related.map(beliefContent).sort((a,b)=>a.id.localeCompare(b.id)),entries,quotes,eligible:store.beliefs.filter(item=>item.userReaction!=='rejected').length>=MIN_BELIEFS_FOR_LITERARY_MATCH};
+}
+
+export function literarySignature(store: Store, target: LiteraryTarget, library: LiteraryPassage[] = LITERARY_PASSAGES): string {
+  return JSON.stringify({version:2,target,context:discoveryContext(store,target),library:eligiblePassages(library).slice().sort((a,b)=>a.id.localeCompare(b.id))});
+}
+
+/** Discovery text leads; only its own evidence can add matching signal.
+ * Broader unrelated themes cannot force a reading or break a relevance tie. */
+export function selectLiteraryPassage(store: Store, target: LiteraryTarget, library: LiteraryPassage[] = LITERARY_PASSAGES): LiteraryMatchResult | null {
+  const context=discoveryContext(store,target);
+  if(!context?.eligible)return null;
+  const selectedScores=extractUserThemes({beliefs:[context.selected]});
+  const evidenceText=[...context.quotes.map(quote=>quote.quote),...context.entries.map(entry=>entry.text)].join(' ');
+  const evidenceScores=extractUserThemes({beliefs:[{domain:'',statement:evidenceText,confidence:50}]});
+  const scores=new Map<string,number>();
+  selectedScores.forEach(item=>scores.set(item.theme,item.score*4));
+  evidenceScores.forEach(item=>scores.set(item.theme,(scores.get(item.theme)??0)+item.score));
+  const themeScores=[...scores].map(([theme,score])=>({theme,score,supportingBeliefIds:context.related.map(item=>item.id)})).sort((a,b)=>b.score-a.score||a.theme.localeCompare(b.theme));
+  let best:LiteraryPassage|null=null,bestScore=0;
+  for(const passage of eligiblePassages(library)) {
+    const score=passage.themes.reduce((sum,theme)=>sum+(scores.get(theme)??0),0);
+    if(score>bestScore||(score>0&&score===bestScore&&best&&passage.id<best.id)){best=passage;bestScore=score;}
   }
-  return `You've returned several times to ${first} in what you've written. This passage reflects that pattern back, without settling it.`;
+  if(!best||bestScore<=0)return null;
+  const matchedThemes=themeScores.filter(item=>best!.themes.includes(item.theme)).slice(0,3);
+  return {passage:best,themes:matchedThemes.map(item=>item.theme),topThemeScores:matchedThemes};
+}
+
+export function validLiteraryMatch(value: unknown, library: LiteraryPassage[] = LITERARY_PASSAGES): StoredLiteraryMatch | null {
+  if(!value||typeof value!=='object')return null;
+  const candidate=value as Partial<StoredLiteraryMatch>;
+  if(typeof candidate.passageId!=='string'||!eligiblePassages(library).some(passage=>passage.id===candidate.passageId)||!Array.isArray(candidate.themes)||candidate.themes.some(theme=>typeof theme!=='string')||typeof candidate.selectedDate!=='string')return null;
+  return {passageId:candidate.passageId,themes:candidate.themes,selectedDate:candidate.selectedDate};
+}
+
+export function sanitizeLiterarySelections(value: unknown): Record<string, StoredLiterarySelection> {
+  if(!value||typeof value!=='object'||Array.isArray(value))return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([key,item])=>{
+    if(!/^(belief|hypothesis):/.test(key)||!item||typeof item!=='object'||typeof item.signature!=='string')return [];
+    const match=validLiteraryMatch(item.match);
+    return item.match===null||match?[[key,{signature:item.signature,match}]]:[];
+  }));
+}
+
+export function resolveLiterarySelection(store: Store, target: LiteraryTarget, selectedDate: string, library: LiteraryPassage[] = LITERARY_PASSAGES) {
+  const key=`${target.kind}:${target.id}`,signature=literarySignature(store,target,library),cached=store.literarySelections?.[key];
+  const valid=cached?.match===null||!!validLiteraryMatch(cached?.match,library);
+  if(cached?.signature===signature&&valid)return {key,selection:cached,needsSave:false};
+  const result=selectLiteraryPassage(store,target,library);
+  return {key,selection:{signature,match:result?{passageId:result.passage.id,themes:result.themes,selectedDate}:null} satisfies StoredLiterarySelection,needsSave:true};
+}
+
+export function buildWhyThisFoundYou(themes: string[]): string {
+  if(!themes.length)return '';
+  return `This discovery and its supporting material touch on ${themes.join(' and ')}. This reading shares ${themes.length===1?'that theme':'those themes'}; it is an invitation to reflect, not evidence for the interpretation.`;
 }

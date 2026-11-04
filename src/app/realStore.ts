@@ -15,6 +15,7 @@
 // model, and a rejected belief is excluded from future matching so it
 // can't keep quietly absorbing new "supporting" entries.
 
+import { sanitizeLiterarySelections, validLiteraryMatch } from './literaryPassages';
 import {
   EntryAnalysis,
   LensKind,
@@ -80,15 +81,9 @@ export function sanitizeStore(parsed: any): Store {
         ? parsed.goals.filter((g: any) => g && typeof g.id === "string" && typeof g.statement === "string")
         : [],
       goalsBeliefSnapshot: typeof parsed.goalsBeliefSnapshot === "number" ? parsed.goalsBeliefSnapshot : undefined,
-      literaryMatch: parsed.literaryMatch && typeof parsed.literaryMatch === "object"
-          && typeof parsed.literaryMatch.passageId === "string"
-        ? {
-            passageId: parsed.literaryMatch.passageId,
-            themes: Array.isArray(parsed.literaryMatch.themes) ? parsed.literaryMatch.themes.filter((t: any) => typeof t === "string") : [],
-            selectedDate: typeof parsed.literaryMatch.selectedDate === "string" ? parsed.literaryMatch.selectedDate : "",
-          }
-        : null,
-      literaryMatchSnapshot: typeof parsed.literaryMatchSnapshot === "number" ? parsed.literaryMatchSnapshot : undefined,
+      literaryMatch: validLiteraryMatch(parsed.literaryMatch),
+      literarySelections: sanitizeLiterarySelections(parsed.literarySelections),
+      literaryMatchSnapshot: validLiteraryMatch(parsed.literaryMatch) && typeof parsed.literaryMatchSnapshot === "number" ? parsed.literaryMatchSnapshot : undefined,
       // Forward-compatible field (see StoredLensSession in types.ts) — a
       // store saved before this field existed simply has none yet.
       lensSessions: Array.isArray(parsed.lensSessions)

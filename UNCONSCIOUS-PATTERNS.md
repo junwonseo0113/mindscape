@@ -17,8 +17,8 @@ The design-taste-frontend app workflow dealt **Data terminal**, seed **155375862
 | Preservation item | Location and behavior |
 | --- | --- |
 | Back to Mind, title, populated/empty introduction | Overview header; same existing parent callbacks and wording. |
-| Reflection/diagnosis notice; three-entry threshold and full explanation | Explicit **About this analysis** disclosure available from every overview view. |
-| Belief-versus-interpretation explanation | About this analysis; original first-visible-belief example, fallback and fixed illustrative situation retained verbatim. |
+| Reflection/diagnosis notice; three-entry threshold and full explanation | Explicit **About this analysis** screen available from every overview view. |
+| Belief-versus-interpretation explanation | About this analysis screen; original first-visible-belief example, fallback and fixed illustrative situation retained verbatim. |
 | Domain, statement, evidence count and applicable statuses | **Beliefs** summaries and full belief details. Original ordering; rejected beliefs excluded. |
 | Thought label | Belief detail, conditional on the existing field. |
 | Confidence percentage and bar | Belief detail, always visible. |
@@ -37,7 +37,7 @@ The design-taste-frontend app workflow dealt **Data terminal**, seed **155375862
 
 ## Presentation and accessibility
 
-`UnconsciousPatterns.tsx` owns only view selection, detail selection, the About disclosure, scroll restoration and focus. CSS is scoped under `patterns-*`. The three tabs use keyboard arrows/Home/End and accessible tab states. Cognitive tags and supporting information use native disclosure semantics; repeat-cycle and reframe controls expose their state. Buttons have comfortable touch targets and visible focus. No nested disclosure hierarchy is added. The reading pane owns scrolling and has safe-area bottom padding. The initial Mind/Analysis overview remains intact.
+`UnconsciousPatterns.tsx` owns only view selection, detail selection, the separate About screen, scroll restoration and focus. CSS is scoped under `patterns-*`. The three tabs use keyboard arrows/Home/End and accessible tab states. Cognitive tags and supporting information use native disclosure semantics; repeat-cycle and reframe controls expose their state. Buttons have comfortable touch targets and visible focus. No nested disclosure hierarchy is added. The reading pane owns scrolling and has safe-area bottom padding. The initial Mind/Analysis overview remains intact.
 
 ## Verification
 
