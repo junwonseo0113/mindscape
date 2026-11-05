@@ -1,6 +1,7 @@
 import { AnalysisCarousel, AnalysisDisclosure, analysisTargetKey, type AnalysisVisit } from './analysisPresentation';
 import UnconsciousPatterns from './UnconsciousPatterns';
 import "./journal-node.css";
+import "./journal-presentation.css";
 import StellarNode from './StellarNode';
 import EveningAtmosphere from './EveningAtmosphere';
 import { getOpeningQuote } from "./dailyQuotes";
@@ -4957,14 +4958,30 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
 // (frosted charcoal, not the warm paper card) to match the archive; scoped
 // only to History, so this doesn't touch any other screen's sheets.
 function HistorySheet({ title, onClose, children }: { title: string; onClose?: () => void; children: React.ReactNode }) {
+  const panel=React.useRef<HTMLDivElement>(null);
+  const close=React.useRef(onClose);close.current=onClose;
+  const reduced=useReducedMotion();
+  const titleId=React.useId();
+  React.useEffect(()=>{
+    const previous=document.activeElement as HTMLElement|null;
+    const getStops=()=>Array.from(panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,[tabindex="0"]')??[]);
+    (getStops().find(el=>el.tagName==="INPUT")??getStops()[0])?.focus();
+    const handler=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){event.preventDefault();close.current?.();}
+      if(event.key==="Tab"){const stops=getStops(),first=stops[0],last=stops[stops.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}}
+    };
+    document.addEventListener('keydown',handler);
+    return()=>{document.removeEventListener('keydown',handler);previous?.focus({preventScroll:true});};
+  },[]);
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
-      role="button" tabIndex={-1} onClick={onClose}
+      onClick={onClose}
       style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(2,9,16,0.65)", display: "flex", alignItems: "flex-end" }}
     >
       <motion.div
-        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
+        ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="journal-sheet"
+        initial={{ y: reduced?0:40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxHeight: "74%", backgroundColor: nightPalette.surface,
@@ -4973,7 +4990,7 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
-          <span style={{ ...sans, fontSize: 18, fontWeight: 500, color: nightPalette.text }}>{title}</span>
+          <span id={titleId} style={{ ...sans, fontSize: 18, fontWeight: 500, color: nightPalette.text }}>{title}</span>
           <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: nightPalette.body, cursor: "pointer" }}>Close</motion.span>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
@@ -5061,6 +5078,7 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
   return (
     <motion.div
       role="button" tabIndex={0}
+      data-journal-node={star.belief.id}
       aria-label={`${REGION_CONFIG[star.region].label} pattern: ${star.belief.statement}`}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
@@ -5076,7 +5094,7 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
         <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...serif, fontSize: 15.5, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <div style={{ ...serif, fontSize: 15.5, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", overflowWrap: "anywhere" }}>
           {star.belief.statement}
         </div>
         <div style={{ ...sans, fontSize: 11, color: ivFaint, marginTop: 3 }}>
@@ -5097,9 +5115,11 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
 // then "View its story" to see the actual recorded thoughts/check-ins
 // behind it, still reachable in full via the pre-existing ScreenHistoryDetail
 // (onOpenEntry) — nothing about that screen or its data changed.
-function ScreenJournalNode({store,nodeId,onBack,onOpenEntry}:{store:Store;nodeId:string|null;onBack:()=>void;onOpenEntry:(id:string)=>void}) {
+function ScreenJournalNode({store,nodeId,onBack,onOpenEntry,visit}:{store:Store;nodeId:string|null;onBack:()=>void;onOpenEntry:(id:string)=>void;visit:JournalVisit}) {
+  const scroll=React.useRef<HTMLElement>(null);
+  React.useLayoutEffect(()=>{if(scroll.current)scroll.current.scrollTop=visit.nodeScroll[nodeId??""]??0;},[nodeId,visit]);
   const heading=React.useRef<HTMLHeadingElement>(null);
-  React.useEffect(()=>{heading.current?.focus();},[nodeId]);
+  React.useEffect(()=>{heading.current?.focus({preventScroll:true});},[nodeId]);
   const catalogue=buildCatalogueStars(store);
   const star=catalogue.find(item=>item.belief.id===nodeId);
   if(!star)return <main className="journal-node-screen"><button className="journal-node-back" onClick={onBack}>← Back to Journal</button><h1 ref={heading} tabIndex={-1}>This star is no longer available</h1><p>Return to Journal to explore your current thoughts.</p></main>;
@@ -5109,7 +5129,7 @@ function ScreenJournalNode({store,nodeId,onBack,onOpenEntry}:{store:Store;nodeId
     const related=catalogue.find(item=>item.belief.id===(connection.a===belief.id?connection.b:connection.a));
     return related?[{connection,related}]:[];
   });
-  return <main className="journal-node-screen" aria-labelledby="journal-node-title">
+  return <main ref={scroll} onScroll={event=>{visit.nodeScroll[nodeId??""]=event.currentTarget.scrollTop;}} className="journal-node-screen" aria-labelledby="journal-node-title">
     <button type="button" className="journal-node-back" onClick={onBack}>← Back to Journal</button>
     <header className="journal-node-hero">
       <StellarNode color={color} size={120} intensity={catalogueOrbIntensity(star)}/>
@@ -5124,8 +5144,8 @@ function ScreenJournalNode({store,nodeId,onBack,onOpenEntry}:{store:Store;nodeId
       <div><dt>Current strength</dt><dd>{belief.confidence}%</dd></div>
       <div><dt>Review</dt><dd>{belief.userReaction==='accepted'?'Approved':'Not recorded'}</dd></div>
     </dl>
-    {!!belief.confidenceHistory?.length&&belief.confidenceHistory.length>1&&<section className="journal-node-section" aria-label="Strength over time"><ConfidenceTrend history={belief.confidenceHistory}/></section>}
-    <section className="journal-node-section"><h2>Supporting entries</h2>
+    {!!belief.confidenceHistory?.length&&belief.confidenceHistory.length>1&&<section className="journal-node-section" aria-label="Strength over time"><h2>Development</h2><p>Saved confidence observations over time.</p><ConfidenceTrend history={belief.confidenceHistory}/></section>}
+    <section className="journal-node-section"><h2>Supporting entries</h2><p>The original writing linked to this interpretation.</p>
       {entries.map(entry=><button type="button" className="journal-node-entry" key={entry.id} onClick={()=>onOpenEntry(entry.id)} aria-label={`Read original entry ${entry.date}`}>
         <time>{entry.date}</time><blockquote>{entry.text}</blockquote><span>Read original entry →</span>
       </button>)}
@@ -5136,7 +5156,18 @@ function ScreenJournalNode({store,nodeId,onBack,onOpenEntry}:{store:Store;nodeId
   </main>;
 }
 
-function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: string) => void; store: Store; onOpenStar: (id: string) => void }) {
+function JournalTrend({title,subtitle,children}:{title:string;subtitle:string;children:React.ReactNode}) {
+  const id=React.useId();
+  return <div className="journal-trend" role="group" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}><h3 id={`${id}-title`}>{title}</h3><p id={`${id}-description`}>{subtitle}</p><div className="journal-chart">{children}</div></div>;
+}
+
+type JournalVisit = { search: string; filter: {type:"region";region:CognitiveRegion}|{type:"active"|"dormant"|"recent"|"recurrent"}|null; cutoff:string|null; view:"catalogue"|"trends"; scroll:Record<string,number>; nodeScroll:Record<string,number>; origin:string|null };
+function newJournalVisit():JournalVisit { return {search:"",filter:null,cutoff:null,view:"catalogue",scroll:{},nodeScroll:{},origin:null}; }
+
+function ScreenHistory({ onNavSelect, store, onOpenStar, visit }: { onNavSelect?: (id: string) => void; store: Store; onOpenStar: (id: string) => void; visit:JournalVisit }) {
+  const scroll=React.useRef<HTMLDivElement>(null);
+  const [view,setView]=React.useState<"catalogue"|"trends">(store.isPro?visit.view:"catalogue");
+  React.useLayoutEffect(()=>{if(scroll.current)scroll.current.scrollTop=visit.scroll[view]??0; if(view==="catalogue"&&visit.origin){const row=scroll.current?.querySelector<HTMLElement>(`[data-journal-node="${CSS.escape(visit.origin)}"]`);row?.focus({preventScroll:true});}},[view,visit]);
   const catalogue = React.useMemo(() => buildCatalogueStars(store), [store]);
   const families = React.useMemo(() => {
     const map = new Map<CognitiveRegion, CatalogueStar[]>();
@@ -5145,12 +5176,13 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
     return map;
   }, [catalogue]);
 
-  const [search, setSearch] = React.useState("");
+  const [search, setSearch] = React.useState(visit.search);
   const [sheet, setSheet] = React.useState<"search" | "calendar" | "filter" | null>(null);
-  const [filterMode, setFilterMode] = React.useState<
-    { type: "region"; region: CognitiveRegion } | { type: "active" } | { type: "dormant" } | { type: "recent" } | { type: "recurrent" } | null
-  >(null);
-  const [asOfDate, setAsOfDate] = React.useState<string | null>(null);
+  const [filterMode, setFilterMode] = React.useState<JournalVisit["filter"]>(visit.filter);
+  const [asOfDate, setAsOfDate] = React.useState<string|null>(visit.cutoff);
+  visit.search=search;visit.filter=filterMode;visit.cutoff=asOfDate;visit.view=view;
+  const filterLabel=filterMode?.type==="region"?REGION_CONFIG[filterMode.region].label:({none:undefined,active:"Active",dormant:"Dormant",recent:"Recently discovered",recurrent:"Most recurrent"}[filterMode?.type??"none"]);
+
 
   const query = search.trim().toLowerCase();
   const matchesSearch = React.useCallback(
@@ -5211,7 +5243,7 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
 
   return (
     // The screen plane paints behind the status area; this body uses the shared inset.
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
+    <div className="journal-workspace" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
 
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
@@ -5226,7 +5258,7 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
         <div className="evening-journal-header" style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{...primaryTitleStyle,margin:0}}>Journal</h1>
-            <div style={primaryTitleSubtitleStyle}>
+            <div className="journal-subtitle" style={primaryTitleSubtitleStyle}>
               Your thoughts, connected over time.
             </div>
           </div>
@@ -5241,7 +5273,10 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
         grid as the header right above it, not its own separate 20px, so
         the family labels/cells actually line up under "History" instead
         of starting 10px further in. ── */}
-        <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${PRIMARY_HEADER_SIDE}px 28px` }}>
+        {store.isPro&&<div className="journal-tabs" role="tablist" aria-label="Journal views">{(["catalogue","trends"] as const).map(name=><button type="button" key={name} id={`journal-tab-${name}`} role="tab" aria-selected={view===name} aria-controls="journal-panel" tabIndex={view===name?0:-1} onKeyDown={event=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(event.key)){event.preventDefault();const next=event.key==="Home"?"catalogue":event.key==="End"?"trends":view==="catalogue"?"trends":"catalogue";setView(next);document.getElementById(`journal-tab-${next}`)?.focus();}}} onClick={()=>setView(name)}>{name==="catalogue"?"Catalogue":"Trends"}{name==="trends"&&<small>Premium</small>}</button>)}</div>}
+        <div id="journal-panel" role={store.isPro?"tabpanel":undefined} aria-labelledby={store.isPro?`journal-tab-${view}`:undefined} ref={scroll} onScroll={event=>{visit.scroll[view]=event.currentTarget.scrollTop;}} className="no-scrollbar journal-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${PRIMARY_HEADER_SIDE}px 28px` }}>
+          {view==="catalogue"&&<>
+          <div className="journal-active-state" aria-live="polite">{query&&<div><span>Search: {search.trim()} <small>({catalogue.filter(matchesSearch).length} of {catalogue.length} stars)</small></span><button onClick={()=>setSearch("")}>Clear search</button></div>}{filterLabel&&<div><span>Filter: {filterLabel}</span><button onClick={()=>setFilterMode(null)}>Clear filter</button></div>}{(query||filterLabel||asOfDate)&&<p>Nonmatching stars dim and remain openable.</p>}</div>
           {/* Even at zero stars, the six family sections still render (see
           below) — deliberate empty structure the collection grows into,
           not a blank screen — this hint just explains why. */}
@@ -5253,7 +5288,7 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
           {asOfDate && (
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: nightPalette.body }}>
               <span>As catalogued by {asOfDate}</span>
-              <motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span>
+              <button className="journal-reset" onClick={() => setAsOfDate(null)}>Reset</button>
             </div>
           )}
           {COGNITIVE_REGIONS.filter((region) => filterMode?.type !== "region" || filterMode.region === region).map((region) => {
@@ -5277,7 +5312,7 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
                     {stars.map((star, i) => (
                       <CatalogueCell
                         key={star.belief.id} star={star} dimmed={isDimmed(star)} isLast={i === stars.length - 1}
-                        onOpen={() => onOpenStar(star.belief.id)}
+                        onOpen={() => {visit.origin=star.belief.id;onOpenStar(star.belief.id);}}
                       />
                     ))}
                   </div>
@@ -5288,42 +5323,22 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
             );
           })}
 
-          {/* ── Go deeper — Premium's longitudinal-intelligence layer: how
-          things have changed over time, not just what's been catalogued.
-          Same five components (EmotionDistribution/ValueDirectionShifts/
-          CognitivePatternFrequency/RecordingHeatmap/SelfTalkTrend) and the
-          same EditorialSection wrapper moved here from the old standalone
-          Premium tab, unchanged — only reachable once Premium Mode is on
-          (store.isPro, toggled from Profile). Still inside the one
-          scrollable catalogue region, so it extends this screen rather
-          than replacing or reflowing anything above it. ── */}
-          {store.isPro && (
-            <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 36 }}>
-              <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.025em", textTransform: "none", color: nightPalette.body }}>
-                Go deeper — how you've changed
-              </div>
+          </>}
+          {view==="trends"&&store.isPro&&<div className="journal-trends">
+            <header><h2>Your journal over time</h2><p>Across your broader journal history. Catalogue search, filters and rewind do not change these charts.</p></header>
+            <section aria-labelledby="journal-emotions"><h2 id="journal-emotions">Emotions and values</h2>
+              <JournalTrend title="Emotion distribution" subtitle="Up to six emotions, ranked by average recorded intensity. Each label shows its average and occurrence count; bars are relative to the strongest average."><EmotionDistribution history={store.history}/></JournalTrend>
+              <JournalTrend title="Value shifts" subtitle="Up to six values, ranked by observations. Bars show toward and away shares; unclear observations remain in the denominator and the unfilled portion."><ValueDirectionShifts history={store.history}/></JournalTrend>
+            </section>
+            <section aria-labelledby="journal-thinking"><h2 id="journal-thinking">Thinking and language</h2>
+              <JournalTrend title="Thinking patterns (CBT)" subtitle="The six most frequent saved cognitive-pattern labels, with occurrence counts and relative bars."><CognitivePatternFrequency history={store.history}/></JournalTrend>
+              <JournalTrend title="Self-talk over time" subtitle="Up to eight recorded weeks of saved language observations. Reflective words per 100 words and recorded pronoun counts describe language, not mental-health progress."><SelfTalkTrend history={store.history}/></JournalTrend>
+            </section>
+            <section aria-labelledby="journal-recording"><h2 id="journal-recording">Recording activity</h2>
+              <JournalTrend title="Recording consistency" subtitle="Daily recording counts across 12 weeks. Darker cells mean more entries; future dates stay empty."><RecordingHeatmap history={store.history}/></JournalTrend>
+            </section>
+          </div>}
 
-              <EditorialSection title="Emotion distribution" subtitle="The average intensity of recorded emotions.">
-                <EmotionDistribution history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Value shifts" subtitle="How often what you've written moves toward what you care about, versus away from it.">
-                <ValueDirectionShifts history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Thinking patterns (CBT)" subtitle="Which cognitive patterns show up most in what you've recorded.">
-                <CognitivePatternFrequency history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Recording consistency" subtitle="Which days you actually showed up, over time.">
-                <RecordingHeatmap history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Self-talk over time" subtitle="How your own language has shifted, week to week.">
-                <SelfTalkTrend history={store.history} />
-              </EditorialSection>
-            </div>
-          )}
         </div>
 
         {/* Same vintage/cream bar as Home, Mind, and Analysis — nav chrome
@@ -5351,7 +5366,7 @@ function ScreenHistory({ onNavSelect, store, onOpenStar }: { onNavSelect?: (id: 
         {sheet === "calendar" && (
           <HistorySheet title="Rewind the catalogue" onClose={() => setSheet(null)}>
             <div style={{ ...sans, fontSize: 12, color: nightPalette.body, lineHeight: 1.6, marginBottom: 14 }}>
-              See which stars had already been discovered by a given date.
+              See which stars had already been discovered by a given date. This dims later discoveries; confidence, wording and connections remain current.
             </div>
             <div
               role="button" tabIndex={0} onClick={() => { setAsOfDate(null); setSheet(null); }}
@@ -5420,7 +5435,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   if (!entry) return null;
   const analysis = entry.analysis;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
+    <div className="journal-entry-screen" style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "transparent" }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} color={dkBody} />
       </div>
@@ -5429,10 +5444,11 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
           <span style={{ ...mono, fontSize: 12, color: nightPalette.muted }}>{entry.date}</span>
           {entry.duration && <span style={{ ...mono, fontSize: 11, color: nightPalette.muted }}>{entry.duration}</span>}
         </div>
-        <div style={{ ...serif, fontSize: 19, color: dkHeading, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
+        <h1 className="journal-entry-title">Original entry</h1><div className="journal-original-writing" style={{ ...serif, fontSize: 19, color: dkHeading, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
           {entry.text}
         </div>
 
+        {(entry.sessionSummary||analysis)&&<div className="journal-analysis-divider"><h2>Saved analysis</h2><p>Recorded interpretations, separate from your original words.</p></div>}
         {entry.sessionSummary && (
           <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: dkCard, boxShadow: dkCardShadow }}>
             <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "none" }}>Recap</div>
@@ -5443,7 +5459,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
         {analysis && (
           <>
             <div style={{ marginTop: 28, ...sans, fontSize: 11, fontWeight: 700, color: dkBody, letterSpacing: "0.06em", textTransform: "none" }}>What Stood Out</div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="journal-observations" style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {analysis.observation.situation && (
                 <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
                   <div style={{ ...sans, fontSize: 11, color: dkBody }}>Situation</div>
@@ -5465,12 +5481,14 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
             </div>
 
             {(analysis.observation.emotions.length > 0 || analysis.interpretation.possibleCognitivePatterns.length > 0) && (
-              <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+              <div className="journal-entry-tags" style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
+                {analysis.observation.emotions.length>0&&<h3>Emotions</h3>}
                 {analysis.observation.emotions.map((e, i) => (
                   <span key={`e-${i}`} style={{ ...sans, fontSize: 11.5, color: dkAccentTagText, backgroundColor: dkAccentTag, padding: "4px 10px", borderRadius: 999 }}>
                     {e.label} · {e.intensity}%
                   </span>
                 ))}
+                {analysis.interpretation.possibleCognitivePatterns.length>0&&<h3>Thinking patterns</h3>}
                 {analysis.interpretation.possibleCognitivePatterns.map((p) => (
                   <span key={p} style={{ ...sans, fontSize: 11.5, color: dkWarnTagText, backgroundColor: dkWarnTag, padding: "4px 10px", borderRadius: 999 }}>{p}</span>
                 ))}
@@ -5479,7 +5497,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
 
             {analysis.interpretation.valueDirection.explanation && (
               <div style={{ ...sans, fontSize: 12.5, color: dkBody, marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                {analysis.interpretation.valueDirection.explanation}
+                <h3 className="journal-values-heading">Values direction</h3>{analysis.interpretation.valueDirection.explanation}
               </div>
             )}
 
@@ -6320,6 +6338,7 @@ export default function App() {
   const [thinkInputMode, setThinkInputMode] = React.useState<"text" | "voice">("text");
   const [homeReviewTarget, setHomeReviewTarget] = React.useState<DiscoveryTarget | null>(null);
   const analysisVisit=React.useRef<AnalysisVisit|null>(null);
+  const journalVisit=React.useRef<JournalVisit>(newJournalVisit());
   const [reconsiderationError,setReconsiderationError]=React.useState<{key:string;message:string}|null>(null);
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
@@ -6858,12 +6877,13 @@ export default function App() {
     }
     case "history": content = (
       <ScreenHistory
+        visit={journalVisit.current}
         onNavSelect={goToTab}
         store={store}
         onOpenStar={(id) => { setJournalNodeId(id); setScreen("journalNode"); }}
       />
     ); break;
-    case "journalNode": content = <ScreenJournalNode store={store} nodeId={journalNodeId} onBack={() => setScreen("history")} onOpenEntry={(id) => {
+    case "journalNode": content = <ScreenJournalNode visit={journalVisit.current} store={store} nodeId={journalNodeId} onBack={() => setScreen("history")} onOpenEntry={(id) => {
       const index=[...store.history].reverse().findIndex(entry=>entry.id===id);
       if(index>=0){setHistoryDetailReturnTo("journalNode");setHistoryEntryIndex(index);setScreen("historyDetail");}
     }}/>; break;
