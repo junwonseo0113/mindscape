@@ -2,6 +2,7 @@ import { AnalysisCarousel, AnalysisDisclosure, analysisTargetKey, type AnalysisV
 import UnconsciousPatterns from './UnconsciousPatterns';
 import "./journal-node.css";
 import "./journal-presentation.css";
+import "./journal-node-readability.css";
 import StellarNode from './StellarNode';
 import EveningAtmosphere from './EveningAtmosphere';
 import { getOpeningQuote } from "./dailyQuotes";
@@ -5134,23 +5135,25 @@ function ScreenJournalNode({store,nodeId,onBack,onOpenEntry,visit}:{store:Store;
     <header className="journal-node-hero">
       <StellarNode color={color} size={120} intensity={catalogueOrbIntensity(star)}/>
       <div className="journal-node-category" style={{color}}>{REGION_CONFIG[star.region].label} · {belief.domain}</div>
-      <h1 id="journal-node-title" ref={heading} tabIndex={-1}>{belief.thoughtLabel||belief.statement}</h1>
-      {belief.thoughtLabel&&<p className="journal-node-caption">{belief.statement}</p>}
-      <p className="journal-node-caption">{belief.userReaction==='accepted'?'An interpretation you reviewed.':'An interpretation to reflect on.'} A pattern, not a fixed fact about you.</p>
+      <h1 id="journal-node-title" ref={heading} tabIndex={-1}>{belief.statement}</h1>
+      {belief.thoughtLabel&&<p className="journal-node-label">{belief.thoughtLabel}</p>}
+
     </header>
+    <div className="journal-node-notice"><p>A pattern, not a fixed fact about you.</p><details><summary>About this interpretation</summary><p>{belief.userReaction==='accepted'?'An interpretation you reviewed.':'An interpretation to reflect on.'} A pattern, not a fixed fact about you.</p></details></div>
     <dl className="journal-node-facts">
-      <div><dt>First observed</dt><dd>{star.firstDiscovered?formatDateDots(star.firstDiscovered):'Not recorded'}</dd></div>
       <div><dt>Appearances</dt><dd>{star.appearances}</dd></div>
       <div><dt>Current strength</dt><dd>{belief.confidence}%</dd></div>
+      <div><dt>First observed</dt><dd>{star.firstDiscovered?formatDateDots(star.firstDiscovered):'Not recorded'}</dd></div>
       <div><dt>Review</dt><dd>{belief.userReaction==='accepted'?'Approved':'Not recorded'}</dd></div>
     </dl>
-    {!!belief.confidenceHistory?.length&&belief.confidenceHistory.length>1&&<section className="journal-node-section" aria-label="Strength over time"><h2>Development</h2><p>Saved confidence observations over time.</p><ConfidenceTrend history={belief.confidenceHistory}/></section>}
+
     <section className="journal-node-section"><h2>Supporting entries</h2><p>The original writing linked to this interpretation.</p>
       {entries.map(entry=><button type="button" className="journal-node-entry" key={entry.id} onClick={()=>onOpenEntry(entry.id)} aria-label={`Read original entry ${entry.date}`}>
         <time>{entry.date}</time><blockquote>{entry.text}</blockquote><span>Read original entry →</span>
       </button>)}
       {entries.length===0&&<p>No linked journal entries are available for this interpretation yet.</p>}
     </section>
+    {!!belief.confidenceHistory?.length&&belief.confidenceHistory.length>1&&<section className="journal-node-section" aria-label="Strength over time"><h2>Development</h2><details className="journal-node-info"><summary>About confidence history</summary><p>Saved confidence observations over time. The change compares the first and latest recorded points; confidence is not a measure of personal improvement.</p></details><ConfidenceTrend history={belief.confidenceHistory}/></section>}
     {belief.evidenceQuotes.length>0&&<section className="journal-node-section"><h2>Evidence excerpts</h2>{belief.evidenceQuotes.map((evidence,index)=><div className="journal-node-evidence" key={`${evidence.date}:${index}`}><time>{evidence.date}</time><blockquote>{evidence.quote}</blockquote></div>)}</section>}
     {connections.length>0&&<section className="journal-node-section"><h2>Connections</h2>{connections.map(({connection,related},index)=><div className="journal-node-connection" key={`${related.belief.id}:${index}`}><strong>{related.belief.statement}</strong>{connection.note&&<p>{connection.note}</p>}</div>)}</section>}
   </main>;
