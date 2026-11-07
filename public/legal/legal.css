@@ -1,0 +1,64 @@
+/* Shared styles for Mindscape's public legal pages (served at /legal/*.html).
+   Mirrors the app's warm-paper palette from DESIGN.md. */
+:root {
+  --bg: #F4F0E8;
+  --surface: #FBF8F2;
+  --ink: #2A2621;
+  --body: rgba(42, 38, 33, 0.74);
+  --faint: rgba(42, 38, 33, 0.5);
+  --divider: rgba(42, 38, 33, 0.12);
+  --warn-bg: #F6E7DA;
+  --warn-ink: #7A3E1D;
+  --fill-bg: #FFF1B8;
+  --fill-ink: #5C4400;
+  --link: #6B4E2E;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1C1A17;
+    --surface: #24211D;
+    --ink: #EFE9DF;
+    --body: rgba(239, 233, 223, 0.78);
+    --faint: rgba(239, 233, 223, 0.5);
+    --divider: rgba(239, 233, 223, 0.14);
+    --warn-bg: #3A2A1F;
+    --warn-ink: #F0C6A6;
+    --fill-bg: #4A3D10;
+    --fill-ink: #FFE58A;
+    --link: #E2C39E;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body);
+  font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Inter", "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 40px 16px 80px; }
+nav.legal-nav { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; margin-bottom: 28px; }
+nav.legal-nav a { color: var(--faint); text-decoration: none; }
+nav.legal-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+h1 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; font-size: 34px; line-height: 1.2; color: var(--ink); margin: 0 0 6px; }
+.meta { font: 12px/1.5 ui-monospace, "JetBrains Mono", monospace; color: var(--faint); margin-bottom: 24px; }
+h2 { font-size: 17px; color: var(--ink); margin: 40px 0 8px; padding-top: 18px; border-top: 1px solid var(--divider); }
+h3 { font-size: 15px; color: var(--ink); margin: 22px 0 6px; }
+a { color: var(--link); }
+strong { color: var(--ink); }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+.draft {
+  background: var(--warn-bg); color: var(--warn-ink);
+  border-radius: 12px; padding: 14px 16px; font-size: 13.5px; margin-bottom: 24px;
+}
+.summary { background: var(--surface); border: 1px solid var(--divider); border-radius: 14px; padding: 16px 20px; }
+.summary ul { margin: 6px 0 0; }
+/* Placeholders the operator must fill in before publishing. Search for class="fill". */
+.fill { background: var(--fill-bg); color: var(--fill-ink); padding: 0 4px; border-radius: 4px; font-weight: 600; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--divider); }
+th { color: var(--ink); font-weight: 600; background: var(--surface); }
+.caps { text-transform: uppercase; font-size: 13.5px; }
+footer { margin-top: 56px; font-size: 12.5px; color: var(--faint); }

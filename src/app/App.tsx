@@ -33,7 +33,9 @@ import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeI
 import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
-import { cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
+import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
+import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
+import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { LITERARY_PASSAGES, selectLiteraryPassage, buildWhyThisFoundYou } from "./literaryPassages";
@@ -195,23 +197,22 @@ const vtgCardShadow = "0 10px 28px rgba(0,0,0,0.35)";
 // with no accent color of its own. Where a screen still needs an "active/
 // selected" indication (nav, toggles), it's ivHeading itself — charcoal,
 // never a saturated hue — not a substitute accent color.
-const ivBg1 = "#F4F0E8";
 const ivBg2 = "#F2EEE6";
-const ivBg3 = "#EEE9DF";
-// The page background is a very soft warm gradient built from the three
-// stops above (never a flat single color, never a photo) — see
-// AppBackground below.
+// Used to be a three-layer radial/linear gradient wash — the single most
+// common tell of a generated page (a soft gradient ground behind every
+// screen). One flat tone reads as decided; a gradient reads as a default
+// nobody chose.
 const ivBackground: React.CSSProperties = {
   backgroundColor: ivBg2,
-  backgroundImage: [
-    "radial-gradient(120% 70% at 15% -10%, rgba(255,252,246,0.9) 0%, rgba(255,252,246,0) 55%)",
-    "radial-gradient(130% 80% at 100% 110%, rgba(238,231,215,0.7) 0%, rgba(238,231,215,0) 60%)",
-    `linear-gradient(160deg, ${ivBg1} 0%, ${ivBg2} 45%, ${ivBg3} 100%)`,
-  ].join(", "),
 };
 const ivSurface = "rgba(255,253,248,0.66)"; // restrained translucent card fill over the ivory base
 const ivSurfaceSolid = "#FBF8F2"; // for a card that needs to sit fully opaque above dense content
-const ivCardShadow = "0 10px 28px rgba(120,105,80,0.10)";
+// Used to be a soft 28px/10%-opacity drop shadow on every resting card —
+// another generated-page tell (shadows belong to things that float: a
+// menu, a dialog, not a card sitting flush on the page). A zero-blur,
+// zero-offset box-shadow reads as a crisp hairline border instead, without
+// touching any of this token's ~15 call sites or their box layout.
+const ivCardShadow = "0 0 0 1px rgba(42,38,33,0.08)";
 const ivBorder = "rgba(42,38,33,0.08)";
 const ivHeading = "#2A2621"; // deep charcoal — never pure black, never a saturated accent
 const ivBody = "rgba(42,38,33,0.6)"; // muted taupe-gray
@@ -388,8 +389,11 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
     // instead of here — see the comment above.
     borderTop: vintage ? "none" : `1px solid ${modernist ? mdDivider : dark ? dkDivider : hair}`,
     borderRadius: vintage ? 26 : 0,
-    backgroundColor: vintage ? "rgba(251,248,242,0.92)" : modernist ? "rgba(255,255,255,0.82)" : dark ? "rgba(10,7,22,0.85)" : "rgba(255,255,255,0.82)",
-    backdropFilter: "blur(12px)",
+    // Opaque now, not a translucent glass panel over blurred content —
+    // "no glass, no backdrop blur panels" (see the removed backdropFilter
+    // here). A plain opaque bar reads as decided; a frosted floating one
+    // reads as a default nobody chose.
+    backgroundColor: vintage ? "#FBF8F2" : modernist ? "#ffffff" : dark ? "#0a0716" : "#ffffff",
     overflow: vintage ? "hidden" : "visible",
     padding: "8px 10px",
     // Real value on a notched/gesture-nav phone (clears the home
@@ -449,7 +453,11 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
   );
 }
 
-function PrimaryBtn({ children, onClick, disabled, modernist = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean }) {
+// `ivory` is the opening flow's own theme (quote/splash/auth/login/signup/
+// onboarding — see OPENING_BG above): a solid ivHeading charcoal pill,
+// matching how every other ivory screen marks its one "active" action
+// (nav, toggles) with charcoal rather than a saturated accent color.
+function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean }) {
   return (
     <motion.button
       type="button"
@@ -457,11 +465,11 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false }: { childr
       onClick={onClick}
       whileHover={disabled ? undefined : { y: -1 }}
       whileTap={disabled ? undefined : { scale: 0.985, opacity: 0.92 }}
-      whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.18)" : "rgba(255,255,255,.14)"}` }}
+      whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${ivory ? "rgba(42,38,33,.16)" : modernist ? "rgba(91,77,130,.18)" : "rgba(255,255,255,.14)"}` }}
       style={{
         ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
-        backgroundColor: disabled ? (modernist ? mdTrack : dkTrack) : (modernist ? mdAccent : dkAccent),
-        color: disabled ? (modernist ? "#a29d9d" : "#6E6580") : "#fff",
+        backgroundColor: disabled ? (ivory ? "rgba(42,38,33,.14)" : modernist ? mdTrack : dkTrack) : (ivory ? ivHeading : modernist ? mdAccent : dkAccent),
+        color: disabled ? (ivory ? "rgba(42,38,33,.4)" : modernist ? "#a29d9d" : "#6E6580") : "#fff",
         border: 0, borderRadius: 14, fontSize: 16, fontWeight: 600,
         cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.72 : 1,
         WebkitTapHighlightColor: "transparent",
@@ -472,18 +480,18 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false }: { childr
   );
 }
 
-function GhostBtn({ children, onClick, modernist = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean }) {
+function GhostBtn({ children, onClick, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean }) {
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ backgroundColor: modernist ? "rgba(91,77,130,.045)" : "rgba(255,255,255,.035)" }}
+      whileHover={{ backgroundColor: ivory ? "rgba(42,38,33,.035)" : modernist ? "rgba(91,77,130,.045)" : "rgba(255,255,255,.035)" }}
       whileTap={{ scale: 0.985, opacity: 0.72 }}
-      whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(91,77,130,.14)" : "rgba(255,255,255,.10)"}` }}
+      whileFocus={{ boxShadow: `0 0 0 3px ${ivory ? "rgba(42,38,33,.12)" : modernist ? "rgba(91,77,130,.14)" : "rgba(255,255,255,.10)"}` }}
       style={{
         ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
-        backgroundColor: "transparent", color: modernist ? mdBody : dkBody,
-        border: `1px solid ${modernist ? mdDivider : dkDivider}`, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer",
+        backgroundColor: "transparent", color: ivory ? ivBody : modernist ? mdBody : dkBody,
+        border: `1px solid ${ivory ? ivBorder : modernist ? mdDivider : dkDivider}`, borderRadius: 14, fontSize: 15, fontWeight: 500, cursor: "pointer",
         WebkitTapHighlightColor: "transparent",
       }}
     >
@@ -639,37 +647,19 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        backgroundColor: "#11192A",
-        color: "#F3EEE4",
+        ...ivBackground,
+        color: ivHeading,
         padding: "44px 30px 34px",
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
       }}
     >
-      {/* Almost imperceptible star field: enough to connect this opening beat
-          to the Brain Map visual language without turning it into a second
-          hero illustration. */}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {[
-          [13, 17, 1.2, .34], [27, 72, 1.0, .22], [43, 11, 1.5, .28], [58, 83, 1.1, .2],
-          [71, 24, .9, .24], [80, 67, 1.3, .3], [18, 88, .8, .18], [91, 39, 1.0, .2],
-        ].map(([top, left, size, opacity], i) => (
-          <motion.span
-            key={i}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: reducedMotion ? opacity : [opacity * .55, opacity, opacity * .55] }}
-            transition={reducedMotion ? undefined : { duration: 3.4 + (i % 3) * .7, repeat: Infinity, ease: "easeInOut", delay: i * .17 }}
-            style={{ position: "absolute", top: `${top}%`, left: `${left}%`, width: size, height: size, borderRadius: "50%", background: "#FFF9ED", boxShadow: "0 0 7px rgba(255,249,237,.45)" }}
-          />
-        ))}
-      </div>
-
       <motion.div
         initial={reducedMotion ? false : { opacity: 0, y: 7 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
-        style={{ ...mono, fontSize: 10.5, letterSpacing: ".17em", textTransform: "uppercase", color: "rgba(243,238,228,.52)", zIndex: 1 }}
+        style={{ ...mono, fontSize: 10.5, letterSpacing: ".17em", textTransform: "uppercase", color: "rgba(42,38,33,.52)", zIndex: 1 }}
       >
         Quote of the day
       </motion.div>
@@ -681,12 +671,12 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
           transition={{ duration: reducedMotion ? 0 : .9, delay: reducedMotion ? 0 : .35, ease: "easeOut" }}
           style={{ width: "100%", transform: "translateY(-2%)" }}
         >
-          <div style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: "#F3EEE4", wordBreak: "keep-all" }}>
+          <div style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: ivHeading, wordBreak: "keep-all" }}>
             “{quote.text}”
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 24 }}>
-            <span style={{ width: 28, height: 1, backgroundColor: "rgba(243,238,228,.35)" }} />
-            <span style={{ ...sans, fontSize: 12, letterSpacing: ".035em", color: "rgba(243,238,228,.62)" }}>{quote.author}</span>
+            <span style={{ width: 28, height: 1, backgroundColor: "rgba(42,38,33,.35)" }} />
+            <span style={{ ...sans, fontSize: 12, letterSpacing: ".035em", color: "rgba(42,38,33,.62)" }}>{quote.author}</span>
           </div>
         </motion.div>
       </div>
@@ -703,20 +693,17 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
   );
 }
 
-const OPENING_BG = "#11192A";
-const OPENING_TEXT = "#F3EEE4";
-const OPENING_MUTED = "rgba(243,238,228,.62)";
-
-function OpeningStars() {
-  const reducedMotion = useReducedMotion();
-  return (
-    <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      {[[13,17,1.2,.34],[27,72,1,.22],[43,11,1.5,.28],[58,83,1.1,.2],[71,24,.9,.24],[80,67,1.3,.3],[18,88,.8,.18],[91,39,1,.2]].map(([top,left,size,opacity], idx) => (
-        <motion.span key={idx} animate={{ opacity: reducedMotion ? opacity : [opacity*.55, opacity, opacity*.55] }} transition={reducedMotion ? undefined : { duration: 3.4 + (idx%3)*.7, repeat: Infinity, ease: "easeInOut", delay: idx*.17 }} style={{ position:"absolute", top:`${top}%`, left:`${left}%`, width:size, height:size, borderRadius:"50%", background:"#FFF9ED", boxShadow:"0 0 7px rgba(255,249,237,.45)" }} />
-      ))}
-    </div>
-  );
-}
+// Opening flow (quote/splash/auth/login/signup/onboarding) used to be its
+// own dark-navy-and-purple theme, visually unrelated to the ivory canvas
+// every screen past it renders on — these three now just alias the ivory
+// tokens so the whole pre-Home experience is one continuous palette
+// instead of a jarring hand-off at "Browse as a guest". OpeningStars (the
+// white starfield that used to run under all six of these) is gone for
+// the same reason: a starfield only reads correctly on a dark sky, and
+// Brain Map is the one screen that still has one.
+const OPENING_BG = ivBg2;
+const OPENING_TEXT = ivHeading;
+const OPENING_MUTED = ivBody;
 
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
@@ -727,7 +714,6 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   }, [onDone]);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         {/* Staggered reveal instead of one fade block — reads in the same
             order a person would actually read it (kicker, then the line
@@ -769,7 +755,6 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
         <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
@@ -777,15 +762,15 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
         </div>
       </div>
       <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onEmailStart}>Continue with email</PrimaryBtn>
-        <GhostBtn onClick={onGuest}>Browse as a guest</GhostBtn>
+        <PrimaryBtn ivory onClick={onEmailStart}>Continue with email</PrimaryBtn>
+        <GhostBtn ivory onClick={onGuest}>Browse as a guest</GhostBtn>
         {/* Guest mode has no account behind it, so clearing this device's
         storage loses everything with nothing to recover from — this used
         to go unmentioned anywhere near the decision itself. Data &
         Privacy's own "Download my data" is the one way to get ahead of
         that, so it's worth naming right here rather than only discoverable
         after the fact in Settings. */}
-        <div style={{ ...sans, fontSize: 11.5, color: "rgba(243,238,228,.42)", textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,.42)", textAlign: "center", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Browsing as a guest keeps everything only on this device — nothing to restore if it's ever cleared. You can export a copy anytime from Settings.
         </div>
       </div>
@@ -813,7 +798,7 @@ function TextField({ label, type = "text", value, onChange, placeholder, error, 
         aria-invalid={error || undefined}
         style={{
           ...sans, width: "100%", padding: "13px 14px", borderRadius: 12, boxSizing: "border-box",
-          border: `1px solid ${error ? mdWarn : (dark ? "rgba(243,238,228,.18)" : mdDivider)}`,
+          border: `1px solid ${error ? mdWarn : (dark ? "rgba(42,38,33,.18)" : mdDivider)}`,
           // 16px, not 15 — iOS Safari auto-zooms the whole page on focus for
           // any input under 16px, which then has to be manually pinched back
           // out. Below that threshold it's a real mobile bug, not a style nit.
@@ -832,7 +817,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // otherwise the original local-only mock — checking against the single
 // account stored on this device (see StoredAccount) — so the app still
 // works exactly as before wherever Supabase env vars aren't set.
-function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: StoredAccount | null; onBack?: () => void; onGoSignup?: () => void; onLogin?: () => void }) {
+function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: StoredAccount | null; onBack?: () => void; onGoSignup?: () => void; onLogin?: (upgradedPasswordHash?: string) => void }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
@@ -857,37 +842,39 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
       return;
     }
 
-    setTimeout(() => {
+    // Local-only account (no Supabase): compare against the PBKDF2 hash —
+    // see localPassword.ts. A store saved before hashing existed still has
+    // plaintext here; that still logs in once, and is re-hashed on the spot.
+    if (!account || typeof account.email !== "string" || typeof account.password !== "string") {
       setLoading(false);
-      if (!account || typeof account.email !== "string" || typeof account.password !== "string") {
-        setError("No account found. Please sign up first.");
-        return;
-      }
-      if (account.email.toLowerCase() !== email.trim().toLowerCase() || account.password !== password) {
-        setError("Email or password is incorrect.");
-        return;
-      }
-      onLogin?.();
-    }, 500);
+      setError("No account found. Please sign up first.");
+      return;
+    }
+    const ok = account.email.toLowerCase() === email.trim().toLowerCase() && (await verifyLocalPassword(password, account.password));
+    setLoading(false);
+    if (!ok) {
+      setError("Email or password is incorrect.");
+      return;
+    }
+    onLogin?.(isHashedPassword(account.password) ? undefined : await hashLocalPassword(password));
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
         <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Welcome back</div>
         <div style={{ marginTop: 24 }}>
-          <TextField dark label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
+          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
+        <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Don't have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
         </div>
       </div>
     </div>
@@ -935,15 +922,14 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
       return;
     }
 
-    setTimeout(() => {
-      setLoading(false);
-      onSignup?.({ name: name.trim(), email: email.trim(), password });
-    }, 500);
+    // Local-only account: never keep the plaintext password — see localPassword.ts.
+    const passwordHash = await hashLocalPassword(password);
+    setLoading(false);
+    onSignup?.({ name: name.trim(), email: email.trim(), password: passwordHash });
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <OpeningStars />
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
@@ -955,16 +941,16 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
             : "It only lives on this device. Nothing is sent to any server."}
         </div>
         <div style={{ marginTop: 20 }}>
-          <TextField dark label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
-          <TextField dark label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField dark label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
+          <TextField label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
+          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
+          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
         </div>
         {error && <div style={{ ...sans, fontSize: 12.5, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        {info && <div style={{ ...sans, fontSize: 12.5, color: "#D9CFF7", marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
-        <PrimaryBtn onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
+        {info && <div style={{ ...sans, fontSize: 12.5, color: ivHeading, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
+        <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Already have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "#D9CFF7", fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
+          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
         </div>
       </div>
     </div>
@@ -1234,10 +1220,9 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
-      <OpeningStars />
       <div style={{ display: "flex", gap: 6, position: "relative", zIndex: 1, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
-          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(243,238,228,.7)" : "rgba(243,238,228,.12)" }} />
+          <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(42,38,33,.7)" : "rgba(42,38,33,.12)" }} />
         ))}
       </div>
       {!isAspirationStep ? (
@@ -1254,7 +1239,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             }}
           >
             {slide!.kicker && (
-              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(243,238,228,.52)", letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,.52)", letterSpacing: "0.06em" }}>{slide!.kicker}</div>
             )}
             <div
               style={{
@@ -1279,7 +1264,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
                 surprise breach of "observe, don't judge" the one time it
                 actually activates. See crisisDetection.ts. */}
             {isWelcome && (
-              <div style={{ ...sans, fontSize: 12, color: "rgba(243,238,228,.42)", marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
+              <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,.42)", marginTop: 22, lineHeight: 1.6, wordBreak: "keep-all", maxWidth: 280 }}>
                 Not a substitute for therapy or counseling. If what you share ever suggests you're in crisis, we'll gently connect you with real support — that's the one exception to keeping this just between you and the app.
               </div>
             )}
@@ -1288,7 +1273,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(243,238,228,.52)", letterSpacing: "0.06em" }}>Last thing</div>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,.52)", letterSpacing: "0.06em" }}>Last thing</div>
             <div style={{ ...serif, fontSize: 26, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
               What kind of person<br />do you want to become?
             </div>
@@ -1305,13 +1290,13 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             style={{
               ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
               backgroundColor: "transparent", color: OPENING_TEXT, fontSize: 18, lineHeight: 1.7,
-              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "dark",
+              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "light",
             }}
           />
         </div>
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
+        <PrimaryBtn ivory onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
           {isLast ? (aspiration.trim() ? "Save and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
         </PrimaryBtn>
       </div>
@@ -1516,7 +1501,7 @@ function TutorialOverlay({
         transition={{ duration: 0.25, ease: "easeOut" }}
         style={{
           position: "absolute", top: spot.top, left: spot.left, width: spot.width, height: spot.height,
-          borderRadius: 18, border: `2px solid ${mdAccent}`, boxShadow: `0 0 0 5px ${mdAccentSoft}`,
+          borderRadius: 18, border: `2px solid ${ivHeading}`, boxShadow: "0 0 0 5px rgba(42,38,33,0.14)",
           pointerEvents: "none",
         }}
       />
@@ -1526,7 +1511,7 @@ function TutorialOverlay({
         role="button" tabIndex={0} onClick={onSkip} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSkip)?.(); } }} whileTap={{ opacity: 0.6 }}
         style={{
           position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
-          backgroundColor: "rgba(0,0,0,0.35)", padding: "6px 12px", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)",
+          backgroundColor: "rgba(24,20,18,0.85)", padding: "6px 12px", borderRadius: 999, cursor: "pointer",
           pointerEvents: "auto",
         }}
       >
@@ -1554,14 +1539,14 @@ function TutorialOverlay({
             : tooltipPosition === "above"
               ? { bottom: FRAME_H - spot.top + 14 }
               : { top: 60 }),
-          backgroundColor: mdCard, borderRadius: 18, padding: "18px 20px", boxShadow: mdCardShadowLg,
+          backgroundColor: ivSurfaceSolid, borderRadius: 18, padding: "18px 20px", boxShadow: ivCardShadow,
           pointerEvents: "auto",
         }}
       >
-        <div ref={titleRef} tabIndex={-1} style={{ ...sans, fontSize: 11, fontWeight: 700, color: mdAccentText, letterSpacing: "0.04em", outline: "none" }}>{step.title}</div>
-        <div style={{ ...sans, fontSize: 13.5, color: mdBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{step.body}</div>
+        <div ref={titleRef} tabIndex={-1} style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, letterSpacing: "0.04em", outline: "none" }}>{step.title}</div>
+        <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{step.body}</div>
         <div style={{ marginTop: 16 }}>
-          <PrimaryBtn onClick={onNext} modernist>{isLast ? "Get started" : step.navTo ? "Tap to check it out" : "Next"}</PrimaryBtn>
+          <PrimaryBtn onClick={onNext} ivory>{isLast ? "Get started" : step.navTo ? "Tap to check it out" : "Next"}</PrimaryBtn>
         </div>
       </motion.div>
     </div>
@@ -1713,7 +1698,7 @@ function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs
   beliefs.forEach((b) => { const r = resolveRegion(b); counts.set(r, (counts.get(r) ?? 0) + 1); });
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-      style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: 12, backdropFilter: "blur(12px)", boxShadow: ivCardShadow }}>
+      style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: 12, boxShadow: ivCardShadow }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: ivFaint }}>OPEN A REGION</span>
         <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.96, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 19, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
@@ -3162,7 +3147,10 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
 const MIN_BELIEFS_FOR_GOALS = 3;
 function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore: (updater: (prev: Store) => Store) => void }) {
   const fetchingRef = React.useRef(false);
-  const needsRefresh = store.beliefs.length >= MIN_BELIEFS_FOR_GOALS && store.goalsBeliefSnapshot !== store.beliefs.length;
+  // Inferring goals sends belief statements to the AI, so it needs the same
+  // consent as analysis itself — see aiConsent.ts.
+  const aiAllowed = React.useContext(AiConsentContext);
+  const needsRefresh = aiAllowed && store.beliefs.length >= MIN_BELIEFS_FOR_GOALS && store.goalsBeliefSnapshot !== store.beliefs.length;
   React.useEffect(() => {
     if (!needsRefresh || fetchingRef.current) return;
     fetchingRef.current = true;
@@ -3909,12 +3897,12 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
-        background: recording
-          ? "radial-gradient(circle at 35% 30%, #E0876A 0%, #B5533C 58%, #7E3826 100%)"
-          : "radial-gradient(circle at 35% 30%, #7C6EA8 0%, #4F4177 55%, #302647 100%)",
-        boxShadow: recording
-          ? "0 8px 26px rgba(181,83,60,0.4), 0 0 36px rgba(181,83,60,0.3)"
-          : "0 8px 22px rgba(91,75,138,0.32), 0 0 28px rgba(91,75,138,0.22)",
+        // Flat fills, not a gradient sphere — and ivHeading's own charcoal
+        // for the idle state rather than a violet one, same "charcoal is
+        // the one active color, not a substitute accent" rule every other
+        // primary action in the app already follows (see ivHeading above).
+        backgroundColor: recording ? "#8A4A34" : ivHeading,
+        boxShadow: "0 0 0 1px rgba(42,38,33,0.08)",
       }}
     >
       <motion.div
@@ -3928,7 +3916,6 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
           height: 10,
           borderRadius: "50%",
           backgroundColor: recording ? "#FFD9C7" : "#E8E3F5",
-          boxShadow: recording ? "0 0 14px 4px rgba(232,128,100,0.65)" : "0 0 14px 4px rgba(180,165,230,0.55)",
         }}
       />
     </motion.div>
@@ -4454,6 +4441,77 @@ function ScreenProcessing({
 // showUpsell distinguishes the two only by adding one extra line and a CTA;
 // the core "Got it" acknowledgment is identical either way, since a free
 // entry isn't a lesser version of a Pro one, just an unanalyzed one.
+// ── Screen 5.0 · AI-analysis consent ──────────────────────────────────────────
+// Two independent checkboxes, each with the disclosures PIPA requires at the
+// moment of asking (items / purpose / retention, plus recipient / country /
+// timing for the overseas transfer), and an equally prominent way to say no.
+// See aiConsent.ts for why it's two consents and what declining does.
+function ScreenAiConsent({
+  current,
+  onBack,
+  onDecide,
+}: {
+  current: import("./aiConsent").AiConsent | null;
+  onBack?: () => void;
+  onDecide: (granted: boolean) => void;
+}) {
+  const copy = AI_CONSENT_COPY[isKoreanLocale() ? "ko" : "en"];
+  const wasGranted = !!current && current.version === AI_CONSENT_VERSION && current.sensitive && current.overseas;
+  // Never pre-checked on a first ask — consent has to be an affirmative act.
+  // Pre-filled only when reviewing a consent that's already in force.
+  const [sensitive, setSensitive] = React.useState(wasGranted);
+  const [overseas, setOverseas] = React.useState(wasGranted);
+  const both = sensitive && overseas;
+  const block = (part: { label: string; rows: [string, string][] }, checked: boolean, set: (v: boolean) => void) => (
+    <div style={{ marginTop: 16, padding: 16, borderRadius: 14, backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow }}>
+      <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+        <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} style={{ marginTop: 3, width: 18, height: 18, accentColor: ivHeading, flexShrink: 0 }} />
+        <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{part.label}</span>
+      </label>
+      <dl style={{ margin: "12px 0 0 28px", display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 6 }}>
+        {part.rows.map(([k, v]) => (
+          <React.Fragment key={k}>
+            <dt style={{ ...sans, fontSize: 12, fontWeight: 600, color: ivBody, whiteSpace: "nowrap" }}>{k}</dt>
+            <dd style={{ ...sans, fontSize: 12, color: ivBody, margin: 0, lineHeight: 1.5, wordBreak: "keep-all" }}>{v}</dd>
+          </React.Fragment>
+        ))}
+      </dl>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+        <BackButton onClick={onBack} />
+        <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>{copy.title}</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+        <div style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.7, wordBreak: "keep-all" }}>{copy.intro}</div>
+        {block(copy.sensitive, sensitive, setSensitive)}
+        {block(copy.overseas, overseas, setOverseas)}
+        <div style={{ ...sans, fontSize: 12.5, color: ivBody, marginTop: 16, lineHeight: 1.6, wordBreak: "keep-all" }}>{copy.refuse}</div>
+        <a href={`/legal/privacy${isKoreanLocale() ? ".ko" : ""}.html`} target="_blank" rel="noopener noreferrer"
+          style={{ display: "inline-block", ...sans, fontSize: 12.5, fontWeight: 600, color: ivHeading, marginTop: 10, textDecoration: "underline" }}>
+          {copy.policyLink} ↗
+        </a>
+      </div>
+      <div style={{ padding: "12px 22px 22px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <motion.button
+          type="button" disabled={!both} onClick={() => onDecide(true)} whileTap={both ? { scale: 0.99 } : undefined}
+          style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: "none", backgroundColor: ivHeading, color: ivSurfaceSolid, opacity: both ? 1 : 0.35, cursor: both ? "pointer" : "not-allowed", ...sans, fontSize: 14, fontWeight: 600 }}
+        >
+          {copy.agree}
+        </motion.button>
+        <motion.button
+          type="button" onClick={() => onDecide(false)} whileTap={{ scale: 0.99 }}
+          style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `1px solid ${ivDivider}`, backgroundColor: "transparent", color: ivHeading, cursor: "pointer", ...sans, fontSize: 14, fontWeight: 600 }}
+        >
+          {copy.decline}
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
 function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
@@ -5457,6 +5515,162 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
   );
 }
 
+// ── Screen 10.6 · Journey Map ─────────────────────────────────────────────────
+// A standing figure, tiny and plain — charcoal silhouette, two pale eye
+// dots, nothing a saturated "mascot" color could clash with. Reused at two
+// sizes: small inline next to the current waypoint, larger standing alone
+// in the empty state.
+function JourneyCharacter({ size = 34 }: { size?: number }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <motion.svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true"
+      animate={reducedMotion ? undefined : { y: [0, -2, 0] }}
+      transition={reducedMotion ? undefined : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <circle cx="12" cy="8" r="4.4" fill={ivHeading} />
+      <circle cx="10.3" cy="7.6" r="0.8" fill={ivSurfaceSolid} />
+      <circle cx="13.7" cy="7.6" r="0.8" fill={ivSurfaceSolid} />
+      <path d="M7 23c.3-6.4 2.2-9.6 5-9.6s4.7 3.2 5 9.6" fill={ivHeading} />
+    </motion.svg>
+  );
+}
+
+// One stop on the path — the dot plus the line segment reaching down to
+// whatever comes after it, so each node owns its own connector instead of
+// one shared line needing to line up with variable-height text next to it.
+function JourneyNode({ dot, dotFilled, connector = "solid", last, children }: { dot?: React.ReactNode; dotFilled: boolean; connector?: "solid" | "dashed"; last?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 22, flexShrink: 0 }}>
+        {dot ?? (
+          <div style={{
+            width: 11, height: 11, borderRadius: "50%", flexShrink: 0,
+            backgroundColor: dotFilled ? ivHeading : ivBackground.backgroundColor,
+            border: `2px solid ${ivHeading}`, boxSizing: "border-box",
+          }} />
+        )}
+        {!last && (
+          <div style={{
+            flex: 1, width: 2, minHeight: 30, marginTop: 4,
+            backgroundColor: connector === "solid" ? ivHeading : "transparent",
+            backgroundImage: connector === "dashed" ? `repeating-linear-gradient(to bottom, rgba(42,38,33,0.3) 0 4px, transparent 4px 9px)` : undefined,
+          }} />
+        )}
+      </div>
+      <div style={{ flex: 1, paddingBottom: 28, minWidth: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+// Identity Drift reframed as a map instead of a list: the same aspiration/
+// driftNotes data ScreenDrift already reads (see above), just walked top
+// to bottom as waypoints with the character standing at the most recent
+// one — "where you started," what's been noticed since, and the stated
+// goal still further down the path. Deliberately doesn't invent a 0-100
+// score driftNotes was never designed to produce (see ScreenDrift's own
+// comment on that) — distance is shown as how far down the path you've
+// actually walked, not a fabricated percentage.
+function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () => void; store: Store; onSetupAspiration?: () => void }) {
+  const hasAspiration = !!store.aspiration;
+  const notes = store.driftNotes;
+
+  return (
+    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
+      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(40px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+        <span
+          role="button" tabIndex={0} aria-label="Back to Profile" onClick={onBack}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: ivBody, cursor: "pointer" }}
+        >
+          ← Back
+        </span>
+        <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Your Journey</div>
+        <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
+          Where you started, what's changed since, and how far the goal still is.
+        </div>
+
+        <div style={{ marginTop: 32 }}>
+          {hasAspiration ? (
+            <>
+              <JourneyNode dotFilled connector={notes.length > 0 ? "solid" : "dashed"}>
+                <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{store.aspirationSetDate}</div>
+                <div style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivHeading, marginTop: 4 }}>Where you started</div>
+              </JourneyNode>
+
+              {notes.map((n, i) => {
+                const isCurrent = i === notes.length - 1;
+                return (
+                  <JourneyNode
+                    key={i}
+                    connector="dashed"
+                    dotFilled={!isCurrent}
+                    dot={isCurrent ? <JourneyCharacter size={30} /> : undefined}
+                  >
+                    <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{n.date}</div>
+                    {isCurrent && (
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, marginTop: 2, textTransform: "uppercase" }}>
+                        You are here
+                      </div>
+                    )}
+                    <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{n.note}</div>
+                  </JourneyNode>
+                );
+              })}
+
+              {notes.length === 0 && (
+                <JourneyNode connector="dashed" dotFilled={false} dot={<JourneyCharacter size={30} />}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, marginTop: 2, textTransform: "uppercase" }}>
+                    You are here
+                  </div>
+                  <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>
+                    Not enough entries yet to place a waypoint. Keep logging thoughts and this fills in with what's actually changed.
+                  </div>
+                </JourneyNode>
+              )}
+
+              <JourneyNode last dotFilled={false}>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivFaint, textTransform: "uppercase" }}>Goal</div>
+                <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                  "{store.aspiration}"
+                </div>
+                <motion.span
+                  role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }} whileTap={{ opacity: 0.6 }}
+                  style={{ ...sans, fontSize: 12, color: ivBody, cursor: "pointer", display: "inline-block", marginTop: 10 }}
+                >
+                  Set a different goal
+                </motion.span>
+              </JourneyNode>
+            </>
+          ) : (
+            <>
+              <JourneyNode last={false} connector="dashed" dotFilled={false} dot={<JourneyCharacter size={30} />}>
+                <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, marginTop: 2, textTransform: "uppercase" }}>
+                  You are here
+                </div>
+                <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 4, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                  No destination set yet — the path has a start, but nowhere marked to walk toward.
+                </div>
+              </JourneyNode>
+              <JourneyNode last dotFilled={false}>
+                <div
+                  role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }}
+                  style={{ padding: 16, borderRadius: 14, backgroundColor: "rgba(42,38,33,0.06)", borderLeft: `2px solid ${ivHeading}`, cursor: "pointer" }}
+                >
+                  <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: ivHeading }}>Tell us who you want to become</div>
+                  <div style={{ ...sans, fontSize: 12.5, color: ivBody, marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                    One sentence is enough — we'll mark it as the goal and start tracking the walk toward it.
+                  </div>
+                </div>
+              </JourneyNode>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Screen 11 · Active Hypotheses ─────────────────────────────────────────────
 // Falls back to a generic reflective question when a hypothesis doesn't
 // carry its own (real hypotheses don't yet) — same wording either way, so
@@ -6043,7 +6257,7 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
         initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxHeight: "74%", backgroundColor: "#FBF8F2", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+          width: "100%", maxHeight: "74%", backgroundColor: "#FBF8F2",
           borderTop: "1px solid rgba(42,38,33,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(120,105,80,0.14)",
           display: "flex", flexDirection: "column",
         }}
@@ -6448,7 +6662,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
               initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
               onClick={(e) => e.stopPropagation()}
               style={{
-                width: "100%", maxHeight: "82%", backgroundColor: "#FBF8F2", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+                width: "100%", maxHeight: "82%", backgroundColor: "#FBF8F2",
                 borderTop: "1px solid rgba(42,38,33,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
                 display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(120,105,80,0.16)",
               }}
@@ -6708,6 +6922,7 @@ function ScreenProfile({
   onToggleDemoMode,
   onOpenPaywall,
   onOpenManageSubscription,
+  onOpenJourneyMap,
 }: {
   onNavSelect?: (id: string) => void;
   store: Store;
@@ -6717,6 +6932,7 @@ function ScreenProfile({
   onToggleDemoMode: (v: boolean) => void;
   onOpenPaywall?: () => void;
   onOpenManageSubscription?: () => void;
+  onOpenJourneyMap?: () => void;
 }) {
   const name = store.account?.name || "Anonymous observer";
   const initial = name.charAt(0);
@@ -6811,6 +7027,30 @@ function ScreenProfile({
             </div>
           ))}
         </div>
+
+        {/* Entry point into ScreenJourneyMap — Identity Drift's own
+        aspiration/driftNotes data, just walked as waypoints instead of
+        read as a list (see that screen's own comment). Sits right under
+        the stats row since both are "how's this going so far" at a
+        glance, not buried in Settings-style rows below. */}
+        <motion.div
+          role="button" tabIndex={0} onClick={onOpenJourneyMap} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenJourneyMap)?.(); } }} whileTap={{ opacity: 0.6 }}
+          style={{
+            display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
+            backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: "16px 18px", boxShadow: ivCardShadow, marginBottom: 14,
+          }}
+        >
+          <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <JourneyCharacter size={24} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ ...sans, fontSize: 14, fontWeight: 800, color: ivHeading }}>Your Journey</div>
+            <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2, lineHeight: 1.4, wordBreak: "keep-all" }}>
+              {store.aspiration ? "Where you started, and how far the goal still is" : "Set a direction and watch the distance to it"}
+            </div>
+          </div>
+          <span style={{ color: ivFaint, fontSize: 18, flexShrink: 0 }}>›</span>
+        </motion.div>
 
         {store.entryCount > 0 && (
           <motion.button
@@ -6974,14 +7214,38 @@ function ScreenDataPrivacy({
   onResetData,
   onOpenPrivacyPolicy,
   onOpenTermsOfService,
+  onDeleteAccount,
+  aiConsentOn,
+  onOpenAiConsent,
 }: {
+  aiConsentOn?: boolean;
+  onOpenAiConsent?: () => void;
   store: Store;
   onBack?: () => void;
   onResetData?: () => void;
   onOpenPrivacyPolicy?: () => void;
   onOpenTermsOfService?: () => void;
+  // Present only while a real cloud session exists — guests have no
+  // account to delete, and "Delete all my data" already covers them.
+  onDeleteAccount?: () => Promise<void>;
 }) {
   const [armed, setArmed] = React.useState(false);
+  const [accountArmed, setAccountArmed] = React.useState(false);
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [accountError, setAccountError] = React.useState("");
+  const confirmDeleteAccount = async () => {
+    if (!onDeleteAccount || deletingAccount) return;
+    if (!accountArmed) { setAccountArmed(true); return; }
+    setDeletingAccount(true);
+    setAccountError("");
+    try {
+      await onDeleteAccount();
+    } catch (err) {
+      setDeletingAccount(false);
+      setAccountArmed(false);
+      setAccountError(err instanceof Error ? err.message : "Couldn't delete your account. Please try again.");
+    }
+  };
   const s = store;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
@@ -7018,6 +7282,24 @@ function ScreenDataPrivacy({
           </div>
         </div>
 
+        {onOpenAiConsent && (
+          <div
+            role="button" tabIndex={0} onClick={onOpenAiConsent}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenAiConsent(); } }}
+            style={{ marginTop: 24, padding: "14px 16px", borderRadius: 14, backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>AI analysis consent</div>
+              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                {aiConsentOn
+                  ? "On — entries are sent to Anthropic (US) for analysis. Tap to review or withdraw."
+                  : "Off — entries stay on this device and aren't analyzed. Tap to review or turn on."}
+              </div>
+            </div>
+            <span style={{ color: ivFaint, fontSize: 15 }}>›</span>
+          </div>
+        )}
+
         <div style={{ marginTop: 28 }}>
           <motion.button
             type="button" onClick={() => downloadStoreAsJson(s)} whileTap={{ scale: 0.99, opacity: 0.8 }}
@@ -7044,15 +7326,38 @@ function ScreenDataPrivacy({
           </div>
           {armed && (
             <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 8, lineHeight: 1.5 }}>
-              All unconscious beliefs, interpretations, conversation history, and your goal stored on this device will be gone. This can't be undone.
+              {onDeleteAccount
+                ? "All unconscious beliefs, interpretations, conversation history, and your goal will be erased from this device and your synced account. Your account itself (name and email) stays — use \"Delete my account\" below to remove that too. This can't be undone."
+                : "All unconscious beliefs, interpretations, conversation history, and your goal stored on this device will be gone. This can't be undone."}
             </div>
           )}
         </div>
+
+        {onDeleteAccount && (
+          <div style={{ marginTop: 16 }}>
+            <div
+              role="button" tabIndex={0} aria-disabled={deletingAccount}
+              onClick={confirmDeleteAccount} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); confirmDeleteAccount(); } }}
+              style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${accountArmed ? mdWarn : ivDivider}`, backgroundColor: accountArmed ? mdWarnSoft : "transparent", cursor: deletingAccount ? "default" : "pointer", opacity: deletingAccount ? 0.6 : 1 }}
+            >
+              <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
+                {deletingAccount ? "Deleting your account…" : accountArmed ? "Are you sure? Tap again to delete your account" : "Delete my account"}
+              </span>
+            </div>
+            <div style={{ ...sans, fontSize: 12, color: accountError ? mdWarn : ivBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              {accountError || (accountArmed
+                ? "Permanently deletes your login, name, email, and everything synced to your account, on every device. If you have a subscription, cancel it separately in your App Store or Google Play settings. This can't be undone."
+                : "Removes your account and all synced data. Download your data first if you want to keep a copy.")}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginTop: 28, backgroundColor: ivSurfaceSolid, borderRadius: 20, overflow: "hidden", boxShadow: ivCardShadow }}>
           {[
             { label: "Privacy Policy", onClick: onOpenPrivacyPolicy },
             { label: "Terms of Service", onClick: onOpenTermsOfService },
+            { label: "End User License Agreement", onClick: () => openLegalPage("eula") },
+            { label: "Refund & Subscription Policy", onClick: () => openLegalPage("refund") },
           ].map((r, i, arr) => (
             <motion.div
               key={r.label} role="button" tabIndex={0} onClick={r.onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (r.onClick)?.(); } }} whileTap={{ opacity: 0.6 }}
@@ -7122,16 +7427,31 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
 // an actual lawyer has reviewed it for your jurisdiction; nothing else
 // about how these render needs to change.
 type LegalSection = { heading: string; body: string };
+type LegalDoc = "privacy" | "terms" | "eula" | "refund";
+
+// The full, hosted versions live in public/legal/ (served at /legal/*.html)
+// — those are the documents of record, and the URLs App Store Connect /
+// Play Console point at. The in-app sections below are a faithful summary
+// of them. Korean-language devices get the Korean edition (*.ko.html).
+function legalPageUrl(doc: LegalDoc): string {
+  const lang = typeof navigator !== "undefined" ? (navigator.language || "").toLowerCase() : "";
+  return `/legal/${doc}${lang.startsWith("ko") ? ".ko" : ""}.html`;
+}
+function openLegalPage(doc: LegalDoc) {
+  window.open(legalPageUrl(doc), "_blank", "noopener,noreferrer");
+}
 
 function ScreenLegalDocument({
   title,
   lastUpdated,
   sections,
+  fullVersion,
   onBack,
 }: {
   title: string;
   lastUpdated: string;
   sections: LegalSection[];
+  fullVersion?: LegalDoc;
   onBack?: () => void;
 }) {
   return (
@@ -7147,6 +7467,14 @@ function ScreenLegalDocument({
             Draft — written to accurately describe how the app works today, but not yet reviewed by a lawyer. Have this reviewed for your jurisdiction before relying on it.
           </div>
         </div>
+        {fullVersion && (
+          <a
+            href={legalPageUrl(fullVersion)} target="_blank" rel="noopener noreferrer"
+            style={{ display: "block", ...sans, fontSize: 13, fontWeight: 600, color: mdHeading, marginBottom: 22, textDecoration: "underline" }}
+          >
+            This is a summary. Read the full {title} ↗
+          </a>
+        )}
         {sections.map((s) => (
           <div key={s.heading} style={{ marginBottom: 22 }}>
             <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: mdHeading }}>{s.heading}</div>
@@ -7162,87 +7490,86 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   {
     heading: "1. Overview",
     body: isCloudSyncConfigured
-      ? "Browsing as a guest, everything you record lives only in your browser's local storage, on your own device, unless you delete it. If you sign up, your data is also synced to a private, encrypted account so it's there across your devices — see \"Where your data goes\" below for exactly what that means and doesn't mean."
-      : "Mindscape does not operate its own server and does not create accounts on a server you don't control — there is no Mindscape backend that stores your data. Everything you record lives in your browser's local storage, on your own device, unless you delete it (see \"Deleting your data\" below).",
+      ? "What you write in Mindscape can reveal your thoughts, beliefs, and mental state, so we treat it as sensitive information. As a guest, everything stays in this browser's storage on your device. If you create an account, your data is also synced to a private, encrypted database that only your own login can read."
+      : "What you write in Mindscape can reveal your thoughts, beliefs, and mental state, so we treat it as sensitive information. Everything you record stays in this browser's storage on your device — there's no Mindscape account server holding a copy.",
   },
   {
     heading: "2. What we collect",
-    body: "Text you write or speak using \"Speak your mind\"; the AI's analysis of that text (beliefs, interpretations, hypotheses), generated and stored back on your device; basic account info if you sign up (name, email); and an optional aspiration statement, if you choose to set one. We do not collect your location, contacts, photos, browsing history outside the app, or anything you haven't directly entered.",
+    body: "Text you write or speak with \"Speak your mind\"; the AI's analysis of it (beliefs, interpretations, hypotheses, summaries); your reactions to those insights; an optional aspiration; your settings; and, only if you sign up, your name, email, and a password (stored only as a one-way hash by our authentication provider). We don't collect location, contacts, photos, advertising IDs, or anything outside the app.",
   },
   {
-    heading: "3. Where your data goes",
-    body: isCloudSyncConfigured
-      ? "Stored in this browser's local storage on this device, and — only if you've signed up for an account — also synced to a private database row tied to your account, encrypted at rest, and protected by database-level access rules that only your own login can satisfy; not even we can query another user's data through the normal app, and we don't build tools to bypass that. Guests (no account) stay fully local, no different from before. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics or advertising of any kind."
-      : "Stored only in this browser's local storage on this device — it does not sync across devices and isn't backed up anywhere by us. When you use \"Speak your mind,\" the text you wrote is sent to Claude, an AI model operated by Anthropic, solely to generate the analysis shown back to you; Anthropic's own privacy policy governs how they handle that request, which we don't control beyond what's needed to return a response. If you've set a name on your account, that name may be included in the request so the AI can address you by it. We use no third-party analytics, advertising, or tracking of any kind — there's no \"us\" to send usage data to, because there's no Mindscape server collecting it.",
+    heading: "3. Voice input",
+    body: "If you use voice, the microphone is used on your device to draw the waveform. Speech-to-text is done by your browser's or operating system's built-in recognizer (e.g. Apple or Google), which may send audio to that vendor to return text. Mindscape itself never receives or stores audio — only the resulting text.",
   },
   {
-    heading: "4. Crisis-language detection",
-    body: "Separately from AI analysis, every entry is checked on your device — not sent anywhere, not reviewed by the AI — for language that may indicate a mental health crisis. If detected, you're shown crisis support resources instead of the usual analysis. This check happens entirely locally; its result is never stored, logged, or transmitted.",
+    heading: "4. Who processes your data",
+    body: "Anthropic (Claude) receives the text of an entry, relevant prior insights, and your first name, solely to generate your analysis — it does not use this to train its models. Vercel hosts the app and relays those requests. " +
+      (isCloudSyncConfigured ? "Supabase stores your account and synced data (in Seoul, Korea). " : "") +
+      "Some of these providers are in the United States. We never sell your data, show ads, or use third-party analytics or tracking.",
   },
   {
-    heading: "5. Deleting your data",
-    body: isCloudSyncConfigured
-      ? "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device — and, if you're signed in, from your synced account as well, the next time a change syncs (effectively immediately)."
-      : "You can delete everything the app has stored at any time from Profile → Data & Privacy → \"Delete all my data.\" This immediately and permanently removes your beliefs, interpretations, conversation history, and goal from this device. Because nothing is stored on a server, there's nothing left anywhere else to delete afterward.",
+    heading: "5. Crisis-language detection",
+    body: "Every entry is checked on your device — not sent anywhere, not reviewed by the AI — for language that may indicate a crisis. If detected, you're shown crisis support resources first. The result is never stored, logged, or transmitted.",
   },
   {
-    heading: "6. Children's privacy",
-    body: "Mindscape is not directed at children under 13, and we don't knowingly collect information from anyone under 13.",
+    heading: "6. Your rights & deleting your data",
+    body: (isCloudSyncConfigured
+      ? "Profile → Data & Privacy lets you download everything (JSON), erase all your data (\"Delete all my data\"), or permanently delete your account with its name, email, and all synced data (\"Delete my account\", shown while signed in). "
+      : "Profile → Data & Privacy lets you download everything (JSON) or erase it permanently (\"Delete all my data\"). ") +
+      "You can also email us to access, correct, delete, or export your data, or to withdraw consent. Depending on where you live (e.g. Korea, the EU/UK, California), you may have additional rights and can complain to your data protection authority.",
   },
   {
-    heading: "7. Changes to this policy",
-    body: "If this policy changes, the \"Last updated\" date above will change. Continuing to use the app after an update means you accept the revised policy.",
+    heading: "7. Retention",
+    body: "Data on your device stays until you delete it. Account data is erased when you delete your account (and from backups shortly after). Anthropic deletes analysis requests within 30 days under its commercial retention policy (longer only if flagged for a Usage Policy violation). Server logs are kept for up to 30 days for security.",
   },
   {
-    heading: "8. Contact",
-    body: "[Add a real contact email here before publishing.]",
+    heading: "8. Children",
+    body: "Mindscape isn't intended for anyone under 14 (or the age of digital consent in your country, if higher), and we don't knowingly collect their information.",
+  },
+  {
+    heading: "9. Changes & contact",
+    body: "We'll notify you in the app before material changes take effect. Questions or requests: [CONTACT EMAIL — add before publishing].",
   },
 ];
 
 const TERMS_OF_SERVICE_SECTIONS: LegalSection[] = [
   {
     heading: "1. What this app is",
-    body: "Mindscape is a self-reflection tool that uses AI to help surface patterns in your own words and actions, drawing on concepts from Cognitive Behavioral Therapy (CBT) and Acceptance and Commitment Therapy (ACT).",
+    body: "Mindscape is a self-reflection tool that uses AI to help surface patterns in your own words, drawing on concepts from Cognitive Behavioral Therapy (CBT) and Acceptance and Commitment Therapy (ACT).",
   },
   {
     heading: "2. Not medical or mental health treatment",
-    body: "Mindscape is not therapy, counseling, medical advice, or a mental health treatment service, and no part of it is provided or reviewed by a licensed clinician. The AI's observations are not a diagnosis and shouldn't be treated as one. If you're experiencing a mental health crisis, contact a licensed professional or emergency services — see the in-app crisis resources, or call or text 988 (US).",
+    body: "Mindscape is not therapy, counseling, medical advice, or a treatment service, and nothing in it is provided or reviewed by a licensed clinician. It isn't monitored and can't respond to emergencies. If you're in crisis, contact emergency services right away (Korea: 112/119 or 109; US: call or text 988) or use the in-app crisis resources.",
   },
   {
-    heading: "3. Your account",
-    body: "If you create an account, you're responsible for keeping your login information accurate and for anything that happens under it. Accounts and their data exist only on your local device (see our Privacy Policy) — we cannot recover a lost account or restore deleted data.",
+    heading: "3. Eligibility & your account",
+    body: (isCloudSyncConfigured
+      ? "You must be at least 14 (or older where local law requires). You can use Mindscape as a guest (data on this device only) or create an account to sync across devices. Keep your login secure; you're responsible for activity under it. You can delete your account any time in Data & Privacy — deletion is permanent and we can't restore it."
+      : "You must be at least 14 (or older where local law requires). Your data exists only in this browser's storage — if it's cleared, we can't recover it."),
   },
   {
-    heading: "4. Acceptable use",
-    body: "Don't use Mindscape to harm yourself or others, to violate any law, or to attempt to disrupt, reverse-engineer, or abuse the service, including the AI systems it relies on.",
+    heading: "4. Your content",
+    body: "You own what you write. You give us a limited license to store and process it — including sending it to our AI provider — only to provide the app to you. We don't use it to train AI models or for advertising, and there are no public or social features.",
   },
   {
-    heading: "5. AI-generated content",
-    body: "Analysis, hypotheses, and other AI-generated content are probabilistic and can be wrong, incomplete, or reflect the limitations of the underlying model. Use your own judgment about anything the AI surfaces — nothing it says is a fact about you unless you decide it resonates.",
+    heading: "5. Acceptable use",
+    body: "Don't use Mindscape to break the law or harm anyone, to reverse-engineer, disrupt, or bypass the app's security, to access others' data, to scrape or overload our servers, or to misuse the AI systems it relies on.",
   },
   {
-    heading: "6. Subscriptions",
-    body: "Some features may be offered as part of a paid subscription (Mindscape Pro). At current launch, Mindscape Pro is not active — every feature is available at no cost; this section is included so the terms are ready if that changes. Where a subscription is active, it renews automatically at the price and interval shown at signup until canceled, and can be canceled any time from Profile → Manage subscription.",
+    heading: "6. AI-generated content",
+    body: "Analysis, hypotheses, and other AI output are probabilistic and can be wrong or incomplete. They aren't facts about you — use your own judgment.",
   },
   {
-    heading: "7. Disclaimer of warranties",
-    body: "Mindscape is provided \"as is,\" without warranties of any kind. We don't guarantee the app will be uninterrupted or error-free, or that its analysis will be accurate or useful for any particular purpose.",
+    heading: "7. Subscriptions",
+    body: "Mindscape Pro is not currently offered — every feature is free and you won't be charged. If paid plans are introduced, they'll be sold through the App Store or Google Play, we'll tell you in advance, and the Refund & Subscription Policy will apply.",
   },
   {
-    heading: "8. Limitation of liability",
-    body: "To the fullest extent permitted by law, Mindscape and its creators are not liable for any damages arising from your use of the app, including reliance on any AI-generated content.",
+    heading: "8. Disclaimers & liability",
+    body: "Mindscape is provided \"as is,\" without warranties. To the extent the law allows, we aren't liable for indirect damages or data loss, and our total liability is limited to what you paid us in the past 12 months (or USD 50). Mandatory consumer rights where you live are not affected.",
   },
   {
-    heading: "9. Changes",
-    body: "We may update these terms; continued use after a change means you accept the new terms.",
-  },
-  {
-    heading: "10. Governing law",
-    body: "[Add your jurisdiction here before publishing.]",
-  },
-  {
-    heading: "11. Contact",
-    body: "[Add a real contact email here before publishing.]",
+    heading: "9. Changes & governing law",
+    body: "We'll give in-app notice at least 7 days (30 days if unfavorable) before material changes. These terms are governed by the laws of the Republic of Korea. Contact: [CONTACT EMAIL — add before publishing].",
   },
 ];
 
@@ -7538,7 +7865,23 @@ export default function App() {
   // no idea which one it's looking at. `realStore`/`updateRealStore` are
   // used only for the pre-home account flow, which is always real even if
   // Demo Mode happens to be on.
-  const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore } = useAppData();
+  const { isDemoMode, setIsDemoMode, hasSeenTutorial, setHasSeenTutorial, store, updateStore, realStore, updateRealStore, cloudUserId } = useAppData();
+  // Consent is a real legal record, so it always lives on the real store —
+  // even while browsing Demo Mode, typing into "Speak your mind" sends the
+  // person's own words to the AI.
+  const aiAllowed = hasAiConsent(realStore);
+  const [aiConsentReturnTo, setAiConsentReturnTo] = React.useState("think");
+  // First "Speak your mind" (or the first one after the consent wording
+  // changes) goes through the consent screen; after that, straight in —
+  // declining is remembered too, so nobody is re-asked on every entry.
+  const startThink = () => {
+    if (needsAiConsentDecision(realStore)) {
+      setAiConsentReturnTo("think");
+      setScreen("aiConsent");
+    } else {
+      setScreen("think");
+    }
+  };
 
   // A refresh or tab-close mid-analysis silently throws away the in-flight
   // /api/analyze call (and, for a Pro entry, the thought itself — it isn't
@@ -7706,6 +8049,10 @@ export default function App() {
   // see each onContinue/onOpenPaywall/onUpgrade call site below.
   const [paywallReturnTo, setPaywallReturnTo] = React.useState("home");
   const [checkoutPlan, setCheckoutPlan] = React.useState<ProPlan>("yearly");
+  // aspirationSetup is reachable from both ScreenDrift ("Mind" tab) and
+  // ScreenJourneyMap (Profile) now — this is which one "Save"/back should
+  // land on, set right before navigating in from either entry point.
+  const [aspirationReturnTo, setAspirationReturnTo] = React.useState("drift");
   // Distinct from rejectBelief above: reacting to a belief as "Today's
   // Discovery" never hides it from "Unconscious Patterns" — only the dedicated reject
   // link there does that.
@@ -7724,6 +8071,7 @@ export default function App() {
   const [reinterpretingKey, setReinterpretingKey] = React.useState<string | null>(null);
 
   async function requestReinterpretation(currentText: string, evidenceQuotes: string[], rejectedTexts: string[]) {
+    if (!aiAllowed) throw new Error("AI analysis is turned off. You can turn it on in Profile → Data & Privacy.");
     const res = await fetch("/api/reinterpret", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -7809,7 +8157,12 @@ export default function App() {
         account={realStore.account}
         onBack={() => setScreen("auth")}
         onGoSignup={() => setScreen("signup")}
-        onLogin={() => setScreen("home")}
+        onLogin={(upgradedPasswordHash) => {
+          if (upgradedPasswordHash) {
+            updateRealStore((prev) => (prev.account ? { ...prev, account: { ...prev.account, password: upgradedPasswordHash } } : prev));
+          }
+          setScreen("home");
+        }}
       />
     ); break;
     case "signup": content = (
@@ -7840,7 +8193,7 @@ export default function App() {
     case "home": content = (
       <ScreenHome
         onNavSelect={goToTab}
-        onStartThink={() => setScreen("think")}
+        onStartThink={startThink}
         onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
@@ -7905,6 +8258,12 @@ export default function App() {
           if (detectCrisisSignal(text)) {
             updateStore((prev) => appendUnanalyzedEntry(prev, text));
             setScreen("crisisSupport");
+          } else if (!aiAllowed) {
+            // No consent → the entry is kept on-device only and never sent
+            // to /api/analyze. ScreenThinkComplete's no-error state ("added
+            // to your record") is exactly the right message for this.
+            updateStore((prev) => appendUnanalyzedEntry(prev, text));
+            setScreen("thinkComplete");
           } else {
             // Every tier gets a one-entry analysis. Premium controls whether
             // that entry is allowed to accumulate into the longitudinal
@@ -7952,6 +8311,19 @@ export default function App() {
       else if (pendingUpsell) setScreen("softPaywall");
       else setScreen("home");
     }} />; break;
+    case "aiConsent": content = (
+      <ScreenAiConsent
+        current={realStore.aiConsent ?? null}
+        onBack={() => setScreen(aiConsentReturnTo === "think" ? "home" : aiConsentReturnTo)}
+        onDecide={(granted) => {
+          updateRealStore((prev) => ({
+            ...prev,
+            aiConsent: { sensitive: granted, overseas: granted, decidedAt: new Date().toISOString(), version: AI_CONSENT_VERSION },
+          }));
+          setScreen(aiConsentReturnTo);
+        }}
+      />
+    ); break;
     case "thinkComplete": content = (
       <ScreenThinkComplete
         error={analysisError}
@@ -7980,17 +8352,22 @@ export default function App() {
     case "drift": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("drift"); setScreen("checkout"); }} />
     ) : (
-      <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => setScreen("aspirationSetup")} />
+      <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => { setAspirationReturnTo("drift"); setScreen("aspirationSetup"); }} />
+    ); break;
+    case "journeyMap": content = MONETIZATION_ENABLED && !store.isPro ? (
+      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("journeyMap"); setScreen("checkout"); }} />
+    ) : (
+      <ScreenJourneyMap onBack={() => setScreen("profile")} store={store} onSetupAspiration={() => { setAspirationReturnTo("journeyMap"); setScreen("aspirationSetup"); }} />
     ); break;
     case "aspirationSetup": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("aspirationSetup"); setScreen("checkout"); }} />
     ) : (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
-        onBack={() => setScreen("drift")}
+        onBack={() => setScreen(aspirationReturnTo)}
         onSave={(value) => {
           updateStore((prev) => ({ ...prev, aspiration: value, aspirationSetDate: formatDateDots(new Date()) }));
-          setScreen("drift");
+          setScreen(aspirationReturnTo);
         }}
       />
     ); break;
@@ -8046,6 +8423,7 @@ export default function App() {
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
         onOpenPaywall={() => { setPaywallReturnTo("profile"); setScreen("paywall"); }}
         onOpenManageSubscription={() => setScreen("manageSubscription")}
+        onOpenJourneyMap={() => setScreen("journeyMap")}
       />
     ); break;
     case "paywall": content = (
@@ -8085,27 +8463,47 @@ export default function App() {
         }}
         onOpenPrivacyPolicy={() => setScreen("privacyPolicy")}
         onOpenTermsOfService={() => setScreen("termsOfService")}
+        aiConsentOn={aiAllowed}
+        onOpenAiConsent={() => { setAiConsentReturnTo("dataPrivacy"); setScreen("aiConsent"); }}
+        onDeleteAccount={
+          isCloudSyncConfigured && cloudUserId && !isDemoMode
+            ? async () => {
+                // Server-side delete first: if it fails, nothing local is
+                // touched and the screen shows the error. Only once the
+                // account is really gone is the local copy cleared too.
+                // (updateRealStore may still try one push with the old
+                // user id before onAuthStateChange clears it — that push is
+                // rejected by the FK/RLS and only logged; see cloudSync.ts.)
+                await cloudDeleteAccount();
+                updateRealStore(() => emptyStore());
+                setScreen("auth");
+              }
+            : undefined
+        }
       />
     ); break;
     case "privacyPolicy": content = (
       <ScreenLegalDocument
         title="Privacy Policy"
-        lastUpdated="August 15, 2026"
+        lastUpdated="November 5, 2026"
         sections={PRIVACY_POLICY_SECTIONS}
+        fullVersion="privacy"
         onBack={() => setScreen("dataPrivacy")}
       />
     ); break;
     case "termsOfService": content = (
       <ScreenLegalDocument
         title="Terms of Service"
-        lastUpdated="August 15, 2026"
+        lastUpdated="November 5, 2026"
         sections={TERMS_OF_SERVICE_SECTIONS}
+        fullVersion="terms"
         onBack={() => setScreen("dataPrivacy")}
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={() => setScreen("think")} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={startThink} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
+  content = <AiConsentContext.Provider value={aiAllowed}>{content}</AiConsentContext.Provider>;
 
   const isMobileViewport = useIsMobileViewport();
   const reduceMotion = useReducedMotion();
@@ -8129,10 +8527,11 @@ export default function App() {
   // screen's OWN background, not just its design lineage, or the fallback
   // shows as a wrong-colored strip whenever a screen's status-bar-clearance
   // padding is visible (every screen not using the "top:-30 bleed" trick).
-  // quote/splash/auth/login/signup/onboarding all render on the opening
-  // flow's dark OPENING_BG, not mdBg, despite being modernist-sourced
-  // screens in every other sense — misclassifying them here is what made
-  // the fake status bar render unreadable dark-on-dark text on them, too.
+  // quote/splash/auth/login/signup/onboarding now render on the ivory
+  // canvas too (OPENING_BG/TEXT/MUTED alias the iv* tokens — see above),
+  // so they need the light fallback/status-bar text just like every other
+  // ivory screen, not the old dark-on-dark treatment this list used to
+  // carve them out for.
   // assumptions/paywall/checkout/manageSubscription/privacyPolicy/
   // termsOfService all render mdBg (ScreenBeliefMap/ScreenPaywall/
   // ScreenCheckout/ScreenManageSubscription/ScreenLegalDocument) but were
@@ -8142,8 +8541,9 @@ export default function App() {
   // full-viewport UI with no shared chrome), so this flag never reaches it.
   const isModernistScreen = [
     "home", "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
-    "beliefs", "assumptions", "drift", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
+    "beliefs", "assumptions", "drift", "journeyMap", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
     "paywall", "checkout", "manageSubscription", "privacyPolicy", "termsOfService",
+    "quote", "splash", "auth", "login", "signup", "onboarding",
     "notifications", "dataPrivacy", "help",
   ].includes(screen);
 

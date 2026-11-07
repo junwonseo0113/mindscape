@@ -65,3 +65,15 @@ export async function cloudSignOut(): Promise<void> {
   if (!supabase) return;
   await supabase.auth.signOut();
 }
+
+// Permanently deletes the signed-in user's auth account (email, name,
+// password hash) and their user_stores row — see delete_own_account in
+// supabase/schema.sql. Signs out afterward so the now-orphaned session
+// token doesn't linger in local storage. Throws on failure so the caller
+// can tell the user instead of pretending the account is gone.
+export async function cloudDeleteAccount(): Promise<void> {
+  if (!supabase) throw new Error("Cloud sync is not configured.");
+  const { error } = await supabase.rpc("delete_own_account");
+  if (error) throw error;
+  await supabase.auth.signOut();
+}

@@ -1,3 +1,4 @@
+import type { AiConsent } from "./aiConsent";
 // ── Shared data shapes ───────────────────────────────────────────────────────
 // One Store shape for both real (on-device, accumulated) data and demo
 // (curated example) data — screens read this shape and never need to know
@@ -393,6 +394,9 @@ export type Store = {
   // compatible longitudinal-intelligence infrastructure only: nothing
   // currently writes to this array, and no screen reads it.
   lensSessions: StoredLensSession[];
+  // Separate PIPA/GDPR consents for sensitive-data processing and overseas
+  // transfer to the AI provider — see aiConsent.ts. null = never asked.
+  aiConsent?: AiConsent | null;
 };
 
 export function defaultSettings(): StoredSettings {

@@ -40,3 +40,30 @@ create policy "Users can update their own store"
 create policy "Users can delete their own store"
   on public.user_stores for delete
   using (auth.uid() = user_id);
+
+-- ── Account deletion ─────────────────────────────────────────────────────────
+-- App Store Review Guideline 5.1.1(v): any app that lets people create an
+-- account must let them delete it from inside the app. The browser only has
+-- the anon key, which can't touch auth.users, so this SECURITY DEFINER
+-- function does the delete on the caller's behalf — scoped to auth.uid(), so
+-- it can only ever delete the account making the request. user_stores rows
+-- go with it via the existing `on delete cascade`.
+--
+-- Run this block in the SQL Editor too (it's safe to re-run).
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+  delete from public.user_stores where user_id = auth.uid();
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_own_account() from public, anon;
+grant execute on function public.delete_own_account() to authenticated;
