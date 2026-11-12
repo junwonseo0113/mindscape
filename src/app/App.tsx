@@ -33,6 +33,7 @@ import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeI
 import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
+import { useScreenTransitionKind, screenVariants, type TransitionCustom } from "./screenTransitions";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
@@ -8507,12 +8508,10 @@ export default function App() {
 
   const isMobileViewport = useIsMobileViewport();
   const reduceMotion = useReducedMotion();
-  // Bottom-nav destinations are peers in one persistent app environment.
-  // When moving between them, old/new screens overlap briefly so the nav's
-  // shared layout indicator can actually travel instead of disappearing
-  // with the old screen and reappearing on the new one. Deeper routes keep
-  // the more deliberate wait-style transition.
-  const isPrimaryTab = ["home", "analysis", "discoveryAnalysis", "history"].includes(screen);
+  // See screenTransitions.ts — every route change keeps one opaque layer on
+  // screen, and the direction (deeper / back / tab) is read from a visit stack.
+  const transitionKind = useScreenTransitionKind(screen);
+  const transitionCustom: TransitionCustom = { kind: transitionKind, reduce: !!reduceMotion };
   // The fake "9:41 + battery" status bar is mockup chrome for the desktop
   // preview — a real phone already has its own real status bar, so showing
   // ours too would just be a second, wrong clock sitting under the actual
@@ -8597,13 +8596,14 @@ export default function App() {
           style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
         />
         <div style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
-          <AnimatePresence mode={isPrimaryTab ? "sync" : "wait"} initial={false}>
+          <AnimatePresence initial={false} custom={transitionCustom}>
             <motion.div
               key={screen}
-              initial={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={reduceMotion ? { opacity: 0 } : isThink ? { opacity: 0, scale: 0.985 } : { opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0.01 : isThink ? 0.24 : isPrimaryTab ? 0.18 : 0.22, ease: "easeOut" }}
+              custom={transitionCustom}
+              variants={screenVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
               {content}
