@@ -13,7 +13,7 @@ import {
   pickPromotableIndicesByRegion,
   stableUnit,
 } from "./neuralBrainLayout";
-import { NeuralBeliefConnection, NeuralBeliefNode, REGION_CONFIG, resolveRegion } from "./NeuralBeliefGraph3D";
+import { NeuralBeliefConnection, NeuralBeliefNode, REGION_CONFIG, resolveRegion } from "./brainRegions";
 import { StoredEvidenceQuote } from "./types";
 import brainMapVoidImg from "../assets/brain-map-void.png";
 

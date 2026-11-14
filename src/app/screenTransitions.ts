@@ -22,6 +22,13 @@ const PRIMARY_TABS = new Set(["home", "analysis", "discoveryAnalysis", "history"
 const OPENING = new Set(["quote", "splash", "auth", "login", "signup", "onboarding"]);
 const SESSION = new Set(["think", "aiConsent", "processing", "thinkComplete", "sessionSummary", "crisisSupport"]);
 
+// Edge swipe-back only where "back" means returning down a stack: not on the
+// opening flow, the writing session (swiping out mid-thought would be easy
+// to do by accident), or the root tabs, which have nowhere to go back to.
+export function canSwipeBack(screen: string): boolean {
+  return !OPENING.has(screen) && !SESSION.has(screen) && !PRIMARY_TABS.has(screen);
+}
+
 function classify(from: string, to: string, stack: string[]): TransitionKind {
   if (OPENING.has(from) || OPENING.has(to)) return "opening";
   if (SESSION.has(from) || SESSION.has(to)) return "session";

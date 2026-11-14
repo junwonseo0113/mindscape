@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "motion/react";
+import { motion, AnimatePresence, MotionConfig, useReducedMotion, useTransform } from "motion/react";
 import { animate, stagger } from "animejs";
 // Every full-bleed screen photo this file used to import (home-hero/mind-
 // scene/mind-notebook(-yellowknife)/analysis-dusk-coast/unconscious-
@@ -11,8 +11,7 @@ import { animate, stagger } from "animejs";
 // screens instead. authorAnaisNinImg is the one image import that
 // survives: the existing Literary Reflection author portrait, explicitly
 // preserved as-is.
-import NeuralBeliefGraph3D, { JarBrainPreview, REGION_CONFIG, resolveRegion, recencyFromDate } from "./NeuralBeliefGraph3D";
-import BrainNodeMapScreen from "./BrainNodeMapScreen";
+import { REGION_CONFIG, resolveRegion, recencyFromDate } from "./brainRegions";
 import authorAnaisNinImg from "../assets/author-anais-nin.png";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
@@ -33,7 +32,8 @@ import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeI
 import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
-import { useScreenTransitionKind, screenVariants, type TransitionCustom } from "./screenTransitions";
+import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom } from "./screenTransitions";
+import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
@@ -42,6 +42,19 @@ import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIM
 import { LITERARY_PASSAGES, selectLiteraryPassage, buildWhyThisFoundYou } from "./literaryPassages";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 import { pickInputGuidance } from "./inputGuidance";
+
+// ── 3D, loaded off the startup path ──────────────────────────────────────────
+// three.js + react-three-fiber, plus the brain-cloud generation that runs at
+// module load, used to be in the one startup bundle — parsed and executed
+// while the quote screen was trying to fade in. They're now separate chunks,
+// fetched in the background shortly after launch (see preload3D in App) so
+// they're normally ready before anyone reaches Home.
+const load3D = () => import("./NeuralBeliefGraph3D");
+const loadBrainMap = () => import("./BrainNodeMapScreen");
+const NeuralBeliefGraph3D = React.lazy(load3D);
+const JarBrainPreview = React.lazy(() => load3D().then((m) => ({ default: m.JarBrainPreview })));
+const BrainNodeMapScreen = React.lazy(loadBrainMap);
+function preload3D() { void load3D(); void loadBrainMap(); }
 
 // ── Launch config ────────────────────────────────────────────────────────────
 // Off for the initial launch: gathering real usage/feedback matters more
@@ -1859,11 +1872,13 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           "Your Mind" — with JarBrainPreview's own camera zoomed in to match
           (see NeuralBeliefGraph3D.tsx). */}
           <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
-            <JarBrainPreview
-              beliefs={store.beliefs}
-              onSelectNode={(id) => onOpenBrainMap?.(undefined, id)}
-              onBackgroundTap={() => onOpenBrainMap?.()}
-            />
+            <React.Suspense fallback={null}>
+              <JarBrainPreview
+                beliefs={store.beliefs}
+                onSelectNode={(id) => onOpenBrainMap?.(undefined, id)}
+                onBackgroundTap={() => onOpenBrainMap?.()}
+              />
+            </React.Suspense>
           </div>
 
           {/* With zero beliefs, JarBrainPreview's canvas has nothing to
@@ -5813,7 +5828,9 @@ function HypothesisDiscoveryBody({
             These are the actual places in the brain where the unconscious beliefs behind this discovery are activated.
           </div>
           <div style={{ marginTop: 12 }}>
-            <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} defaultStructureMode />
+            <React.Suspense fallback={<div style={{ height: 200 }} />}>
+              <NeuralBeliefGraph3D beliefs={relatedBeliefs} connections={relatedConnections} height={200} defaultStructureMode />
+            </React.Suspense>
           </div>
           <DiscoveryBeliefList beliefIds={h.relatedBeliefIds} store={store} />
         </div>
@@ -7835,6 +7852,12 @@ function useIsMobileViewport(): boolean {
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = React.useState("quote");
+  // Fetch the 3D chunks while the quote screen is up, once the first paint
+  // is done — so the opening fades aren't competing with three.js parsing.
+  React.useEffect(() => {
+    const ric = (window as any).requestIdleCallback as ((cb: () => void, o?: { timeout: number }) => number) | undefined;
+    if (ric) ric(preload3D, { timeout: 1500 }); else setTimeout(preload3D, 600);
+  }, []);
   const [hypothesisIndex, setHypothesisIndex] = React.useState(0);
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
@@ -8201,7 +8224,9 @@ export default function App() {
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
-      <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
+      <React.Suspense fallback={<div style={{ flex: 1, backgroundColor: "#ffffff" }} />}>
+        <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
+      </React.Suspense>
     ) : (
       <ScreenPaywall onBack={() => setScreen(brainMapReturnTo)} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
@@ -8512,6 +8537,18 @@ export default function App() {
   // screen, and the direction (deeper / back / tab) is read from a visit stack.
   const transitionKind = useScreenTransitionKind(screen);
   const transitionCustom: TransitionCustom = { kind: transitionKind, reduce: !!reduceMotion };
+  // Edge swipe-back + scroll memory (navGestures.ts). The swipe drives the
+  // current screen's own inner layer by finger, then presses that screen's
+  // real back button, so the regular "back" transition finishes the move.
+  const contentHostRef = React.useRef<HTMLDivElement>(null);
+  const swipeEnabled = canSwipeBack(screen) && !tutorialActive;
+  const { dragX, edgeHandlers } = useSwipeBack(screen, {
+    enabled: swipeEnabled,
+    getLayer: () => contentHostRef.current?.querySelector(`[data-screen="${screen}"]`) ?? null,
+    getWidth: () => contentHostRef.current?.clientWidth ?? 393,
+  });
+  const dragShadow = useTransform(dragX, [0, 80], ["0px 0px 0px rgba(0,0,0,0)", "-10px 0px 28px rgba(0,0,0,0.16)"]);
+  useScrollMemory(contentHostRef, screen, transitionKind);
   // The fake "9:41 + battery" status bar is mockup chrome for the desktop
   // preview — a real phone already has its own real status bar, so showing
   // ours too would just be a second, wrong clock sitting under the actual
@@ -8595,10 +8632,11 @@ export default function App() {
           transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: "easeOut" }}
           style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
         />
-        <div style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
+        <div ref={contentHostRef} style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
           <AnimatePresence initial={false} custom={transitionCustom}>
             <motion.div
               key={screen}
+              data-screen={screen}
               custom={transitionCustom}
               variants={screenVariants}
               initial="initial"
@@ -8606,9 +8644,14 @@ export default function App() {
               exit="exit"
               style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}
             >
-              {content}
+              <motion.div style={{ x: dragX, boxShadow: dragShadow, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+                {content}
+              </motion.div>
             </motion.div>
           </AnimatePresence>
+          {swipeEnabled && (
+            <div aria-hidden {...edgeHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 14, zIndex: 5, touchAction: "none" }} />
+          )}
         </div>
 
         {/* Genuinely transparent now — an absolute overlay drawn on top of
