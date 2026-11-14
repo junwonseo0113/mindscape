@@ -29,11 +29,14 @@ export function shouldCommitBack(offset: number, velocity: number, width: number
 
 type SwipeBackOptions = {
   enabled: boolean;
+  // true once a drag is recognised, false after a cancelled swipe has
+  // sprung home — App uses it to mount the "screen underneath" peek.
+  onActiveChange?: (active: boolean) => void;
   getLayer: () => Element | null;
   getWidth: () => number;
 };
 
-export function useSwipeBack(screen: string, { enabled, getLayer, getWidth }: SwipeBackOptions) {
+export function useSwipeBack(screen: string, { enabled, getLayer, getWidth, onActiveChange }: SwipeBackOptions) {
   // A fresh value per screen, so the screen leaving keeps its dragged offset
   // while the arriving one starts at 0 (see the comment in App).
   const dragX: MotionValue<number> = React.useMemo(() => motionValue(0), [screen]);
@@ -55,7 +58,7 @@ export function useSwipeBack(screen: string, { enabled, getLayer, getWidth }: Sw
     if (!s.active) {
       // Mostly vertical → it's a scroll that happened to start at the edge.
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { g.current = null; return; }
-      if (dx > 8 && s.canDrag) s.active = true; else return;
+      if (dx > 8 && s.canDrag) { s.active = true; onActiveChange?.(true); } else return;
     }
     const x = Math.max(0, dx);
     dragX.set(x);
@@ -83,7 +86,7 @@ export function useSwipeBack(screen: string, { enabled, getLayer, getWidth }: Sw
     const velocity = ((x - x0) / dt) * 1000;
     const back = findBackButton(getLayer());
     if (!cancelled && back && shouldCommitBack(x, velocity, getWidth())) back.click();
-    else animate(dragX, 0, { type: "spring", stiffness: 420, damping: 40 });
+    else animate(dragX, 0, { type: "spring", stiffness: 420, damping: 40 }).then(() => onActiveChange?.(false));
   };
 
   return {

@@ -32,7 +32,7 @@ import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeI
 import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
-import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom } from "./screenTransitions";
+import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
 import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
@@ -1873,7 +1873,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           focus — large, filling most of the space between the headline and
           "Your Mind" — with JarBrainPreview's own camera zoomed in to match
           (see NeuralBeliefGraph3D.tsx). */}
-          <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
+          <div data-shared="brain-jar" style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
             <React.Suspense fallback={null}>
               <JarBrainPreview
                 beliefs={store.beliefs}
@@ -7878,6 +7878,35 @@ function useIsMobileViewport(): boolean {
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = React.useState("quote");
+  // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
+  // transitionOverride forces the next screen change's transition kind;
+  // zoomClipRef holds the Home jar's rectangle for the jar <-> Brain Map
+  // zoom; contentCache keeps each screen's last element so a swipe-back can
+  // show the screen underneath before it's actually navigated to.
+  const transitionOverride = React.useRef<TransitionKind | null>(null);
+  const zoomClipRef = React.useRef<{ jar: string; full: string } | null>(null);
+  const contentCache = React.useRef(new Map<string, React.ReactNode>());
+  const contentHostRef = React.useRef<HTMLDivElement>(null);
+  // Measures the jar on Home, relative to the screen layer, as clip-path
+  // inset() strings: where the map starts (the jar) and where it ends
+  // (covering the whole viewport — the map is position:fixed, so on the
+  // desktop preview it extends past the phone frame).
+  const captureJarClip = (): boolean => {
+    const host = contentHostRef.current;
+    const jar = host?.querySelector('[data-screen="home"] [data-shared="brain-jar"]');
+    if (!host || !jar) { zoomClipRef.current = null; return false; }
+    const h = host.getBoundingClientRect();
+    const j = jar.getBoundingClientRect();
+    zoomClipRef.current = {
+      jar: `inset(${j.top - h.top}px ${h.right - j.right}px ${h.bottom - j.bottom}px ${j.left - h.left}px round 28px)`,
+      full: `inset(${-h.top}px ${-(window.innerWidth - h.right)}px ${-(window.innerHeight - h.bottom)}px ${-h.left}px round 0px)`,
+    };
+    return true;
+  };
+  const leaveBrainMap = () => {
+    if (brainMapReturnTo === "home" && zoomClipRef.current) transitionOverride.current = "unzoom";
+    setScreen(brainMapReturnTo);
+  };
   // Fetch the 3D chunks while the quote screen is up, once the first paint
   // is done — so the opening fades aren't competing with three.js parsing.
   React.useEffect(() => {
@@ -8244,14 +8273,14 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={startThink}
-        onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }}
+        onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); if (captureJarClip()) transitionOverride.current = "zoom"; setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
       />
     ); break;
     case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
       <React.Suspense fallback={<div style={{ flex: 1, backgroundColor: "#ffffff" }} />}>
-        <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={() => setScreen(brainMapReturnTo)} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
+        <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={leaveBrainMap} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
       </React.Suspense>
     ) : (
       <ScreenPaywall onBack={() => setScreen(brainMapReturnTo)} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
@@ -8553,27 +8582,37 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={startThink} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={startThink} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); if (captureJarClip()) transitionOverride.current = "zoom"; setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
   content = <AiConsentContext.Provider value={aiAllowed}>{content}</AiConsentContext.Provider>;
+  contentCache.current.set(screen, content);
 
   const isMobileViewport = useIsMobileViewport();
   const reduceMotion = useReducedMotion();
   // See screenTransitions.ts — every route change keeps one opaque layer on
   // screen, and the direction (deeper / back / tab) is read from a visit stack.
-  const transitionKind = useScreenTransitionKind(screen);
-  const transitionCustom: TransitionCustom = { kind: transitionKind, reduce: !!reduceMotion };
+  const { kind: transitionKind, below: screenBelow } = useScreenTransitionKind(screen, transitionOverride);
+  const transitionCustom: TransitionCustom = { kind: transitionKind, reduce: !!reduceMotion, clip: zoomClipRef.current ?? undefined };
   // Edge swipe-back + scroll memory (navGestures.ts). The swipe drives the
   // current screen's own inner layer by finger, then presses that screen's
   // real back button, so the regular "back" transition finishes the move.
-  const contentHostRef = React.useRef<HTMLDivElement>(null);
   const swipeEnabled = canSwipeBack(screen) && !tutorialActive;
+  // While a swipe is in progress, the screen it will return to is drawn
+  // underneath (from its last rendered element) with iOS-style parallax and
+  // a fading dim, instead of the bare frame showing through.
+  const [peekOpen, setPeekOpen] = React.useState(false);
+  React.useEffect(() => { setPeekOpen(false); }, [screen]);
   const { dragX, edgeHandlers } = useSwipeBack(screen, {
     enabled: swipeEnabled,
+    onActiveChange: setPeekOpen,
     getLayer: () => contentHostRef.current?.querySelector(`[data-screen="${screen}"]`) ?? null,
     getWidth: () => contentHostRef.current?.clientWidth ?? 393,
   });
   const dragShadow = useTransform(dragX, [0, 80], ["0px 0px 0px rgba(0,0,0,0)", "-10px 0px 28px rgba(0,0,0,0.16)"]);
+  const peekProgress = (v: number) => 1 - Math.min(1, v / (contentHostRef.current?.clientWidth || 393));
+  const peekX = useTransform(dragX, (v) => `${-8 * peekProgress(v)}%`);
+  const peekDim = useTransform(dragX, (v) => 0.12 * peekProgress(v));
+  const peekContent = peekOpen && screenBelow ? contentCache.current.get(screenBelow) : undefined;
   useScrollMemory(contentHostRef, screen, transitionKind);
   // The fake "9:41 + battery" status bar is mockup chrome for the desktop
   // preview — a real phone already has its own real status bar, so showing
@@ -8659,6 +8698,16 @@ export default function App() {
           style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
         />
         <div ref={contentHostRef} style={{ flex: 1, minHeight: 0, position: "relative", zIndex: 1 }}>
+          {peekContent && (
+            <motion.div
+              aria-hidden
+              {...({ inert: "" } as any)}
+              style={{ position: "absolute", inset: 0, zIndex: 0, display: "flex", flexDirection: "column", pointerEvents: "none", x: peekX }}
+            >
+              {peekContent}
+              <motion.div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: peekDim }} />
+            </motion.div>
+          )}
           <AnimatePresence initial={false} custom={transitionCustom}>
             <motion.div
               key={screen}
