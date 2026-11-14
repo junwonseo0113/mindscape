@@ -19,7 +19,7 @@ import { StoredEvidenceQuote } from "./types";
 
 // Pure region data/helpers live in brainRegions.ts so screens that only
 // need labels/colors don't pull three.js into the startup bundle.
-import { REGION_CONFIG, resolveRegion, type NeuralBeliefNode, type NeuralBeliefConnection } from "./brainRegions";
+import { REGION_CONFIG, resolveRegion, recencyFromDate, type NeuralBeliefNode, type NeuralBeliefConnection } from "./brainRegions";
 export { REGION_CONFIG, resolveRegion, recencyFromDate } from "./brainRegions";
 export type { NeuralBeliefNode, NeuralBeliefConnection } from "./brainRegions";
 
