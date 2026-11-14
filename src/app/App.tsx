@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence, MotionConfig, useReducedMotion, useTransform } from "motion/react";
+import { motion, AnimatePresence, MotionConfig, useReducedMotion, useTransform, useDragControls } from "motion/react";
 import { animate, stagger } from "animejs";
 // Every full-bleed screen photo this file used to import (home-hero/mind-
 // scene/mind-notebook(-yellowknife)/analysis-dusk-coast/unconscious-
@@ -1245,7 +1245,9 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             key={i}
             initial={{ opacity: 0, y: 7 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
+            // Leaving is quick, arriving keeps its pace: under mode="wait"
+            // the exit is pure delay between the tap and the next slide.
+            exit={{ opacity: 0, y: -4, transition: { duration: 0.14, ease: "easeIn" } }}
             transition={{ duration: 0.38, ease: "easeOut" }}
             style={{
               flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px", position: "relative", zIndex: 1,
@@ -4152,7 +4154,9 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   key="idle"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  // Fast exit: this runs right after tapping record, and
+                  // the recording UI can't appear until it's done.
+                  exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
                   transition={{ duration: 0.5, ease: "easeInOut" }}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                 >
@@ -4178,7 +4182,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   key="recording"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
                   transition={{ duration: 0.5, ease: "easeInOut" }}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                 >
@@ -6264,6 +6268,36 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
 // The shared bottom-sheet chrome for Search/Calendar/Filter — restyled dark
 // (frosted charcoal, not the warm paper card) to match the archive; scoped
 // only to History, so this doesn't touch any other screen's sheets.
+// ── Bottom-sheet panel ────────────────────────────────────────────────────────
+// Shared by every bottom sheet: rises from below on a spring (not a fixed
+// 0.25s tween), and can be dragged down by its grab handle to dismiss —
+// past ~90px or on a downward flick it closes, otherwise it settles back.
+// Only the handle starts a drag (dragListener off), so the sheet's own
+// scrolling content keeps scrolling normally.
+function SheetPanel({ onClose, style, children }: { onClose?: () => void; style: React.CSSProperties; children: React.ReactNode }) {
+  const controls = useDragControls();
+  return (
+    <motion.div
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      transition={{ type: "spring", stiffness: 380, damping: 38, mass: 0.9 }}
+      drag="y" dragListener={false} dragControls={controls}
+      dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0.04, bottom: 0.8 }}
+      onDragEnd={(_, info) => { if (info.offset.y > 90 || info.velocity.y > 500) onClose?.(); }}
+      onClick={(e) => e.stopPropagation()}
+      style={style}
+    >
+      <div
+        aria-hidden
+        onPointerDown={(e) => controls.start(e)}
+        style={{ alignSelf: "stretch", display: "flex", justifyContent: "center", padding: "2px 0 12px", margin: "-10px 0 0", touchAction: "none", cursor: "grab", flexShrink: 0 }}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.18)" }} />
+      </div>
+      {children}
+    </motion.div>
+  );
+}
+
 function HistorySheet({ title, onClose, children }: { title: string; onClose?: () => void; children: React.ReactNode }) {
   return (
     <motion.div
@@ -6271,21 +6305,17 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
       role="button" tabIndex={-1} onClick={onClose}
       style={{ position: "absolute", inset: 0, zIndex: 20, backgroundColor: "rgba(42,38,33,0.24)", display: "flex", alignItems: "flex-end" }}
     >
-      <motion.div
-        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }} transition={{ duration: 0.25, ease: "easeOut" }}
-        onClick={(e) => e.stopPropagation()}
-        style={{
+      <SheetPanel onClose={onClose} style={{
           width: "100%", maxHeight: "74%", backgroundColor: "#FBF8F2",
           borderTop: "1px solid rgba(42,38,33,0.08)", borderRadius: "20px 20px 0 0", padding: "18px 20px 26px", boxShadow: "0 -16px 40px rgba(120,105,80,0.14)",
           display: "flex", flexDirection: "column",
-        }}
-      >
+        }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
           <span style={{ ...serif, fontSize: 19, color: "#2A2621" }}>{title}</span>
           <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
-      </motion.div>
+      </SheetPanel>
     </motion.div>
   );
 }
@@ -6676,15 +6706,11 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             role="button" tabIndex={-1} onClick={closeStarSheet}
             style={{ position: "absolute", inset: 0, zIndex: 25, backgroundColor: "rgba(42,38,33,0.28)", display: "flex", alignItems: "flex-end" }}
           >
-            <motion.div
-              initial={{ y: 44, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 44, opacity: 0 }} transition={{ duration: 0.28, ease: "easeOut" }}
-              onClick={(e) => e.stopPropagation()}
-              style={{
+            <SheetPanel onClose={closeStarSheet} style={{
                 width: "100%", maxHeight: "82%", backgroundColor: "#FBF8F2",
                 borderTop: "1px solid rgba(42,38,33,0.09)", borderRadius: "22px 22px 0 0", padding: "22px 22px 28px",
                 display: "flex", flexDirection: "column", minHeight: 0, boxShadow: "0 -20px 50px rgba(120,105,80,0.16)",
-              }}
-            >
+              }}>
               {!storyOpen ? (
                 <>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, flexShrink: 0 }}>
@@ -6760,7 +6786,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   </div>
                 </>
               )}
-            </motion.div>
+            </SheetPanel>
           </motion.div>
         )}
       </AnimatePresence>
