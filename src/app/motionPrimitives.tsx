@@ -80,7 +80,10 @@ export function MeterFill({ value, color, track, height = 4, radius = 2, style }
 // beat. Not for ordinary content screens (see the file comment).
 const groupVariants = {
   hidden: {},
-  shown: (delay: number = 0) => ({ transition: { delayChildren: delay, staggerChildren: 0.11 } }),
+  // 0.13s a beat: slow enough that each line registers as its own
+  // arrival, fast enough that a five-line summary is done in under a
+  // second. Tune here, not per screen.
+  shown: (delay: number = 0) => ({ transition: { delayChildren: delay, staggerChildren: 0.13 } }),
 };
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },

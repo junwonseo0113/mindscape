@@ -4844,7 +4844,9 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
           </RevealItem>
         )}
       </RevealGroup>
-      <RevealGroup delay={0.45} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+      {/* The summary can run to five or six lines; the button waits until
+      the last of them is well underway rather than racing them. */}
+      <RevealGroup delay={0.55} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
         <RevealItem><PrimaryBtn onClick={onDone}>Got it</PrimaryBtn></RevealItem>
       </RevealGroup>
     </div>
