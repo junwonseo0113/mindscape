@@ -34,6 +34,7 @@ import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
 import { useSwipeBack, useScrollMemory } from "./navGestures";
+import { AnimatedNumber, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
@@ -430,7 +431,8 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
             tabIndex={0}
             onClick={() => onSelect?.(item.id)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
-            whileTap={{ opacity: 0.7 }}
+            whileTap={{ scale: 0.9, opacity: 0.8 }}
+            transition={SETTLE}
             style={{ flex: 1, position: "relative", display: "flex", justifyContent: "center", padding: "2px 4px", cursor: "pointer" }}
           >
             {isActive && !vintage && (
@@ -443,7 +445,9 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
             <div style={{ position: "relative", zIndex: 1, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
               <NavIcon id={item.id} color={color} />
               <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? (modernist ? 800 : 600) : (modernist ? 500 : 400), color }}>{item.label}</span>
-              {vintage && isActive && <span style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: ivHeading }} />}
+              {/* The dot slides between tabs (layoutId) instead of blinking
+              off one and on the next — the only motion this bar makes. */}
+              {vintage && isActive && <motion.span layoutId="navDot-vintage" transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: ivHeading }} />}
             </div>
           </motion.div>
         );
@@ -478,7 +482,8 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = fa
       disabled={disabled}
       onClick={onClick}
       whileHover={disabled ? undefined : { y: -1 }}
-      whileTap={disabled ? undefined : { scale: 0.985, opacity: 0.92 }}
+      whileTap={disabled ? undefined : { scale: 0.975, opacity: 0.92 }}
+      transition={SETTLE}
       whileFocus={disabled ? undefined : { boxShadow: `0 0 0 3px ${ivory ? "rgba(42,38,33,.16)" : modernist ? "rgba(91,77,130,.18)" : "rgba(255,255,255,.14)"}` }}
       style={{
         ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
@@ -500,7 +505,8 @@ function GhostBtn({ children, onClick, modernist = false, ivory = false }: { chi
       type="button"
       onClick={onClick}
       whileHover={{ backgroundColor: ivory ? "rgba(42,38,33,.035)" : modernist ? "rgba(91,77,130,.045)" : "rgba(255,255,255,.035)" }}
-      whileTap={{ scale: 0.985, opacity: 0.72 }}
+      whileTap={{ scale: 0.975, opacity: 0.72 }}
+      transition={SETTLE}
       whileFocus={{ boxShadow: `0 0 0 3px ${ivory ? "rgba(42,38,33,.12)" : modernist ? "rgba(91,77,130,.14)" : "rgba(255,255,255,.10)"}` }}
       style={{
         ...sans, width: "100%", minHeight: 48, padding: "13px 18px", display: "flex", alignItems: "center", justifyContent: "center",
@@ -537,11 +543,9 @@ function ConfidenceBar({ value, dark, modernist }: { value: number; dark?: boole
     <div>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: labelColor, letterSpacing: "0.04em" }}>Confidence</span>
-        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: fillColor }}>{value}%</span>
+        <span style={{ ...mono, fontSize: 13, fontWeight: 700, color: fillColor }}><AnimatedNumber value={value} />%</span>
       </div>
-      <div style={{ height: 5, borderRadius: 3, backgroundColor: trackColor, marginTop: 6 }}>
-        <div style={{ height: "100%", width: `${value}%`, backgroundColor: fillColor, borderRadius: 3 }} />
-      </div>
+      <MeterFill value={value} color={fillColor} track={trackColor} height={5} radius={3} style={{ marginTop: 6 }} />
     </div>
   );
 }
@@ -1765,15 +1769,32 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
   return (
     <div style={{ width: "fit-content", maxWidth: "100%", margin: "8px auto 0" }}>
-      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, marginBottom: 6 }}>
-        {justLogged ? `✓ Logged: ${justLogged}` : "Quick Check-In"}
+      <div style={{ ...sans, fontSize: 10.5, fontWeight: 700, color: ivFaint, marginBottom: 6, height: 14, position: "relative" }}>
+        {/* The label swaps with a small lift so "Logged" reads as a
+        response to the tap, not a flicker of text. */}
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span key={justLogged ?? "idle"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} style={{ display: "inline-block" }}>
+            {justLogged ? `✓ Logged: ${justLogged}` : "Quick Check-In"}
+          </motion.span>
+        </AnimatePresence>
       </div>
       <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
-        {QUICK_MOODS.map((m) => (
-          <motion.button key={m.label} type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)} whileTap={{ scale: 0.95, opacity: 0.82 }} style={{ flexShrink: 0, border: 0, padding: "6px 11px", borderRadius: 999, cursor: "pointer", backgroundColor: justLogged === m.label ? ivHeading : ivSurfaceSolid, boxShadow: "0 4px 14px rgba(120,105,80,0.12)", WebkitTapHighlightColor: "transparent" }}>
-            <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: justLogged === m.label ? "#fff" : ivHeading }}>{m.label}</span>
-          </motion.button>
-        ))}
+        {QUICK_MOODS.map((m) => {
+          const chosen = justLogged === m.label;
+          return (
+            <motion.button
+              key={m.label} type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)}
+              whileTap={{ scale: 0.95, opacity: 0.82 }}
+              // The chosen pill fills and gives one small pulse; the others
+              // settle back without any motion of their own.
+              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: ivHeading } : { scale: 1, backgroundColor: ivSurfaceSolid }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              style={{ flexShrink: 0, border: 0, padding: "6px 11px", borderRadius: 999, cursor: "pointer", boxShadow: "0 4px 14px rgba(120,105,80,0.12)", WebkitTapHighlightColor: "transparent" }}
+            >
+              <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: chosen ? "#fff" : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
+            </motion.button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1946,7 +1967,9 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
           <div style={{ ...serif, fontSize: 16, color: ivHeading }}>Your Mind</div>
           <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 2 }}>
-            {store.beliefs.length} belief{store.beliefs.length === 1 ? "" : "s"} · {store.connections.length} connection{store.connections.length === 1 ? "" : "s"}
+            {/* Counts up only when the number has changed since the last
+            time Home showed it (i.e. after a session added beliefs). */}
+            <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
           </div>
         </motion.div>
       )}
@@ -4535,39 +4558,50 @@ function ScreenAiConsent({
 function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         {error ? (
           <>
-            <div style={{ ...serif, fontSize: 21, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Couldn't analyze that.
-            </div>
-            <div style={{ ...sans, fontSize: 13.5, color: dkWarn, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-              {error}
-            </div>
+            <RevealItem>
+              <div style={{ ...serif, fontSize: 21, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                Couldn't analyze that.
+              </div>
+            </RevealItem>
+            <RevealItem>
+              <div style={{ ...sans, fontSize: 13.5, color: dkWarn, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+                {error}
+              </div>
+            </RevealItem>
           </>
         ) : (
           <>
-            <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Got it.
-            </div>
-            <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-              Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
-            </div>
-            {showUpsell && (
-              <div
-                role="button" tabIndex={0} onClick={onUpgrade} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onUpgrade)?.(); } }}
-                style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
-              >
-                <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
-                <div style={{ ...sans, fontSize: 12.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>Upgrade to Pro to turn your record into unconscious beliefs, connections, and hypotheses.</div>
+            <RevealItem>
+              <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                Got it.
               </div>
+            </RevealItem>
+            <RevealItem>
+              <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+                Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
+              </div>
+            </RevealItem>
+            {showUpsell && (
+              <RevealItem>
+                <motion.div
+                  role="button" tabIndex={0} onClick={onUpgrade} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onUpgrade)?.(); } }}
+                  whileTap={{ scale: 0.98, opacity: 0.9 }} transition={SETTLE}
+                  style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
+                >
+                  <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
+                  <div style={{ ...sans, fontSize: 12.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>Upgrade to Pro to turn your record into unconscious beliefs, connections, and hypotheses.</div>
+                </motion.div>
+              </RevealItem>
             )}
           </>
         )}
-      </div>
-      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={onDone}>Go home</PrimaryBtn>
-      </div>
+      </RevealGroup>
+      <RevealGroup delay={0.4} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <RevealItem><PrimaryBtn onClick={onDone}>Go home</PrimaryBtn></RevealItem>
+      </RevealGroup>
     </div>
   );
 }
@@ -4583,18 +4617,22 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
 function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          You've recorded three thoughts now.
-        </div>
-        <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-          That's usually enough for the first patterns to start showing. Want Pro to show you what's underneath them?
-        </div>
-      </div>
-      <div style={{ padding: "0 28px 40px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onSeePlans}>See Pro plans</PrimaryBtn>
-        <GhostBtn onClick={onDismiss}>Not now</GhostBtn>
-      </div>
+      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+        <RevealItem>
+          <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            You've recorded three thoughts now.
+          </div>
+        </RevealItem>
+        <RevealItem>
+          <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+            That's usually enough for the first patterns to start showing. Want Pro to show you what's underneath them?
+          </div>
+        </RevealItem>
+      </RevealGroup>
+      <RevealGroup delay={0.4} style={{ padding: "0 28px 40px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        <RevealItem><PrimaryBtn onClick={onSeePlans}>See Pro plans</PrimaryBtn></RevealItem>
+        <RevealItem><GhostBtn onClick={onDismiss}>Not now</GhostBtn></RevealItem>
+      </RevealGroup>
     </div>
   );
 }
@@ -4773,31 +4811,42 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          Got it.
-        </div>
-        {entry?.sessionSummary && (
-          <div style={{ ...sans, fontSize: 14.5, color: dkBodyLight, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
-            {entry.sessionSummary}
+      {/* This screen is the result of what the person just did, so its
+      parts arrive in reading order — acknowledgment, then what was heard,
+      then each observation — rather than all at once. */}
+      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+        <RevealItem>
+          <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            Got it.
           </div>
+        </RevealItem>
+        {entry?.sessionSummary && (
+          <RevealItem>
+            <div style={{ ...sans, fontSize: 14.5, color: dkBodyLight, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
+              {entry.sessionSummary}
+            </div>
+          </RevealItem>
         )}
         {lines.length > 0 && (
           <div style={{ marginTop: entry?.sessionSummary ? 18 : 12, display: "flex", flexDirection: "column", gap: 8, paddingTop: entry?.sessionSummary ? 16 : 0, borderTop: entry?.sessionSummary ? `1px solid ${dkDivider}` : "none" }}>
             {lines.map((line, i) => (
-              <div key={i} style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.65, wordBreak: "keep-all" }}>{line}</div>
+              <RevealItem key={i}>
+                <div style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.65, wordBreak: "keep-all" }}>{line}</div>
+              </RevealItem>
             ))}
           </div>
         )}
         {!entry?.sessionSummary && lines.length === 0 && (
-          <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
-          </div>
+          <RevealItem>
+            <div style={{ ...sans, fontSize: 14, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
+              Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
+            </div>
+          </RevealItem>
         )}
-      </div>
-      <div style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={onDone}>Got it</PrimaryBtn>
-      </div>
+      </RevealGroup>
+      <RevealGroup delay={0.45} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
+        <RevealItem><PrimaryBtn onClick={onDone}>Got it</PrimaryBtn></RevealItem>
+      </RevealGroup>
     </div>
   );
 }
@@ -5095,11 +5144,9 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       ) : (
         <div style={{ ...serif, fontSize: 18, color: "#2A2621", marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
       )}
-      <div style={{ height: 4, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 10 }}>
-        <div style={{ height: "100%", width: `${belief.confidence}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
-      </div>
+      <MeterFill value={belief.confidence} color="rgba(42,38,33,0.5)" track="rgba(42,38,33,0.08)" style={{ marginTop: 10 }} />
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <span style={{ ...mono, fontSize: 10.5, color: "rgba(42,38,33,0.42)" }}>Confidence {belief.confidence}%</span>
+        <span style={{ ...mono, fontSize: 10.5, color: "rgba(42,38,33,0.42)" }}>Confidence <AnimatedNumber value={belief.confidence} />%</span>
       </div>
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
@@ -5161,11 +5208,11 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
           >
             {showLoop ? "Collapse repeat structure ↑" : "See why this pattern repeats ↓"}
           </motion.span>
-          {showLoop && (
+          <Collapse open={showLoop}>
             <div style={{ marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: "rgba(42,38,33,0.08)" }}>
               <FunctionalLoopDiagram belief={belief} history={history} />
             </div>
-          )}
+          </Collapse>
         </div>
       )}
       {onReject && (
