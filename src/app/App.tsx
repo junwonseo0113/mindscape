@@ -41,7 +41,7 @@ import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, 
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
   ArrowCounterClockwise, ArrowLeft, ArrowRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, Clock, CreditCard,
-  DownloadSimple, Eye, FileText, Flask, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Question, ShareNetwork,
+  DownloadSimple, Eye, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Question, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
@@ -1535,27 +1535,6 @@ function TutorialOverlay({
   );
 }
 
-// Premium's two structural-intelligence entry points ("Unconscious
-// patterns," "Distance from your aspiration") — a restrained ivory
-// translucent surface, matching the shared SurfaceCard language the rest
-// of the ivory redesign uses instead of a bright SaaS-dashboard card.
-function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser: string; badge?: string; onClick?: () => void }) {
-  return (
-    <Breathe amount={1.025} style={{ flex: 1, width: "auto" }}>
-    <motion.div
-      role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ height: "100%", padding: "16px 14px", borderRadius: shape.md, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, cursor: "pointer" }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ ...sans, fontSize: 13, fontWeight: 700, color: ivHeading }}>{label}</span>
-        {badge && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, backgroundColor: "rgba(42,38,33,0.06)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
-      </div>
-      <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
-    </motion.div>
-    </Breathe>
-  );
-}
-
 // The one thing Today's Discovery can point at — either the freshest unreacted AI
 // hypothesis (index into store.hypotheses) or, when there's no hypothesis
 // yet, the strongest recurring belief (id into store.beliefs). Computed once
@@ -2693,7 +2672,7 @@ function SectionCard({ title, subtitle, children, dataTutorial }: { title?: stri
 // "Analysis" tab (see ScreenDiscoveryAnalysis and the "discoveryAnalysis"
 // case in the App shell below), leaving this one to answer a single
 // question: "what does my confirmed belief network actually look like?"
-function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; store: Store }) {
+function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
   const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
   // ScreenDiscoveryAnalysis uses (see there for the fuller machinery this
@@ -2741,11 +2720,6 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
     return [];
   }, [h, b]);
 
-  // Whether the notebook's numeric region breakdown is expanded — same
-  // count/percentage math RegionBreakdown uses elsewhere, just tucked
-  // behind a secondary disclosure here instead of always-on rows, per the
-  // editorial redesign brief ("this is not a dashboard").
-  const [showRegionBreakdown, setShowRegionBreakdown] = React.useState(false);
   // Discovery beliefs, resolved to full records — same source
   // DiscoveryBeliefList used (discoveryBeliefIds -> store.beliefs).
   const notebookBeliefs = React.useMemo(
@@ -2820,141 +2794,106 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
         section — always rendered regardless of whether there's a discovery
         yet, unlike the belief list below it, so the tutorial step never
         aims at something that may not exist. ── */}
-        <div data-tutorial="mind-neurons" className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${PRIMARY_HEADER_SIDE}px 28px` }}>
-              {/* SECTION 1 · Beliefs — the statement itself is the visual
-              focus; domain and confidence stay quiet/secondary, no rows or
-              pills. */}
-              {notebookBeliefs.length > 0 && (
-                <div style={{ marginBottom: 40 }}>
-                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint }}>
-                    The beliefs beneath this discovery
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 26, marginTop: 18 }}>
-                    {notebookBeliefs.map((belief) => (
-                      <div key={belief.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ marginTop: 6, flexShrink: 0 }}>
-                          <Node color={REGION_CONFIG[resolveRegion(belief)].color} size={14} intensity={0.6 + (belief.confidence / 100) * 0.4} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ ...sans, fontSize: 11, color: ivFaint, letterSpacing: "0.03em", marginBottom: 5 }}>{belief.domain}</div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-                            <div style={{ ...serif, fontSize: 20, lineHeight: 1.42, color: ivHeading, flex: 1, wordBreak: "keep-all" }}>
-                              {belief.statement}
-                            </div>
-                            <div style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0 }}>{belief.confidence}%</div>
-                          </div>
-                        </div>
+        <div data-tutorial="mind-neurons" className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
+          {/* 1 · The beliefs beneath today's discovery — each a row with
+              its region badge, the statement, and its confidence as a
+              meter that fills on arrival rather than a bare number. */}
+          <SettingsGroup header="Beneath today's discovery" style={{ marginTop: 10 }}>
+            {notebookBeliefs.length > 0 ? (
+              notebookBeliefs.map((belief, i) => {
+                const region = resolveRegion(belief);
+                return (
+                  <div key={belief.id} style={{ position: "relative", display: "flex", gap: 12, padding: "13px 16px 14px" }}>
+                    {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
+                    <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Node color={REGION_CONFIG[region].color} size={14} intensity={0.6 + (belief.confidence / 100) * 0.4} />
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 28 }}>
+                        <RegionBadge region={region} />
+                        <span style={{ ...sans, fontSize: 12, color: ivBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
                       </div>
-                    ))}
+                      <div style={{ ...serif, fontSize: 17, lineHeight: 1.4, color: ivHeading, marginTop: 4, wordBreak: "keep-all" }}>{belief.statement}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+                        <MeterFill value={belief.confidence} color={REGION_CONFIG[region].color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
+                        <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />%</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })
+            ) : (
+              <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing has surfaced yet. A pattern needs a few entries before it shows up here.</div>
+            )}
+          </SettingsGroup>
 
-              {/* SECTION 2 · Interpretation — the connective thread between
-              the beliefs above, when one exists (same store.connections
-              note DiscoveryBeliefList surfaced). An observation, never
-              styled as a warning/error. */}
-              {notebookNotes.length > 0 && (
-                <div style={{ marginBottom: 40 }}>
-                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint, marginBottom: 14 }}>
-                    What connects them
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {notebookNotes.map((c, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.6, color: ivHeading,
-                          padding: "20px 22px", borderRadius: 16, wordBreak: "keep-all",
-                          backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`,
-                        }}
-                      >
-                        {c.note}
-                      </div>
-                    ))}
-                  </div>
+          {/* 2 · The connective thread between those beliefs, when one
+              exists (the same store.connections note DiscoveryBeliefList
+              surfaces). An observation, never styled as a warning. */}
+          {notebookNotes.length > 0 && (
+            <SettingsGroup header="What connects them">
+              {notebookNotes.map((c, i) => (
+                <div key={i} style={{ position: "relative", padding: "16px 18px" }}>
+                  {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+                  <div style={{ ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
                 </div>
-              )}
+              ))}
+            </SettingsGroup>
+          )}
 
-              {/* SECTION 3 · Areas touched — active categories read as
-              prose, not a colored legend; the full numeric breakdown (same
-              data RegionBreakdown shows elsewhere) stays one tap away
-              instead of being always-on. */}
-              <div>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint, marginBottom: 12 }}>
-                  This discovery touches
-                </div>
-                <div style={{ ...serif, fontSize: 17, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                  {notebookActiveRegions.length > 0 ? notebookActiveRegions.map((r) => REGION_CONFIG[r].label).join("  ·  ") : "Nothing surfaced yet"}
-                </div>
-                {notebookInactiveRegions.length > 0 && (
-                  <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 8, wordBreak: "keep-all" }}>
-                    {notebookInactiveRegions.map((r) => REGION_CONFIG[r].label).join(" · ")}
-                  </div>
-                )}
-                <motion.div
-                  role="button" tabIndex={0} aria-label={showRegionBreakdown ? "Hide pattern breakdown" : "View pattern breakdown"}
-                  onClick={() => setShowRegionBreakdown((v) => !v)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionBreakdown((v) => !v); } }}
-                  whileTap={{ opacity: 0.6 }}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer" }}
-                >
-                  {showRegionBreakdown ? "Hide pattern breakdown" : "View pattern breakdown"}
-                  <span aria-hidden style={{ display: "inline-block", transform: showRegionBreakdown ? "rotate(90deg)" : "none", transition: "transform 0.2s ease", lineHeight: 0 }}><ArrowRight size={12} weight="bold" /></span>
-                </motion.div>
-                <AnimatePresence initial={false}>
-                  {showRegionBreakdown && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: reduceMotion ? 0.01 : 0.22, ease: "easeOut" }}
-                      style={{ overflow: "hidden" }}
-                    >
-                      <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${ivDivider}` }}>
-                        {COGNITIVE_REGIONS.map((r) => {
-                          const count = notebookRegionCounts.get(r) ?? 0;
-                          const pct = relatedBrainBeliefs.length > 0 ? Math.round((count / relatedBrainBeliefs.length) * 100) : 0;
-                          return (
-                            <div key={r} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <span style={{ ...sans, fontSize: 13, color: ivBody, flex: 1 }}>{REGION_CONFIG[r].label}</span>
-                              <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{count}</span>
-                              <span style={{ ...mono, fontSize: 11, color: ivHeading, width: 34, textAlign: "right" }}>{pct}%</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+          {/* 3 · Where it lives — one thin segmented bar (one whole, split
+              by region, no text on the marks) and a row per region that
+              has a share, each a door into the Brain Map focused there.
+              Regions with nothing are named once, in the footer, instead
+              of listed as zeros. */}
+          <SettingsGroup
+            header="Where it lives"
+            footer={notebookInactiveRegions.length > 0 ? `Nothing yet in ${notebookInactiveRegions.map((r) => REGION_CONFIG[r].label).join(", ")}.` : undefined}
+          >
+            <div style={{ padding: "14px 16px 12px" }}>
+              <div
+                role="img"
+                aria-label={notebookActiveRegions.length > 0 ? `Share of beliefs by region: ${notebookActiveRegions.map((r) => `${REGION_CONFIG[r].label} ${notebookRegionCounts.get(r) ?? 0}`).join(", ")}.` : "No beliefs yet."}
+                style={{ display: "flex", gap: 2, height: 8 }}
+              >
+                {notebookActiveRegions.length > 0 ? notebookActiveRegions.map((r) => (
+                  <motion.span
+                    key={r} initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    style={{ flex: notebookRegionCounts.get(r) ?? 0, height: 8, borderRadius: 4, backgroundColor: REGION_CONFIG[r].color, transformOrigin: "left" }}
+                  />
+                )) : <span style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)" }} />}
               </div>
+            </div>
+            {notebookActiveRegions.map((r) => {
+              const count = notebookRegionCounts.get(r) ?? 0;
+              const pct = relatedBrainBeliefs.length > 0 ? Math.round((count / relatedBrainBeliefs.length) * 100) : 0;
+              return (
+                <SettingsRow
+                  key={r} icon={<Node color={REGION_CONFIG[r].color} size={11} intensity={0.75} />} label={REGION_CONFIG[r].label}
+                  value={<span style={{ ...mono, fontSize: 12 }}>{count} · {pct}%</span>}
+                  onClick={onOpenBrainMap ? () => onOpenBrainMap(r) : undefined}
+                />
+              );
+            })}
+          </SettingsGroup>
 
-              {/* SECTION 4 · Go deeper — the structural-intelligence layer:
-              Unconscious Patterns (the full belief map, interpretations,
-              contradictions) and Distance from Your Aspiration (current
-              self vs. desired self). Moved here from the old standalone
-              Premium tab — see ScreenBeliefMap/ScreenDrift — rather than
-              rebuilt; only reachable once Premium Mode is on (toggled from
-              Profile, see store.isPro). Notebook-only, not on the landing
-              scene, so the "single immersive scene, never scrolls"
-              constraint above stays untouched either way. */}
-              {store.isPro && (
-                <div style={{ marginTop: 40 }}>
-                  <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: ivFaint }}>
-                    Go deeper
-                  </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
-                    <ArtifactTile
-                      label="Unconscious patterns"
-                      teaser={store.beliefs.length > 0 ? "Explore your belief map" : "No patterns have surfaced yet."}
-                      onClick={() => onOpenArtifact?.("beliefs")}
-                    />
-                    <ArtifactTile
-                      label="Distance from your aspiration"
-                      teaser="Between who you are and who you want to be"
-                      onClick={() => onOpenArtifact?.("drift")}
-                    />
-                  </div>
-                </div>
-              )}
+          {onOpenBrainMap && (
+            <SettingsGroup>
+              <SettingsRow icon={<Graph size={17} />} label="Open the Brain Map" value={`${store.beliefs.length} ${store.beliefs.length === 1 ? "belief" : "beliefs"}`} onClick={() => onOpenBrainMap()} />
+            </SettingsGroup>
+          )}
+
+          {/* 4 · Go deeper — Premium's structural layer: the full belief
+              map with interpretations and contradictions
+              (ScreenBeliefMap), and the distance between current self and
+              aspiration (ScreenDrift). Only once Premium Mode is on
+              (store.isPro, toggled from Profile). */}
+          {store.isPro && (
+            <SettingsGroup header="Go deeper" style={{ marginBottom: 0 }}>
+              <SettingsRow icon={<ShareNetwork size={17} />} label="Unconscious patterns" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+              <SettingsRow icon={<Footprints size={17} />} label="Distance from your aspiration" onClick={() => onOpenArtifact?.("drift")} />
+            </SettingsGroup>
+          )}
         </div>
 
         <BottomNav active="analysis" onSelect={onNavSelect} vintage />
@@ -8592,6 +8531,7 @@ export default function App() {
       <ScreenAnalysis
         onNavSelect={goToTab}
         onOpenArtifact={(id) => setScreen(id)}
+        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
         store={store}
       />
     ); break;
