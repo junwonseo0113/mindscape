@@ -40,7 +40,7 @@ import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, 
 // screen to screen. Active nav icons use the "fill" weight, outlined when
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
-  ArrowLeft, ArrowRight, BookOpen, CalendarBlank, CaretRight, ChartLineUp, Eye, FileText, Funnel, Graph, HandWaving, House,
+  ArrowLeft, ArrowRight, ArrowsClockwise, BookOpen, CalendarBlank, CaretRight, ChartLineUp, Eye, FileText, Funnel, Graph, HandWaving, House,
   Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, ShareNetwork, ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
@@ -3932,7 +3932,8 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
         // the one active color, not a substitute accent" rule every other
         // primary action in the app already follows (see ivHeading above).
         backgroundColor: recording ? "#8A4A34" : ivHeading,
-        boxShadow: "0 0 0 1px rgba(42,38,33,0.08)",
+        // A faint light ring: charcoal on the dark think screen needs an edge to read as a control.
+        boxShadow: "0 0 0 1px rgba(255,255,255,0.14)",
       }}
     >
       <motion.div
@@ -3961,7 +3962,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   // way around.
   const [textMode, setTextMode] = React.useState(true);
   const [text, setText] = React.useState("");
-  const [promptHint] = React.useState(() => pickThinkPrompt());
+  const [promptHint, setPromptHint] = React.useState(() => pickThinkPrompt());
   const [transcript, setTranscript] = React.useState("");
   const [interim, setInterim] = React.useState("");
   const [micError, setMicError] = React.useState<string | null>(null);
@@ -4101,30 +4102,71 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
     onDone?.(finalText);
   };
 
+  // Compose pattern after Apple Journal / Day One: the entry's primary
+  // action lives in the header, where the keyboard can never cover it —
+  // a bottom button on a phone is hidden the moment you start typing.
+  const canSubmit = !!text.trim() && !submitted;
+  const submitText = () => { if (!canSubmit) return; setSubmitted(true); onDone?.(text.trim()); };
+  const entryStamp = React.useMemo(() => new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), []);
+  const iconBtn: React.CSSProperties = { border: 0, background: "transparent", padding: 6, margin: -6, cursor: "pointer", lineHeight: 0, WebkitTapHighlightColor: "transparent" };
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
-        <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
-          <X size={13} weight="bold" aria-hidden /> Stop
-        </motion.span></Breathe>
-        {!recording && (
-          <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={() => { setTextMode((v) => !v); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
-            {textMode ? "Use voice instead" : "Write instead"}
-          </motion.span></Breathe>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px 0", minHeight: 46 }}>
+        <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
+          <motion.button type="button" aria-label={recording ? "Stop and discard" : "Cancel"} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...iconBtn, color: dkBodyLight }}>
+            <X size={18} />
+          </motion.button>
+        </Breathe>
+        {/* When this was said — quiet, like a journal's dateline. */}
+        <span style={{ ...mono, fontSize: 11, letterSpacing: "0.04em", color: dkBody }}>{entryStamp}</span>
+        {textMode ? (
+          <Breathe inline amount={1.05} active={canSubmit}>
+            <motion.button
+              type="button" disabled={!canSubmit} onClick={submitText}
+              whileTap={canSubmit ? { scale: 0.95, opacity: 0.85 } : undefined} transition={SETTLE}
+              style={{ ...sans, fontSize: 13, fontWeight: 700, color: canSubmit ? "#fff" : dkBody, backgroundColor: canSubmit ? dkAccent : dkTrack, border: 0, borderRadius: shape.full, padding: "7px 14px", minHeight: 32, cursor: canSubmit ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}
+            >
+              Done
+            </motion.button>
+          </Breathe>
+        ) : !recording ? (
+          <Breathe inline amount={1.06}>
+            <motion.span role="button" tabIndex={0} onClick={() => { setTextMode(true); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode(true); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBodyLight, cursor: "pointer" }}>
+              Write instead
+            </motion.span>
+          </Breathe>
+        ) : (
+          <span style={{ width: 32 }} />
         )}
       </div>
 
       {textMode ? (
         <>
-          <div style={{ flex: 1, minHeight: 0, padding: "20px 24px 0", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minHeight: 0, padding: "18px 20px 16px", display: "flex", flexDirection: "column" }}>
+            {/* The prompt is its own object above the entry, not a
+            placeholder that vanishes at the first keystroke — it stays
+            while you write, and can be swapped for another. */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: shape.md, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+              <Sparkle size={14} color={dkAccentLight} weight="fill" style={{ marginTop: 3, flexShrink: 0 }} />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div key={promptHint} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} style={{ ...serif, fontSize: 15, lineHeight: 1.5, color: dkBodyLight, flex: 1, wordBreak: "keep-all" }}>
+                  {promptHint}
+                </motion.div>
+              </AnimatePresence>
+              <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
+                <motion.button type="button" aria-label="Another prompt" onClick={() => setPromptHint(pickThinkPrompt())} whileTap={{ rotate: 180, opacity: 0.7 }} transition={{ duration: 0.3 }} style={{ ...iconBtn, color: dkBody, marginTop: -3 }}>
+                  <ArrowsClockwise size={15} />
+                </motion.button>
+              </Breathe>
+            </div>
             <textarea
               autoFocus
               value={text}
               onChange={(e) => { setText(e.target.value); noteActivity(e.target.value); }}
-              placeholder={`${promptHint} Write whatever feels natural.`}
+              placeholder="Write whatever feels natural."
               aria-label="Speak your mind"
               style={{
-                ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+                ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none", marginTop: 16,
                 backgroundColor: "transparent", color: dkHeading, fontSize: 19, lineHeight: 1.7,
                 wordBreak: "keep-all", colorScheme: "dark",
               }}
@@ -4143,18 +4185,16 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-          <div style={{ padding: "0 24px 40px" }}>
-            <PrimaryBtn
-              disabled={!text.trim() || submitted}
-              onClick={() => {
-                if (submitted) return;
-                setSubmitted(true);
-                onDone?.(text.trim());
-              }}
-            >
-              Next
-            </PrimaryBtn>
+            <div style={{ display: "flex", paddingTop: 10, flexShrink: 0 }}>
+              <Breathe inline amount={1.05}>
+                <motion.button
+                  type="button" onClick={() => { setTextMode(false); setMicError(null); }} whileTap={{ scale: 0.95, opacity: 0.8 }} transition={SETTLE}
+                  style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: dkBodyLight, background: "transparent", border: `1px solid ${dkDivider}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+                >
+                  <Microphone size={14} /> Use voice instead
+                </motion.button>
+              </Breathe>
+            </div>
           </div>
         </>
       ) : (
