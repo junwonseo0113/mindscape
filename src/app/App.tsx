@@ -35,6 +35,14 @@ import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
 import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
+// Icons: Phosphor (MIT) — one open-source set at one stroke weight in place
+// of the hand-drawn SVGs that used to vary in grid and line width from
+// screen to screen. Active nav icons use the "fill" weight, outlined when
+// inactive, the way Material 3's navigation bar marks the current tab.
+import {
+  ArrowLeft, ArrowRight, BookOpen, CalendarBlank, CaretRight, ChartLineUp, Eye, FileText, Funnel, Graph, HandWaving, House,
+  Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, ShareNetwork, ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
+} from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
@@ -245,6 +253,14 @@ const ivSurfaceSolid = "#FBF8F2"; // for a card that needs to sit fully opaque a
 // zero-offset box-shadow reads as a crisp hairline border instead, without
 // touching any of this token's ~15 call sites or their box layout.
 const ivCardShadow = "0 0 0 1px rgba(42,38,33,0.08)";
+// Material 3 shape scale (dp): small controls 12, cards 16, containers 20,
+// sheets and the nav bar 28, chips full. Picking from a scale, not per
+// element, is what makes a screen of boxes read as one family.
+const shape = { xs: 8, sm: 12, md: 16, lg: 20, xl: 28, full: 999 } as const;
+// M3 tonal surfaces for the ivory theme: things that float *over* the
+// canvas (a chip, a popover card) sit one tier lighter than cards that
+// rest on it — elevation by tone, not by heavier shadows.
+const ivSurfaceHigh = "#FFFFFF";
 const ivBorder = "rgba(42,38,33,0.08)";
 const ivHeading = "#2A2621"; // deep charcoal — never pure black, never a saturated accent
 const ivBody = "rgba(42,38,33,0.6)"; // muted taupe-gray
@@ -297,68 +313,20 @@ function StatusBar({ modernist }: { modernist?: boolean }) {
 // Home's "Speak your mind" button, replacing the plain dot with something that
 // actually reads as "speak/record."
 function WaveformIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <g stroke={color} strokeWidth="2" strokeLinecap="round">
-        <path d="M4 10v4" />
-        <path d="M8 7v10" />
-        <path d="M12 4v16" />
-        <path d="M16 7v10" />
-        <path d="M20 10v4" />
-      </g>
-    </svg>
-  );
+  return <Waveform size={size} color={color} weight="bold" />;
 }
 
 // Real line icons for the bottom nav, ported from the friend's parallel
 // session (odysseyof26's 8580f53) — a clear upgrade over the earlier
 // colored-square/dot placeholders, with no functional conflict, so it's
 // merged in on its own rather than picking one whole branch over the other.
-function NavIcon({ id, color, size = 23 }: { id: string; color: string; size?: number }) {
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  if (id === "home") {
-    return (
-      <svg {...common}>
-        <path d="M4 11.5 12 4l8 7.5" />
-        <path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
-      </svg>
-    );
-  }
-  if (id === "analysis") {
-    return (
-      <svg {...common}>
-        <circle cx="7" cy="7" r="2.1" />
-        <circle cx="17.5" cy="6" r="2.1" />
-        <circle cx="12" cy="18.5" r="2.1" />
-        <path d="M8.6 8.6 10.3 16.3M15.6 7.6 13.7 16.5M8.9 6.3l6.6-0.4" />
-      </svg>
-    );
-  }
-  if (id === "history") {
-    return (
-      <svg {...common}>
-        <path d="M12 5.2c-1.5-1-3.6-1.5-5.5-1.2-.7.1-1.2.7-1.2 1.4v11.4c0 .9.8 1.5 1.6 1.4 1.8-.3 3.8.1 5.1 1 1.3-.9 3.3-1.3 5.1-1 .9.1 1.6-.5 1.6-1.4V5.4c0-.7-.5-1.3-1.2-1.4-1.9-.3-4 .2-5.5 1.2Z" />
-        <path d="M12 5.2v12.6" />
-      </svg>
-    );
-  }
-  if (id === "discoveryAnalysis") {
-    return (
-      <svg {...common}>
-        <path d="M9 18h6M10 21h4" />
-        <path d="M8.5 15.3A5.5 5.5 0 1 1 15.5 15.3c-.85 1-1.4 1.75-1.4 2.7h-5.2c0-.95-.55-1.7-1.4-2.7Z" />
-      </svg>
-    );
-  }
-  // Generic fallback — every real BottomNav item above is explicitly
-  // handled, so this only ever renders for an id the bar isn't actually
-  // using (never in practice, but NavIcon needs to return *something*).
-  return (
-    <svg {...common}>
-      <circle cx="12" cy="8.3" r="3.3" />
-      <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
-    </svg>
-  );
+function NavIcon({ id, color, size = 23, active = false }: { id: string; color: string; size?: number; active?: boolean }) {
+  const weight = active ? "fill" : "regular";
+  if (id === "home") return <House size={size} color={color} weight={weight} />;
+  if (id === "analysis") return <Graph size={size} color={color} weight={weight} />;
+  if (id === "history") return <BookOpen size={size} color={color} weight={weight} />;
+  if (id === "discoveryAnalysis") return <Lightbulb size={size} color={color} weight={weight} />;
+  return <User size={size} color={color} weight={weight} />;
 }
 
 // ── Bottom navigation ─────────────────────────────────────────────────────────
@@ -420,7 +388,7 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
     // top hairline. Its own margin/shadow live on the outer wrapper below
     // instead of here — see the comment above.
     borderTop: vintage ? "none" : `1px solid ${modernist ? mdDivider : dark ? dkDivider : hair}`,
-    borderRadius: vintage ? 26 : 0,
+    borderRadius: vintage ? shape.xl : 0,
     // Opaque now, not a translucent glass panel over blurred content —
     // "no glass, no backdrop blur panels" (see the removed backdropFilter
     // here). A plain opaque bar reads as decided; a frosted floating one
@@ -461,7 +429,7 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
             )}
             <Breathe amount={1.06} style={{ position: "relative", zIndex: 1 }}>
             <div style={{ minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-              <NavIcon id={item.id} color={color} />
+              <NavIcon id={item.id} color={color} active={isActive} />
               <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? (modernist ? 800 : 600) : (modernist ? 500 : 400), color }}>{item.label}</span>
               {/* The dot slides between tabs (layoutId) instead of blinking
               off one and on the next. */}
@@ -482,7 +450,7 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
       style={{
         position: "sticky", bottom: 0, flexShrink: 0,
         margin: "0 20px", marginBottom: "calc(14px + env(safe-area-inset-bottom))",
-        borderRadius: 26, boxShadow: ivCardShadow,
+        borderRadius: shape.xl, boxShadow: ivCardShadow,
       }}
     >
       {bar}
@@ -552,9 +520,9 @@ function BackButton({ onClick, color = mdBody }: { onClick?: () => void; color?:
       type="button" aria-label="Go back" onClick={onClick}
       whileTap={{ opacity: 0.58 }}
       whileFocus={{ boxShadow: "0 0 0 3px rgba(91,77,130,.12)" }}
-      style={{ ...sans, minHeight: 36, margin: "-8px -10px", padding: "8px 10px", border: 0, borderRadius: 10, background: "transparent", fontSize: 13, color, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+      style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 5, minHeight: 36, margin: "-8px -10px", padding: "8px 10px", border: 0, borderRadius: shape.sm, background: "transparent", fontSize: 13, color, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
     >
-      ← Back
+      <ArrowLeft size={13} weight="bold" aria-hidden /> Back
     </motion.button>
     </Breathe>
   );
@@ -1008,54 +976,13 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
 // slide, Apple-onboarding-style (Health/Fitness+: a big glyph, a headline,
 // one line of body copy, nothing busier than that).
 function OnboardingIcon({ kind, size = 56 }: { kind: "welcome" | "speak" | "watch" | "pattern"; size?: number }) {
+  // Phosphor's duotone weight: a tinted fill under the line, which reads
+  // as an illustration at this size rather than a toolbar icon.
   const color = mdAccent;
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none" as const };
-  if (kind === "welcome") {
-    // A loose constellation radiating from a center point — the same
-    // "your thoughts become this brain" idea the Home hero card shows in
-    // miniature, here as a single simple glyph rather than the real 3D field.
-    return (
-      <svg {...common}>
-        <g stroke={color} strokeWidth="1" opacity="0.4">
-          <path d="M12 12L6 8M12 12L18 9M12 12L8 17M12 12L17 16M12 12L12 4" />
-        </g>
-        <circle cx="12" cy="12" r="1.8" fill={color} />
-        <circle cx="6" cy="8" r="1.1" fill={color} opacity="0.75" />
-        <circle cx="18" cy="9" r="1.3" fill={color} opacity="0.85" />
-        <circle cx="8" cy="17" r="1.4" fill={color} opacity="0.9" />
-        <circle cx="17" cy="16" r="1" fill={color} opacity="0.65" />
-        <circle cx="12" cy="4" r="0.9" fill={color} opacity="0.55" />
-      </svg>
-    );
-  }
-  if (kind === "speak") {
-    return (
-      <svg {...common}>
-        <path d="M5 5.5A2.5 2.5 0 0 1 7.5 3h9A2.5 2.5 0 0 1 19 5.5v7A2.5 2.5 0 0 1 16.5 15H10l-4 4v-4H7.5A2.5 2.5 0 0 1 5 12.5v-7Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-        <g stroke={color} strokeWidth="1.6" strokeLinecap="round">
-          <path d="M8.5 8.5v2" />
-          <path d="M11.5 7v5" />
-          <path d="M14.5 8.5v2" />
-        </g>
-      </svg>
-    );
-  }
-  if (kind === "watch") {
-    return (
-      <svg {...common}>
-        <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-        <circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.5" />
-      </svg>
-    );
-  }
-  // "pattern" — concentric rings, the repeated-signal idea rendered simply.
-  return (
-    <svg {...common}>
-      <circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.5" />
-      <circle cx="12" cy="12" r="7.5" stroke={color} strokeWidth="1.2" opacity="0.55" />
-      <circle cx="12" cy="12" r="10.5" stroke={color} strokeWidth="1" opacity="0.3" />
-    </svg>
-  );
+  if (kind === "welcome") return <HandWaving size={size} color={color} weight="duotone" />;
+  if (kind === "speak") return <Microphone size={size} color={color} weight="duotone" />;
+  if (kind === "watch") return <Eye size={size} color={color} weight="duotone" />;
+  return <Graph size={size} color={color} weight="duotone" />;
 }
 
 // Two loose hand-placed clusters (not the real generateBrainCloud — this is
@@ -1609,7 +1536,7 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
     <Breathe amount={1.025} style={{ flex: 1, width: "auto" }}>
     <motion.div
       role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ height: "100%", padding: "16px 14px", borderRadius: 14, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, cursor: "pointer" }}
+      style={{ height: "100%", padding: "16px 14px", borderRadius: shape.md, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivHeading }}>{label}</span>
@@ -1849,7 +1776,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
       transition={SETTLE}
       style={{
         position: "absolute", left: 20, right: 20, top: "44%", zIndex: 3,
-        backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: "14px 16px 12px",
+        backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.lg, padding: "14px 16px 12px",
         boxShadow: "0 14px 36px rgba(120,105,80,0.18)",
       }}
     >
@@ -1859,7 +1786,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
           {REGION_CONFIG[region].label} · {belief.domain}
         </span>
         <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
-          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivFaint, fontSize: 14, lineHeight: 1, WebkitTapHighlightColor: "transparent" }}>✕</motion.button>
+          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivFaint, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
         </Breathe>
       </div>
       {belief.thoughtLabel && (
@@ -1922,10 +1849,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
             whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
           >
-            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-              <circle cx="8.5" cy="8.5" r="6" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <MagnifyingGlass size={20} color={ivHeading} />
           </motion.div>
           </Breathe>
           <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
@@ -1934,10 +1858,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
             whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
           >
-            <svg width="19" height="19" viewBox="0 0 20 20" fill="none">
-              <circle cx="10" cy="7" r="3.4" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <User size={20} color={ivHeading} />
           </motion.div>
           </Breathe>
         </div>
@@ -1981,9 +1902,9 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               <motion.button
                 type="button" aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
                 whileTap={{ scale: 0.95, opacity: 0.85 }} transition={SETTLE}
-                style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 999, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+                style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={ivHeading} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="7" cy="7" r="2.1" /><circle cx="17.5" cy="6" r="2.1" /><circle cx="12" cy="18.5" r="2.1" /><path d="M8.6 8.6 10.3 16.3M15.6 7.6 13.7 16.5M8.9 6.3l6.6-0.4" /></svg>
+                <Graph size={13} color={ivHeading} weight="bold" />
                 Brain Map
               </motion.button>
             </Breathe>
@@ -2046,10 +1967,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           }}
         >
           <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect x="4.5" y="9" width="11" height="8" rx="2" stroke={ivHeading} strokeWidth="1.5" />
-              <path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            <LockSimple size={20} color={ivHeading} />
           </span>
           <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>See your Brain Map</div>
           <div style={{ ...sans, fontSize: 12.5, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
@@ -2079,7 +1997,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         <Breathe amount={1.025}>
         <motion.div
           role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
-          style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
+          style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
         >
           <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <WaveformIcon color="#fff" />
@@ -2088,9 +2006,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             <span style={{ ...serif, fontSize: 17, color: ivHeading }}>Speak your mind</span>
             <span style={{ ...sans, fontSize: 12, color: ivBody }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
           </div>
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M4 10h12M10 4l6 6-6 6" stroke={ivHeading} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
         </motion.div>
         </Breathe>
         <QuickMoodCheckIn updateStore={updateStore} />
@@ -2858,20 +2774,14 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
               whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <circle cx="8.5" cy="8.5" r="6" stroke={ivHeading} strokeWidth="1.5" />
-                <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <MagnifyingGlass size={19} color={ivHeading} />
             </motion.div>
             <motion.div
               role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
               whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="7" r="3.4" stroke={ivHeading} strokeWidth="1.5" />
-                <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <User size={19} color={ivHeading} />
             </motion.div>
           </div>
         </div>
@@ -2968,7 +2878,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
                   style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 16, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer" }}
                 >
                   {showRegionBreakdown ? "Hide pattern breakdown" : "View pattern breakdown"}
-                  <span aria-hidden style={{ display: "inline-block", transform: showRegionBreakdown ? "rotate(90deg)" : "none", transition: "transform 0.2s ease" }}>→</span>
+                  <span aria-hidden style={{ display: "inline-block", transform: showRegionBreakdown ? "rotate(90deg)" : "none", transition: "transform 0.2s ease", lineHeight: 0 }}><ArrowRight size={12} weight="bold" /></span>
                 </motion.div>
                 <AnimatePresence initial={false}>
                   {showRegionBreakdown && (
@@ -3034,32 +2944,18 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, store }: { onNavSelect?: 
 // A small page-of-notes glyph — "N thoughts" — matching the supplied
 // concept reference's document icon (not a speech bubble).
 function ThoughtGlyph({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-      <path d="M5 2.5h7l3 3v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M7 9h6M7 12h6M7 15h3.5" stroke={color} strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
+  return <FileText size={12} color={color} />;
 }
 // A shield-check glyph — "NN% confidence" — matching the reference in
 // place of the earlier clock icon.
 function ConfidenceGlyph({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-      <path d="M10 2.5 16 5v5c0 4.2-2.7 6.9-6 8.5-3.3-1.6-6-4.3-6-8.5V5l6-2.5Z" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M7.3 10 9.3 12l3.4-4" stroke={color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <ShieldCheck size={12} color={color} />;
 }
 // The small four-point sparkle before "TODAY'S DISCOVERY" in the reference —
 // a plain "✦" reads one weight heavier/rounder than the reference's crisp
 // diamond mark, so this draws it directly instead of relying on a font glyph.
 function SparkleGlyph({ color, size = 11 }: { color: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <path d="M10 1.5c.6 4 2.5 6 6.5 6.5-4 .6-6 2.5-6.5 6.5-.6-4-2.5-6-6.5-6.5 4-.6 6-2.5 6.5-6.5Z" fill={color} />
-    </svg>
-  );
+  return <Sparkle size={size} color={color} weight="fill" />;
 }
 // A vertical "|" separator between the two footer stats — matching the
 // reference's metadata row, drawn rather than relying on a literal pipe
@@ -3074,21 +2970,15 @@ function MetaDivider({ color }: { color: string }) {
 // app's own six real regions (see REGION_CONFIG/CognitiveRegion) rather
 // than inventing a separate icon set unrelated to the actual data.
 function RegionIconGlyph({ region, color }: { region: CognitiveRegion; color: string }) {
-  const common = { stroke: color, strokeWidth: 1.3, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, fill: "none" };
+  const size = 15;
   switch (region) {
-    case "identity":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="10" cy="7" r="3.4" {...common} /><path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" {...common} /></svg>;
-    case "security":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 2.5 16 5v5c0 4.2-2.7 6.9-6 8.5-3.3-1.6-6-4.3-6-8.5V5l6-2.5Z" {...common} /></svg>;
-    case "career":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M2.5 16.5 8 7l3 4.5 2.2-3L17.5 16.5Z" {...common} /></svg>;
-    case "relationships":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="6.8" cy="7" r="2.6" {...common} /><circle cx="13.2" cy="7" r="2.6" {...common} /><path d="M2 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4M9.4 16.5c0-2.6 2.1-4.4 4.8-4.4s4.8 1.8 4.8 4.4" {...common} /></svg>;
-    case "curiosity":
-      return <svg width="15" height="15" viewBox="0 0 20 20"><circle cx="9.5" cy="9.5" r="6" {...common} /><path d="M15.8 15.8 18 18" {...common} /></svg>;
+    case "identity": return <User size={size} color={color} />;
+    case "security": return <ShieldCheck size={size} color={color} />;
+    case "career": return <ChartLineUp size={size} color={color} />;
+    case "relationships": return <UsersThree size={size} color={color} />;
+    case "curiosity": return <MagnifyingGlass size={size} color={color} />;
     case "creativity":
-    default:
-      return <svg width="15" height="15" viewBox="0 0 20 20"><path d="M10 3c-3.6 0-5.5 2.5-5.5 5.3 0 2.1 1.3 3.2 1.9 4.2.5.8.6 1.5.6 2.5h6c0-1 .1-1.7.6-2.5.6-1 1.9-2.1 1.9-4.2C15.5 5.5 13.6 3 10 3Z" {...common} /><path d="M7.5 17h5M8.3 19h3.4" {...common} /></svg>;
+    default: return <PaintBrush size={size} color={color} />;
   }
 }
 
@@ -3170,7 +3060,7 @@ function DiscoveryCard({
           whileTap={{ opacity: 0.6 }}
           style={{ display: "inline-flex", alignItems: "center", gap: 5, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
         >
-          Examine <span aria-hidden>→</span>
+          Examine <ArrowRight size={12} weight="bold" aria-hidden />
         </motion.div></Breathe>
       </div>
     </div>
@@ -3209,7 +3099,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
       whileTap={{ scale: 0.97, opacity: 0.88 }}
       style={{
         flexShrink: 0, width: 160, boxSizing: "border-box", padding: "13px 14px",
-        borderRadius: 14, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`,
+        borderRadius: shape.md, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`,
         display: "flex", flexDirection: "column", gap: 8, cursor: "pointer",
       }}
     >
@@ -3490,7 +3380,7 @@ function ScreenDiscoveryAnalysis({
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExamineTarget(null); } }}
                 style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: ivBody, cursor: "pointer" }}
               >
-                ← Back
+                <ArrowLeft size={13} weight="bold" aria-hidden /> Back
               </span>
               <div style={{ ...serif, fontSize: 30, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</div>
               <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.4 }}>
@@ -4215,7 +4105,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
         <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
-          ✕ Stop
+          <X size={13} weight="bold" aria-hidden /> Stop
         </motion.span></Breathe>
         {!recording && (
           <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={() => { setTextMode((v) => !v); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
@@ -5440,7 +5330,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
         >
-          ← Back
+          <ArrowLeft size={13} weight="bold" aria-hidden /> Back
         </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Unconscious Patterns</div>
         <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
@@ -5567,7 +5457,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
         >
-          ← Back
+          <ArrowLeft size={13} weight="bold" aria-hidden /> Back
         </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Distance from Your Goal</div>
         <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
@@ -5751,7 +5641,7 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: ivBody, cursor: "pointer" }}
         >
-          ← Back
+          <ArrowLeft size={13} weight="bold" aria-hidden /> Back
         </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Your Journey</div>
         <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
@@ -6210,48 +6100,19 @@ function computeStreak(history: StoredHistoryEntry[]): number {
 
 // ── History icons ────────────────────────────────────────────────────────────
 function MicGlyph({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-      <rect x="7.5" y="2.2" width="5" height="9" rx="2.5" stroke={color} strokeWidth="1.3" />
-      <path d="M5 9.5a5 5 0 0 0 10 0M10 14.5v3M7.5 17.5h5" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
+  return <Microphone size={12} color={color} />;
 }
 function MoodGlyph({ color }: { color: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="7.2" stroke={color} strokeWidth="1.3" />
-      <path d="M7 12c.8.9 1.9 1.4 3 1.4s2.2-.5 3-1.4" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
-      <circle cx="7.3" cy="8.3" r="0.9" fill={color} />
-      <circle cx="12.7" cy="8.3" r="0.9" fill={color} />
-    </svg>
-  );
+  return <Smiley size={12} color={color} />;
 }
 function SearchIconGlyph({ color }: { color: string }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-      <circle cx="8.5" cy="8.5" r="6" stroke={color} strokeWidth="1.5" />
-      <path d="M17 17l-4.3-4.3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <MagnifyingGlass size={15} color={color} />;
 }
 function CalendarIconGlyph({ color }: { color: string }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-      <rect x="3" y="4.5" width="14" height="12.5" rx="2" stroke={color} strokeWidth="1.5" />
-      <path d="M3 8.5h14M6.5 2.5v3M13.5 2.5v3" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <CalendarBlank size={15} color={color} />;
 }
 function FilterIconGlyph({ color }: { color: string }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
-      <path d="M3 5.5h14M6.2 10h7.6M8.6 14.5h2.8" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="7" cy="5.5" r="1.4" fill={color} />
-      <circle cx="13" cy="10" r="1.4" fill={color} />
-      <circle cx="10" cy="14.5" r="1.4" fill={color} />
-    </svg>
-  );
+  return <Funnel size={15} color={color} />;
 }
 
 // ── History helpers ───────────────────────────────────────────────────────────
@@ -6901,7 +6762,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                     role="button" tabIndex={0} onClick={() => setStoryOpen(false)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setStoryOpen(false); } }}
                     whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.55)", cursor: "pointer", marginBottom: 14, flexShrink: 0 }}
                   >
-                    ← Back
+                    <ArrowLeft size={13} weight="bold" aria-hidden /> Back
                   </motion.span>
                   <div style={{ ...serif, fontSize: 16, color: "#2A2621", marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
                   <div style={{ ...sans, fontSize: 11.5, color: "rgba(42,38,33,0.45)", marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
@@ -7213,7 +7074,7 @@ function ScreenProfile({
               <div style={{ ...sans, fontSize: 14, fontWeight: 800, color: ivHeading }}>Upgrade to Pro</div>
               <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>Unlock your Brain Map, hypotheses, and more</div>
             </div>
-            <span style={{ color: ivHeading, fontSize: 18 }}>›</span>
+            <CaretRight size={16} color={ivHeading} weight="bold" />
           </motion.div></Breathe>
         )}
 
@@ -7247,7 +7108,7 @@ function ScreenProfile({
               {store.aspiration ? "Where you started, and how far the goal still is" : "Set a direction and watch the distance to it"}
             </div>
           </div>
-          <span style={{ color: ivFaint, fontSize: 18, flexShrink: 0 }}>›</span>
+          <CaretRight size={16} color={ivFaint} weight="bold" style={{ flexShrink: 0 }} />
         </motion.div>
 
         {store.entryCount > 0 && (
@@ -7255,12 +7116,7 @@ function ScreenProfile({
             type="button" onClick={shareStats} whileTap={{ opacity: 0.6 }}
             style={{ border: "none", background: "transparent", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", marginBottom: 14, cursor: "pointer" }}
           >
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <circle cx="15" cy="5" r="2.3" stroke={ivHeading} strokeWidth="1.4" />
-              <circle cx="5" cy="10" r="2.3" stroke={ivHeading} strokeWidth="1.4" />
-              <circle cx="15" cy="15" r="2.3" stroke={ivHeading} strokeWidth="1.4" />
-              <path d="M7 8.8 13 5.9M7 11.2 13 14.1" stroke={ivHeading} strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
+            <ShareNetwork size={16} color={ivHeading} />
             <span style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: ivHeading }}>
               {copied ? "Copied to clipboard" : "Share your progress"}
             </span>
@@ -7309,7 +7165,7 @@ function ScreenProfile({
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${ivDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
+              <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
             </motion.div>
           ))}
         </div>
@@ -7494,7 +7350,7 @@ function ScreenDataPrivacy({
                   : "Off — entries stay on this device and aren't analyzed. Tap to review or turn on."}
               </div>
             </div>
-            <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
+            <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
           </div>
         )}
 
@@ -7562,7 +7418,7 @@ function ScreenDataPrivacy({
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${ivDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
+              <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
             </motion.div>
           ))}
         </div>
@@ -7602,7 +7458,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
             }}
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>Replay the tutorial</span>
-            <span style={{ ...sans, fontSize: 14, color: ivFaint }}>›</span>
+            <CaretRight size={14} color={ivFaint} weight="bold" />
           </motion.div></Breathe>
         )}
         {HELP_ITEMS.map((h, i) => (
