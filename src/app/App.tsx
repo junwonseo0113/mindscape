@@ -34,7 +34,7 @@ import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
 import { useSwipeBack, useScrollMemory } from "./navGestures";
-import { AnimatedNumber, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
+import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
@@ -52,9 +52,21 @@ import { pickInputGuidance } from "./inputGuidance";
 // they're normally ready before anyone reaches Home.
 const load3D = () => import("./NeuralBeliefGraph3D");
 const loadBrainMap = () => import("./BrainNodeMapScreen");
-const NeuralBeliefGraph3D = React.lazy(load3D);
-const JarBrainPreview = React.lazy(() => load3D().then((m) => ({ default: m.JarBrainPreview })));
-const BrainNodeMapScreen = React.lazy(loadBrainMap);
+// The swipe-back "screen underneath" (see peekContent in App) re-mounts a
+// cached screen for the length of a gesture. Everything in a screen is
+// cheap to re-mount except a WebGL canvas: creating a GL context and its
+// textures mid-drag is exactly the kind of work that makes the first frames
+// of a swipe stutter. So the 3D views render nothing while they're only
+// being peeked at — the rest of the screen still shows through.
+const PeekContext = React.createContext(false);
+function skipWhilePeeking<P extends object>(Comp: React.LazyExoticComponent<React.ComponentType<P>>) {
+  return function PeekAware(props: P) {
+    return React.useContext(PeekContext) ? null : <Comp {...(props as any)} />;
+  };
+}
+const NeuralBeliefGraph3D = skipWhilePeeking(React.lazy(load3D));
+const JarBrainPreview = skipWhilePeeking(React.lazy(() => load3D().then((m) => ({ default: m.JarBrainPreview }))));
+const BrainNodeMapScreen = skipWhilePeeking(React.lazy(loadBrainMap));
 function preload3D() { void load3D(); void loadBrainMap(); }
 
 // ── Launch config ────────────────────────────────────────────────────────────
@@ -136,9 +148,14 @@ const dkStarfield: React.CSSProperties = {
   backgroundRepeat: "repeat",
 };
 
-const serif = { fontFamily: "'Instrument Serif', Georgia, serif" };
-const sans = { fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" };
-const mono = { fontFamily: "'JetBrains Mono', ui-monospace, monospace" };
+// Type: three self-hosted open-source families (loaded in styles/index.css,
+// no Google Fonts round-trip). Source Serif 4 carries headings and quotes
+// — its optical-size axis draws finer at 30px than at 15px — with Gowun
+// Batang filling in Hangul; Pretendard is the sans for both scripts;
+// Monaspace Neon sets the dates and numbers.
+const serif = { fontFamily: "'Source Serif 4 Variable', 'Gowun Batang', Georgia, serif" };
+const sans = { fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" };
+const mono = { fontFamily: "'Monaspace Neon', ui-monospace, monospace" };
 
 // ── Modernist theme — per the imported claude.ai/design "Modernist" design
 // system (project 18c81e97, Undecided - Modernist redesign.dc.html): a light,
@@ -476,7 +493,12 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
 // matching how every other ivory screen marks its one "active" action
 // (nav, toggles) with charcoal rather than a saturated accent color.
 function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean }) {
+  // The screen's one primary action breathes while it waits (see Breathe);
+  // a disabled button holds still, since there's nothing to invite.
+  const shadowRest = ivory ? "0 6px 18px rgba(42,38,33,0.10)" : modernist ? "0 6px 18px rgba(91,77,130,0.14)" : "0 6px 18px rgba(123,92,240,0.18)";
+  const shadowFull = ivory ? "0 10px 26px rgba(42,38,33,0.16)" : modernist ? "0 10px 26px rgba(91,77,130,0.22)" : "0 10px 26px rgba(123,92,240,0.30)";
   return (
+    <Breathe active={!disabled} shadow={[shadowRest, shadowFull]} style={{ borderRadius: 14 }}>
     <motion.button
       type="button"
       disabled={disabled}
@@ -496,6 +518,7 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = fa
     >
       {children}
     </motion.button>
+    </Breathe>
   );
 }
 
@@ -1981,8 +2004,12 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       </AnimatePresence>
 
       <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "72%" }}>
+        {/* Home's one action breathes (see Breathe); the card keeps its
+        hairline ring on the card itself and lends only its lift to the
+        breath so the ring never blurs. */}
+        <Breathe shadow={["0 8px 22px rgba(120,105,80,0.10)", "0 14px 32px rgba(120,105,80,0.18)"]} style={{ borderRadius: 22 }}>
         <motion.div
-          role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
+          role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
           style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
         >
           <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1996,6 +2023,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             <path d="M4 10h12M10 4l6 6-6 6" stroke={ivHeading} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </motion.div>
+        </Breathe>
         <QuickMoodCheckIn updateStore={updateStore} />
       </div>
 
@@ -8753,7 +8781,7 @@ export default function App() {
               {...({ inert: "" } as any)}
               style={{ position: "absolute", inset: 0, zIndex: 0, display: "flex", flexDirection: "column", pointerEvents: "none", x: peekX }}
             >
-              {peekContent}
+              <PeekContext.Provider value={true}>{peekContent}</PeekContext.Provider>
               <motion.div style={{ position: "absolute", inset: 0, backgroundColor: "#000", opacity: peekDim }} />
             </motion.div>
           )}

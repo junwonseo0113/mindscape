@@ -1219,7 +1219,11 @@ export function JarBrainPreview({
       // cap is what was making each node's now much-larger glow sprite (a
       // fixed-resolution texture, stretched further per NODE_SCALE_TIERS)
       // and low-poly core visibly blocky on high-DPI screens.
-      dpr={typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 3) : 2}
+      // …capped at 2 rather than the device's full ratio, though: on a
+      // 3× phone this canvas covers 43% of the screen and runs every frame,
+      // and 3× meant 2.25× the pixels of 2× for a difference nobody could
+      // see on the glow sprites — but could feel as Home-screen judder.
+      dpr={typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 2}
       // A mild frame (not the aggressive zoom this used before the nodes
       // themselves got a real "hero" size tier below) — the tier now does
       // the actual work of making these five nodes big; this just keeps
