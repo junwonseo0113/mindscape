@@ -1308,10 +1308,10 @@ function NodeDetailCard({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
-        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
-        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
+        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
+        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
       </div>
-      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
+      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 15, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
         {selectedNode.statement}
       </div>
       <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
@@ -1582,7 +1582,7 @@ export default function NeuralBeliefGraph3D({
               top: 10,
               background: "rgba(31,27,22,0.9)",
               color: "#fff",
-              fontSize: 11.5,
+              fontSize: 12,
               fontFamily: "Inter, sans-serif",
               padding: "8px 12px",
               borderRadius: 10,
@@ -1599,7 +1599,7 @@ export default function NeuralBeliefGraph3D({
             left: 12,
             bottom: 10,
             fontFamily: "Inter, sans-serif",
-            fontSize: 10,
+            fontSize: 11,
             color: "rgba(255,255,255,0.35)",
             pointerEvents: "none",
           }}

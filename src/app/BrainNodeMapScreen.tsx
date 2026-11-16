@@ -1207,7 +1207,7 @@ export default function BrainNodeMapScreen({
                 minHeight: 32,
                 padding: "6px 10px 6px 30px",
                 font: "inherit",
-                fontSize: 12.5,
+                fontSize: 13,
                 color: ink,
                 caretColor: accentUi,
                 background: panelBg,
@@ -1282,7 +1282,7 @@ export default function BrainNodeMapScreen({
               boxSizing: "border-box",
               padding: "9px 12px 9px 34px",
               font: "inherit",
-              fontSize: 14,
+              fontSize: 15,
               color: ink,
               caretColor: accentUi,
               background: "rgba(10,16,29,0.62)",
@@ -1375,7 +1375,7 @@ export default function BrainNodeMapScreen({
                 >
                   <span style={{ width: 13, height: 13, borderRadius: "50%", flexShrink: 0, backgroundColor: REGION_CONFIG[region].color }} />
                   <span style={{ flex: 1, color: active ? ink : inkSoft }}>{REGION_CONFIG[region].label}</span>
-                  <span style={{ fontSize: 12.5, color: inkMid }}>{regionCounts[region] ?? 0}</span>
+                  <span style={{ fontSize: 13, color: inkMid }}>{regionCounts[region] ?? 0}</span>
                 </div>
               );
             })}
@@ -1420,7 +1420,7 @@ export default function BrainNodeMapScreen({
                     backdropFilter: "blur(10px)",
                     color: active ? ink : inkSoft,
                     ...sans,
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: active ? 700 : 500,
                     whiteSpace: "nowrap",
                   }}
@@ -1539,7 +1539,7 @@ export default function BrainNodeMapScreen({
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    fontSize: 10,
+                    fontSize: 11,
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     padding: "3px 9px",
@@ -1561,9 +1561,9 @@ export default function BrainNodeMapScreen({
                 {selected.domain} · {selected.evidenceCount} pieces of evidence · {selected.confidence}% confidence
               </div>
               <div style={{ height: 1, margin: "9px 0", background: `linear-gradient(to right, transparent, ${line} 24px, ${line} calc(100% - 24px), transparent)` }} />
-              <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400 }}>Why these stars are connected</div>
+              <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400 }}>Why these stars are connected</div>
               {selected.linked.length === 0 ? (
-                <div style={{ fontSize: 12.5, color: inkFaint, padding: "6px 0" }}>No connected beliefs yet.</div>
+                <div style={{ fontSize: 13, color: inkFaint, padding: "6px 0" }}>No connected beliefs yet.</div>
               ) : (
                 selected.linked.map((l) => (
                   <div key={l.id} style={{ padding: "10px 0", borderBottom: `1px solid ${line}` }}>
@@ -1577,7 +1577,7 @@ export default function BrainNodeMapScreen({
                       <span style={{ flex: 1, fontWeight: modernist ? 700 : 400 }}>{l.title}</span>
                       <span
                         style={{
-                          fontSize: 9.5,
+                          fontSize: 11,
                           fontWeight: 700,
                           flexShrink: 0,
                           padding: "2px 7px",
@@ -1598,10 +1598,10 @@ export default function BrainNodeMapScreen({
               )}
               {selected.evidenceQuotes.length > 0 && (
                 <>
-                  <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400, marginTop: 14 }}>Moments that support this pattern</div>
+                  <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: modernist ? accentUi : inkMid, fontWeight: modernist ? 800 : 400, marginTop: 14 }}>Moments that support this pattern</div>
                   {selected.evidenceQuotes.map((q, i) => (
                     <div key={i} style={{ borderLeft: `2px solid ${modernist ? accentUi : line}`, paddingLeft: 10, marginTop: i === 0 ? 8 : 10 }}>
-                      <div style={{ ...mono, fontSize: 10.5, color: inkMid }}>{q.date}</div>
+                      <div style={{ ...mono, fontSize: 11, color: inkMid }}>{q.date}</div>
                       <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: inkSoft, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>"{q.quote}"</div>
                     </div>
                   ))}
