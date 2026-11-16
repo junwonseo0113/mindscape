@@ -7035,6 +7035,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
 
 // ── Screen 14 · Profile ────────────────────────────────────────────────────────
 function ScreenProfile({
+  onBack,
   onNavSelect,
   store,
   updateStore,
@@ -7045,6 +7046,10 @@ function ScreenProfile({
   onOpenManageSubscription,
   onOpenJourneyMap,
 }: {
+  // Profile is reached from Home's top-right icon, so "back" means Home.
+  // Having a real back control also gives the edge swipe-back something
+  // to press (see findBackButton in navGestures.ts).
+  onBack?: () => void;
   onNavSelect?: (id: string) => void;
   store: Store;
   updateStore: (updater: (prev: Store) => Store) => void;
@@ -7099,7 +7104,8 @@ function ScreenProfile({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
-        <div style={{ padding: "8px 4px 24px" }}>
+        <div style={{ padding: "0 4px 24px" }}>
+          <div style={{ marginBottom: 14 }}><BackButton onClick={onBack} color={ivBody} /></div>
           <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody }}>We've been tracking your journey.</div>
         </div>
@@ -8573,6 +8579,7 @@ export default function App() {
     case "historyDetail": content = <ScreenHistoryDetail index={historyEntryIndex} store={store} onBack={() => setScreen("history")} />; break;
     case "profile": content = (
       <ScreenProfile
+        onBack={() => goToTab("home")}
         onNavSelect={goToTab}
         store={store}
         updateStore={updateStore}
