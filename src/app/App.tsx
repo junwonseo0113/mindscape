@@ -3217,6 +3217,118 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
   );
 }
 
+// ── Analysis · Recent weeks ──────────────────────────────────────────────────
+// A KPI row in the dashboard-template sense (TailAdmin and its kin: label,
+// value, signed delta, a sparkline of the periods behind it), scaled to a
+// phone and this palette. It answers the one question Today's Discovery
+// can't — "how much have I actually been doing this?" — with numbers the
+// store already has, bucketed into real Monday-to-Sunday weeks. The window
+// is anchored to the most recent entry's week, not the calendar's: someone
+// who hasn't written this week still sees their last active week instead
+// of a row of zeros. Deltas are signed but never colored good/bad — writing
+// less is not a failure, and the rest of the app doesn't grade people.
+type WeekActivity = { weekStart: string; entries: number; words: number; verbs: number };
+
+function buildWeekActivity(history: StoredHistoryEntry[], maxWeeks = 8): WeekActivity[] {
+  const dated = history.flatMap((e) => { const d = parseDotDate(e.date); return d ? [{ e, monday: mondayOfWeek(d) }] : []; });
+  if (dated.length === 0) return [];
+  const buckets = new Map<string, WeekActivity>();
+  dated.forEach(({ e, monday }) => {
+    const key = formatDateDots(monday);
+    const cur = buckets.get(key) ?? { weekStart: key, entries: 0, words: 0, verbs: 0 };
+    cur.entries += 1;
+    cur.words += e.languageObservation?.wordCount ?? 0;
+    cur.verbs += e.languageObservation?.cognitiveVerbCount ?? 0;
+    buckets.set(key, cur);
+  });
+  const last = new Date(Math.max(...dated.map((x) => x.monday.getTime())));
+  // Always a fixed window of `maxWeeks` ending at the latest active week.
+  // Quiet weeks — before the first entry or between busy ones — get an
+  // explicit zero, so a gap reads as a gap and a two-week-old habit reads
+  // as two weeks old, not as a full chart.
+  const weeks: WeekActivity[] = [];
+  for (let i = maxWeeks - 1; i >= 0; i -= 1) {
+    const d = new Date(last);
+    d.setDate(d.getDate() - i * 7);
+    const key = formatDateDots(d);
+    weeks.push(buckets.get(key) ?? { weekStart: key, entries: 0, words: 0, verbs: 0 });
+  }
+  return weeks;
+}
+
+const reflectiveRate = (w: WeekActivity) => (w.words > 0 ? (w.verbs / w.words) * 100 : null);
+const signedDelta = (n: number, digits = 0) => (n > 0 ? `+${n.toFixed(digits)}` : n < 0 ? `−${Math.abs(n).toFixed(digits)}` : "±0");
+
+function StatTile({ label, value, delta, children, style }: { label: string; value: React.ReactNode; delta?: string; children?: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, ...style }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...sans, fontSize: 12, color: ivBody, wordBreak: "keep-all" }}>{label}</div>
+        <div style={{ ...mono, fontSize: 24, fontWeight: 700, color: ivHeading, marginTop: 4, lineHeight: 1.1 }}>{value}</div>
+        {delta && <div style={{ ...sans, fontSize: 11.5, color: ivBody, marginTop: 5 }}>{delta}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
+  const weeks = React.useMemo(() => buildWeekActivity(history), [history]);
+  if (weeks.length === 0) return null;
+  const latest = weeks[weeks.length - 1];
+  const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+  const latestRate = reflectiveRate(latest);
+  const prevRate = prev ? reflectiveRate(prev) : null;
+  const streak = computeStreak(history);
+  const maxEntries = Math.max(...weeks.map((w) => w.entries), 1);
+  const sparkLabel = `Thoughts per week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(latest.weekStart)}: ${weeks.map((w) => w.entries).join(", ")}.`;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
+        <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody }}>Recent weeks</div>
+        <div style={{ ...mono, fontSize: 11, color: ivFaint }}>Week of {shortMonthDay(latest.weekStart)}</div>
+      </div>
+      <StatTile
+        label="Thoughts logged"
+        value={<AnimatedNumber value={latest.entries} memoryKey="analysis.weekEntries" />}
+        delta={prev ? `${signedDelta(latest.entries - prev.entries)} vs the week before` : "First week"}
+        style={{ marginBottom: 10 }}
+      >
+        {/* Sparkline: thin bars, a 2px surface gap between them, rounded
+            at the data end and square at the baseline; the current week
+            in ink, the rest in the de-emphasis tint. */}
+        <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 2, width: 128, height: 40, flexShrink: 0 }}>
+          {weeks.map((w, i) => {
+            const isLatest = i === weeks.length - 1;
+            return (
+              <motion.div
+                key={w.weekStart} title={`Week of ${shortMonthDay(w.weekStart)}: ${w.entries} ${w.entries === 1 ? "thought" : "thoughts"}`}
+                initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true, amount: 0.6 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 + i * 0.04 }}
+                style={{
+                  flex: 1, maxWidth: 24, transformOrigin: "bottom",
+                  height: `${Math.max((w.entries / maxEntries) * 100, 5)}%`,
+                  borderRadius: "3px 3px 0 0",
+                  backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.1)" : isLatest ? ivHeading : "rgba(42,38,33,0.24)",
+                }}
+              />
+            );
+          })}
+        </div>
+      </StatTile>
+      <div style={{ display: "flex", gap: 10 }}>
+        <StatTile
+          label="Reflective language"
+          value={latestRate === null ? "—" : <><AnimatedNumber value={latestRate} memoryKey="analysis.weekRate" format={(n) => n.toFixed(1)} /><span style={{ fontSize: 15, fontWeight: 500 }}>%</span></>}
+          delta={latestRate !== null && prevRate !== null ? `${signedDelta(latestRate - prevRate, 1)} pt vs the week before` : latestRate === null ? "No text analyzed yet" : "Share of your words"}
+          style={{ flex: 1 }}
+        />
+        <StatTile label="Streak" value={<><AnimatedNumber value={streak} memoryKey="analysis.streak" /> <span style={{ fontSize: 15, fontWeight: 500 }}>{streak === 1 ? "day" : "days"}</span></>} delta="Days in a row" style={{ flex: 1 }} />
+      </div>
+    </div>
+  );
+}
+
 function ScreenDiscoveryAnalysis({
   onNavSelect,
   store,
@@ -3601,11 +3713,15 @@ function ScreenDiscoveryAnalysis({
                 )}
               </div>
 
+              <div style={{ marginTop: 32 }}>
+                <RecentWeeksPanel history={store.history} />
+              </div>
+
               {/* Structural room for Premium's longitudinal-intelligence
               layer (see the brief's "Today's Discovery → Further Insights →
               Premium deeper interpretation" hierarchy) — intentionally not
-              implemented here; a future section drops in below Further
-              Insights without touching the layout above it. */}
+              implemented here; a future section drops in below Recent
+              Weeks without touching the layout above it. */}
             </div>
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
               <BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage />
