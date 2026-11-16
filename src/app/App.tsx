@@ -6601,7 +6601,150 @@ function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; d
 // then "View its story" to see the actual recorded thoughts/check-ins
 // behind it, still reachable in full via the pre-existing ScreenHistoryDetail
 // (onOpenEntry) — nothing about that screen or its data changed.
+// ── Segmented control ────────────────────────────────────────────────────────
+// iOS's segmented control / Material 3's segmented button: one pill track,
+// the selected segment carried by a sliding indicator (layoutId), so a
+// switch reads as one control moving, not two buttons swapping.
+function SegmentedControl<T extends string>({ options, value, onChange, layoutId }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void; layoutId: string }) {
+  return (
+    <div role="tablist" style={{ display: "flex", padding: 3, borderRadius: shape.full, backgroundColor: "rgba(42,38,33,0.07)" }}>
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <motion.button
+            key={o.value} role="tab" aria-selected={active} type="button" onClick={() => onChange(o.value)}
+            whileTap={{ scale: 0.97 }} transition={SETTLE}
+            style={{ position: "relative", flex: 1, border: 0, background: "transparent", padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+          >
+            {active && <motion.span layoutId={layoutId} transition={SETTLE} style={{ position: "absolute", inset: 0, borderRadius: shape.full, backgroundColor: ivSurfaceHigh, boxShadow: ivCardShadow }} />}
+            <span style={{ position: "relative", ...sans, fontSize: 13, fontWeight: active ? 600 : 500, color: active ? ivHeading : ivBody }}>{o.label}</span>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Journal view ─────────────────────────────────────────────────────────────
+// History's first page is the journal itself: every entry, newest first,
+// grouped by month, each one a sheet of ruled paper with the day printed in
+// the margin — the Day One / Apple Journal timeline, drawn with this app's
+// own paper (ivory card, serif, faint rules at the text's own line height).
+// A mood check-in is a line on the timeline rather than a page: it's a
+// word, not a thought. Tapping a page opens the same ScreenHistoryDetail
+// the star sheet's "View its story" always led to.
+const JOURNAL_LINE = 24; // px — the serif body's line height, and so the ruling's pitch
+
+function journalMonthLabel(dateStr: string): string {
+  const d = parseDotDate(dateStr);
+  return d ? d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : dateStr;
+}
+const isMoodCheckIn = (e: StoredHistoryEntry) => /^Checked in feeling /.test(e.text);
+
+function JournalEntryRow({ entry, beliefs, onOpen }: { entry: StoredHistoryEntry; beliefs: StoredBelief[]; onOpen: () => void }) {
+  const d = parseDotDate(entry.date);
+  const rel = relativeDayLabel(entry.date);
+  const dayLabel = rel === "Today" || rel === "Yesterday" ? rel : d ? d.toLocaleDateString("en-US", { weekday: "short" }) : "";
+  const dayNumber = d ? d.getDate() : "";
+  const emotion = entry.analysis?.observation.emotions[0]?.label;
+  const regions = Array.from(new Set(beliefs.map((b) => resolveRegion(b)))).slice(0, 2);
+  const mood = isMoodCheckIn(entry);
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+      {/* The margin: day and weekday, the way a diary prints them. */}
+      <div style={{ width: 40, flexShrink: 0, textAlign: "center", paddingTop: mood ? 4 : 12 }}>
+        <div style={{ ...serif, fontSize: mood ? 15 : 22, lineHeight: 1, color: mood ? ivBody : ivHeading, fontVariantNumeric: "lining-nums" }}>{dayNumber}</div>
+        <div style={{ ...sans, fontSize: 11, color: ivBody, marginTop: 4 }}>{dayLabel}</div>
+      </div>
+      {mood ? (
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, padding: "7px 0", ...sans, fontSize: 13, color: ivBody }}>
+          <Smiley size={15} color={ivBody} /> <span>{entry.text.replace(/\.$/, "")}</span>
+        </div>
+      ) : (
+        <motion.div
+          role="button" tabIndex={0} aria-label={`Entry from ${entry.date}`} onClick={onOpen}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+          whileTap={{ scale: 0.985 }} transition={SETTLE}
+          style={{ flex: 1, minWidth: 0, backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "13px 16px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+        >
+          {/* Ruled paper: one hairline per text line, drawn behind the
+              text at exactly its line height, so the rules only ever sit
+              under written lines — never under the margin or the meta. */}
+          <div
+            style={{
+              ...serif, fontSize: 15, lineHeight: `${JOURNAL_LINE}px`, color: ivHeading, wordBreak: "keep-all",
+              display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden",
+              backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${JOURNAL_LINE - 1}px, rgba(42,38,33,0.1) ${JOURNAL_LINE - 1}px, rgba(42,38,33,0.1) ${JOURNAL_LINE}px)`,
+            }}
+          >
+            {entry.text}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+            {entry.duration && <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{entry.duration}</span>}
+            {emotion && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "4px 7px", borderRadius: 6, lineHeight: 1 }}>{emotion}</span>}
+            {regions.map((r) => <RegionBadge key={r} region={r} />)}
+            <span style={{ flex: 1 }} />
+            <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function JournalView({ store, query, onOpenEntry }: { store: Store; query: string; onOpenEntry?: (index: number) => void }) {
+  // Newest first, and `detailIndex` is the position ScreenHistoryDetail
+  // expects (it reverses store.history the same way).
+  const items = React.useMemo(
+    () => [...store.history].reverse().map((entry, detailIndex) => ({ entry, detailIndex }))
+      // A journal reads by date, whatever order the entries were stored in
+      // (a check-in logged after a backfilled thought still files under its
+      // own day). Fixed-width "YYYY.MM.DD" sorts lexicographically.
+      .sort((a, b) => (a.entry.date < b.entry.date ? 1 : a.entry.date > b.entry.date ? -1 : 0)),
+    [store.history]
+  );
+  const beliefsByEntry = React.useMemo(() => {
+    const m = new Map<string, StoredBelief[]>();
+    store.beliefs.forEach((b) => (b.supportingEntryIds ?? []).forEach((id) => m.set(id, [...(m.get(id) ?? []), b])));
+    return m;
+  }, [store.beliefs]);
+  const visible = query ? items.filter(({ entry }) => entry.text.toLowerCase().includes(query)) : items;
+  const months: { label: string; items: typeof items }[] = [];
+  visible.forEach((it) => {
+    const label = journalMonthLabel(it.entry.date);
+    const last = months[months.length - 1];
+    if (last && last.label === label) last.items.push(it); else months.push({ label, items: [it] });
+  });
+  if (items.length === 0) {
+    return <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>Nothing written yet. Your first entry goes here.</div>;
+  }
+  if (visible.length === 0) {
+    return <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>No entries mention that.</div>;
+  }
+  return (
+    <>
+      {months.map((m) => (
+        <section key={m.label} style={{ marginTop: 20 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 10px" }}>
+            <span style={{ ...serif, fontSize: 20, color: ivHeading }}>{m.label}</span>
+            <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{m.items.length} {m.items.length === 1 ? "entry" : "entries"}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {m.items.map((it) => (
+              <JournalEntryRow key={it.entry.id} entry={it.entry} beliefs={beliefsByEntry.get(it.entry.id) ?? []} onOpen={() => onOpenEntry?.(it.detailIndex)} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </>
+  );
+}
+
 function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
+  // Two pages in one tab: the journal (entries, by day) and the patterns
+  // catalogue (beliefs, by family). The journal is first because it's the
+  // thing the person actually wrote.
+  const [view, setView] = React.useState<"entries" | "patterns">("entries");
   const catalogue = React.useMemo(() => buildCatalogueStars(store), [store]);
   const families = React.useMemo(() => {
     const map = new Map<CognitiveRegion, CatalogueStar[]>();
@@ -6720,14 +6863,21 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={primaryTitleStyle}>History</div>
             <div style={primaryTitleSubtitleStyle}>
-              Catalogued over time.
+              {view === "entries" ? "Every entry, in the order you lived it." : "Catalogued over time."}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginRight: -8 }}>
             <HistoryControlButton icon={<MagnifyingGlass size={19} color={ivHeading} />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
-            <HistoryControlButton icon={<CalendarBlank size={19} color={ivHeading} />} label="Rewind to a date" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
-            <HistoryControlButton icon={<Funnel size={19} color={ivHeading} weight={filterMode ? "fill" : "regular"} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+            {view === "patterns" && (
+              <>
+                <HistoryControlButton icon={<CalendarBlank size={19} color={ivHeading} />} label="Rewind to a date" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
+                <HistoryControlButton icon={<Funnel size={19} color={ivHeading} weight={filterMode ? "fill" : "regular"} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+              </>
+            )}
           </div>
+        </div>
+        <div style={{ padding: "2px 16px 4px", flexShrink: 0 }}>
+          <SegmentedControl layoutId="history-view" value={view} onChange={(v) => { setView(v); setSheet(null); }} options={[{ value: "entries", label: "Entries" }, { value: "patterns", label: "Patterns" }]} />
         </div>
 
         {/* ── The catalogue: one grouped card per family that actually has
@@ -6736,6 +6886,10 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         come back the moment a star lands in them, or when the filter
         sheet asks for that family by name. ── */}
         <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
+          {view === "entries" ? (
+            <JournalView store={store} query={query} onOpenEntry={onOpenEntry} />
+          ) : (
+          <>
           {catalogue.length === 0 && (
             <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>
               Nothing catalogued yet. Speak your mind, and your first star will appear here.
@@ -6795,6 +6949,8 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 </DisclosureRow>
               ))}
             </SettingsGroup>
+          )}
+          </>
           )}
         </div>
 
@@ -6899,16 +7055,18 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
       {/* ── Search / Calendar / Filter sheets ── */}
       <AnimatePresence>
         {sheet === "search" && (
-          <HistorySheet title="Search the catalogue" onClose={() => setSheet(null)}>
+          <HistorySheet title={view === "entries" ? "Search your entries" : "Search the catalogue"} onClose={() => setSheet(null)}>
             <input
-              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search beliefs, categories, or thoughts…"
-              aria-label="Search the star catalogue"
+              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={view === "entries" ? "A word you remember writing…" : "Search beliefs, categories, or thoughts…"}
+              aria-label={view === "entries" ? "Search your entries" : "Search the star catalogue"}
               style={{ ...sans, fontSize: 15, color: "#2A2621", backgroundColor: "rgba(42,38,33,0.06)", border: "1.5px solid rgba(42,38,33,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
             <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.5)", marginTop: 14, lineHeight: 1.5 }}>
               {query
-                ? `${catalogue.filter(matchesSearch).length} of ${catalogue.length} stars match "${search.trim()}".`
-                : "Matching stars stay bright on the catalogue; the rest dim."}
+                ? (view === "entries"
+                  ? `${store.history.filter((e) => e.text.toLowerCase().includes(query)).length} of ${store.history.length} entries mention "${search.trim()}".`
+                  : `${catalogue.filter(matchesSearch).length} of ${catalogue.length} stars match "${search.trim()}".`)
+                : view === "entries" ? "Only entries that mention it stay on the page." : "Matching stars stay bright on the catalogue; the rest dim."}
             </div>
           </HistorySheet>
         )}
