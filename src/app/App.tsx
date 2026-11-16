@@ -40,8 +40,9 @@ import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, 
 // screen to screen. Active nav icons use the "fill" weight, outlined when
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
-  ArrowLeft, ArrowRight, ArrowsClockwise, BookOpen, CalendarBlank, CaretRight, ChartLineUp, Eye, FileText, Funnel, Graph, HandWaving, House,
-  Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, ShareNetwork, ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
+  ArrowCounterClockwise, ArrowLeft, ArrowRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, Clock, CreditCard,
+  DownloadSimple, Eye, FileText, Flask, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Question, ShareNetwork,
+  ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
@@ -7038,9 +7039,9 @@ function ScreenProfile({
   const planLabel = store.proPlan === "monthly" ? "Monthly plan" : store.proPlan === "yearly" ? "Yearly plan" : null;
   const streakDays = computeStreak(store.history);
   const stats = [
-    { value: String(store.entryCount), label: "Thoughts logged" },
-    { value: String(store.beliefs.length), label: "Beliefs discovered" },
-    { value: `${streakDays} days`, label: "Streak" },
+    { value: store.entryCount, key: "profile.entries", label: "Thoughts logged" },
+    { value: store.beliefs.length, key: "profile.beliefs", label: "Beliefs discovered" },
+    { value: streakDays, key: "profile.streak", suffix: " days", label: "Streak" },
   ];
   const [copied, setCopied] = React.useState(false);
   const shareStats = async () => {
@@ -7057,22 +7058,12 @@ function ScreenProfile({
       } catch { /* clipboard permission denied */ }
     }
   };
-  const rows: { label: string; onClick?: () => void; destructive?: boolean }[] = [
-    ...(MONETIZATION_ENABLED && store.isPro ? [{ label: "Manage subscription", onClick: onOpenManageSubscription }] : []),
-    { label: "Notifications", onClick: () => onOpenSettings?.("notifications") },
-    { label: "Data & Privacy", onClick: () => onOpenSettings?.("dataPrivacy") },
-    { label: "Help", onClick: () => onOpenSettings?.("help") },
-    {
-      label: "Log out",
-      onClick: onNavSelect
-        ? () => {
-            if (isCloudSyncConfigured) cloudSignOut();
-            onNavSelect("auth");
-          }
-        : undefined,
-      destructive: true,
-    },
-  ];
+  const logOut = onNavSelect
+    ? () => {
+        if (isCloudSyncConfigured) cloudSignOut();
+        onNavSelect("auth");
+      }
+    : undefined;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
@@ -7118,10 +7109,12 @@ function ScreenProfile({
           </motion.div></Breathe>
         )}
 
-        <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 10 }}>
+        <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 22 }}>
           {stats.map((s) => (
-            <div key={s.label} style={{ flex: 1, backgroundColor: ivSurfaceSolid, borderRadius: 16, padding: "16px 12px", textAlign: "center", boxShadow: ivCardShadow }}>
-              <div style={{ ...mono, fontSize: 22, fontWeight: 700, color: ivHeading, marginBottom: 4 }}>{s.value}</div>
+            <div key={s.label} style={{ flex: 1, backgroundColor: ivSurfaceSolid, borderRadius: shape.md, padding: "16px 12px", textAlign: "center", boxShadow: ivCardShadow }}>
+              <div style={{ ...mono, fontSize: 22, fontWeight: 700, color: ivHeading, marginBottom: 4 }}>
+                <AnimatedNumber value={s.value} memoryKey={s.key} />{s.suffix}
+              </div>
               <div style={{ ...sans, fontSize: 11, color: ivBody }}>{s.label}</div>
             </div>
           ))}
@@ -7132,113 +7125,145 @@ function ScreenProfile({
         read as a list (see that screen's own comment). Sits right under
         the stats row since both are "how's this going so far" at a
         glance, not buried in Settings-style rows below. */}
-        <motion.div
-          role="button" tabIndex={0} onClick={onOpenJourneyMap} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenJourneyMap)?.(); } }} whileTap={{ opacity: 0.6 }}
-          style={{
-            display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
-            backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: "16px 18px", boxShadow: ivCardShadow, marginBottom: 14,
-          }}
-        >
-          <div style={{ width: 40, height: 40, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <JourneyCharacter size={24} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ ...sans, fontSize: 14, fontWeight: 800, color: ivHeading }}>Your Journey</div>
-            <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2, lineHeight: 1.4, wordBreak: "keep-all" }}>
-              {store.aspiration ? "Where you started, and how far the goal still is" : "Set a direction and watch the distance to it"}
-            </div>
-          </div>
-          <CaretRight size={16} color={ivFaint} weight="bold" style={{ flexShrink: 0 }} />
-        </motion.div>
-
-        {store.entryCount > 0 && (
-          <motion.button
-            type="button" onClick={shareStats} whileTap={{ opacity: 0.6 }}
-            style={{ border: "none", background: "transparent", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 0", marginBottom: 14, cursor: "pointer" }}
-          >
-            <ShareNetwork size={16} color={ivHeading} />
-            <span style={{ ...sans, fontSize: 12.5, fontWeight: 700, color: ivHeading }}>
-              {copied ? "Copied to clipboard" : "Share your progress"}
-            </span>
-          </motion.button>
-        )}
+        <SettingsGroup footer={store.aspiration ? "Where you started, and how far the goal still is." : "Set a direction and watch the distance to it."}>
+          <SettingsRow icon={<JourneyCharacter size={20} />} label="Your Journey" value={store.aspiration ? undefined : "Not set"} onClick={onOpenJourneyMap} />
+          {store.entryCount > 0 && (
+            <SettingsRow
+              icon={<ShareNetwork size={17} />} label={copied ? "Copied to clipboard" : "Share your progress"} onClick={shareStats} chevron={false}
+              trailing={copied ? <span style={{ ...sans, fontSize: 14.5, color: ivBody }}>✓</span> : undefined}
+            />
+          )}
+        </SettingsGroup>
 
         {/* Design/dev affordance: instantly switches the whole app between
             curated demo content and a real, on-device, initially-empty
             store — see src/app/dataProvider.ts. Not something a real end
             user would normally touch, but there's no separate build
-            target to hide it behind. Premium Mode sits in the same card,
-            same SettingsToggle component, right below it — a distinct
-            concept (see the toggle's own note) that just happens to be the
-            other quiet on/off switch this screen has to offer, not a
-            related pair. It doesn't gate anything in the demo-vs-real data
-            source itself, only whether Mind/Analysis/History additionally
-            surface their deeper layers (see store.isPro downstream in
-            ScreenAnalysis/ScreenDiscoveryAnalysis/ScreenHistory) — no
-            payment involved, updateStore alone persists it exactly the way
-            every other real-store field already persists (localStorage +
-            Supabase when signed in; ephemeral, same as any other demo
-            interaction, while Demo Mode is on). Deliberately plain — no
-            gold/crown/diamond styling; Premium here is just another quiet
-            toggle, same as Demo Mode right above it. */}
-        <div style={{ marginBottom: 14, backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: "0 18px", boxShadow: ivCardShadow }}>
-          <SettingsToggle
-            label="Demo Mode"
-            note="Turn it on to browse the screens with example data. Turn it off to see only your real entries — a new account starts empty."
-            value={isDemoMode}
-            onChange={onToggleDemoMode}
-            modernist
-          />
-          <SettingsToggle
-            label="Premium Mode"
-            note="Turn it on for a deeper layer woven into Mind, Analysis, and History — unconscious patterns, distance from your aspiration, literary reflection, and how things have changed over time. Turn it off for the core experience."
-            value={store.isPro}
-            onChange={(v) => updateStore((prev) => ({ ...prev, isPro: v }))}
-            modernist
-          />
-        </div>
+            target to hide it behind. Premium Mode sits in the same group,
+            same Switch, right below it — a distinct concept that just
+            happens to be the other quiet on/off switch this screen has to
+            offer, not a related pair. It doesn't gate anything in the
+            demo-vs-real data source itself, only whether Mind/Analysis/
+            History additionally surface their deeper layers (see
+            store.isPro downstream in ScreenAnalysis/ScreenDiscoveryAnalysis/
+            ScreenHistory) — no payment involved, updateStore alone persists
+            it exactly the way every other real-store field already persists
+            (localStorage + Supabase when signed in; ephemeral, same as any
+            other demo interaction, while Demo Mode is on). Deliberately
+            plain — no gold/crown/diamond styling; Premium here is just
+            another quiet toggle, same as Demo Mode right above it. */}
+        <SettingsGroup
+          header="Modes"
+          footer="Demo Mode fills every screen with example data; turn it off to see only your own entries — a new account starts empty. Premium Mode weaves a deeper layer into Mind, Analysis, and History: unconscious patterns, distance from your aspiration, and how things have changed over time."
+        >
+          <SettingsRow icon={<Flask size={17} />} label="Demo Mode" trailing={<Switch label="Demo Mode" value={isDemoMode} onChange={onToggleDemoMode} />} />
+          <SettingsRow icon={<Sparkle size={17} />} label="Premium Mode" trailing={<Switch label="Premium Mode" value={store.isPro} onChange={(v) => updateStore((prev) => ({ ...prev, isPro: v }))} />} />
+        </SettingsGroup>
 
-        <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: 20, overflow: "hidden", boxShadow: ivCardShadow }}>
-          {rows.map((r, i) => (
-            <motion.div
-              key={r.label} role="button" tabIndex={0} onClick={r.onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (r.onClick)?.(); } }} whileTap={{ opacity: 0.6 }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${ivDivider}` : "none" }}
-            >
-              <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
-            </motion.div>
-          ))}
-        </div>
+        <SettingsGroup>
+          {MONETIZATION_ENABLED && store.isPro && <SettingsRow icon={<CreditCard size={17} />} label="Manage subscription" value={planLabel ?? undefined} onClick={onOpenManageSubscription} />}
+          <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />
+          <SettingsRow icon={<LockSimple size={17} />} label="Data & Privacy" onClick={() => onOpenSettings?.("dataPrivacy")} />
+          <SettingsRow icon={<Question size={17} />} label="Help" onClick={() => onOpenSettings?.("help")} />
+        </SettingsGroup>
+
+        <SettingsGroup style={{ marginBottom: 0 }}>
+          <SettingsRow label={<Breathe inline amount={1.04}>Log out</Breathe>} destructive center onClick={logOut} />
+        </SettingsGroup>
       </div>
       <BottomNav active="profile" onSelect={onNavSelect} vintage />
     </div>
   );
 }
 
-// ── Screen 14.1 · Notification settings ───────────────────────────────────────
-function SettingsToggle({ label, note, value, onChange, dark, modernist }: { label: string; note?: string; value: boolean; onChange?: (v: boolean) => void; dark?: boolean; modernist?: boolean }) {
-  const labelColor = modernist ? ivHeading : dark ? dkBodyLight : ink;
-  const noteColor = modernist ? ivBody : dark ? dkBody : subtle;
-  const dividerColor = modernist ? ivDivider : dark ? dkDivider : hair;
-  const trackOff = modernist ? "rgba(42,38,33,0.12)" : dark ? dkTrack : hair;
-  const trackOn = modernist ? ivHeading : dkAccent;
+// ── Settings list · Apple HIG "inset grouped" ────────────────────────────────
+// The Profile hub and its sub-screens share one list grammar, the one iOS
+// Settings uses: a rounded card per group, an optional header naming it,
+// rows that keep to a single line, and the explanation that used to crowd
+// each row moved to a footer under the group, where it reads once instead
+// of in the middle of the list. Three HIG details carry the look:
+//   · separators start at the label, not the card edge, so the icon
+//     column reads as one strip;
+//   · a pressed row tints its background instead of fading its text;
+//   · a destructive action sits alone, centered, in its own group.
+function SettingsGroup({ header, footer, children, style }: { header?: string; footer?: React.ReactNode; children: React.ReactNode; style?: React.CSSProperties }) {
+  const items = React.Children.toArray(children);
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "15px 0", borderBottom: `1px solid ${dividerColor}` }}>
-      <div style={{ paddingRight: 16 }}>
-        <div style={{ ...sans, fontSize: 14, fontWeight: modernist ? 700 : 400, color: labelColor }}>{label}</div>
-        {note && <div style={{ ...sans, fontSize: 12, color: noteColor, marginTop: 3, lineHeight: 1.5, wordBreak: "keep-all" }}>{note}</div>}
+    <section style={{ marginBottom: 22, ...style }}>
+      {header && <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody, padding: "0 16px 7px", wordBreak: "keep-all" }}>{header}</div>}
+      <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, overflow: "hidden" }}>
+        {items.map((child, i) =>
+          // Only the first row drops its separator; anything that isn't a
+          // SettingsRow (a Collapse around one, say) draws its own.
+          i === 0 && React.isValidElement(child) && child.type === SettingsRow ? React.cloneElement(child as React.ReactElement<SettingsRowProps>, { divider: false }) : child,
+        )}
       </div>
-      <motion.button
-        type="button" role="switch" aria-checked={value} aria-label={label}
-        onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
-        whileFocus={{ boxShadow: `0 0 0 3px ${modernist ? "rgba(42,38,33,.16)" : "rgba(255,255,255,.10)"}` }}
-        style={{ width: 44, height: 26, borderRadius: 13, border: 0, backgroundColor: value ? trackOn : trackOff, flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start", WebkitTapHighlightColor: "transparent" }}
-      >
-        <motion.span layout transition={{ type: "spring", stiffness: 520, damping: 34 }} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff", display: "block" }} />
-      </motion.button>
-    </div>
+      {footer && <div style={{ ...sans, fontSize: 12.5, color: ivBody, lineHeight: 1.5, padding: "8px 16px 0", wordBreak: "keep-all" }}>{footer}</div>}
+    </section>
   );
 }
+
+type SettingsRowProps = {
+  icon?: React.ReactNode;
+  label: React.ReactNode;
+  value?: React.ReactNode;
+  trailing?: React.ReactNode;
+  onClick?: () => void;
+  destructive?: boolean;
+  center?: boolean;
+  chevron?: boolean;
+  divider?: boolean;
+  disabled?: boolean;
+  style?: React.CSSProperties;
+};
+
+// The 28px icon tile is iOS Settings' glyph-on-a-rounded-square, in this
+// app's own palette: charcoal on a soft tint rather than white on a
+// saturated color, so a column of them stays quiet.
+const settingsTile: React.CSSProperties = { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
+
+function SettingsRow({ icon, label, value, trailing, onClick, destructive, center, chevron, divider = true, disabled, style }: SettingsRowProps) {
+  const interactive = !!onClick && !disabled;
+  const showChevron = chevron ?? (!!onClick && !trailing && !center);
+  const color = destructive ? mdWarn : ivHeading;
+  const inset = icon ? 16 + 28 + 12 : 16;
+  return (
+    <motion.div
+      role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-disabled={disabled || undefined}
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}
+      whileTap={interactive ? { backgroundColor: "rgba(42,38,33,0.07)" } : undefined}
+      transition={{ duration: 0.12 }}
+      style={{
+        position: "relative", display: "flex", alignItems: "center", justifyContent: center ? "center" : undefined, gap: 12,
+        minHeight: 46, padding: "10px 16px", cursor: interactive ? "pointer" : "default", backgroundColor: "rgba(42,38,33,0)",
+        opacity: disabled ? 0.55 : 1, WebkitTapHighlightColor: "transparent", ...style,
+      }}
+    >
+      {divider && <span aria-hidden style={{ position: "absolute", top: 0, left: inset, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      {icon && <span style={{ ...settingsTile, backgroundColor: destructive ? mdWarnSoft : "rgba(42,38,33,0.07)", color }}>{icon}</span>}
+      <span style={{ ...sans, fontSize: 15, fontWeight: 500, color, flex: center ? undefined : 1, minWidth: 0, lineHeight: 1.3, wordBreak: "keep-all" }}>{label}</span>
+      {value !== undefined && value !== null && <span style={{ ...sans, fontSize: 14.5, color: ivBody, flexShrink: 0 }}>{value}</span>}
+      {trailing}
+      {showChevron && <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>}
+    </motion.div>
+  );
+}
+
+function Switch({ value, onChange, label }: { value: boolean; onChange?: (v: boolean) => void; label: string }) {
+  return (
+    <motion.button
+      type="button" role="switch" aria-checked={value} aria-label={label}
+      onClick={() => onChange?.(!value)} whileTap={{ scale: 0.95 }}
+      whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.16)" }}
+      style={{ width: 44, height: 26, borderRadius: 13, border: 0, backgroundColor: value ? ivHeading : "rgba(42,38,33,0.12)", flexShrink: 0, padding: 3, cursor: "pointer", display: "flex", justifyContent: value ? "flex-end" : "flex-start", WebkitTapHighlightColor: "transparent" }}
+    >
+      <motion.span layout transition={{ type: "spring", stiffness: 520, damping: 34 }} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "#fff", display: "block" }} />
+    </motion.button>
+  );
+}
+
+// ── Screen 14.1 · Notification settings ───────────────────────────────────────
 
 function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: StoredSettings; onBack?: () => void; onChange?: (settings: StoredSettings) => void }) {
   return (
@@ -7247,43 +7272,31 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
         <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Notifications</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <SettingsToggle
-          label="Daily reminder"
-          note="Once a day, a nudge to log what's on your mind today."
-          value={settings.dailyReminder}
-          onChange={(v) => onChange?.({ ...settings, dailyReminder: v })}
-          modernist
-        />
-        {settings.dailyReminder && (
-          <div style={{ padding: "2px 0 18px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <label htmlFor="daily-reminder-time" style={{ ...sans, fontSize: 13, color: ivBody }}>Remind me at</label>
-              <input
-                id="daily-reminder-time" type="time" value={settings.dailyReminderTime}
-                onChange={(e) => onChange?.({ ...settings, dailyReminderTime: e.target.value })}
-                style={{ ...sans, fontSize: 14, color: ivHeading, border: `1px solid ${ivDivider}`, borderRadius: 10, padding: "6px 10px", backgroundColor: ivSurfaceSolid }}
-              />
-            </div>
-            <div style={{ ...sans, fontSize: 11.5, color: ivFaint, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Only fires while this app is open in a tab — there's no server behind this yet to reach you when it's closed.
-            </div>
-          </div>
-        )}
-        <SettingsToggle
-          label="New hypothesis alerts"
-          note="We'll let you know when the AI finds a new pattern."
-          value={settings.newHypothesisAlert}
-          onChange={(v) => onChange?.({ ...settings, newHypothesisAlert: v })}
-          modernist
-        />
-        <SettingsToggle
-          label="Weekly summary"
-          note="A single recap of the unconscious beliefs and changes that built up over the week."
-          value={settings.weeklySummary}
-          onChange={(v) => onChange?.({ ...settings, weeklySummary: v })}
-          modernist
-        />
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
+        <SettingsGroup
+          footer={settings.dailyReminder
+            ? "Once a day, a nudge to log what's on your mind. It only fires while this app is open in a tab — there's no server behind it yet to reach you when it's closed."
+            : "Once a day, a nudge to log what's on your mind."}
+        >
+          <SettingsRow icon={<BellSimple size={17} />} label="Daily reminder" trailing={<Switch label="Daily reminder" value={settings.dailyReminder} onChange={(v) => onChange?.({ ...settings, dailyReminder: v })} />} />
+          <Collapse open={settings.dailyReminder}>
+            <SettingsRow
+              icon={<Clock size={17} />}
+              label={<label htmlFor="daily-reminder-time" style={{ cursor: "pointer" }}>Remind me at</label>}
+              trailing={
+                <input
+                  id="daily-reminder-time" type="time" value={settings.dailyReminderTime}
+                  onChange={(e) => onChange?.({ ...settings, dailyReminderTime: e.target.value })}
+                  style={{ ...sans, fontSize: 14.5, color: ivHeading, border: 0, borderRadius: shape.xs, padding: "5px 9px", backgroundColor: "rgba(42,38,33,0.07)" }}
+                />
+              }
+            />
+          </Collapse>
+        </SettingsGroup>
+        <SettingsGroup footer="Hypothesis alerts arrive when the AI finds a new pattern. The weekly summary is one recap of the unconscious beliefs and changes that built up over the week.">
+          <SettingsRow icon={<Lightbulb size={17} />} label="New hypothesis alerts" trailing={<Switch label="New hypothesis alerts" value={settings.newHypothesisAlert} onChange={(v) => onChange?.({ ...settings, newHypothesisAlert: v })} />} />
+          <SettingsRow icon={<CalendarBlank size={17} />} label="Weekly summary" trailing={<Switch label="Weekly summary" value={settings.weeklySummary} onChange={(v) => onChange?.({ ...settings, weeklySummary: v })} />} />
+        </SettingsGroup>
       </div>
     </div>
   );
@@ -7347,121 +7360,85 @@ function ScreenDataPrivacy({
         <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 26, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <div style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 24px" }}>
+        <div style={{ ...sans, fontSize: 13.5, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all", padding: "0 6px" }}>
           {isCloudSyncConfigured
             ? "Browsing as a guest, everything stays only in this device's browser. If you've signed up, your unconscious beliefs, interpretations, and conversation history are also synced to a private, encrypted account — accessible only to you, never sold or shared, and protected by database-level access rules that make it impossible for anyone else to read your data even by mistake. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed."
             : "This app doesn't create an account on a separate server. Your unconscious beliefs, interpretations, and conversation history are stored only in this device's browser. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed, and never leaves your device otherwise."}
         </div>
 
-        <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 16, lineHeight: 1.75, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 13.5, color: ivBody, margin: "16px 0 26px", lineHeight: 1.75, wordBreak: "keep-all", padding: "0 6px" }}>
           One exception: what you write is checked on this device, before anything is sent anywhere, for language that suggests you might be in crisis. That check never leaves your device either — if it matches, you're shown real crisis resources instead of the usual analysis. Nothing about that check is stored, scored, or shared.
         </div>
 
-        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, letterSpacing: "0.06em" }}>Data Stored on This Device</div>
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-            {[
-              ["Unconscious beliefs", s?.beliefs.length ?? 0],
-              ["Recurring unconscious interpretations", s?.assumptions.length ?? 0],
-              ["Connections between unconscious beliefs", s?.connections.length ?? 0],
-              ["Conversation history", s?.history.length ?? 0],
-              ["AI's hypotheses", s?.hypotheses.length ?? 0],
-            ].map(([label, count]) => (
-              <div key={label as string} style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.85)" }}>{label}</span>
-                <span style={{ ...mono, fontSize: 13, color: ivBody }}>{count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <SettingsGroup header="Stored on this device">
+          {[
+            ["Unconscious beliefs", s?.beliefs.length ?? 0],
+            ["Recurring unconscious interpretations", s?.assumptions.length ?? 0],
+            ["Connections between unconscious beliefs", s?.connections.length ?? 0],
+            ["Conversation history", s?.history.length ?? 0],
+            ["AI's hypotheses", s?.hypotheses.length ?? 0],
+          ].map(([label, count]) => (
+            <SettingsRow key={label as string} label={label} value={<span style={{ ...mono, fontSize: 13.5 }}>{count}</span>} />
+          ))}
+        </SettingsGroup>
 
         {onOpenAiConsent && (
-          <div
-            role="button" tabIndex={0} onClick={onOpenAiConsent}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenAiConsent(); } }}
-            style={{ marginTop: 24, padding: "14px 16px", borderRadius: 14, backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow, cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
+          <SettingsGroup
+            footer={aiConsentOn
+              ? "On — entries are sent to Anthropic (US) for analysis. Tap to review or withdraw."
+              : "Off — entries stay on this device and aren't analyzed. Tap to review or turn on."}
           >
-            <div style={{ flex: 1 }}>
-              <div style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>AI analysis consent</div>
-              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                {aiConsentOn
-                  ? "On — entries are sent to Anthropic (US) for analysis. Tap to review or withdraw."
-                  : "Off — entries stay on this device and aren't analyzed. Tap to review or turn on."}
-              </div>
-            </div>
-            <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
-          </div>
+            <SettingsRow icon={<Sparkle size={17} />} label="AI analysis consent" value={aiConsentOn ? "On" : "Off"} onClick={onOpenAiConsent} />
+          </SettingsGroup>
         )}
 
-        <div style={{ marginTop: 28 }}>
-          <motion.button
-            type="button" onClick={() => downloadStoreAsJson(s)} whileTap={{ scale: 0.99, opacity: 0.8 }}
-            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `1px solid ${ivDivider}`, background: "transparent", cursor: "pointer", textAlign: "left", WebkitTapHighlightColor: "transparent" }}
-          >
-            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>Download my data</span>
-          </motion.button>
-          <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            {isCloudSyncConfigured
-              ? "Saves everything above to a JSON file on this device — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
-              : "Saves everything above to a JSON file on this device. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives."}
-          </div>
-        </div>
+        <SettingsGroup
+          footer={isCloudSyncConfigured
+            ? "Saves everything above to a JSON file on this device — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
+            : "Saves everything above to a JSON file on this device. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives."}
+        >
+          <SettingsRow icon={<DownloadSimple size={17} />} label="Download my data" onClick={() => downloadStoreAsJson(s)} chevron={false} />
+        </SettingsGroup>
 
-        <div style={{ marginTop: 28 }}>
-          <div
-            role="button" tabIndex={0}
-            onClick={() => (armed ? onResetData?.() : setArmed(true))} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => (armed ? onResetData?.() : setArmed(true)))?.(); } }}
-            style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : ivDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer" }}
-          >
-            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
-              {armed ? "Are you sure? Tap again to delete everything" : "Delete all my data"}
-            </span>
-          </div>
-          {armed && (
-            <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 8, lineHeight: 1.5 }}>
-              {onDeleteAccount
-                ? "All unconscious beliefs, interpretations, conversation history, and your goal will be erased from this device and your synced account. Your account itself (name and email) stays — use \"Delete my account\" below to remove that too. This can't be undone."
-                : "All unconscious beliefs, interpretations, conversation history, and your goal stored on this device will be gone. This can't be undone."}
-            </div>
-          )}
-        </div>
+        <SettingsGroup
+          footer={armed
+            ? (onDeleteAccount
+              ? "All unconscious beliefs, interpretations, conversation history, and your goal will be erased from this device and your synced account. Your account itself (name and email) stays — use \"Delete my account\" below to remove that too. This can't be undone."
+              : "All unconscious beliefs, interpretations, conversation history, and your goal stored on this device will be gone. This can't be undone.")
+            : undefined}
+        >
+          <SettingsRow
+            label={armed ? "Are you sure? Tap again to delete everything" : "Delete all my data"} destructive center
+            onClick={() => (armed ? onResetData?.() : setArmed(true))}
+            style={armed ? { backgroundColor: mdWarnSoft } : undefined}
+          />
+        </SettingsGroup>
 
         {onDeleteAccount && (
-          <div style={{ marginTop: 16 }}>
-            <div
-              role="button" tabIndex={0} aria-disabled={deletingAccount}
-              onClick={confirmDeleteAccount} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); confirmDeleteAccount(); } }}
-              style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${accountArmed ? mdWarn : ivDivider}`, backgroundColor: accountArmed ? mdWarnSoft : "transparent", cursor: deletingAccount ? "default" : "pointer", opacity: deletingAccount ? 0.6 : 1 }}
-            >
-              <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: mdWarn }}>
-                {deletingAccount ? "Deleting your account…" : accountArmed ? "Are you sure? Tap again to delete your account" : "Delete my account"}
+          <SettingsGroup
+            footer={
+              <span style={accountError ? { color: mdWarn } : undefined}>
+                {accountError || (accountArmed
+                  ? "Permanently deletes your login, name, email, and everything synced to your account, on every device. If you have a subscription, cancel it separately in your App Store or Google Play settings. This can't be undone."
+                  : "Removes your account and all synced data. Download your data first if you want to keep a copy.")}
               </span>
-            </div>
-            <div style={{ ...sans, fontSize: 12, color: accountError ? mdWarn : ivBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              {accountError || (accountArmed
-                ? "Permanently deletes your login, name, email, and everything synced to your account, on every device. If you have a subscription, cancel it separately in your App Store or Google Play settings. This can't be undone."
-                : "Removes your account and all synced data. Download your data first if you want to keep a copy.")}
-            </div>
-          </div>
+            }
+          >
+            <SettingsRow
+              label={deletingAccount ? "Deleting your account…" : accountArmed ? "Are you sure? Tap again to delete your account" : "Delete my account"}
+              destructive center disabled={deletingAccount} onClick={confirmDeleteAccount}
+              style={accountArmed ? { backgroundColor: mdWarnSoft } : undefined}
+            />
+          </SettingsGroup>
         )}
 
-        <div style={{ marginTop: 28, backgroundColor: ivSurfaceSolid, borderRadius: 20, overflow: "hidden", boxShadow: ivCardShadow }}>
-          {[
-            { label: "Privacy Policy", onClick: onOpenPrivacyPolicy },
-            { label: "Terms of Service", onClick: onOpenTermsOfService },
-            { label: "End User License Agreement", onClick: () => openLegalPage("eula") },
-            { label: "Refund & Subscription Policy", onClick: () => openLegalPage("refund") },
-          ].map((r, i, arr) => (
-            <motion.div
-              key={r.label} role="button" tabIndex={0} onClick={r.onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (r.onClick)?.(); } }} whileTap={{ opacity: 0.6 }}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${ivDivider}` : "none" }}
-            >
-              <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" /></Breathe>
-            </motion.div>
-          ))}
-        </div>
+        <SettingsGroup header="Legal" style={{ marginBottom: 0 }}>
+          <SettingsRow label="Privacy Policy" onClick={onOpenPrivacyPolicy} />
+          <SettingsRow label="Terms of Service" onClick={onOpenTermsOfService} />
+          <SettingsRow label="End User License Agreement" onClick={() => openLegalPage("eula")} />
+          <SettingsRow label="Refund & Subscription Policy" onClick={() => openLegalPage("refund")} />
+        </SettingsGroup>
       </div>
     </div>
   );
@@ -7478,7 +7455,29 @@ const HELP_ITEMS = [
   { q: "What if I'm in crisis?", a: "If what you write suggests you might be in crisis, we show you real crisis resources (like the 988 Suicide & Crisis Lifeline) right away, instead of the usual analysis — that check happens entirely on your device, before anything is sent anywhere. If you're in danger right now, please contact emergency services or 988 directly rather than waiting on this app." },
 ];
 
+function HelpDisclosure({ question, answer, open, onToggle, first }: { question: string; answer: string; open: boolean; onToggle: () => void; first: boolean }) {
+  return (
+    <div style={{ position: "relative" }}>
+      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      <motion.button
+        type="button" aria-expanded={open} onClick={onToggle}
+        whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }} transition={{ duration: 0.12 }}
+        style={{ width: "100%", border: 0, background: "rgba(42,38,33,0)", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", textAlign: "left", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+      >
+        <span style={{ ...serif, fontSize: 15.5, color: ivHeading, lineHeight: 1.4, flex: 1, wordBreak: "keep-all" }}>{question}</span>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0 }}>
+          <CaretDown size={14} color={ivFaint} weight="bold" />
+        </motion.span>
+      </motion.button>
+      <Collapse open={open}>
+        <div style={{ ...sans, fontSize: 13.5, color: ivBody, padding: "0 16px 16px", lineHeight: 1.65, wordBreak: "keep-all" }}>{answer}</div>
+      </Collapse>
+    </div>
+  );
+}
+
 function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onReplayTutorial?: () => void }) {
+  const [openQuestion, setOpenQuestion] = React.useState<number | null>(0);
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
@@ -7488,25 +7487,19 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
           There are patterns in your mind. You just can't see them from inside.
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {onReplayTutorial && (
-          <Breathe amount={1.02}><motion.div
-            role="button" tabIndex={0} onClick={onReplayTutorial} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onReplayTutorial)?.(); } }} whileTap={{ opacity: 0.6 }}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
-              padding: "14px 16px", borderRadius: 14, backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow, marginBottom: 18,
-            }}
-          >
-            <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>Replay the tutorial</span>
-            <CaretRight size={14} color={ivFaint} weight="bold" />
-          </motion.div></Breathe>
+          <SettingsGroup>
+            <SettingsRow icon={<ArrowCounterClockwise size={17} />} label="Replay the tutorial" onClick={onReplayTutorial} />
+          </SettingsGroup>
         )}
-        {HELP_ITEMS.map((h, i) => (
-          <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${ivDivider}` : "none" }}>
-            <div style={{ ...serif, fontSize: 16, color: ivHeading, lineHeight: 1.4, wordBreak: "keep-all" }}>{h.q}</div>
-            <div style={{ ...sans, fontSize: 13.5, color: ivBody, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{h.a}</div>
-          </div>
-        ))}
+        {/* Questions as disclosure rows: the list of seven reads at a
+            glance, and one answer opens at a time where it was asked. */}
+        <SettingsGroup header="Questions" style={{ marginBottom: 0 }}>
+          {HELP_ITEMS.map((h, i) => (
+            <HelpDisclosure key={h.q} question={h.q} answer={h.a} open={openQuestion === i} onToggle={() => setOpenQuestion((cur) => (cur === i ? null : i))} first={i === 0} />
+          ))}
+        </SettingsGroup>
       </div>
     </div>
   );
