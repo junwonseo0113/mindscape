@@ -99,12 +99,23 @@ export function recencyFromDate(dateStr?: string): number | null {
 // activation color, display label, and a one-line description of what the
 // category actually means — the legend and RegionBreakdown both read from
 // this map — nothing hardcodes a region's color or meaning anywhere else.
-export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string; description: string }> = {
-  identity: { color: "#8B7CFF", label: "Identity", description: "Who you think you are — beliefs about self-perception, self-worth, and values" },
-  security: { color: "#4CAF7A", label: "Security", description: "The standards you use to stay safe in the face of risk and change" },
-  career: { color: "#D9A441", label: "Career", description: "Beliefs you hold about work, achievement, and ability" },
-  relationships: { color: "#E88AAE", label: "Relationships", description: "Recurring thoughts and attitudes in how you relate to other people" },
-  curiosity: { color: "#69A7FF", label: "Curiosity", description: "Your attitude toward exploring and learning new things" },
-  creativity: { color: "#F4A261", label: "Creativity", description: "Beliefs about how you imagine and express yourself" },
+// Three steps per region, named by job rather than by hue (the way Open
+// Color / Radix scales are read):
+//   color — the glow step, for the orb itself and for lines. Light and
+//           saturated, which is exactly why it fails as text (2–3:1 on
+//           ivory).
+//   ink   — the dark step of the same hue, solved for ≥ 4.5:1 on both
+//           ivory surfaces (scratchpad solve.mjs: lightness lowered with
+//           saturation capped, so it reads as the hue, not as neon).
+//   tint  — the pale step (~92% lightness) a badge sits on; `ink` on
+//           `tint` also clears 4:1, so the pair works as a category badge
+//           without a saturated fill behind white text.
+export const REGION_CONFIG: Record<CognitiveRegion, { color: string; ink: string; tint: string; label: string; description: string }> = {
+  identity: { color: "#8B7CFF", ink: "#4939c6", tint: "#e0dcf9", label: "Identity", description: "Who you think you are — beliefs about self-perception, self-worth, and values" },
+  security: { color: "#4CAF7A", ink: "#357955", tint: "#e3f3ea", label: "Security", description: "The standards you use to stay safe in the face of risk and change" },
+  career: { color: "#D9A441", ink: "#886727", tint: "#f8efdd", label: "Career", description: "Beliefs you hold about work, achievement, and ability" },
+  relationships: { color: "#E88AAE", ink: "#c1376c", tint: "#f8dde7", label: "Relationships", description: "Recurring thoughts and attitudes in how you relate to other people" },
+  curiosity: { color: "#69A7FF", ink: "#366cbb", tint: "#dce8f9", label: "Curiosity", description: "Your attitude toward exploring and learning new things" },
+  creativity: { color: "#F4A261", ink: "#9c5d2d", tint: "#f9e9dc", label: "Creativity", description: "Beliefs about how you imagine and express yourself" },
 };
 
