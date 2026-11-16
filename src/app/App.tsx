@@ -3757,16 +3757,6 @@ function ScreenDiscoveryAnalysis({
 // reused here instead of SectionCard's white box so every section sits
 // directly in the environment. Local to this screen since nowhere else in
 // Premium needs a fifth near-identical copy of the same three lines.
-function EditorialSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>{title.toUpperCase()}</div>
-      {subtitle && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>{subtitle}</div>}
-      <div style={{ marginTop: 16 }}>{children}</div>
-    </div>
-  );
-}
-
 // Author portrait registry — author_id (see LiteraryPassage.authorId) →
 // imported illustration asset. Only Anaïs Nin has one right now; every
 // other author simply has no entry, so LiteraryReflectionPanel quietly
@@ -6281,15 +6271,6 @@ function MicGlyph({ color }: { color: string }) {
 function MoodGlyph({ color }: { color: string }) {
   return <Smiley size={12} color={color} />;
 }
-function SearchIconGlyph({ color }: { color: string }) {
-  return <MagnifyingGlass size={15} color={color} />;
-}
-function CalendarIconGlyph({ color }: { color: string }) {
-  return <CalendarBlank size={15} color={color} />;
-}
-function FilterIconGlyph({ color }: { color: string }) {
-  return <Funnel size={15} color={color} />;
-}
 
 // ── History helpers ───────────────────────────────────────────────────────────
 
@@ -6383,70 +6364,26 @@ function buildCatalogueStars(store: Store): CatalogueStar[] {
   return ordered.map((c, i) => ({ ...c, catalogueNumber: i + 1 }));
 }
 
-// The star catalogue's backdrop — the same shared ivory canvas every other
-// primary screen uses now (see the ivory redesign pass); was a near-black
-// midnight-navy "astronomical archive" photo-free backdrop, replaced
-// wholesale rather than retinted since dark and ivory don't blend. The
-// catalogue itself, not the backdrop, is still the visual focus.
-const historyArchiveBackground: React.CSSProperties = ivBackground;
-
-// Barely-there film grain — a flat gradient alone reads as a flat rectangle
-// of color; this is what keeps a CSS-only backdrop feeling like an
-// atmosphere instead. An inline SVG fractal-noise filter (no image asset)
-// at very low opacity with `overlay` blending, so it modulates whatever's
-// underneath rather than sitting visibly on top of it.
-function GrainOverlay({ opacity = 0.05 }: { opacity?: number }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "absolute", inset: 0, opacity, mixBlendMode: "overlay", pointerEvents: "none",
-        backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-      }}
-    />
-  );
-}
-
-// Barely-visible chart hairlines — an old-catalogue coordinate fragment,
-// never more than a few percent opaque. Pure CSS, no image asset.
-function ArchiveChartMarks() {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "absolute", inset: 0, opacity: 0.045, pointerEvents: "none",
-        backgroundImage: [
-          "repeating-linear-gradient(0deg, rgba(42,38,33,0.6) 0px, rgba(42,38,33,0.6) 1px, transparent 1px, transparent 84px)",
-          "repeating-linear-gradient(90deg, rgba(42,38,33,0.6) 0px, rgba(42,38,33,0.6) 1px, transparent 1px, transparent 84px)",
-        ].join(", "),
-      }}
-    />
-  );
-}
-
-// A small outlined circular control (Search/Calendar/Filter) — kept as a
-// deliberately understated line-icon treatment for the catalogue: no filled
-// circle background, just the glyph and a thin underline when the sheet it
-// opens is active, per the redesign brief's "subtle line icons/understated
-// controls."
+// The header's icon buttons (Search / Rewind / Filter): the same bare
+// 19px glyphs Mind and Analysis put in their headers, so the three tabs
+// share one header grammar. A sheet that's open, or a search/filter/date
+// that's still applied, shows as Material 3's tonal icon-button state — a
+// soft filled circle — instead of a caption under the icon.
 function HistoryControlButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <motion.button
-      type="button" aria-label={label} aria-pressed={active || undefined} onClick={onClick}
-      whileTap={{ opacity: 0.55 }}
-      whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }}
-      style={{
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", border: 0,
-        padding: "3px 3px 6px", background: "transparent", WebkitTapHighlightColor: "transparent",
-        borderBottom: `1.5px solid ${active ? "rgba(42,38,33,0.75)" : "transparent"}`,
-      }}
-    >
-      <span style={{ opacity: active ? 1 : 0.5, display: "flex" }}>{icon}</span>
-      <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: active ? "rgba(42,38,33,0.5)" : "rgba(42,38,33,0.42)" }}>
-        {label}
-      </span>
-    </motion.button>
+    <Breathe inline amount={1.08}>
+      <motion.button
+        type="button" aria-label={label} aria-pressed={active || undefined} onClick={onClick}
+        whileTap={{ scale: 0.9 }} transition={SETTLE}
+        whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: shape.full, border: 0,
+          backgroundColor: active ? "rgba(42,38,33,0.08)" : "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+        }}
+      >
+        <span style={{ display: "flex", opacity: active ? 1 : 0.72 }}>{icon}</span>
+      </motion.button>
+    </Breathe>
   );
 }
 
@@ -6541,7 +6478,7 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.5)", marginBottom: 3 }}>{label}</div>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 3 }}>{label}</div>
       <div style={{ ...serif, fontSize: 15, color: "#2A2621", lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
     </div>
   );
@@ -6598,7 +6535,7 @@ function Node({ color, size, intensity }: { color: string; size: number; intensi
 // detail sheet (which renders the same star larger) can never compute it
 // two different ways.
 function catalogueOrbSize(star: CatalogueStar): number {
-  return 16 + Math.round((star.belief.confidence / 100) * 11);
+  return 12 + Math.round((star.belief.confidence / 100) * 8);
 }
 function catalogueOrbIntensity(star: CatalogueStar): number {
   return Math.min(1, 0.35 + (star.belief.confidence / 100) * 0.35 + star.vitality * 0.35);
@@ -6615,7 +6552,7 @@ function catalogueOrbIntensity(star: CatalogueStar): number {
 // as-of-date mismatch) fades the whole row rather than removing it, so the
 // list's overall shape never jumps. `isLast` drops this row's own divider
 // so a family section doesn't end with a trailing hairline.
-function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; dimmed: boolean; isLast?: boolean; onOpen: () => void }) {
+function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; dimmed: boolean; first?: boolean; onOpen: () => void }) {
   const color = REGION_CONFIG[star.region].color;
   const metaParts = [
     star.firstDiscovered ? formatDateDots(star.firstDiscovered) : null,
@@ -6627,23 +6564,29 @@ function CatalogueCell({ star, dimmed, isLast, onOpen }: { star: CatalogueStar; 
       aria-label={`${REGION_CONFIG[star.region].label} pattern: ${star.belief.statement}`}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      whileTap={{ opacity: 0.7 }}
-      animate={{ opacity: dimmed ? 0.28 : 1 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }}
+      animate={{ opacity: dimmed ? 0.3 : 1 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
       style={{
-        display: "flex", alignItems: "center", gap: 14, padding: "13px 2px",
-        borderBottom: isLast ? "none" : "1px solid rgba(42,38,33,0.07)", cursor: "pointer",
+        position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px 11px 16px", minHeight: 56,
+        cursor: "pointer", backgroundColor: "rgba(42,38,33,0)", WebkitTapHighlightColor: "transparent",
       }}
     >
-      <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
+      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      {/* A fixed 28px column keeps every title flush regardless of how
+          big the star itself is. */}
+      <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...serif, fontSize: 15, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <div style={{ ...serif, fontSize: 15, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {star.belief.statement}
         </div>
-        <div style={{ ...sans, fontSize: 11, color: ivFaint, marginTop: 3 }}>
+        <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>
           {metaParts.join(" · ")}
         </div>
       </div>
+      <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
     </motion.div>
   );
 }
@@ -6675,6 +6618,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   const [asOfDate, setAsOfDate] = React.useState<string | null>(null);
   const [selectedStarId, setSelectedStarId] = React.useState<string | null>(null);
   const [storyOpen, setStoryOpen] = React.useState(false);
+  // Which of Premium's "how you've changed" modules is unfolded — one at a
+  // time, closed by default, so the catalogue above stays the screen.
+  const [openDeeper, setOpenDeeper] = React.useState<number | null>(null);
 
   const query = search.trim().toLowerCase();
   const matchesSearch = React.useCallback(
@@ -6760,10 +6706,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
     // top: -30 (same as Home/Mind above) so the archive backdrop runs
     // behind the status-bar safe area instead of showing a flat fallback
     // color there — see those screens for the pattern this reuses.
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...historyArchiveBackground, overflow: "hidden" }}>
-      <ArchiveChartMarks />
-      <GrainOverlay opacity={0.04} />
-
+    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
         {/* ── Header + controls — same shared position/size/spacing as
         Mind and Analysis's own headers (see PRIMARY_HEADER_TOP/SIDE and
@@ -6780,99 +6723,78 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
               Catalogued over time.
             </div>
           </div>
-          <div style={{ display: "flex", gap: 18, flexShrink: 0 }}>
-            <HistoryControlButton icon={<SearchIconGlyph color="#2A2621" />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
-            <HistoryControlButton icon={<CalendarIconGlyph color="#2A2621" />} label="Calendar" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
-            <HistoryControlButton icon={<FilterIconGlyph color="#2A2621" />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginRight: -8 }}>
+            <HistoryControlButton icon={<MagnifyingGlass size={19} color={ivHeading} />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
+            <HistoryControlButton icon={<CalendarBlank size={19} color={ivHeading} />} label="Rewind to a date" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
+            <HistoryControlButton icon={<Funnel size={19} color={ivHeading} weight={filterMode ? "fill" : "regular"} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
           </div>
         </div>
 
-        {/* ── The catalogue — same PRIMARY_HEADER_SIDE (30px) horizontal
-        grid as the header right above it, not its own separate 20px, so
-        the family labels/cells actually line up under "History" instead
-        of starting 10px further in. ── */}
-        <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: `0 ${PRIMARY_HEADER_SIDE}px 28px` }}>
-          {/* Even at zero stars, the six family sections still render (see
-          below) — deliberate empty structure the collection grows into,
-          not a blank screen — this hint just explains why. */}
+        {/* ── The catalogue: one grouped card per family that actually has
+        a star in it. Empty families don't render — "Nothing here yet"
+        three times over was most of what made this screen feel busy — and
+        come back the moment a star lands in them, or when the filter
+        sheet asks for that family by name. ── */}
+        <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
           {catalogue.length === 0 && (
-            <div style={{ marginTop: 24, ...sans, fontSize: 13, color: "rgba(42,38,33,0.5)", lineHeight: 1.6 }}>
-              Nothing catalogued yet. Speak your mind, and your first star will appear below.
+            <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>
+              Nothing catalogued yet. Speak your mind, and your first star will appear here.
             </div>
           )}
           {asOfDate && (
-            <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: "rgba(42,38,33,0.75)" }}>
+            <div style={{ margin: "12px 0 4px", padding: "0 6px", display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 12, color: ivBody }}>
               <span>As catalogued by {asOfDate}</span>
-              <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span></Breathe>
+              <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700, color: ivHeading }}>Reset</motion.span></Breathe>
             </div>
           )}
-          {COGNITIVE_REGIONS.filter((region) => filterMode?.type !== "region" || filterMode.region === region).map((region) => {
+          {COGNITIVE_REGIONS.filter((region) => (filterMode?.type === "region" ? filterMode.region === region : (families.get(region)?.length ?? 0) > 0)).map((region) => {
             const stars = families.get(region) ?? [];
-            const regionColor = REGION_CONFIG[region].color;
             return (
-              <div key={region} style={{ marginTop: 20 }}>
-                {/* A faint coordinate/leader line extends from the label —
-                the classification reads as one continuous catalogue axis,
-                not a boxed section header. */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: regionColor, opacity: 0.75, flexShrink: 0 }} />
-                  <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(42,38,33,0.65)", flexShrink: 0 }}>
+              <SettingsGroup
+                key={region}
+                header={
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
                     {REGION_CONFIG[region].label}
+                    <span style={{ ...mono, fontSize: 12, color: ivFaint }}>{stars.length}</span>
                   </span>
-                  {stars.length > 0 && <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.3)", flexShrink: 0 }}>{stars.length}</span>}
-                  <span aria-hidden style={{ flex: 1, height: 1, backgroundColor: regionColor, opacity: 0.14, marginLeft: 2 }} />
-                </div>
+                }
+                style={{ marginTop: 18, marginBottom: 0 }}
+              >
                 {stars.length > 0 ? (
-                  <div>
-                    {stars.map((star, i) => (
-                      <CatalogueCell
-                        key={star.belief.id} star={star} dimmed={isDimmed(star)} isLast={i === stars.length - 1}
-                        onOpen={() => { setSelectedStarId(star.belief.id); setStoryOpen(false); }}
-                      />
-                    ))}
-                  </div>
+                  stars.map((star, i) => (
+                    <CatalogueCell
+                      key={star.belief.id} star={star} dimmed={isDimmed(star)} first={i === 0}
+                      onOpen={() => { setSelectedStarId(star.belief.id); setStoryOpen(false); }}
+                    />
+                  ))
                 ) : (
-                  <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.32)", padding: "4px 2px 6px" }}>Nothing here yet.</div>
+                  <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing here yet.</div>
                 )}
-              </div>
+              </SettingsGroup>
             );
           })}
 
-          {/* ── Go deeper — Premium's longitudinal-intelligence layer: how
-          things have changed over time, not just what's been catalogued.
-          Same five components (EmotionDistribution/ValueDirectionShifts/
-          CognitivePatternFrequency/RecordingHeatmap/SelfTalkTrend) and the
-          same EditorialSection wrapper moved here from the old standalone
-          Premium tab, unchanged — only reachable once Premium Mode is on
-          (store.isPro, toggled from Profile). Still inside the one
-          scrollable catalogue region, so it extends this screen rather
-          than replacing or reflowing anything above it. ── */}
+          {/* ── How you've changed — Premium's longitudinal layer, the same
+          five modules (EmotionDistribution / ValueDirectionShifts /
+          CognitivePatternFrequency / RecordingHeatmap / SelfTalkTrend),
+          now folded into disclosure rows so they add five lines to the
+          screen rather than five screens. Only when Premium Mode is on
+          (store.isPro, toggled from Profile). ── */}
           {store.isPro && (
-            <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 36 }}>
-              <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(42,38,33,0.65)" }}>
-                Go deeper — how you've changed
-              </div>
-
-              <EditorialSection title="Emotion distribution" subtitle="The average intensity of recorded emotions.">
-                <EmotionDistribution history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Value shifts" subtitle="How often what you've written moves toward what you care about, versus away from it.">
-                <ValueDirectionShifts history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Thinking patterns (CBT)" subtitle="Which cognitive patterns show up most in what you've recorded.">
-                <CognitivePatternFrequency history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Recording consistency" subtitle="Which days you actually showed up, over time.">
-                <RecordingHeatmap history={store.history} />
-              </EditorialSection>
-
-              <EditorialSection title="Self-talk over time" subtitle="How your own language has shifted, week to week.">
-                <SelfTalkTrend history={store.history} />
-              </EditorialSection>
-            </div>
+            <SettingsGroup header="How you've changed" style={{ marginTop: 28, marginBottom: 0 }}>
+              {[
+                { title: "Emotion distribution", subtitle: "The average intensity of recorded emotions.", body: <EmotionDistribution history={store.history} /> },
+                { title: "Value shifts", subtitle: "How often what you've written moves toward what you care about, versus away from it.", body: <ValueDirectionShifts history={store.history} /> },
+                { title: "Thinking patterns", subtitle: "Which cognitive patterns show up most in what you've recorded.", body: <CognitivePatternFrequency history={store.history} /> },
+                { title: "Recording consistency", subtitle: "Which days you actually showed up, over time.", body: <RecordingHeatmap history={store.history} /> },
+                { title: "Self-talk over time", subtitle: "How your own language has shifted, week to week.", body: <SelfTalkTrend history={store.history} /> },
+              ].map((d, i) => (
+                <DisclosureRow key={d.title} title={d.title} subtitle={d.subtitle} open={openDeeper === i} onToggle={() => setOpenDeeper((cur) => (cur === i ? null : i))} first={i === 0}>
+                  {d.body}
+                </DisclosureRow>
+              ))}
+            </SettingsGroup>
           )}
         </div>
 
@@ -6943,7 +6865,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
                     {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
                       <div style={{ marginBottom: 8 }}>
-                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.5)", marginBottom: 8 }}>Strength over time</div>
+                        <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 8 }}>Strength over time</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                           {selectedStar.belief.confidenceHistory!.map((p, i) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)" }}>
@@ -6953,7 +6875,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                         </div>
                       </div>
                     )}
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.5)" }}>Appearances</div>
+                    <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody }}>Appearances</div>
                     {selectedEntries.map((entry) => (
                       <motion.div
                         key={entry.id} role="button" tabIndex={0} onClick={() => openEntryFromStory(entry.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntryFromStory(entry.id); } }}
@@ -7019,7 +6941,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         )}
         {sheet === "filter" && (
           <HistorySheet title="Filter the catalogue" onClose={() => setSheet(null)}>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.5)", marginBottom: 10 }}>By category</div>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 10 }}>By category</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
               <CatalogueFilterChip label="All" active={!filterMode} onClick={() => { setFilterMode(null); setSheet(null); }} />
               {COGNITIVE_REGIONS.map((region) => (
@@ -7031,7 +6953,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 />
               ))}
             </div>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(42,38,33,0.5)", marginBottom: 4 }}>By pattern</div>
+            <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 4 }}>By pattern</div>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <CatalogueFilterRow label="Active" note="Recently reinforced" active={filterMode?.type === "active"} onClick={() => { setFilterMode({ type: "active" }); setSheet(null); }} />
               <CatalogueFilterRow label="Dormant" note="Quieter, not recently reinforced" active={filterMode?.type === "dormant"} onClick={() => { setFilterMode({ type: "dormant" }); setSheet(null); }} />
@@ -7319,7 +7241,7 @@ function ScreenProfile({
 //     column reads as one strip;
 //   · a pressed row tints its background instead of fading its text;
 //   · a destructive action sits alone, centered, in its own group.
-function SettingsGroup({ header, footer, children, style }: { header?: string; footer?: React.ReactNode; children: React.ReactNode; style?: React.CSSProperties }) {
+function SettingsGroup({ header, footer, children, style }: { header?: React.ReactNode; footer?: React.ReactNode; children: React.ReactNode; style?: React.CSSProperties }) {
   const items = React.Children.toArray(children);
   return (
     <section style={{ marginBottom: 22, ...style }}>
@@ -7588,7 +7510,13 @@ const HELP_ITEMS = [
   { q: "What if I'm in crisis?", a: "If what you write suggests you might be in crisis, we show you real crisis resources (like the 988 Suicide & Crisis Lifeline) right away, instead of the usual analysis — that check happens entirely on your device, before anything is sent anywhere. If you're in danger right now, please contact emergency services or 988 directly rather than waiting on this app." },
 ];
 
-function HelpDisclosure({ question, answer, open, onToggle, first }: { question: string; answer: string; open: boolean; onToggle: () => void; first: boolean }) {
+// ── DisclosureRow ────────────────────────────────────────────────────────────
+// A row inside a SettingsGroup that unfolds its body in place: the title
+// (and an optional one-line subtitle) stays put, the caret turns, and the
+// body measures itself open. Used for Help's questions and for History's
+// "how you've changed" modules — anything that should cost one line of a
+// list until someone asks for it.
+function DisclosureRow({ title, subtitle, open, onToggle, first, titleStyle, children }: { title: string; subtitle?: string; open: boolean; onToggle: () => void; first: boolean; titleStyle?: React.CSSProperties; children: React.ReactNode }) {
   return (
     <div style={{ position: "relative" }}>
       {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -7597,15 +7525,26 @@ function HelpDisclosure({ question, answer, open, onToggle, first }: { question:
         whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }} transition={{ duration: 0.12 }}
         style={{ width: "100%", border: 0, background: "rgba(42,38,33,0)", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", textAlign: "left", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
       >
-        <span style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.4, flex: 1, wordBreak: "keep-all" }}>{question}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading, lineHeight: 1.4, display: "block", wordBreak: "keep-all", ...titleStyle }}>{title}</span>
+          {subtitle && <span style={{ ...sans, fontSize: 12, color: ivBody, lineHeight: 1.45, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
+        </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0 }}>
           <CaretDown size={14} color={ivFaint} weight="bold" />
         </motion.span>
       </motion.button>
       <Collapse open={open}>
-        <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "0 16px 16px", lineHeight: 1.65, wordBreak: "keep-all" }}>{answer}</div>
+        <div style={{ padding: "2px 16px 18px" }}>{children}</div>
       </Collapse>
     </div>
+  );
+}
+
+function HelpDisclosure({ question, answer, open, onToggle, first }: { question: string; answer: string; open: boolean; onToggle: () => void; first: boolean }) {
+  return (
+    <DisclosureRow title={question} open={open} onToggle={onToggle} first={first} titleStyle={{ ...serif, fontWeight: 400 }}>
+      <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.65, wordBreak: "keep-all" }}>{answer}</div>
+    </DisclosureRow>
   );
 }
 
