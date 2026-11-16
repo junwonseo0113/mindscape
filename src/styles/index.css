@@ -44,6 +44,24 @@ body {
   touch-action: manipulation;
 }
 
+/* ── Breathe (see motionPrimitives.tsx) ───────────────────────────────────────
+   One slow swell per cycle, like animate.css's `pulse` but at a resting
+   breath's tempo rather than a notification's. --breathe-max and
+   --breathe-delay are set per instance by the Breathe wrapper. */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(var(--breathe-max, 1.04)); }
+}
+.breathe {
+  animation: breathe 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: var(--breathe-delay, 0s);
+  transform-origin: center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .breathe { animation: none; }
+}
+
 /* ── Modernist screens' real :focus-visible/:hover states ─────────────────────
    Inline `style` props (used everywhere else in this app) can't express
    pseudo-classes at all, so this is the one place actual CSS is load-

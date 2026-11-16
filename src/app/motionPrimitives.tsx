@@ -13,23 +13,24 @@ export const SETTLE: Transition = { type: "spring", stiffness: 260, damping: 32,
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 // ── Breathe ──────────────────────────────────────────────────────────────────
-// The one piece of idle motion in the app: the screen's primary action
-// swells and settles like a resting breath — 4.6s a cycle, about 13 a
-// minute, the tempo of someone sitting quietly — by 1.5%, with its shadow
-// loosening on the inhale. It wraps the button rather than being the
-// button so the press-and-release spring on the inside never fights it.
-// Nothing else breathes; if everything did, nothing would.
-export function Breathe({ children, active = true, shadow, style }: { children: React.ReactNode; active?: boolean; shadow?: [string, string]; style?: React.CSSProperties }) {
-  const reduce = useReducedMotion();
-  const on = active && !reduce;
+// Every tappable thing breathes: swells and settles on a 4.2s cycle (about
+// 14 a minute — a person sitting quietly). It wraps the control rather
+// than being the control, so the press-and-release spring on the inside
+// never fights it. The motion itself is a CSS keyframe (styles/index.css,
+// `.breathe`, after animate.css's `pulse`), so a screen of forty buttons
+// costs the compositor, not the JS thread, and the OS's reduced-motion
+// setting turns it off in one media query.
+//
+// Each instance starts at a random point in the cycle. In sync they would
+// read as one pulsing machine; out of phase they read as many quiet
+// living things, which is the point.
+export function Breathe({ children, active = true, amount = 1.04, inline = false, style }: { children: React.ReactNode; active?: boolean; amount?: number; inline?: boolean; style?: React.CSSProperties }) {
+  const delay = React.useMemo(() => `-${(Math.random() * 4.2).toFixed(2)}s`, []);
+  const vars = { "--breathe-max": String(amount), "--breathe-delay": delay } as React.CSSProperties;
   return (
-    <motion.div
-      animate={on ? { scale: [1, 1.015, 1], ...(shadow ? { boxShadow: [shadow[0], shadow[1], shadow[0]] } : {}) } : { scale: 1, ...(shadow ? { boxShadow: shadow[0] } : {}) }}
-      transition={on ? { duration: 4.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
-      style={{ width: "100%", borderRadius: "inherit", ...style }}
-    >
+    <div className={active ? "breathe" : undefined} style={{ ...(inline ? { display: "inline-block" } : { width: "100%" }), borderRadius: "inherit", ...vars, ...style }}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 

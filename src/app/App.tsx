@@ -459,13 +459,15 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
                 style={{ position: "absolute", inset: "0 6px", borderRadius: 18, backgroundColor: pillColor, zIndex: 0 }}
               />
             )}
-            <div style={{ position: "relative", zIndex: 1, minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <Breathe amount={1.06} style={{ position: "relative", zIndex: 1 }}>
+            <div style={{ minWidth: 44, minHeight: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
               <NavIcon id={item.id} color={color} />
               <span style={{ ...sans, fontSize: 10.5, fontWeight: isActive ? (modernist ? 800 : 600) : (modernist ? 500 : 400), color }}>{item.label}</span>
               {/* The dot slides between tabs (layoutId) instead of blinking
-              off one and on the next — the only motion this bar makes. */}
+              off one and on the next. */}
               {vintage && isActive && <motion.span layoutId="navDot-vintage" transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }} style={{ width: 4, height: 4, borderRadius: "50%", backgroundColor: ivHeading }} />}
             </div>
+            </Breathe>
           </motion.div>
         );
       })}
@@ -493,12 +495,10 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
 // matching how every other ivory screen marks its one "active" action
 // (nav, toggles) with charcoal rather than a saturated accent color.
 function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean }) {
-  // The screen's one primary action breathes while it waits (see Breathe);
-  // a disabled button holds still, since there's nothing to invite.
-  const shadowRest = ivory ? "0 6px 18px rgba(42,38,33,0.10)" : modernist ? "0 6px 18px rgba(91,77,130,0.14)" : "0 6px 18px rgba(123,92,240,0.18)";
-  const shadowFull = ivory ? "0 10px 26px rgba(42,38,33,0.16)" : modernist ? "0 10px 26px rgba(91,77,130,0.22)" : "0 10px 26px rgba(123,92,240,0.30)";
+  // Breathes while it waits (see Breathe); a disabled button holds still,
+  // since there's nothing to invite.
   return (
-    <Breathe active={!disabled} shadow={[shadowRest, shadowFull]} style={{ borderRadius: 14 }}>
+    <Breathe active={!disabled} amount={1.03}>
     <motion.button
       type="button"
       disabled={disabled}
@@ -524,6 +524,7 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = fa
 
 function GhostBtn({ children, onClick, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean }) {
   return (
+    <Breathe amount={1.03}>
     <motion.button
       type="button"
       onClick={onClick}
@@ -540,11 +541,13 @@ function GhostBtn({ children, onClick, modernist = false, ivory = false }: { chi
     >
       {children}
     </motion.button>
+    </Breathe>
   );
 }
 
 function BackButton({ onClick, color = mdBody }: { onClick?: () => void; color?: string }) {
   return (
+    <Breathe inline amount={1.06}>
     <motion.button
       type="button" aria-label="Go back" onClick={onClick}
       whileTap={{ opacity: 0.58 }}
@@ -553,6 +556,7 @@ function BackButton({ onClick, color = mdBody }: { onClick?: () => void; color?:
     >
       ← Back
     </motion.button>
+    </Breathe>
   );
 }
 
@@ -915,7 +919,7 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
         <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Don't have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span>
+          <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span></Breathe>
         </div>
       </div>
     </div>
@@ -991,7 +995,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
         <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Already have an account? </span>
-          <motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span>
+          <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span></Breathe>
         </div>
       </div>
     </div>
@@ -1602,9 +1606,10 @@ function TutorialOverlay({
 // of the ivory redesign uses instead of a bright SaaS-dashboard card.
 function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser: string; badge?: string; onClick?: () => void }) {
   return (
+    <Breathe amount={1.025} style={{ flex: 1, width: "auto" }}>
     <motion.div
       role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onClick)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.9 }}
-      style={{ flex: 1, padding: "16px 14px", borderRadius: 14, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, cursor: "pointer" }}
+      style={{ height: "100%", padding: "16px 14px", borderRadius: 14, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, cursor: "pointer" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivHeading }}>{label}</span>
@@ -1612,6 +1617,7 @@ function ArtifactTile({ label, teaser, badge, onClick }: { label: string; teaser
       </div>
       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>{teaser}</div>
     </motion.div>
+    </Breathe>
   );
 }
 
@@ -1805,8 +1811,9 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
         {QUICK_MOODS.map((m) => {
           const chosen = justLogged === m.label;
           return (
+            <Breathe key={m.label} inline amount={1.05} style={{ flexShrink: 0 }}>
             <motion.button
-              key={m.label} type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)}
+              type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)}
               whileTap={{ scale: 0.95, opacity: 0.82 }}
               // The chosen pill fills and gives one small pulse; the others
               // settle back without any motion of their own.
@@ -1816,6 +1823,7 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
             >
               <span style={{ ...sans, fontSize: 11.5, fontWeight: 700, color: chosen ? "#fff" : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
             </motion.button>
+            </Breathe>
           );
         })}
       </div>
@@ -1853,6 +1861,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           {/* Search stands in for "look back through what I've said" —
           the closest real destination for that is History, so it
           routes there rather than being decorative. */}
+          <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
           <motion.div
             role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
@@ -1863,6 +1872,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               <path d="M17 17l-4.3-4.3" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </motion.div>
+          </Breathe>
+          <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
           <motion.div
             role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
@@ -1873,6 +1884,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               <path d="M3.5 17c0-3.3 2.9-5.6 6.5-5.6s6.5 2.3 6.5 5.6" stroke={ivHeading} strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </motion.div>
+          </Breathe>
         </div>
       </div>
 
@@ -1987,14 +1999,14 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       )}
 
       {(!MONETIZATION_ENABLED || store.isPro) && (
-        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}>
+        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}><Breathe amount={1.04}>
           <div style={{ ...serif, fontSize: 16, color: ivHeading }}>Your Mind</div>
           <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 2 }}>
             {/* Counts up only when the number has changed since the last
             time Home showed it (i.e. after a session added beliefs). */}
             <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
           </div>
-        </motion.div>
+        </Breathe></motion.div>
       )}
 
       <AnimatePresence>
@@ -2004,10 +2016,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       </AnimatePresence>
 
       <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "72%" }}>
-        {/* Home's one action breathes (see Breathe); the card keeps its
-        hairline ring on the card itself and lends only its lift to the
-        breath so the ring never blurs. */}
-        <Breathe shadow={["0 8px 22px rgba(120,105,80,0.10)", "0 14px 32px rgba(120,105,80,0.18)"]} style={{ borderRadius: 22 }}>
+        <Breathe amount={1.025}>
         <motion.div
           role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
           style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: 22, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
@@ -2482,71 +2491,71 @@ function ReactionButtons({ reaction, onReact, disabled, dark, modernist, night }
   if (night) {
     return (
       <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
-        <motion.div
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${ivHeading}`, backgroundColor: ivHeading, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: "#fff" }}>I agree</span>
-        </motion.div>
-        <motion.div
+        </motion.div></Breathe>
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${ivBorder}`, backgroundColor: "transparent", cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 700, color: ivBody }}>Doesn't feel right</span>
-        </motion.div>
+        </motion.div></Breathe>
       </div>
     );
   }
   if (modernist) {
     return (
       <div style={{ display: "flex", gap: 8, opacity: disabled ? 0.55 : 1 }}>
-        <motion.div
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, backgroundColor: mdHeading, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: "#fff" }}>I agree</span>
-        </motion.div>
-        <motion.div
+        </motion.div></Breathe>
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 14, border: `1px solid ${mdDivider}`, backgroundColor: "transparent", cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 13.5, fontWeight: 800, color: mdHeading }}>Doesn't feel right</span>
-        </motion.div>
+        </motion.div></Breathe>
       </div>
     );
   }
   if (dark) {
     return (
       <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
-        <motion.div
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, backgroundColor: dkAccent, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: "#fff" }}>I agree</span>
-        </motion.div>
-        <motion.div
+        </motion.div></Breathe>
+        <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
           role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
           style={{ flex: 1, textAlign: "center", padding: 13, borderRadius: 12, border: `1px solid ${dkCardBorder}`, backgroundColor: dkTrack, cursor: disabled ? "default" : "pointer" }}
         >
           <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: dkBodyLight }}>Doesn't feel right</span>
-        </motion.div>
+        </motion.div></Breathe>
       </div>
     );
   }
   return (
     <div style={{ display: "flex", gap: 10, opacity: disabled ? 0.55 : 1 }}>
-      <motion.div
+      <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
         role="button" tabIndex={0} onClick={() => !disabled && onReact?.("agree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("agree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "agree" ? ink : hair}`, backgroundColor: reaction === "agree" ? ink : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "agree" ? "#fff" : ink }}>I agree</span>
-      </motion.div>
-      <motion.div
+      </motion.div></Breathe>
+      <Breathe amount={1.03} style={{ flex: 1, width: "auto" }}><motion.div
         role="button" tabIndex={0} onClick={() => !disabled && onReact?.("disagree")} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => !disabled && onReact?.("disagree"))?.(); } }} whileTap={disabled ? undefined : { scale: 0.97 }}
         style={{ flex: 1, textAlign: "center", padding: "12px 0", borderRadius: 12, border: `1px solid ${reaction === "disagree" ? tension : hair}`, backgroundColor: reaction === "disagree" ? tension : "transparent", cursor: disabled ? "default" : "pointer" }}
       >
         <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: reaction === "disagree" ? "#fff" : ink }}>Doesn't feel right</span>
-      </motion.div>
+      </motion.div></Breathe>
     </div>
   );
 }
@@ -3092,7 +3101,7 @@ function DiscoveryCard({
           </span>
         </div>
 
-        <motion.div
+        <Breathe inline amount={1.06}><motion.div
           role="button"
           tabIndex={0}
           aria-label="Examine today's discovery"
@@ -3102,7 +3111,7 @@ function DiscoveryCard({
           style={{ display: "inline-flex", alignItems: "center", gap: 5, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
         >
           Examine <span aria-hidden>→</span>
-        </motion.div>
+        </motion.div></Breathe>
       </div>
     </div>
   );
@@ -3134,6 +3143,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
   ].filter((p): p is string => !!p);
 
   return (
+    <Breathe amount={1.025} style={{ flexShrink: 0, width: "auto" }}>
     <motion.div
       role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
       whileTap={{ scale: 0.97, opacity: 0.88 }}
@@ -3174,6 +3184,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
         {metaParts.join(" · ")}
       </div>
     </motion.div>
+    </Breathe>
   );
 }
 
@@ -4143,13 +4154,13 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 0" }}>
-        <motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
+        <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onBack} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onBack)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBody, cursor: "pointer" }}>
           ✕ Stop
-        </motion.span>
+        </motion.span></Breathe>
         {!recording && (
-          <motion.span role="button" tabIndex={0} onClick={() => { setTextMode((v) => !v); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
+          <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={() => { setTextMode((v) => !v); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode((v) => !v); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkAccentLight, cursor: "pointer" }}>
             {textMode ? "Use voice instead" : "Write instead"}
-          </motion.span>
+          </motion.span></Breathe>
         )}
       </div>
 
@@ -4614,14 +4625,14 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
             </RevealItem>
             {showUpsell && (
               <RevealItem>
-                <motion.div
+                <Breathe amount={1.02}><motion.div
                   role="button" tabIndex={0} onClick={onUpgrade} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onUpgrade)?.(); } }}
                   whileTap={{ scale: 0.98, opacity: 0.9 }} transition={SETTLE}
                   style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
                 >
                   <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
                   <div style={{ ...sans, fontSize: 12.5, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>Upgrade to Pro to turn your record into unconscious beliefs, connections, and hypotheses.</div>
-                </motion.div>
+                </motion.div></Breathe>
               </RevealItem>
             )}
           </>
@@ -5364,13 +5375,13 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
     // scrollbar.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
       <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <span
+        <Breathe inline amount={1.06}><span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
         >
           ← Back
-        </span>
+        </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Unconscious Patterns</div>
         <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
           {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
@@ -5491,13 +5502,13 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
     // shared background every ivory screen uses.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
       <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <span
+        <Breathe inline amount={1.06}><span
           role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
         >
           ← Back
-        </span>
+        </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Distance from Your Goal</div>
         <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
           The gap between the person you said you wanted to be and your recent actual patterns.
@@ -5675,13 +5686,13 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
   return (
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
       <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(40px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <span
+        <Breathe inline amount={1.06}><span
           role="button" tabIndex={0} aria-label="Back to Profile" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
           style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: ivBody, cursor: "pointer" }}
         >
           ← Back
-        </span>
+        </span></Breathe>
         <div style={{ ...serif, fontSize: 30, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Your Journey</div>
         <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
           Where you started, what's changed since, and how far the goal still is.
@@ -6389,7 +6400,7 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
         }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
           <span style={{ ...serif, fontSize: 19, color: "#2A2621" }}>{title}</span>
-          <motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span>
+          <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span></Breathe>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
       </SheetPanel>
@@ -6695,7 +6706,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           {asOfDate && (
             <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", ...sans, fontSize: 11, color: "rgba(42,38,33,0.75)" }}>
               <span>As catalogued by {asOfDate}</span>
-              <motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span>
+              <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} onClick={() => setAsOfDate(null)} whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer", fontWeight: 700 }}>Reset</motion.span></Breathe>
             </div>
           )}
           {COGNITIVE_REGIONS.filter((region) => filterMode?.type !== "region" || filterMode.region === region).map((region) => {
@@ -6797,7 +6808,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                         {REGION_CONFIG[selectedStar.region].label}
                       </div>
                     </div>
-                    <motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span>
+                    <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} aria-label="Close" onClick={closeStarSheet} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12.5, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span></Breathe>
                   </div>
                   <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 18px", flexShrink: 0 }}>
                     <Node color={REGION_CONFIG[selectedStar.region].color} size={34} intensity={catalogueOrbIntensity(selectedStar)} />
@@ -7130,7 +7141,7 @@ function ScreenProfile({
         </div>
 
         {MONETIZATION_ENABLED && !store.isPro && (
-          <motion.div
+          <Breathe amount={1.02}><motion.div
             role="button" tabIndex={0} onClick={onOpenPaywall} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenPaywall)?.(); } }} whileTap={{ opacity: 0.6 }}
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 12,
@@ -7143,7 +7154,7 @@ function ScreenProfile({
               <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>Unlock your Brain Map, hypotheses, and more</div>
             </div>
             <span style={{ color: ivHeading, fontSize: 18 }}>›</span>
-          </motion.div>
+          </motion.div></Breathe>
         )}
 
         <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 10 }}>
@@ -7238,7 +7249,7 @@ function ScreenProfile({
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < rows.length - 1 ? `1px solid ${ivDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <span style={{ color: ivFaint, fontSize: 15 }}>›</span>
+              <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
             </motion.div>
           ))}
         </div>
@@ -7423,7 +7434,7 @@ function ScreenDataPrivacy({
                   : "Off — entries stay on this device and aren't analyzed. Tap to review or turn on."}
               </div>
             </div>
-            <span style={{ color: ivFaint, fontSize: 15 }}>›</span>
+            <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
           </div>
         )}
 
@@ -7491,7 +7502,7 @@ function ScreenDataPrivacy({
               style={{ display: "flex", alignItems: "center", gap: 12, padding: "15px 18px", cursor: "pointer", borderBottom: i < arr.length - 1 ? `1px solid ${ivDivider}` : "none" }}
             >
               <span style={{ ...sans, fontSize: 14, fontWeight: 700, color: ivHeading, flex: 1 }}>{r.label}</span>
-              <span style={{ color: ivFaint, fontSize: 15 }}>›</span>
+              <Breathe inline amount={1.3}><span style={{ color: ivFaint, fontSize: 15 }}>›</span></Breathe>
             </motion.div>
           ))}
         </div>
@@ -7523,7 +7534,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         {onReplayTutorial && (
-          <motion.div
+          <Breathe amount={1.02}><motion.div
             role="button" tabIndex={0} onClick={onReplayTutorial} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onReplayTutorial)?.(); } }} whileTap={{ opacity: 0.6 }}
             style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
@@ -7532,7 +7543,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
           >
             <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: ivHeading }}>Replay the tutorial</span>
             <span style={{ ...sans, fontSize: 14, color: ivFaint }}>›</span>
-          </motion.div>
+          </motion.div></Breathe>
         )}
         {HELP_ITEMS.map((h, i) => (
           <div key={h.q} style={{ padding: "16px 0", borderBottom: i < HELP_ITEMS.length - 1 ? `1px solid ${ivDivider}` : "none" }}>
