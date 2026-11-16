@@ -7141,75 +7141,98 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
   const entry = items[index] ?? items[0];
   if (!entry) return null;
   const analysis = entry.analysis;
+  // The page's dateline, the way a diary heads a page: weekday, then the
+  // full date. relativeDayLabel gives Today/Yesterday when it applies.
+  const d = parseDotDate(entry.date);
+  const rel = relativeDayLabel(entry.date);
+  const dateline = d
+    ? `${rel === "Today" || rel === "Yesterday" ? rel : d.toLocaleDateString("en-US", { weekday: "long" })} · ${d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+    : entry.date;
+  // The belief this entry fed, resolved to its region for the badge.
+  const fedBelief = analysis?.hypothesis.candidateBelief ? store.beliefs.find((b) => b.statement === analysis.hypothesis.candidateBelief) : undefined;
+  const PAGE_LINE = 28; // px — the page body's line height and ruling pitch (a size up from the list's 24)
+  const field: React.CSSProperties = { padding: "12px 16px", position: "relative" };
+  const fieldLabel: React.CSSProperties = { ...sans, fontSize: 12, color: ivBody, marginBottom: 3 };
+  const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <BackButton onClick={onBack} color={dkBody} />
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
+      <div style={{ padding: "16px 22px 10px", flexShrink: 0 }}>
+        <BackButton onClick={onBack} color={ivBody} />
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ ...mono, fontSize: 12, color: "#726A8A" }}>{entry.date}</span>
-          {entry.duration && <span style={{ ...mono, fontSize: 11, color: "#726A8A" }}>{entry.duration}</span>}
-        </div>
-        <div style={{ ...serif, fontSize: 20, color: dkHeading, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
-          {entry.text}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 32px" }}>
+        {/* The page itself: dateline, then the entry on ruled paper. */}
+        <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, boxShadow: ivCardShadow, padding: "16px 20px 18px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+            <span style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody }}>{dateline}</span>
+            {entry.duration && <span style={{ ...mono, fontSize: 11, color: ivFaint, flexShrink: 0 }}>{entry.duration}</span>}
+          </div>
+          <div
+            style={{
+              ...serif, fontSize: 17, lineHeight: `${PAGE_LINE}px`, color: ivHeading, wordBreak: "keep-all",
+              backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${PAGE_LINE - 1}px, rgba(42,38,33,0.1) ${PAGE_LINE - 1}px, rgba(42,38,33,0.1) ${PAGE_LINE}px)`,
+            }}
+          >
+            {entry.text}
+          </div>
         </div>
 
         {entry.sessionSummary && (
-          <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: dkCard, boxShadow: dkCardShadow }}>
-            <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Recap</div>
-            <div style={{ ...sans, fontSize: 13, color: dkBodyLight, marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>{entry.sessionSummary}</div>
-          </div>
+          <SettingsGroup header="Recap" style={{ marginTop: 22, marginBottom: 0 }}>
+            <div style={{ ...sans, fontSize: 13, color: ivHeading, padding: "13px 16px", lineHeight: 1.65, wordBreak: "keep-all" }}>{entry.sessionSummary}</div>
+          </SettingsGroup>
         )}
 
         {analysis && (
           <>
-            <div style={{ marginTop: 28, ...sans, fontSize: 11, fontWeight: 700, color: dkBody, letterSpacing: "0.06em", textTransform: "uppercase" }}>What Stood Out</div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-              {analysis.observation.situation && (
-                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
-                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>Situation</div>
-                  <div style={{ ...sans, fontSize: 13, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.situation}</div>
-                </div>
-              )}
-              {analysis.observation.automaticThought && (
-                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
-                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>Automatic thought</div>
-                  <div style={{ ...serif, fontStyle: "italic", fontSize: 15, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>"{analysis.observation.automaticThought}"</div>
-                </div>
-              )}
-              {analysis.observation.actionUrge && (
-                <div style={{ padding: 14, borderRadius: 12, backgroundColor: dkCard }}>
-                  <div style={{ ...sans, fontSize: 11, color: dkBody }}>What it made you want to do</div>
-                  <div style={{ ...sans, fontSize: 13, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.actionUrge}</div>
-                </div>
-              )}
-            </div>
-
-            {(analysis.observation.emotions.length > 0 || analysis.interpretation.possibleCognitivePatterns.length > 0) && (
-              <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
-                {analysis.observation.emotions.map((e, i) => (
-                  <span key={`e-${i}`} style={{ ...sans, fontSize: 12, color: dkAccentTagText, backgroundColor: dkAccentTag, padding: "4px 10px", borderRadius: 999 }}>
-                    {e.label} · {e.intensity}%
-                  </span>
-                ))}
-                {analysis.interpretation.possibleCognitivePatterns.map((p) => (
-                  <span key={p} style={{ ...sans, fontSize: 12, color: dkWarnTagText, backgroundColor: dkWarnTag, padding: "4px 10px", borderRadius: 999 }}>{p}</span>
-                ))}
-              </div>
-            )}
-
-            {analysis.interpretation.valueDirection.explanation && (
-              <div style={{ ...sans, fontSize: 13, color: dkBody, marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                {analysis.interpretation.valueDirection.explanation}
-              </div>
+            {(analysis.observation.situation || analysis.observation.automaticThought || analysis.observation.actionUrge) && (
+              <SettingsGroup
+                header="What stood out"
+                style={{ marginTop: 22, marginBottom: 0 }}
+                footer={analysis.interpretation.valueDirection.explanation || undefined}
+              >
+                {analysis.observation.situation && (
+                  <div style={field}>
+                    <div style={fieldLabel}>Situation</div>
+                    <div style={{ ...sans, fontSize: 15, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.situation}</div>
+                  </div>
+                )}
+                {analysis.observation.automaticThought && (
+                  <div style={field}>
+                    {analysis.observation.situation && divider}
+                    <div style={fieldLabel}>Automatic thought</div>
+                    <div style={{ ...serif, fontStyle: "italic", fontSize: 17, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>"{analysis.observation.automaticThought}"</div>
+                  </div>
+                )}
+                {analysis.observation.actionUrge && (
+                  <div style={field}>
+                    {(analysis.observation.situation || analysis.observation.automaticThought) && divider}
+                    <div style={fieldLabel}>What it made you want to do</div>
+                    <div style={{ ...sans, fontSize: 15, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.observation.actionUrge}</div>
+                  </div>
+                )}
+                {(analysis.observation.emotions.length > 0 || analysis.interpretation.possibleCognitivePatterns.length > 0) && (
+                  <div style={{ ...field, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {divider}
+                    {analysis.observation.emotions.map((e, i) => (
+                      <span key={`e-${i}`} style={{ ...sans, fontSize: 12, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "4px 9px", borderRadius: 6, lineHeight: 1.2 }}>
+                        {e.label} · {e.intensity}%
+                      </span>
+                    ))}
+                    {analysis.interpretation.possibleCognitivePatterns.map((p) => (
+                      <span key={p} style={{ ...sans, fontSize: 12, fontWeight: 600, color: mdWarnLabel, backgroundColor: mdWarnSoft, padding: "4px 9px", borderRadius: 6, lineHeight: 1.2 }}>{p}</span>
+                    ))}
+                  </div>
+                )}
+              </SettingsGroup>
             )}
 
             {analysis.hypothesis.candidateBelief && (
-              <div style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}` }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: dkAccentLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Belief This Fed Into</div>
-                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: dkHeading, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
-              </div>
+              <SettingsGroup header="Belief this fed into" style={{ marginTop: 22, marginBottom: 0 }}>
+                <div style={{ padding: "13px 16px", borderLeft: `3px solid ${fedBelief ? REGION_CONFIG[resolveRegion(fedBelief)].color : ivHeading}` }}>
+                  {fedBelief && <div style={{ marginBottom: 8 }}><RegionBadge region={resolveRegion(fedBelief)} /></div>}
+                  <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
+                </div>
+              </SettingsGroup>
             )}
           </>
         )}
