@@ -1831,8 +1831,63 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   );
 }
 
+// What one point in Home's field is, read right there — the Brain Map is
+// for exploring, not for finding out what you just tapped. Shows the same
+// facts the map's own panel leads with (region, the belief, how sure and
+// on how much evidence) and offers the map as a next step, never as the
+// only way to learn what a dot means.
+function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; onClose: () => void; onOpenInMap: () => void }) {
+  const region = resolveRegion(belief);
+  const color = REGION_CONFIG[region].color;
+  return (
+    <motion.div
+      role="dialog" aria-label={`About this belief: ${belief.statement}`}
+      initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+      // Leaves fast so tapping a second point swaps cards instead of
+      // briefly stacking two.
+      exit={{ opacity: 0, y: 6, scale: 0.98, transition: { duration: 0.14, ease: "easeIn" } }}
+      transition={SETTLE}
+      style={{
+        position: "absolute", left: 20, right: 20, top: "44%", zIndex: 3,
+        backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: "14px 16px 12px",
+        boxShadow: "0 14px 36px rgba(120,105,80,0.18)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Node color={color} size={12} intensity={Math.min(1, 0.45 + (belief.confidence / 100) * 0.4)} />
+        <span style={{ ...sans, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: ivFaint, flex: 1 }}>
+          {REGION_CONFIG[region].label} · {belief.domain}
+        </span>
+        <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
+          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivFaint, fontSize: 14, lineHeight: 1, WebkitTapHighlightColor: "transparent" }}>✕</motion.button>
+        </Breathe>
+      </div>
+      {belief.thoughtLabel && (
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: ivBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
+      )}
+      <div style={{ ...serif, fontSize: 17, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 11, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+        <Breathe inline amount={1.05}>
+          <motion.button type="button" onClick={onOpenInMap} whileTap={{ scale: 0.96, opacity: 0.8 }} transition={SETTLE}
+            style={{ ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, border: `1px solid ${ivBorder}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+            See it in the Brain Map →
+          </motion.button>
+        </Breathe>
+      </div>
+    </motion.div>
+  );
+}
+
 function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   const [showRegionShortcuts, setShowRegionShortcuts] = React.useState(false);
+  // Tapping a point explains it in place (HomeNodeCard); the Brain Map
+  // itself is entered only through its own button — or from that card.
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const selectedBelief = selectedNodeId ? store.beliefs.find((b) => b.id === selectedNodeId) ?? null : null;
   const daysAway = daysSinceLastEntry(store.history);
 
   return (
@@ -1903,41 +1958,46 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
 
       {(!MONETIZATION_ENABLED || store.isPro) ? (
         <>
-          {/* Keyboard/screen-reader path to the Brain Map — a real
-          tabbable, Enter/Space-activatable button underneath the canvas.
-          Sighted mouse/touch users hit the canvas on top instead (see
-          below): tapping a specific node there opens straight onto that
-          node; tapping empty space within the field falls through to this
-          same generic "open the map" behavior via onBackgroundTap. */}
-          <motion.div
-            data-tutorial="brain-card"
-            role="button" tabIndex={0} aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }}
-            whileTap={{ opacity: 0.85 }}
-            style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", cursor: "pointer" }}
-          />
           {/* The real, live node field — the exact same belief nodes the
           Brain Map itself renders (JarBrainPreview shares buildActiveNodes/
-          region colors/glow with the full graph in NeuralBeliefGraph3D;
-          this is that same real data, just chrome-free and without the old
-          jar photo it used to be clipped into), not a separate hand-placed
-          layout. Interactive (not pointerEvents:none — see onSelectNode/
-          onBackgroundTap below): tapping one specific node opens the full
-          Brain Map already flown-in and focused on that exact belief,
-          tapping the empty space between nodes falls back to the generic
-          open-the-map behavior above. Sized to be the screen's visual
-          focus — large, filling most of the space between the headline and
-          "Your Mind" — with JarBrainPreview's own camera zoomed in to match
-          (see NeuralBeliefGraph3D.tsx). */}
-          <div data-shared="brain-jar" style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
+          region colors/glow with the full graph in NeuralBeliefGraph3D).
+          Tapping a point opens HomeNodeCard for that belief right here;
+          tapping empty space just dismisses the card. The field never
+          opens the Brain Map by itself any more — that's the explicit
+          button in the corner (or the card's own link). */}
+          <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
             <React.Suspense fallback={null}>
               <JarBrainPreview
                 beliefs={store.beliefs}
-                onSelectNode={(id) => onOpenBrainMap?.(undefined, id)}
-                onBackgroundTap={() => onOpenBrainMap?.()}
+                onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
+                onBackgroundTap={() => setSelectedNodeId(null)}
               />
             </React.Suspense>
           </div>
+          {/* The one way into the full Brain Map from Home: a small, named
+          button at the field's corner. Also the keyboard/screen-reader path. */}
+          <div style={{ position: "absolute", top: "17.5%", right: 24, zIndex: 2 }}>
+            <Breathe inline amount={1.05}>
+              <motion.button
+                type="button" aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
+                whileTap={{ scale: 0.95, opacity: 0.85 }} transition={SETTLE}
+                style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 999, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={ivHeading} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="7" cy="7" r="2.1" /><circle cx="17.5" cy="6" r="2.1" /><circle cx="12" cy="18.5" r="2.1" /><path d="M8.6 8.6 10.3 16.3M15.6 7.6 13.7 16.5M8.9 6.3l6.6-0.4" /></svg>
+                Brain Map
+              </motion.button>
+            </Breathe>
+          </div>
+          <AnimatePresence>
+            {selectedBelief && (
+              <HomeNodeCard
+                key={selectedBelief.id}
+                belief={selectedBelief}
+                onClose={() => setSelectedNodeId(null)}
+                onOpenInMap={() => { setSelectedNodeId(null); onOpenBrainMap?.(undefined, selectedBelief.id); }}
+              />
+            )}
+          </AnimatePresence>
 
           {/* With zero beliefs, JarBrainPreview's canvas has nothing to
           draw — buildActiveNodes([]) is empty, so the field renders fully
