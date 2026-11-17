@@ -5196,9 +5196,16 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
-function BeliefCard({ belief, history, connections, onReject, isLast }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; isLast?: boolean }) {
+function BeliefCard({ belief, history, connections, onReject, first }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; first?: boolean }) {
   const [openPattern, setOpenPattern] = React.useState<string | null>(null);
   const [showLoop, setShowLoop] = React.useState(false);
+  // The card is three lines — badge row, statement, meter — until asked
+  // for more: everything else (the thought label, the trend, chips,
+  // quotes, the loop diagram, the reject link) sits behind one "Details"
+  // row. Legibility first; the depth is still all there.
+  const [showDetails, setShowDetails] = React.useState(false);
+  const region = resolveRegion(belief);
+  const color = REGION_CONFIG[region].color;
   const emotion = dominantEmotion(belief.supportingEntryIds, history);
   const patterns = belief.possibleCognitivePatterns ?? [];
   const hasLoopData = hasFunctionalLoopData(belief, history);
@@ -5213,67 +5220,64 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
   // fact-in-1st-person on one face, the same meaning at 2nd-person distance
   // on the other.
   const [reframeFlipped, setReframeFlipped] = React.useState(false);
+  const statementStyle: React.CSSProperties = { ...serif, fontSize: 20, color: ivHeading, lineHeight: 1.35, wordBreak: "keep-all" };
   return (
-    <div style={{ padding: 20, borderBottom: isLast ? "none" : `1px solid ${"rgba(42,38,33,0.09)"}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.04em" }}>{belief.domain}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.5)" }}>Conflicting entries exist</span>}
-          {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "#2A2621" }}>Confirmed repeatedly</span>}
-          <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{belief.evidenceCount} pieces of evidence</span>
-        </div>
+    <div style={{ position: "relative", padding: "14px 16px 4px" }}>
+      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 24 }}>
+        <RegionBadge region={region} />
+        <span style={{ ...sans, fontSize: 12, color: ivBody, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
+        <span style={{ flex: 1 }} />
+        {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdWarnLabel, flexShrink: 0 }}>Conflicting entries</span>}
+        {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, flexShrink: 0 }}>Confirmed repeatedly</span>}
       </div>
-      {/* Defusion reframe (ACT: "naming the thought") — a recurring visitor,
-          not a fact about the person, shown just above the statement it
-          reframes so the two read together. */}
-      {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: "#2A2621", marginTop: 8 }}>The "{belief.thoughtLabel}" thought keeps showing up</div>
-      )}
       {belief.distancedReframe ? (
-        <div style={{ marginTop: belief.thoughtLabel ? 4 : 8 }}>
-          <div style={{ perspective: 800 }}>
-            {/* Both faces share one grid cell — lets the container auto-size
-            to whichever face wraps to more lines, instead of an absolutely-
-            positioned back face clipping/overlapping the shorter front. */}
-            <motion.div
-              animate={{ rotateY: reframeFlipped ? 180 : 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              style={{ display: "grid", transformStyle: "preserve-3d" }}
-            >
-              <div style={{ ...serif, fontSize: 17, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all", gridArea: "1 / 1", backfaceVisibility: "hidden" }}>
-                {belief.statement}
-              </div>
-              <div
-                style={{
-                  ...serif, fontSize: 17, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all",
-                  gridArea: "1 / 1", backfaceVisibility: "hidden", transform: "rotateY(180deg)",
-                }}
-              >
-                {belief.distancedReframe}
-              </div>
-            </motion.div>
-          </div>
-          <motion.span
-            role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
-            onClick={() => setReframeFlipped((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
-            style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)", marginTop: 8, display: "inline-block", cursor: "pointer" }}
-          >
-            {reframeFlipped ? "↺ Back to the original" : "See it from a distance ↻"}
-          </motion.span>
+        <div style={{ marginTop: 8, perspective: 800 }}>
+          {/* Distanced self-talk flip: both faces share one grid cell so the
+              block sizes to whichever face wraps to more lines. */}
+          <motion.div animate={{ rotateY: reframeFlipped ? 180 : 0 }} transition={{ duration: 0.2, ease: "easeInOut" }} style={{ display: "grid", transformStyle: "preserve-3d" }}>
+            <div style={{ ...statementStyle, gridArea: "1 / 1", backfaceVisibility: "hidden" }}>{belief.statement}</div>
+            <div style={{ ...statementStyle, gridArea: "1 / 1", backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>{belief.distancedReframe}</div>
+          </motion.div>
         </div>
       ) : (
-        <div style={{ ...serif, fontSize: 17, color: "#2A2621", marginTop: belief.thoughtLabel ? 4 : 8, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</div>
+        <div style={{ ...statementStyle, marginTop: 8 }}>{belief.statement}</div>
       )}
-      <MeterFill value={belief.confidence} color="rgba(42,38,33,0.5)" track="rgba(42,38,33,0.08)" style={{ marginTop: 10 }} />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-        <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>Confidence <AnimatedNumber value={belief.confidence} />%</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0, whiteSpace: "nowrap" }}>
+          <AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} {belief.evidenceCount === 1 ? "entry" : "entries"}
+        </span>
       </div>
+      <motion.button
+        type="button" aria-expanded={showDetails} onClick={() => setShowDetails((v) => !v)} whileTap={{ opacity: 0.6 }}
+        style={{ display: "flex", alignItems: "center", gap: 6, border: 0, background: "transparent", padding: "10px 0 8px", margin: 0, ...sans, fontSize: 13, fontWeight: 500, color: ivHeading, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+      >
+        {showDetails ? "Less" : "Details"}
+        <motion.span animate={{ rotate: showDetails ? 180 : 0 }} transition={SETTLE} style={{ display: "flex" }}><CaretDown size={13} color={ivFaint} weight="bold" /></motion.span>
+      </motion.button>
+      <Collapse open={showDetails}>
+      <div style={{ paddingBottom: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Defusion reframe (ACT: "naming the thought") — a recurring
+          visitor, not a fact about the person. */}
+      {belief.thoughtLabel && (
+        <div style={{ ...sans, fontSize: 13, fontStyle: "italic", color: ivBody }}>The "{belief.thoughtLabel}" thought keeps showing up</div>
+      )}
+      {belief.distancedReframe && (
+        <motion.span
+          role="button" tabIndex={0} whileTap={{ opacity: 0.6 }}
+          onClick={() => setReframeFlipped((v) => !v)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setReframeFlipped((v) => !v); }}
+          style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivHeading, display: "inline-block", cursor: "pointer" }}
+        >
+          {reframeFlipped ? "Back to the original" : "See it from a distance"}
+        </motion.span>
+      )}
       {/* Longitudinal drift (Level 4) — how this belief's confidence has
           actually moved, not just where it stands right now. */}
       {belief.confidenceHistory && <ConfidenceTrend history={belief.confidenceHistory} />}
       {ruminationLikely && (
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all" }}>
           This thought has come back often in recent sessions.
         </div>
       )}
@@ -5339,11 +5343,13 @@ function BeliefCard({ belief, history, connections, onReject, isLast }: { belief
       {onReject && (
         <motion.span
           role="button" tabIndex={0} onClick={() => onReject(belief.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onReject(belief.id))?.(); } }} whileTap={{ opacity: 0.6 }}
-          style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.5)", marginTop: 10, display: "inline-block", cursor: "pointer" }}
+          style={{ ...sans, fontSize: 13, color: ivBody, display: "inline-block", cursor: "pointer" }}
         >
           This observation doesn't match how I see it
         </motion.span>
       )}
+      </div>
+      </Collapse>
     </div>
   );
 }
@@ -5384,27 +5390,26 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (clusters.length === 0) return null;
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
-    <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.06em" }}>Beliefs That Support Each Other</div>
-      <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-        Core beliefs usually don't show up alone — several of them tend to appear together, propping each other up.
-      </div>
+    <SettingsGroup header="Beliefs that support each other" footer="Core beliefs rarely show up alone; several tend to appear together, propping each other up.">
       {clusters.map((clusterIds, ci) => {
         const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
         if (clusterBeliefs.length === 0) return null;
         return (
-          <div key={ci} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", display: "flex", gap: 14, alignItems: "center" }}>
+          <div key={ci} style={{ position: "relative", display: "flex", gap: 14, alignItems: "center", padding: "14px 16px" }}>
+            {ci > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
             <BeliefClusterDiagram count={clusterBeliefs.length} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: "#2A2621" }}>{clusterBeliefs.length} beliefs are supporting each other</div>
-              <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                {clusterBeliefs.map((b) => `'${b.statement}'`).join(", ")}
-              </div>
+              <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>{clusterBeliefs.length} beliefs prop each other up</div>
+              <ul style={{ margin: "6px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
+                {clusterBeliefs.map((b) => (
+                  <li key={b.id} style={{ ...serif, fontSize: 14, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</li>
+                ))}
+              </ul>
             </div>
           </div>
         );
       })}
-    </div>
+    </SettingsGroup>
   );
 }
 
@@ -5416,24 +5421,19 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   const pairs = findContradictionPairs(beliefs, connections);
   if (pairs.length === 0) return null;
   return (
-    <div style={{ marginTop: 28 }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.06em" }}>Tension Between What You've Said</div>
-      <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-        This doesn't decide which one is right. It just places the two side by side.
-      </div>
+    <SettingsGroup header="Tension between what you've said" footer="This doesn't decide which one is right. It just places the two side by side.">
       {pairs.map((p, i) => (
-        <div key={i} style={{ marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)" }}>
-          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#2A2621", lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
-          <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)", margin: "8px 0", textAlign: "center" }}>and</div>
-          <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: "#2A2621", lineHeight: 1.6, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
+        <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
+          {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+          <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
+          <div style={{ ...sans, fontSize: 12, color: ivBody, margin: "6px 0" }}>and</div>
+          <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
           {p.note && (
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 10, paddingTop: 10, borderTop: `1px solid ${"rgba(42,38,33,0.09)"}`, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              {p.note}
-            </div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${ivDivider}`, lineHeight: 1.55, wordBreak: "keep-all" }}>{p.note}</div>
           )}
         </div>
       ))}
-    </div>
+    </SettingsGroup>
   );
 }
 
@@ -5445,121 +5445,94 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
   const hasBeliefs = store.beliefs.length > 0;
   const hasAssumptions = store.assumptions.length > 0;
   const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
+  // The one explainer that used to sit mid-page as a long gray card is a
+  // disclosure row at the bottom now, closed until asked for.
+  const [showGlossary, setShowGlossary] = React.useState(false);
+  const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
   return (
-    // Same full-bleed pattern the rest of Premium's deeper layers use (this
-    // is one level deeper into Mind, reusing its own background rather
-    // than a flat mdBg — see the "do the same for Unconscious Patterns/
-    // Distance from your goal" consistency pass) — top:-30 on the whole root, one
-    // merged scroll region (Back/title/subtitle scroll away with the rest,
-    // same as Examine's own detail view), .no-scrollbar hides the native
-    // scrollbar.
+    // Same full-bleed pattern the rest of Premium's deeper layers use —
+    // top:-30 on the root, one merged scroll region (Back/title scroll away
+    // with the rest), .no-scrollbar hides the native scrollbar. The page is
+    // a stack of grouped cards: each section's explanation is its footer,
+    // one or two sentences, instead of a paragraph above every list.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <Breathe inline amount={1.06}><span
-          role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
-        >
-          <ArrowLeft size={13} weight="bold" aria-hidden /> Back
-        </span></Breathe>
-        <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Unconscious Patterns</div>
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all", textAlign: hasBeliefs ? "left" : "center" }}>
-          {hasBeliefs ? "Things that keep showing up in your actual words and actions, without you consciously realizing it." : "No patterns discovered yet. Log your first thought with \"Speak your mind\" — we'll start finding patterns from there."}
-        </div>
-        <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)", marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          {DISCLAIMER_NOTICE}
-        </div>
-        <div style={{ marginTop: 28 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.06em" }}>Core Unconscious Beliefs</div>
-          <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            Not something you'd say "this is what I believe" out loud — it's the background pattern that keeps showing up in your actual choices and words, regardless of the situation. Circle size / bar length reflects how much real evidence backs it. It takes at least 3 similar entries before one appears here — a single entry is never enough to create one.
+      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+        <div style={{ padding: "0 6px" }}>
+          <BackButton onClick={onBack} color={ivBody} />
+          <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
+          <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            {hasBeliefs ? "What keeps showing up in your words and choices without your noticing." : "No patterns yet. Log a first thought with \"Speak your mind\" and they'll start to surface here."}
           </div>
         </div>
-        <div style={{ marginTop: 10 }}>
+
+        <SettingsGroup
+          header="Core beliefs"
+          style={{ marginTop: 24 }}
+          footer="A background pattern in your choices, not something you'd say out loud. The bar is how much evidence backs it; it takes at least three similar entries to appear."
+        >
           {visibleBeliefs.length === 0 ? (
-            <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.5)", padding: "12px 0" }}>No unconscious beliefs discovered yet.</div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
           ) : (
-            <div style={{ backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", borderRadius: 18, overflow: "hidden" }}>
-              {visibleBeliefs.map((b, i) => (
-                <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} isLast={i === visibleBeliefs.length - 1} />
-              ))}
-            </div>
+            visibleBeliefs.map((b, i) => (
+              <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} first={i === 0} />
+            ))
           )}
-        </div>
+        </SettingsGroup>
 
         <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
-        <div style={{ marginTop: 24, padding: 16, borderRadius: 14, backgroundColor: "rgba(42,38,33,0.06)", borderLeft: `2px solid ${"rgba(42,38,33,0.5)"}` }}>
-          <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "#2A2621", letterSpacing: "0.04em" }}>What's the difference between an unconscious belief and an interpretation?</div>
-          <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            An unconscious belief is the thing that quietly runs in the background without you noticing it. An unconscious interpretation is the specific reaction that belief triggers in your actual words and actions at a particular moment. The belief is "why," and the interpretation is "the moment it actually happens." For example, the belief above, "{visibleBeliefs[0]?.statement ?? "I can only start once it's perfect"}," shows up as the concrete interpretation below — "When starting something new → puts it off, telling myself I'm not ready yet" — every time, in a specific action.
-          </div>
-        </div>
-
-        <div style={{ marginTop: 26 }}>
-          <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.06em" }}>Recurring Unconscious Interpretations</div>
-          <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            Moments where "in this situation → I automatically interpret and act this way." More specific than an unconscious belief, with an actual observed trigger.
-          </div>
-          <div style={{ marginTop: 12 }}>
-            {!hasAssumptions ? (
-              <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.5)", padding: "12px 0" }}>No unconscious interpretations discovered yet.</div>
-            ) : (
-              <div style={{ backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)", borderRadius: 18, overflow: "hidden" }}>
-                {store.assumptions.map((a, i) => (
-                  <div key={a.id} style={{ display: "flex", gap: 14, padding: 18, borderBottom: i < store.assumptions.length - 1 ? `1px solid ${"rgba(42,38,33,0.09)"}` : "none" }}>
-                    <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: "#2A2621", lineHeight: 1.3, flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</div>
-                    <div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.65)" }}>{a.trigger}</span>
-                        <span style={{ ...serif, fontSize: 17, color: "#2A2621", lineHeight: 1.4, wordBreak: "keep-all" }}>→ {a.interpretation}</span>
-                      </div>
-                      {a.domains && a.domains.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                          {a.domains.map((d: string) => (
-                            <span key={d} style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.65)", backgroundColor: "rgba(42,38,33,0.08)", padding: "3px 9px", borderRadius: 999 }}>{d}</span>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)", marginTop: 8 }}>Found in {a.count} conversations</div>
-                    </div>
-                  </div>
-                ))}
+        <SettingsGroup header="Recurring interpretations" footer="Specific moments — in this situation, you read it this way. More concrete than a belief, with an observed trigger.">
+          {!hasAssumptions ? (
+            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious interpretations discovered yet.</div>
+          ) : (
+            store.assumptions.map((a, i) => (
+              <div key={a.id} style={{ position: "relative", padding: "13px 16px" }}>
+                {i > 0 && divider}
+                <div style={{ ...sans, fontSize: 12, color: ivBody, wordBreak: "keep-all" }}>{a.trigger}</div>
+                <div style={{ ...serif, fontSize: 17, color: ivHeading, lineHeight: 1.4, marginTop: 3, wordBreak: "keep-all" }}>{a.interpretation}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {(a.domains ?? []).map((d: string) => (
+                    <span key={d} style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 6 }}>{d}</span>
+                  ))}
+                  <span style={{ flex: 1 }} />
+                  <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count} {a.count === 1 ? "conversation" : "conversations"}</span>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            ))
+          )}
+        </SettingsGroup>
 
         {store.connections.length > 0 && (
-          <div style={{ marginTop: 26 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,0.65)", letterSpacing: "0.06em" }}>Discovered Connections</div>
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              Two unconscious beliefs that looked different turn out to come from the same root cause.
-            </div>
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-              {store.connections.map((c, i) => {
-                const from = visibleBeliefs.find((b) => b.id === c.a);
-                const to = visibleBeliefs.find((b) => b.id === c.b);
-                if (!from || !to) return null;
-                return (
-                  <div key={i} style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(42,38,33,0.06)" }}>
-                    <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
-                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ ...sans, fontSize: 13, color: "#2A2621", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: "#2A2621" }}>{from.domain}</span> — "{from.statement}"
-                      </div>
-                      <div style={{ ...sans, fontSize: 13, color: "#2A2621", lineHeight: 1.5, wordBreak: "keep-all" }}>
-                        <span style={{ fontWeight: 700, color: "#2A2621" }}>{to.domain}</span> — "{to.statement}"
-                      </div>
-                    </div>
-                    <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+          <SettingsGroup header="Discovered connections" footer="Two beliefs that looked different but come from the same root.">
+            {store.connections.map((c, i) => {
+              const from = visibleBeliefs.find((b) => b.id === c.a);
+              const to = visibleBeliefs.find((b) => b.id === c.b);
+              if (!from || !to) return null;
+              return (
+                <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
+                  {i > 0 && divider}
+                  <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{from.statement}</div>
+                    <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{to.statement}</div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                </div>
+              );
+            })}
+          </SettingsGroup>
         )}
+
+        <SettingsGroup style={{ marginBottom: 14 }}>
+          <DisclosureRow title="What's the difference between a belief and an interpretation?" open={showGlossary} onToggle={() => setShowGlossary((v) => !v)} first>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.65, wordBreak: "keep-all" }}>
+              A belief runs quietly in the background — it's the why. An interpretation is the moment it shows up: one situation, read one way, every time. "Safety comes first" is a belief; "when starting something new, I tell myself I'm not ready yet" is the interpretation it produces.
+            </div>
+          </DisclosureRow>
+        </SettingsGroup>
+
+        <div style={{ ...sans, fontSize: 12, color: ivFaint, lineHeight: 1.5, padding: "0 6px", wordBreak: "keep-all" }}>{DISCLAIMER_NOTICE}</div>
       </div>
     </div>
   );
