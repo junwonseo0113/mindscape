@@ -1711,13 +1711,13 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   };
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
   return (
-    <div style={{ width: "fit-content", maxWidth: "100%", margin: "8px auto 0" }}>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, marginBottom: 6, height: 14, position: "relative" }}>
+    <div style={{ width: "100%", padding: "0 2px" }}>
+      <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 6, height: 16, position: "relative" }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
           <motion.span key={justLogged ?? "idle"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} style={{ display: "inline-block" }}>
-            {justLogged ? `✓ Logged: ${justLogged}` : "Quick Check-In"}
+            {justLogged ? `Logged: ${justLogged}` : "How are you right now?"}
           </motion.span>
         </AnimatePresence>
       </div>
@@ -1733,7 +1733,7 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
               // settle back without any motion of their own.
               animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: ivHeading } : { scale: 1, backgroundColor: ivSurfaceSolid }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              style={{ flexShrink: 0, border: 0, padding: "6px 11px", borderRadius: 999, cursor: "pointer", boxShadow: "0 4px 14px rgba(120,105,80,0.12)", WebkitTapHighlightColor: "transparent" }}
+              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
             >
               <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? "#fff" : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
             </motion.button>
@@ -1817,11 +1817,21 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const selectedBelief = selectedNodeId ? store.beliefs.find((b) => b.id === selectedNodeId) ?? null : null;
   const daysAway = daysSinceLastEntry(store.history);
+  // The same "today's discovery" the Analysis tab leads with — one line of
+  // it here, as the door to that tab, so Home carries one thing the app
+  // has *noticed* and not only the invitation to speak.
+  const discovery = React.useMemo(() => computeDiscovery(store), [store]);
 
   return (
     <div
       style={{
         position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden",
+        // Inside, a plain column: header, headline, the node field taking
+        // whatever height is left, its caption bar, the bottom stack, nav.
+        // Percent-of-screen placement used to let the caption and the
+        // stack collide on a short phone; in a column only the field
+        // gives way.
+        display: "flex", flexDirection: "column",
         // Every other screen just fills its slot (height: 100%) below the
         // App shell's fixed status-bar clearance. Home is the one screen
         // whose composition is meant to run edge-to-edge under the
@@ -1838,7 +1848,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       {/* top is a fixed px, not a %, specifically so it stays clear of
       the real device status bar / the desktop preview's transparent
       "9:41" overlay (see the App shell) regardless of screen height. */}
-      <div style={{ position: "absolute", top: 34, left: 24, right: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+      <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <span style={{ ...mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: ivFaint }}>{formatDateDots(new Date())}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {/* Search stands in for "look back through what I've said" —
@@ -1865,7 +1875,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         </div>
       </div>
 
-      <div style={{ position: "absolute", top: "7%", left: 24, right: 24 }}>
+      <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
         <div style={{ ...serif, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
           What thought crossed<br />your mind today?
         </div>
@@ -1887,7 +1897,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           tapping empty space just dismisses the card. The field never
           opens the Brain Map by itself any more — that's the explicit
           button in the corner (or the card's own link). */}
-          <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%" }}>
+          <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
             <React.Suspense fallback={null}>
               <JarBrainPreview
                 beliefs={store.beliefs}
@@ -1895,20 +1905,19 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
                 onBackgroundTap={() => setSelectedNodeId(null)}
               />
             </React.Suspense>
-          </div>
-          {/* The one way into the full Brain Map from Home: a small, named
-          button at the field's corner. Also the keyboard/screen-reader path. */}
-          <div style={{ position: "absolute", top: "17.5%", right: 24, zIndex: 2 }}>
-            <Breathe inline amount={1.05}>
-              <motion.button
-                type="button" aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-                whileTap={{ scale: 0.95, opacity: 0.85 }} transition={SETTLE}
-                style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
-              >
-                <Graph size={13} color={ivHeading} weight="bold" />
-                Brain Map
-              </motion.button>
-            </Breathe>
+            {/* With zero beliefs the canvas has nothing to draw, so a
+                single resting dot marks where the first belief will
+                appear (pointerEvents: none — nothing here to open yet). */}
+            {store.beliefs.length === 0 && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
+                <motion.div
+                  animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
+                />
+                <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: ivFaint, textAlign: "center" }}>Your first thought will appear here.</div>
+              </div>
+            )}
           </div>
           <AnimatePresence>
             {selectedBelief && (
@@ -1921,34 +1930,6 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             )}
           </AnimatePresence>
 
-          {/* With zero beliefs, JarBrainPreview's canvas has nothing to
-          draw — buildActiveNodes([]) is empty, so the field renders fully
-          blank. Rather than a brand-new user's very first Home screen
-          showing a dead 43%-height gap under the headline with no
-          explanation, a single quiet breathing dot marks where their first
-          belief will appear — same breathing idiom as NeuronOrb below (
-          scale 1→1.04, 2.5s, easeInOut), just resting rather than inviting
-          a tap, since there's nothing here yet to open. pointerEvents:none
-          so it never competes with the real "Open your Brain Map" button/
-          canvas layered underneath it. */}
-          {store.beliefs.length === 0 && (
-            <div style={{ position: "absolute", left: "4%", right: "4%", top: "17%", height: "43%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
-              <motion.div
-                animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)",
-                  boxShadow: "0 0 18px rgba(166,143,94,0.35)",
-                }}
-              />
-              <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: ivFaint, textAlign: "center" }}>
-                Your first thought will appear here.
-              </div>
-            </div>
-          )}
         </>
       ) : (
         // Locked teaser instead of quietly rendering an always-empty
@@ -1962,7 +1943,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           data-tutorial="brain-card"
           role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
           style={{
-            position: "absolute", left: "18%", right: "18%", top: "22%", height: "36%",
+            flex: 1, minHeight: 160, margin: "20px 18% 8px",
             backgroundColor: ivSurface, border: `1px solid ${ivBorder}`, cursor: "pointer", borderRadius: 24,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
           }}
@@ -1977,15 +1958,39 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         </motion.div>
       )}
 
+      {/* The field's caption bar: what the field is (with a chevron,
+          because tapping it opens the by-region sheet) on the left, and
+          the one way into the full Brain Map on the right — the two
+          controls that used to float at different heights, now on one
+          line directly under what they describe. */}
       {(!MONETIZATION_ENABLED || store.isPro) && (
-        <motion.div role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }} whileTap={{ opacity: 0.75 }} style={{ position: "absolute", top: "64.4%", left: 20, right: 20, textAlign: "center", cursor: "pointer" }}><Breathe amount={1.04}>
-          <div style={{ ...serif, fontSize: 17, color: ivHeading }}>Your Mind</div>
-          <div style={{ ...sans, fontSize: 12, color: ivFaint, marginTop: 2 }}>
-            {/* Counts up only when the number has changed since the last
-            time Home showed it (i.e. after a session added beliefs). */}
-            <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
-          </div>
-        </Breathe></motion.div>
+        <div style={{ padding: "6px 20px 0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <motion.div
+            role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }}
+            whileTap={{ opacity: 0.7 }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", minWidth: 0, padding: "6px 4px", margin: "-6px -4px" }}
+          >
+            <Breathe inline amount={1.04} style={{ display: "inline-flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+              <span style={{ ...serif, fontSize: 17, color: ivHeading, flexShrink: 0 }}>Your mind</span>
+              <span style={{ ...sans, fontSize: 12, color: ivBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {/* Counts up only when the number has changed since the
+                last time Home showed it (after a session added beliefs). */}
+                <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
+              </span>
+            </Breathe>
+            <CaretRight size={12} color={ivFaint} weight="bold" style={{ flexShrink: 0 }} />
+          </motion.div>
+          <Breathe inline amount={1.05} style={{ flexShrink: 0 }}>
+            <motion.button
+              type="button" aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
+              whileTap={{ scale: 0.95, opacity: 0.85 }} transition={SETTLE}
+              style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+            >
+              <Graph size={13} color={ivHeading} weight="bold" />
+              Brain Map
+            </motion.button>
+          </Breathe>
+        </div>
       )}
 
       <AnimatePresence>
@@ -1994,26 +1999,46 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         )}
       </AnimatePresence>
 
-      <div data-tutorial="think-card" style={{ position: "absolute", left: 20, right: 20, top: "72%" }}>
-        <Breathe amount={1.025}>
-        <motion.div
-          role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
-          style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow, border: `1px solid ${ivBorder}` }}
-        >
-          <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <WaveformIcon color="#fff" />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-            <span style={{ ...serif, fontSize: 17, color: ivHeading }}>Speak your mind</span>
-            <span style={{ ...sans, fontSize: 12, color: ivBody }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
-          </div>
-          <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
-        </motion.div>
-        </Breathe>
+      {/* The bottom stack sits in the column above the nav, so on a short
+          phone it's the node field above that gives way, never the three
+          things a person came here to do. */}
+      <div style={{ padding: "12px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+        {discovery && (!MONETIZATION_ENABLED || store.isPro) && (
+          <motion.div
+            role="button" tabIndex={0} aria-label="Open today's discovery" onClick={() => onNavSelect?.("discoveryAnalysis")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("discoveryAnalysis"); } }}
+            whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }} transition={{ duration: 0.12 }}
+            style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "9px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+          >
+            <Sparkle size={15} weight="fill" color={ivHeading} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ ...sans, fontSize: 11, color: ivBody }}>Today's discovery</div>
+              <div style={{ ...serif, fontSize: 15, color: ivHeading, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{discovery.text}</div>
+            </div>
+            <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
+          </motion.div>
+        )}
+        <div data-tutorial="think-card">
+          <Breathe amount={1.025}>
+          <motion.div
+            role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
+            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <WaveformIcon color="#fff" />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ ...serif, fontSize: 17, color: ivHeading }}>Speak your mind</span>
+              <span style={{ ...sans, fontSize: 12, color: ivBody }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
+            </div>
+            <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
+          </motion.div>
+          </Breathe>
+        </div>
         <QuickMoodCheckIn updateStore={updateStore} />
       </div>
 
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
+      <div style={{ flexShrink: 0 }}>
         <BottomNav active="home" onSelect={onNavSelect} vintage />
       </div>
     </div>
