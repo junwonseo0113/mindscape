@@ -5549,95 +5549,81 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
 function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void; store: Store; onSetupAspiration?: () => void }) {
   const hasAspiration = !!store.aspiration;
   const examples = store.aspirationExamples ?? [];
+  const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
   return (
-    // Same full-bleed ivory canvas as Unconscious Patterns above — see
-    // there; was its own separate dusk-arctic-seascape photo, now the same
-    // shared background every ivory screen uses.
+    // Same full-bleed ivory canvas and grouped-card page as Unconscious
+    // Patterns: what you said, then where you stand, each a card with its
+    // explanation as the footer.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
-        <Breathe inline amount={1.06}><span
-          role="button" tabIndex={0} aria-label="Back to Mind" onClick={onBack}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, ...sans, fontSize: 13, fontWeight: 700, color: "rgba(42,38,33,0.65)", cursor: "pointer" }}
-        >
-          <ArrowLeft size={13} weight="bold" aria-hidden /> Back
-        </span></Breathe>
-        <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: "#2A2621", marginTop: 14 }}>Distance from Your Goal</div>
-        <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.7)", marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
-          The gap between the person you said you wanted to be and your recent actual patterns.
+      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+        <div style={{ padding: "0 6px" }}>
+          <BackButton onClick={onBack} color={ivBody} />
+          <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
+          <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+            The gap between who you said you wanted to be and what you've actually been doing.
+          </div>
         </div>
-        <div style={{ marginTop: 28 }}>
         {hasAspiration ? (
           <>
-            <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: `1px solid ${"rgba(42,38,33,0.09)"}` }}>
-              <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{store.aspirationSetDate}, what you said</div>
-              <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>
-                "{store.aspiration}"
+            <SettingsGroup header="What you said" style={{ marginTop: 24 }} footer={store.aspirationSetDate ? `Set on ${store.aspirationSetDate}.` : undefined}>
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ ...serif, fontSize: 20, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{store.aspiration}"</div>
               </div>
-              <motion.span role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 12, color: "#2A2621", cursor: "pointer", display: "inline-block", marginTop: 10 }}>
-                Set again
-              </motion.span>
-            </div>
-            {store.driftNotes.length === 0 ? (
-              <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)", lineHeight: 1.7, wordBreak: "keep-all" }}>
-                Not enough entries yet to compare. Log a few more thoughts and we'll show you the gap between this and your actual patterns.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {[...store.driftNotes].reverse().map((d, i) => (
-                  <div key={i} style={{ padding: 16, borderRadius: 14, backgroundColor: "#FBF8F2", boxShadow: "none", border: "1px solid rgba(42,38,33,0.08)" }}>
-                    <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{d.date}</div>
-                    <div style={{ ...sans, fontSize: 15, color: "rgba(42,38,33,0.75)", marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>{d.note}</div>
+              <SettingsRow icon={<ArrowsClockwise size={17} />} label="Set it again" onClick={onSetupAspiration} />
+            </SettingsGroup>
+            <SettingsGroup header="Where you stand" footer={store.driftNotes.length === 0 ? "Not enough entries yet to compare. Log a few more thoughts and the gap between this and your actual patterns shows up here." : undefined}>
+              {store.driftNotes.length === 0 ? (
+                <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing to compare yet.</div>
+              ) : (
+                [...store.driftNotes].reverse().map((d, i) => (
+                  <div key={i} style={{ position: "relative", padding: "13px 16px" }}>
+                    {i > 0 && divider}
+                    <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{d.date}</div>
+                    <div style={{ ...sans, fontSize: 15, color: ivHeading, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{d.note}</div>
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </SettingsGroup>
           </>
         ) : (
           <>
-            <div
-              role="button" tabIndex={0} onClick={onSetupAspiration} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSetupAspiration)?.(); } }}
-              style={{ padding: 16, borderRadius: 14, backgroundColor: "rgba(42,38,33,0.06)", borderLeft: `2px solid ${"rgba(42,38,33,0.5)"}`, marginBottom: 24, cursor: "pointer" }}
-            >
-              <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: "#2A2621" }}>Tell us who you want to become</div>
-              <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.75)", marginTop: 6, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                {examples.length > 0
-                  ? "Just leave one sentence, and we'll keep showing you the gap between it and what you actually log. (Examples below.)"
-                  : "Just leave one sentence, and we'll keep showing you the gap between it and what you actually log."}
-              </div>
-            </div>
-            {examples.map((a) => {
-              const gap = Math.abs(a.target - a.actual);
-              return (
-                <div key={a.said} style={{ marginBottom: 26, paddingBottom: 26, borderBottom: `1px solid ${"rgba(42,38,33,0.09)"}` }}>
-                  <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{a.saidDate}, what you said</div>
-                  <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: "rgba(42,38,33,0.75)", marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                    "{a.said}"
-                  </div>
-
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-                      <span style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)" }}>{a.label}</span>
-                      <span style={{ ...mono, fontSize: 12, fontWeight: 700, color: "rgba(42,38,33,0.5)" }}>{gap}pp gap</span>
+            <SettingsGroup style={{ marginTop: 24 }} footer="One sentence is enough. We'll keep showing the gap between it and what you actually log.">
+              <SettingsRow icon={<Footprints size={17} />} label="Tell us who you want to become" onClick={onSetupAspiration} />
+            </SettingsGroup>
+            {examples.length > 0 && (
+              <SettingsGroup header="What this looks like" footer="Examples, until you set your own.">
+                {examples.map((a, i) => {
+                  const gap = Math.abs(a.target - a.actual);
+                  return (
+                    <div key={a.said} style={{ position: "relative", padding: "14px 16px" }}>
+                      {i > 0 && divider}
+                      <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.saidDate}</div>
+                      <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all" }}>"{a.said}"</div>
+                      <div style={{ marginTop: 12 }}>
+                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                          <span style={{ ...sans, fontSize: 13, color: ivBody, wordBreak: "keep-all" }}>{a.label}</span>
+                          <span style={{ ...mono, fontSize: 12, color: ivHeading, flexShrink: 0 }}>{gap} pt gap</span>
+                        </div>
+                        {/* One track: the band between target and actual is the
+                            gap itself; target is a thin tick, actual a solid mark. */}
+                        <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 8 }}>
+                          <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(42,38,33,0.14)" }} />
+                          <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: ivFaint, left: `${a.target}%` }} />
+                          <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: ivHeading, left: `${a.actual}%` }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+                          <span style={{ ...sans, fontSize: 12, color: ivBody }}>Target {a.target}%</span>
+                          <span style={{ ...sans, fontSize: 12, color: ivHeading }}>Actual {a.actual}%</span>
+                        </div>
+                      </div>
+                      <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
                     </div>
-                    <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 8 }}>
-                      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(42,38,33,0.12)" }} />
-                      <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: "rgba(42,38,33,0.42)", left: `${a.target}%` }} />
-                      <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)", left: `${a.actual}%` }} />
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                      <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>Target {a.target}%</span>
-                      <span style={{ ...sans, fontSize: 11, color: "#2A2621" }}>Actual {a.actual}%</span>
-                    </div>
-                  </div>
-
-                  <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)", marginTop: 12, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </SettingsGroup>
+            )}
           </>
         )}
-        </div>
       </div>
     </div>
   );
