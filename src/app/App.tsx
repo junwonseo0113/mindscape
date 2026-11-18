@@ -42,7 +42,7 @@ import { Node } from "./orb";
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
   ArrowCounterClockwise, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, ChatCircleText, Clock, Compass, CreditCard, Minus,
-  DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
+  DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, Lightning, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
@@ -5244,44 +5244,6 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
   );
 }
 
-// A tiny standalone "synapse forming" diagram — two nodes, a line drawing
-// itself in, then a pulse that keeps traveling between them. Used wherever
-// a freshly-found connection between two beliefs needs to feel like it's
-// actually being wired together, not just printed as text.
-function ConnectionSpark({ aLabel, bLabel }: { aLabel: string; bLabel: string }) {
-  const w = 240, h = 48, r = 17;
-  const ax = r + 6, ay = h / 2;
-  const bx = w - r - 6, by = h / 2;
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: h, display: "block", overflow: "visible" }}>
-      <motion.line
-        x1={ax} y1={ay} x2={bx} y2={by}
-        stroke={"#2A2621"} strokeWidth={1.6}
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 0.5 }}
-        transition={{ duration: 0.7, ease: "easeOut" }}
-      />
-      <motion.circle
-        r={3} fill={"#2A2621"}
-        initial={{ opacity: 0, cx: ax, cy: ay }}
-        animate={{ opacity: [0, 1, 1, 0], cx: [ax, ax, bx, bx], cy: [ay, ay, by, by] }}
-        transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.9, delay: 0.8, ease: "easeInOut", times: [0, 0.08, 0.92, 1] }}
-      />
-      <motion.circle
-        cx={ax} cy={ay} r={r} fill={"rgba(42,38,33,0.06)"} stroke={"#2A2621"} strokeOpacity={0.5} strokeWidth={1.2}
-        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, ease: "backOut" }}
-        style={{ transformOrigin: `${ax}px ${ay}px` }}
-      />
-      <motion.circle
-        cx={bx} cy={by} r={r} fill={"rgba(42,38,33,0.06)"} stroke={"#2A2621"} strokeOpacity={0.5} strokeWidth={1.2}
-        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.4, delay: 0.15, ease: "backOut" }}
-        style={{ transformOrigin: `${bx}px ${by}px` }}
-      />
-      <text x={ax} y={ay} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 11, fontWeight: 700, fill: "#2A2621" }}>{aLabel}</text>
-      <text x={bx} y={by} textAnchor="middle" dominantBaseline="central" style={{ ...sans, fontSize: 11, fontWeight: 700, fill: "#2A2621" }}>{bLabel}</text>
-    </svg>
-  );
-}
 
 // ── Screen 8 · Belief Map ─────────────────────────────────────────────────────
 // Radius encodes real evidence count, not a hand-picked size — r ∝ √value so
@@ -5689,6 +5651,170 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
 // side and stops there; no verdict on which one is "true." This is the
 // motivational-interviewing "discrepancy" technique — naming the tension
 // out loud is the entire intervention.
+// ── Lower Unconscious-patterns illustrations ─────────────────────────────────
+// One drawing per section, each showing the relationship that section is
+// about rather than decorating it: tension as a balance that tips toward
+// the belief with more behind it, an interpretation as a spark that sets
+// off a ripple, a connection as two plants that turn out to share a root.
+
+const regionOfBelief = (b: { domain: string }) => REGION_CONFIG[resolveRegion(b as StoredBelief)];
+const shortBelief = (b: StoredBelief) => b.thoughtLabel || (b.statement.length > 26 ? `${b.statement.slice(0, 25)}…` : b.statement);
+
+// A balance with one belief on each pan. It settles tipped toward the one
+// with more confidence behind it (real values, at most ±11°), and rocks
+// gently around that, the way a scale does before it comes to rest.
+function TensionScale({ a, b }: { a: StoredBelief; b: StoredBelief }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const ra = regionOfBelief(a), rb = regionOfBelief(b);
+  // Degrees, clockwise-positive: the heavier side drops. Rocks ±1.9° around
+  // its resting tilt on a 5s period. The beam ends are computed from the
+  // angle each frame and the pans hang straight down from them, so they
+  // stay attached however far it tips.
+  const tilt = Math.max(-11, Math.min(11, (b.confidence - a.confidence) * 0.35));
+  const [angle, setAngle] = React.useState(tilt);
+  React.useEffect(() => {
+    if (reduce) { setAngle(tilt); return; }
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      setAngle(tilt + Math.sin(((now - t0) / 5000) * Math.PI * 2) * 1.9);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [tilt, reduce]);
+  const rad = (angle * Math.PI) / 180;
+  const half = 92;
+  const L: RoadPoint = [160 - half * Math.cos(rad), 40 - half * Math.sin(rad)];
+  const R: RoadPoint = [160 + half * Math.cos(rad), 40 + half * Math.sin(rad)];
+  const heavier = a.confidence === b.confidence ? null : a.confidence > b.confidence ? a : b;
+  const pan = ([x, y]: RoadPoint, tone: typeof ra, gid: string) => (
+    <g>
+      <line x1={x} y1={y} x2={x - 22} y2={y + 24} stroke="#8A6A4A" strokeOpacity="0.6" strokeWidth="1.2" />
+      <line x1={x} y1={y} x2={x + 22} y2={y + 24} stroke="#8A6A4A" strokeOpacity="0.6" strokeWidth="1.2" />
+      <path d={`M${x - 26} ${y + 24} Q ${x} ${y + 38} ${x + 26} ${y + 24} Z`} fill={tone.tint} stroke={tone.ink} strokeOpacity="0.35" />
+      <circle cx={x} cy={y + 14} r="13" fill={`url(#${gid})`} />
+      <circle cx={x} cy={y + 14} r="4.5" fill={tone.color} />
+    </g>
+  );
+  return (
+    <div>
+      <svg role="img" aria-label={`A balance between "${a.statement}" and "${b.statement}". ${heavier ? `It tips toward "${heavier.statement}", which has more behind it.` : "It sits level."}`}
+        viewBox="0 0 320 118" style={{ width: "100%", height: "auto", display: "block" }}>
+        <defs>
+          <linearGradient id={`tbg${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor={ra.tint} /><stop offset="1" stopColor={rb.tint} /></linearGradient>
+          <radialGradient id={`ta${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.4" stopColor={ra.color} /><stop offset="1" stopColor={ra.color} stopOpacity="0" /></radialGradient>
+          <radialGradient id={`tb${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.4" stopColor={rb.color} /><stop offset="1" stopColor={rb.color} stopOpacity="0" /></radialGradient>
+        </defs>
+        <rect width="320" height="118" rx="14" fill={`url(#tbg${id})`} opacity="0.7" />
+        <path d="M160 40 L148 104 L172 104 Z" fill="#8A6A4A" opacity="0.75" />
+        <rect x="128" y="102" width="64" height="5" rx="2.5" fill="#8A6A4A" opacity="0.75" />
+        <line x1={L[0]} y1={L[1]} x2={R[0]} y2={R[1]} stroke="#6B4E37" strokeWidth="5" strokeLinecap="round" />
+        {pan(L, ra, `ta${id}`)}
+        {pan(R, rb, `tb${id}`)}
+        <circle cx="160" cy="40" r="5" fill="#6B4E37" />
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 6, ...sans, fontSize: 12 }}>
+        <span style={{ color: ra.ink, fontWeight: 600, maxWidth: "46%" }}>{shortBelief(a)} · {a.confidence}%</span>
+        <span style={{ color: rb.ink, fontWeight: 600, maxWidth: "46%", textAlign: "right" }}>{shortBelief(b)} · {b.confidence}%</span>
+      </div>
+    </div>
+  );
+}
+
+// A trigger and the reading it sets off: a spark leaves the trigger, lands
+// in still water, and the ripple spreads — the automatic part.
+function TriggerRipple({ region }: { region: CognitiveRegion }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const tone = REGION_CONFIG[region];
+  const gold = REGION_CONFIG.career;
+  const path = bezierSamples([62, 54], [120, 6], [190, 10], [232, 64], 14);
+  const CYCLE = 3.6;
+  const font = "'Pretendard Variable', Pretendard, sans-serif";
+  return (
+    <svg role="img" aria-label="A trigger sends a spark into still water and a ripple spreads out: the situation, then the reading that follows it automatically." viewBox="0 0 320 120" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <linearGradient id={`rbg${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={gold.tint} /><stop offset="1" stopColor={tone.tint} /></linearGradient>
+        <radialGradient id={`pond${id}`}><stop offset="0" stopColor={tone.color} stopOpacity="0.35" /><stop offset="1" stopColor={tone.color} stopOpacity="0.08" /></radialGradient>
+      </defs>
+      <rect width="320" height="120" rx="14" fill={`url(#rbg${id})`} />
+      {/* The trigger */}
+      <g transform="translate(46 54)">
+        <circle r="22" fill="#FFFFFF" opacity="0.85" />
+        <path d="M3 -14 L-8 2 L-1 2 L-4 14 L8 -3 L1 -3 Z" fill={gold.ink} />
+      </g>
+      <text x="46" y="96" textAnchor="middle" fontSize="10.5" fontWeight="600" fontFamily={font} fill={gold.ink}>The situation</text>
+      {/* Spark flight */}
+      <path d={`M62 54 C 120 6, 190 10, 232 64`} fill="none" stroke={gold.ink} strokeOpacity="0.25" strokeWidth="1.2" strokeDasharray="3 5" />
+      {!reduce && (
+        <motion.circle r="4" fill={gold.color} cx={path.xs[0]} cy={path.ys[0]}
+          initial={{ cx: path.xs[0], cy: path.ys[0], opacity: 0 }}
+          animate={{ cx: path.xs, cy: path.ys, opacity: [0, 1, 1, 1, 1, 0] }}
+          transition={{ duration: CYCLE * 0.45, repeat: Infinity, repeatDelay: CYCLE * 0.55, ease: "easeIn" }} />
+      )}
+      {/* The water and its ripples */}
+      <ellipse cx="248" cy="70" rx="58" ry="20" fill={`url(#pond${id})`} />
+      {[0, 1, 2].map((i) => (
+        <motion.ellipse key={i} cx="248" cy="70" rx="12" ry="4" fill="none" stroke={tone.color} strokeWidth="1.6"
+          initial={{ scale: reduce ? 1.6 + i : 0.3, opacity: reduce ? 0.5 - i * 0.12 : 0 }}
+          animate={reduce ? undefined : { scale: [0.3, 4.2], opacity: [0, 0.8, 0] }}
+          transition={reduce ? undefined : { duration: CYCLE * 0.6, repeat: Infinity, repeatDelay: CYCLE * 0.4, delay: CYCLE * 0.45 + i * 0.28, ease: "easeOut" }}
+          style={{ transformBox: "view-box", transformOrigin: "248px 70px" }} />
+      ))}
+      <text x="248" y="106" textAnchor="middle" fontSize="10.5" fontWeight="600" fontFamily={font} fill={tone.ink}>The reading that follows</text>
+    </svg>
+  );
+}
+
+// Two beliefs that looked unrelated, as two plants above the soil whose
+// roots meet at one glowing seed below — and light travels up from that
+// shared root to both.
+function SharedRoot({ a, b }: { a: StoredBelief; b: StoredBelief }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const ra = regionOfBelief(a), rb = regionOfBelief(b);
+  const gold = REGION_CONFIG.career;
+  const upA = bezierSamples([150, 96], [120, 94], [72, 80], [72, 44], 12);
+  const upB = bezierSamples([150, 96], [180, 94], [228, 80], [228, 44], 12);
+  const font = "'Pretendard Variable', Pretendard, sans-serif";
+  const climb = (s: { xs: number[]; ys: number[] }, color: string, delay: number) => !reduce && (
+    <motion.circle r="3.4" fill={color} cx={s.xs[0]} cy={s.ys[0]}
+      initial={{ cx: s.xs[0], cy: s.ys[0], opacity: 0 }}
+      animate={{ cx: s.xs, cy: s.ys, opacity: [0, 1, 1, 1, 0] }}
+      transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 1.2, delay, ease: "easeInOut" }} />
+  );
+  return (
+    <svg role="img" aria-label={`"${a.statement}" and "${b.statement}" grow from the same root.`} viewBox="0 0 300 116" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <linearGradient id={`sky${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor={ra.tint} /><stop offset="1" stopColor={rb.tint} /></linearGradient>
+        <linearGradient id={`soil${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E6D6BF" /><stop offset="1" stopColor="#CDB797" /></linearGradient>
+        <radialGradient id={`seed${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={gold.color} /><stop offset="1" stopColor={gold.color} stopOpacity="0" /></radialGradient>
+        {[["a", ra], ["b", rb]].map(([k, t]) => (
+          <radialGradient key={k as string} id={`o${k}${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.4" stopColor={(t as typeof ra).color} /><stop offset="1" stopColor={(t as typeof ra).color} stopOpacity="0" /></radialGradient>
+        ))}
+      </defs>
+      <rect width="300" height="116" rx="14" fill={`url(#sky${id})`} />
+      <path d="M0 60 C 80 56, 220 64, 300 58 L300 102 A14 14 0 0 1 286 116 L14 116 A14 14 0 0 1 0 102 Z" fill={`url(#soil${id})`} />
+      {/* Roots meeting at one seed */}
+      <path d="M72 60 C 72 80, 120 94, 150 96" fill="none" stroke="#8A6A4A" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M228 60 C 228 80, 180 94, 150 96" fill="none" stroke="#8A6A4A" strokeWidth="1.8" strokeLinecap="round" />
+      <motion.circle cx="150" cy="96" r="13" fill={`url(#seed${id})`}
+        animate={reduce ? undefined : { scale: [1, 1.18, 1] }} transition={reduce ? undefined : { duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        style={{ transformBox: "view-box", transformOrigin: "150px 96px" }} />
+      {/* Stems and the two beliefs */}
+      <path d="M72 60 L72 40" stroke={REGION_CONFIG.security.ink} strokeWidth="2" strokeLinecap="round" />
+      <path d="M228 60 L228 40" stroke={REGION_CONFIG.security.ink} strokeWidth="2" strokeLinecap="round" />
+      <circle cx="72" cy="30" r="15" fill={`url(#oa${id})`} /><circle cx="72" cy="30" r="5" fill={ra.color} />
+      <circle cx="228" cy="30" r="15" fill={`url(#ob${id})`} /><circle cx="228" cy="30" r="5" fill={rb.color} />
+      {climb(upA, ra.color, 0)}
+      {climb(upB, rb.color, 0.5)}
+      <text x="150" y="80" textAnchor="middle" fontSize="10" fontWeight="600" fontFamily={font} fill="#6B4E37">same root</text>
+    </svg>
+  );
+}
+
 function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[]; connections: StoredConnection[] }) {
   const pairs = findContradictionPairs(beliefs, connections);
   if (pairs.length === 0) return null;
@@ -5697,9 +5823,11 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
       {pairs.map((p, i) => (
         <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
           {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
-          <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{p.a.statement}"</div>
-          <div style={{ ...sans, fontSize: 12, color: ivBody, margin: "6px 0" }}>and</div>
-          <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{p.b.statement}"</div>
+          <TensionScale a={p.a} b={p.b} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.a).color}` }}>"{p.a.statement}"</div>
+            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.b).color}` }}>"{p.b.statement}"</div>
+          </div>
           {p.note && (
             <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${ivDivider}`, lineHeight: 1.55, wordBreak: "keep-all" }}>{p.note}</div>
           )}
@@ -5770,11 +5898,20 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           {!hasAssumptions ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious interpretations discovered yet.</div>
           ) : (
-            store.assumptions.map((a, i) => (
-              <div key={a.id} style={{ position: "relative", padding: "13px 16px" }}>
-                {i > 0 && divider}
-                <div style={{ ...sans, fontSize: 12, color: ivBody, wordBreak: "keep-all" }}>{a.trigger}</div>
-                <div style={{ ...serif, fontSize: 17, color: ivHeading, lineHeight: 1.4, marginTop: 3, wordBreak: "keep-all" }}>{a.interpretation}</div>
+            [
+              <div key="ripple" style={{ padding: "12px 12px 4px" }}>
+                <TriggerRipple region={resolveRegion({ domain: store.assumptions[0].domains?.[0] ?? "identity" } as StoredBelief)} />
+              </div>,
+              ...store.assumptions.map((a, i) => {
+              const tone = regionOfBelief({ domain: a.domains?.[0] ?? "identity" });
+              return (
+              <div key={a.id} style={{ position: "relative", padding: "13px 16px 13px 22px" }}>
+                {divider}
+                <span aria-hidden style={{ position: "absolute", left: 10, top: 14, bottom: 14, width: 3, borderRadius: 2, backgroundImage: `linear-gradient(180deg, ${REGION_CONFIG.career.color}, ${tone.color})` }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6, ...sans, fontSize: 12, color: REGION_CONFIG.career.ink, fontWeight: 600, wordBreak: "keep-all" }}>
+                  <Lightning size={13} weight="fill" aria-hidden style={{ flexShrink: 0 }} />{a.trigger}
+                </div>
+                <div style={{ ...serif, fontSize: 17, color: tone.ink, lineHeight: 1.4, marginTop: 4, wordBreak: "keep-all" }}>{a.interpretation}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                   {(a.domains ?? []).map((d: string) => (
                     <span key={d} style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 6 }}>{d}</span>
@@ -5783,7 +5920,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                   <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count} {a.count === 1 ? "conversation" : "conversations"}</span>
                 </div>
               </div>
-            ))
+              );
+            }),
+            ]
           )}
         </SettingsGroup>
 
@@ -5796,7 +5935,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
               return (
                 <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
                   {i > 0 && divider}
-                  <ConnectionSpark aLabel={from.domain} bLabel={to.domain} />
+                  <SharedRoot a={from} b={to} />
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{from.statement}</div>
                     <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{to.statement}</div>
