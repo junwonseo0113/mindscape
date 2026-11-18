@@ -82,6 +82,13 @@ export function AnimatedNumber({ value, memoryKey, format = (n) => String(Math.r
 // in place if its value later changes. The fill is motion; the track is not.
 export function MeterFill({ value, color, track, height = 4, radius = 2, style }: { value: number; color: string; track: string; height?: number; radius?: number; style?: React.CSSProperties }) {
   const pct = `${Math.max(0, Math.min(100, value))}%`;
+  // A 6-digit hex fill ramps from a lighter step of itself at the start to
+  // full strength at its end, so the fill reads as building up toward its
+  // value rather than a flat slab with a hard cut. Any other color format
+  // stays a solid fill.
+  const fill: React.CSSProperties = /^#[0-9a-f]{6}$/i.test(color)
+    ? { backgroundImage: `linear-gradient(90deg, ${color}66 0%, ${color} 100%)` }
+    : { backgroundColor: color };
   return (
     <div style={{ height, borderRadius: radius, backgroundColor: track, overflow: "hidden", ...style }}>
       <motion.div
@@ -89,7 +96,7 @@ export function MeterFill({ value, color, track, height = 4, radius = 2, style }
         whileInView={{ width: pct }}
         viewport={{ once: true, amount: 0.6 }}
         transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.1 }}
-        style={{ height: "100%", borderRadius: radius, backgroundColor: color }}
+        style={{ height: "100%", borderRadius: radius, ...fill }}
       />
     </div>
   );

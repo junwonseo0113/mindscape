@@ -635,6 +635,68 @@ function ClusterHaze({ nodes }: { nodes: ActiveNode[] }) {
 // plays once per belief (see ANIMATED_BELIEF_IDS below), never loops.
 const ACTIVATION_FLASH_SECONDS = 0.75;
 
+// ── Inner flow ───────────────────────────────────────────────────────────────
+// Each belief core carries slow currents of light under its surface — the
+// idea of React Bits' "Orb" (a noise field drifting inside a sphere), done
+// as a patch on the core's own MeshStandardMaterial instead of a separate
+// WebGL canvas per orb, so lighting, picking and the per-frame color/
+// emissive updates in ActiveBeliefNode all keep working unchanged.
+//
+// The field is two passes of domain-warped sines (no noise texture, no
+// extra draw call): the second pass folds the first, so the bands drift
+// and merge into each other rather than turning around a center — a
+// current, not a vortex. Speeds sit around a third of a radian a second:
+// slower than the node's own breathing pulse, so the two never read as
+// one mechanical beat.
+const ORB_FLOW_GLSL = /* glsl */ `
+varying vec3 vFlowPos;
+uniform float uFlowTime;
+float orbFlow(vec3 p, float t) {
+  vec3 q = p * 2.2;
+  q += 0.55 * vec3(sin(q.y * 1.7 + t * 0.45), sin(q.z * 1.9 - t * 0.38), sin(q.x * 1.5 + t * 0.52));
+  q += 0.35 * vec3(sin(q.z * 2.3 - t * 0.31), sin(q.x * 2.1 + t * 0.27), sin(q.y * 2.5 - t * 0.35));
+  float f = 0.5 * sin(q.x + q.y * 0.8 + t * 0.2) + 0.5 * sin(q.y - q.z * 0.9 - t * 0.17);
+  return 0.5 + 0.5 * f;
+}
+`;
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function useFlowingCoreMaterial(color: string, emissiveIntensity: number, opacity: number) {
+  const uniforms = useMemo(() => ({ uFlowTime: { value: 0 }, uFlowInvR: { value: 1 } }), []);
+  const material = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity, roughness: 0.3, metalness: 0.04, transparent: true, opacity });
+    m.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vFlowPos;\nuniform float uFlowInvR;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFlowPos = position * uFlowInvR;");
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", `#include <common>\n${ORB_FLOW_GLSL}`)
+        .replace(
+          "#include <emissivemap_fragment>",
+          [
+            "#include <emissivemap_fragment>",
+            "float orbF = orbFlow(vFlowPos, uFlowTime);",
+            // Brightness rides the field (dim troughs, lit crests)…
+            "totalEmissiveRadiance *= 0.72 + 0.5 * orbF;",
+            // …and only the crests lift toward white, as thin veins.
+            "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), 0.22 * smoothstep(0.62, 1.0, orbF));",
+          ].join("\n"),
+        );
+    };
+    // One compiled program shared by every flowing core.
+    m.customProgramCacheKey = () => "orb-flow-v1";
+    return m;
+    // Color/emissive/opacity are driven per frame by the caller; only the
+    // initial values are read here, so this is built once per node.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniforms]);
+  useEffect(() => () => material.dispose(), [material]);
+  return { material, uniforms };
+}
+
 // ── Point-of-light rendering for active belief nodes ─────────────────────────
 // Every active node is drawn as four concentric, camera-facing layers
 // instead of one lit sphere: a tiny near-white pinpoint, a small saturated
@@ -761,9 +823,15 @@ function ActiveBeliefNode({
   // the only thing that ever turns gold, and only while selected/focused —
   // the selection indicator, never the region indicator.
   const haloTargetOpacity = isSelected ? 0.4 : isFocused ? 0.2 : 0;
+  const { material: coreMaterial, uniforms: flowUniforms } = useFlowingCoreMaterial(node.color, baseEmissive, opacity);
+  const reduceMotion = useMemo(prefersReducedMotion, []);
 
   useFrame(({ clock }, delta) => {
     if (!ref.current) return;
+    // Inner flow: each node starts at its own point in the field (phase)
+    // so neighbours never ripple in step; frozen for reduced motion.
+    flowUniforms.uFlowTime.value = reduceMotion ? phase * 3 : clock.elapsedTime + phase * 3;
+    flowUniforms.uFlowInvR.value = 1 / Math.max(r, 1e-4);
     visibility.current += ((isHiddenBySelection ? 0 : 1) - visibility.current) * Math.min(1, delta * 6);
     ref.current.visible = visibility.current > 0.01;
 
@@ -882,15 +950,7 @@ function ActiveBeliefNode({
         onPointerOut={() => onHoverChange(false)}
       >
         <icosahedronGeometry args={[r, facetDetail]} />
-        <meshStandardMaterial
-          color={node.color}
-          emissive={node.color}
-          emissiveIntensity={baseEmissive}
-          roughness={0.3}
-          metalness={0.04}
-          transparent
-          opacity={opacity}
-        />
+        <primitive object={coreMaterial} attach="material" />
       </mesh>
       {node.ruminationLikely && (
         <mesh ref={orbitRef}>

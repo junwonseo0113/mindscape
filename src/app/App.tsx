@@ -2819,7 +2819,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
         section — always rendered regardless of whether there's a discovery
         yet, unlike the belief list below it, so the tutorial step never
         aims at something that may not exist. ── */}
-        <div data-tutorial="mind-neurons" className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
+        <div data-tutorial="mind-neurons" className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
           {/* 1 · The beliefs beneath today's discovery — each a row with
               its region badge, the statement, and its confidence as a
               meter that fills on arrival rather than a bare number. */}
@@ -2879,14 +2879,36 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               <div
                 role="img"
                 aria-label={notebookActiveRegions.length > 0 ? `Share of beliefs by region: ${notebookActiveRegions.map((r) => `${REGION_CONFIG[r].label} ${notebookRegionCounts.get(r) ?? 0}`).join(", ")}.` : "No beliefs yet."}
-                style={{ display: "flex", gap: 2, height: 8 }}
+                style={{ height: 8, borderRadius: 4, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}
               >
-                {notebookActiveRegions.length > 0 ? notebookActiveRegions.map((r) => (
-                  <motion.span
-                    key={r} initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                    style={{ flex: notebookRegionCounts.get(r) ?? 0, height: 8, borderRadius: 4, backgroundColor: REGION_CONFIG[r].color, transformOrigin: "left" }}
+                {/* One bar, the regions running into each other: each share
+                    holds its own color through its middle and blends into
+                    its neighbor over a short band at the boundary, so the
+                    whole reads as one mind with several tints, not a row of
+                    separate boxes. The rows below carry the exact numbers. */}
+                {notebookActiveRegions.length > 0 && (
+                  <motion.div
+                    initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                      height: "100%", transformOrigin: "left",
+                      backgroundImage: (() => {
+                        const total = notebookActiveRegions.reduce((s, r) => s + (notebookRegionCounts.get(r) ?? 0), 0) || 1;
+                        const blend = 4; // % of the bar on each side of a boundary
+                        let at = 0;
+                        const stops: string[] = [];
+                        notebookActiveRegions.forEach((r, i) => {
+                          const share = ((notebookRegionCounts.get(r) ?? 0) / total) * 100;
+                          const c = REGION_CONFIG[r].color;
+                          const start = i === 0 ? 0 : Math.min(at + blend, at + share / 2);
+                          const end = i === notebookActiveRegions.length - 1 ? 100 : Math.max(at + share - blend, at + share / 2);
+                          stops.push(`${c} ${start.toFixed(1)}%`, `${c} ${end.toFixed(1)}%`);
+                          at += share;
+                        });
+                        return `linear-gradient(90deg, ${stops.join(", ")})`;
+                      })(),
+                    }}
                   />
-                )) : <span style={{ flex: 1, height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)" }} />}
+                )}
               </div>
             </div>
             {notebookActiveRegions.map((r) => {
@@ -3470,7 +3492,7 @@ function ScreenDiscoveryAnalysis({
             same left edge. className="no-scrollbar" hides the native
             scrollbar (same mechanism Recent Insights/My Mind use) while
             scrolling still works normally. */}
-            <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: "34px 30px calc(28px + env(safe-area-inset-bottom))", boxSizing: "border-box" }}>
+            <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: "34px 30px calc(28px + env(safe-area-inset-bottom))", boxSizing: "border-box" }}>
               <span
                 role="button" tabIndex={0} aria-label="Back to Analysis" onClick={() => setExamineTarget(null)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExamineTarget(null); } }}
@@ -3650,7 +3672,7 @@ function ScreenDiscoveryAnalysis({
             longitudinal-intelligence section below Further Insights (see
             the brief) without restructuring this again — a new section is
             just another child appended here. */}
-            <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: `10px ${PRIMARY_HEADER_SIDE}px calc(20px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+            <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: `10px ${PRIMARY_HEADER_SIDE}px calc(20px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
               {/* ── Today's Discovery — the dominant object on this screen,
               inside one large ivory SurfaceCard (see DiscoveryCard). ── */}
               <div data-tutorial="today-discovery">
@@ -5456,7 +5478,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
     // a stack of grouped cards: each section's explanation is its footer,
     // one or two sentences, instead of a paragraph above every list.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+      <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
           <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
@@ -5555,7 +5577,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
     // Patterns: what you said, then where you stand, each a card with its
     // explanation as the footer.
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+      <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
           <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
@@ -5724,7 +5746,7 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
 
   return (
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", overflow: "hidden", ...ivBackground }}>
-      <div className="no-scrollbar" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(40px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
+      <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px calc(40px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <Breathe inline amount={1.06}><span
           role="button" tabIndex={0} aria-label="Back to Profile" onClick={onBack}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onBack?.(); } }}
@@ -6428,6 +6450,10 @@ function StatRow({ label, value }: { label: string; value: string }) {
 // same prop without this component changing at all.
 function Node({ color, size, intensity }: { color: string; size: number; intensity: number }) {
   const glow = Math.round(size * 2.3);
+  // Inner flow (see .orb-flow in styles/index.css): two soft blobs of
+  // light inside the core drift on a slow loop. Each orb starts at its own
+  // point in the cycle so a list of them never pulses in unison.
+  const flowDelay = React.useMemo(() => `-${(Math.random() * 11).toFixed(2)}s`, []);
   return (
     <div aria-hidden style={{ position: "relative", width: glow, height: glow, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
       <div
@@ -6444,12 +6470,35 @@ function Node({ color, size, intensity }: { color: string; size: number; intensi
           // crisp, opaque circular silhouette with a corner glint — are
           // what keep this reading as "a concentration of light" instead
           // of a lit, shaded 3D ball (a marble/planet).
-          position: "relative", width: size, height: size, borderRadius: "50%",
+          position: "relative", width: size, height: size, borderRadius: "50%", display: "block",
           backgroundImage: `radial-gradient(circle at 46% 42%, #FFFFFF 0%, #FFFFFF 7%, ${color}D9 24%, ${color}8C 52%, ${color}00 88%)`,
           boxShadow: `0 0 ${Math.round(size * 0.6)}px ${color}4D`,
           opacity: 0.6 + intensity * 0.4,
         }}
-      />
+      >
+        {/* The mask keeps the moving light inside the body's own soft edge
+            (no crisp disc), and the oversized child is what moves. */}
+        <span
+          style={{
+            position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
+            WebkitMaskImage: "radial-gradient(circle closest-side, #000 40%, transparent 100%)",
+            maskImage: "radial-gradient(circle closest-side, #000 40%, transparent 100%)",
+          }}
+        >
+          <span
+            className="orb-flow"
+            style={{
+              position: "absolute", inset: "-35%",
+              backgroundImage: [
+                "radial-gradient(circle at 34% 38%, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0) 26%)",
+                `radial-gradient(circle at 66% 62%, ${color} 0%, ${color}00 34%)`,
+                "radial-gradient(circle at 44% 74%, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 22%)",
+              ].join(", "),
+              ["--orb-delay" as string]: flowDelay,
+            } as React.CSSProperties}
+          />
+        </span>
+      </div>
     </div>
   );
 }
@@ -6808,7 +6857,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         three times over was most of what made this screen feel busy — and
         come back the moment a star lands in them, or when the filter
         sheet asks for that family by name. ── */}
-        <div className="no-scrollbar" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
+        <div className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
           {view === "entries" ? (
             <JournalView store={store} query={query} onOpenEntry={onOpenEntry} />
           ) : (
@@ -7082,7 +7131,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
       <div style={{ padding: "16px 22px 10px", flexShrink: 0 }}>
         <BackButton onClick={onBack} color={ivBody} />
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 32px" }}>
+      <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 32px" }}>
         {/* The page itself: dateline, then the entry on ruled paper. */}
         <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, boxShadow: ivCardShadow, padding: "16px 20px 18px" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
@@ -7225,7 +7274,7 @@ function ScreenProfile({
     : undefined;
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground }}>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
+      <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
         <div style={{ padding: "0 4px 24px" }}>
           <div style={{ marginBottom: 14 }}><BackButton onClick={onBack} color={ivBody} /></div>
           <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</div>
@@ -7350,7 +7399,9 @@ function SettingsGroup({ header, footer, children, style }: { header?: React.Rea
   return (
     <section style={{ marginBottom: 22, ...style }}>
       {header && <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody, padding: "0 16px 7px", wordBreak: "keep-all" }}>{header}</div>}
-      <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, overflow: "hidden" }}>
+      {/* A barely-there light falloff, top to bottom, so the card sits on
+          the page like a sheet catching light instead of a flat cut-out. */}
+      <div style={{ backgroundColor: ivSurfaceSolid, backgroundImage: "linear-gradient(180deg, #FDFBF7 0%, #FBF8F2 55%, #F9F5EE 100%)", borderRadius: shape.md, boxShadow: ivCardShadow, overflow: "hidden" }}>
         {items.map((child, i) =>
           // Only the first row drops its separator; anything that isn't a
           // SettingsRow (a Collapse around one, say) draws its own.
@@ -7431,7 +7482,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
         <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Notifications</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
+      <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         <SettingsGroup
           footer={settings.dailyReminder
             ? "Once a day, a nudge to log what's on your mind. It only fires while this app is open in a tab — there's no server behind it yet to reach you when it's closed."
@@ -7519,7 +7570,7 @@ function ScreenDataPrivacy({
         <BackButton onClick={onBack} />
         <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 24px" }}>
+      <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 24px" }}>
         <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all", padding: "0 6px" }}>
           {isCloudSyncConfigured
             ? "Browsing as a guest, everything stays only in this device's browser. If you've signed up, your unconscious beliefs, interpretations, and conversation history are also synced to a private, encrypted account — accessible only to you, never sold or shared, and protected by database-level access rules that make it impossible for anyone else to read your data even by mistake. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed."
@@ -7663,7 +7714,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
           There are patterns in your mind. You just can't see them from inside.
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
+      <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {onReplayTutorial && (
           <SettingsGroup>
             <SettingsRow icon={<ArrowCounterClockwise size={17} />} label="Replay the tutorial" onClick={onReplayTutorial} />

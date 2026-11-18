@@ -62,6 +62,37 @@ body {
   .breathe { animation: none; }
 }
 
+/* ── Orb flow (see Node in App.tsx) ───────────────────────────────────────────
+   Light drifting inside each small orb: a slow turn plus an uneven wander
+   (three waypoints at different offsets and scales), so the blobs fold
+   past each other rather than circling one point. 11s — well under a
+   breath's pace, so it reads as a current, not a pulse. */
+@keyframes orb-flow {
+  0%   { transform: translate(-6%, 4%) rotate(0deg) scale(1); }
+  33%  { transform: translate(5%, -5%) rotate(125deg) scale(1.08); }
+  66%  { transform: translate(-3%, -7%) rotate(235deg) scale(0.95); }
+  100% { transform: translate(-6%, 4%) rotate(360deg) scale(1); }
+}
+.orb-flow {
+  animation: orb-flow 11s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: var(--orb-delay, 0s);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-flow { animation: none; }
+}
+
+/* ── Edge fade ────────────────────────────────────────────────────────────────
+   A scroll region's content fades out at its top and bottom edges instead
+   of being sliced by a hard line under the header and above the nav. The
+   mask belongs to the scroll container's own box, so it stays put while
+   the content moves under it. 12px at the top (under the header), 32px at
+   the bottom, where the floating nav sits. */
+.edge-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 32px), transparent 100%);
+}
+
 /* ── Modernist screens' real :focus-visible/:hover states ─────────────────────
    Inline `style` props (used everywhere else in this app) can't express
    pseudo-classes at all, so this is the one place actual CSS is load-
