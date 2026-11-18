@@ -109,6 +109,38 @@ body {
   .aurora, .float-drift { animation: none; }
 }
 
+/* ── Night sky (see StarGazeMap.tsx) ─────────────────────────────────────────
+   Field stars twinkle on their own periods; the Milky Way band drifts a
+   few pixels over a minute; one shooting star crosses every ~11 seconds. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+.twinkle {
+  animation: twinkle var(--tw-dur, 3.5s) ease-in-out infinite;
+  animation-delay: var(--tw-delay, 0s);
+}
+@keyframes milky-drift {
+  0%, 100% { translate: 0 0; opacity: 0.9; }
+  50%      { translate: 18px -8px; opacity: 1; }
+}
+.milky-way { animation: milky-drift 60s ease-in-out infinite; }
+@keyframes shooting-star {
+  0%, 82%  { opacity: 0; transform: translate(0, 0) rotate(-32deg) scaleX(0.2); }
+  85%      { opacity: 1; transform: translate(-40px, 26px) rotate(-32deg) scaleX(1); }
+  92%, 100% { opacity: 0; transform: translate(-150px, 96px) rotate(-32deg) scaleX(0.6); }
+}
+.shooting-star {
+  width: 90px; height: 1.5px; border-radius: 1px; transform-origin: right center;
+  background: linear-gradient(270deg, rgba(255,255,255,0.95), rgba(255,255,255,0));
+  animation: shooting-star 11s ease-out infinite;
+  animation-delay: 3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .twinkle, .milky-way, .shooting-star { animation: none; }
+  .shooting-star { display: none; }
+}
+
 /* ── Edge fade ────────────────────────────────────────────────────────────────
    A scroll region's content fades out at its top and bottom edges instead
    of being sliced by a hard line under the header and above the nav. The
