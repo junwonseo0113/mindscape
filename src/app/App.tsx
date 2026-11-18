@@ -5640,6 +5640,172 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
 // score. This is the one screen most tied to the mission line "helps you
 // consciously become the person you want to be" — it has to show the gap
 // plainly, not soften it into a neutral-sounding statistic.
+// ── GoalRoad ─────────────────────────────────────────────────────────────────
+// Distance from a goal, drawn as a road: a winding lane runs from the
+// bottom of the scene to a flag on the far hill, and a glowing orb — the
+// same light the app uses for a belief — stands on it where the person is.
+// The stretch already walked glows; what's left is plain road. The scene
+// lives a little (clouds drift, the lane's center dashes roll forward, the
+// pennant flutters, the sun breathes) and the orb walks out to its spot
+// when the card appears. All of it stops under reduced motion.
+//
+// `progress` is 0..1 (start → flag). `milestones` (also 0..1) are posts
+// along the way — check-ins, when the distance itself isn't measured.
+type RoadPoint = [number, number];
+// Control points chosen so the lane's edges never fold over at its tightest
+// bend: the curve's radius stays above the road's half-width all the way
+// (checked numerically, ≥ 1.6× at the worst point).
+const ROAD = { p0: [170, 240] as RoadPoint, p1: [100, 150] as RoadPoint, p2: [320, 104] as RoadPoint, p3: [252, 76] as RoadPoint };
+function roadAt(t: number): RoadPoint {
+  const { p0, p1, p2, p3 } = ROAD;
+  const u = 1 - t;
+  return [
+    u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
+    u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
+  ];
+}
+function roadTangent(t: number): RoadPoint {
+  const { p0, p1, p2, p3 } = ROAD;
+  const u = 1 - t;
+  const dx = 3 * u * u * (p1[0] - p0[0]) + 6 * u * t * (p2[0] - p1[0]) + 3 * t * t * (p3[0] - p2[0]);
+  const dy = 3 * u * u * (p1[1] - p0[1]) + 6 * u * t * (p2[1] - p1[1]) + 3 * t * t * (p3[1] - p2[1]);
+  const len = Math.hypot(dx, dy) || 1;
+  return [dx / len, dy / len];
+}
+// Perspective: the lane is wide in front and narrows to a thread at the flag.
+const roadWidth = (t: number) => 66 * Math.pow(1 - t, 1.35) + 4;
+const ROAD_SHAPE = (() => {
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let i = 0; i <= 48; i++) {
+    const t = i / 48;
+    const [x, y] = roadAt(t);
+    const [dx, dy] = roadTangent(t);
+    const w = roadWidth(t) / 2;
+    left.push(`${(x - dy * w).toFixed(1)} ${(y + dx * w).toFixed(1)}`);
+    right.unshift(`${(x + dy * w).toFixed(1)} ${(y - dx * w).toFixed(1)}`);
+  }
+  return `M${left.join(" L")} L${right.join(" L")} Z`;
+})();
+const ROAD_CENTER = `M${ROAD.p0.join(" ")} C${ROAD.p1.join(" ")} ${ROAD.p2.join(" ")} ${ROAD.p3.join(" ")}`;
+
+// Three skies so a page of roads isn't one picture repeated: dawn, day, dusk.
+const ROAD_SKIES = [
+  { top: "#FDE6D3", mid: "#F6D9E8", horizon: "#E7E0FA", sun: "#FFC98A" },
+  { top: "#D7ECFB", mid: "#E4F2F6", horizon: "#F3F1E2", sun: "#FFE29A" },
+  { top: "#E9D9F7", mid: "#F7D7DF", horizon: "#FCE5CF", sun: "#FFB48A" },
+];
+
+function GoalRoad({ progress, milestones = [], variant = 0, label }: { progress: number; milestones?: number[]; variant?: number; label: string }) {
+  const reduce = useReducedMotion();
+  const target = Math.max(0.02, Math.min(0.97, progress));
+  const [t, setT] = React.useState(reduce ? target : 0);
+  const id = React.useId().replace(/:/g, "");
+  const sky = ROAD_SKIES[variant % ROAD_SKIES.length];
+  // Walk out to the spot: ease-out over 1.6s, starting once on mount and
+  // again only if the value itself changes.
+  React.useEffect(() => {
+    if (reduce) { setT(target); return; }
+    let raf = 0;
+    const start = performance.now();
+    const from = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / 1600);
+      const e = 1 - Math.pow(1 - k, 3);
+      setT(from + (target - from) * e);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, reduce]);
+  const [wx, wy] = roadAt(t);
+  const scale = 1.15 - 0.7 * t; // nearer is bigger
+  const walked = Array.from({ length: 33 }, (_, i) => roadAt((t * i) / 32)).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const loop = (duration: number) => (reduce ? undefined : { duration, repeat: Infinity, ease: "linear" as const });
+  return (
+    <svg role="img" aria-label={label} viewBox="0 0 360 220" style={{ width: "100%", height: "auto", display: "block", borderRadius: shape.md }}>
+      <defs>
+        <linearGradient id={`sky${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={sky.top} /><stop offset="0.55" stopColor={sky.mid} /><stop offset="1" stopColor={sky.horizon} />
+        </linearGradient>
+        <radialGradient id={`sun${id}`}>
+          <stop offset="0" stopColor={sky.sun} stopOpacity="0.95" /><stop offset="0.45" stopColor={sky.sun} stopOpacity="0.45" /><stop offset="1" stopColor={sky.sun} stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`farHill${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#CDE7D6" /><stop offset="1" stopColor="#B7DCC6" /></linearGradient>
+        <linearGradient id={`midHill${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#A9DABB" /><stop offset="1" stopColor="#8FCCA6" /></linearGradient>
+        <linearGradient id={`nearHill${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#86C79C" /><stop offset="1" stopColor="#6DB98A" /></linearGradient>
+        <linearGradient id={`road${id}`} x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="#EADFCC" /><stop offset="1" stopColor="#D8CBB4" /></linearGradient>
+        <linearGradient id={`walked${id}`} gradientUnits="userSpaceOnUse" x1="170" y1="240" x2="252" y2="76">
+          <stop offset="0" stopColor="#8B7CFF" /><stop offset="0.5" stopColor="#E88AAE" /><stop offset="1" stopColor="#F4A261" />
+        </linearGradient>
+        <radialGradient id={`orb${id}`}>
+          <stop offset="0" stopColor="#FFFFFF" /><stop offset="0.25" stopColor="#B9AEFF" /><stop offset="0.6" stopColor="#8B7CFF" stopOpacity="0.55" /><stop offset="1" stopColor="#8B7CFF" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+
+      <rect width="360" height="220" fill={`url(#sky${id})`} />
+      <motion.circle cx="262" cy="60" r="30" fill={`url(#sun${id})`}
+        animate={reduce ? undefined : { scale: [1, 1.12, 1] }} transition={reduce ? undefined : { duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+        style={{ transformOrigin: "262px 60px" }} />
+      {/* Clouds drift across, two speeds. */}
+      <motion.g animate={reduce ? undefined : { x: [-90, 420] }} transition={loop(46)} opacity={0.85}>
+        <ellipse cx="40" cy="34" rx="26" ry="8" fill="#FFFFFF" /><ellipse cx="58" cy="29" rx="16" ry="8" fill="#FFFFFF" />
+      </motion.g>
+      <motion.g animate={reduce ? undefined : { x: [-200, 380] }} transition={loop(64)} opacity={0.7}>
+        <ellipse cx="120" cy="52" rx="20" ry="6" fill="#FFFFFF" /><ellipse cx="133" cy="48" rx="12" ry="6" fill="#FFFFFF" />
+      </motion.g>
+
+      <path d="M0 96 C 60 72, 130 86, 190 78 S 300 62, 360 84 L360 220 L0 220 Z" fill={`url(#farHill${id})`} />
+      <path d="M0 132 C 80 108, 150 130, 222 114 S 330 98, 360 110 L360 220 L0 220 Z" fill={`url(#midHill${id})`} />
+      <path d="M0 170 C 90 152, 200 176, 360 152 L360 220 L0 220 Z" fill={`url(#nearHill${id})`} />
+
+      <path d={ROAD_SHAPE} fill={`url(#road${id})`} />
+      {/* The lane's center dashes roll toward the flag. */}
+      <motion.path d={ROAD_CENTER} fill="none" stroke="#FFFFFF" strokeOpacity="0.85" strokeWidth="2" strokeLinecap="round" strokeDasharray="7 10"
+        animate={reduce ? undefined : { strokeDashoffset: [0, -34] }} transition={loop(1.8)} />
+      {/* The stretch already walked. */}
+      <polyline points={walked} fill="none" stroke={`url(#walked${id})`} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+
+      {milestones.map((m, i) => {
+        const [x, y] = roadAt(m);
+        const s = 1.1 - 0.6 * m;
+        return (
+          <g key={i} transform={`translate(${x + roadWidth(m) / 2 + 3} ${y}) scale(${s})`} opacity={m <= t ? 1 : 0.45}>
+            <line x1="0" y1="0" x2="0" y2="-12" stroke="#8A6A4A" strokeWidth="1.6" strokeLinecap="round" />
+            <circle cx="0" cy="-13" r="3" fill={m <= t ? "#F4A261" : "#E8DCCB"} />
+          </g>
+        );
+      })}
+
+      {/* The goal: a pennant on the far hill. */}
+      <g>
+        <line x1="252" y1="77" x2="252" y2="47" stroke="#6B4E37" strokeWidth="1.8" strokeLinecap="round" />
+        {/* Flutter as a transform pinned at the pole (scale + skew), not
+            path morphing — motion hands an SVG `d` keyframe `undefined`
+            for a frame, which the browser rejects. */}
+        <motion.path fill="#EF6F5E"
+          d="M252 47 L271 52 L252 58 Z"
+          animate={reduce ? undefined : { scaleX: [1, 0.84, 1], skewY: [0, 5, 0] }}
+          transition={reduce ? undefined : { duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+          style={{ transformBox: "fill-box", transformOrigin: "0% 50%" }} />
+      </g>
+
+      {/* You: the app's own orb of light, standing on the road. */}
+      <g transform={`translate(${wx.toFixed(1)} ${wy.toFixed(1)}) scale(${scale.toFixed(3)})`}>
+        <motion.g animate={reduce ? undefined : { y: [0, -2.5, 0] }} transition={reduce ? undefined : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }}>
+          <circle r="20" fill={`url(#orb${id})`} />
+          <circle r="6.5" fill="#8B7CFF" />
+          <circle r="2.6" cx="-1.4" cy="-1.6" fill="#FFFFFF" opacity="0.9" />
+          <g transform="translate(0 -26)">
+            <rect x="-15" y="-9" width="30" height="16" rx="8" fill="#FFFFFF" opacity="0.92" />
+            <text x="0" y="3" textAnchor="middle" fontSize="10" fontWeight="600" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621">You</text>
+          </g>
+        </motion.g>
+      </g>
+    </svg>
+  );
+}
+
 function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void; store: Store; onSetupAspiration?: () => void }) {
   const hasAspiration = !!store.aspiration;
   const examples = store.aspirationExamples ?? [];
@@ -5665,7 +5831,22 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
               </div>
               <SettingsRow icon={<ArrowsClockwise size={17} />} label="Set it again" onClick={onSetupAspiration} />
             </SettingsGroup>
-            <SettingsGroup header="Where you stand" footer={store.driftNotes.length === 0 ? "Not enough entries yet to compare. Log a few more thoughts and the gap between this and your actual patterns shows up here." : undefined}>
+            <SettingsGroup
+              header="Where you stand"
+              footer={store.driftNotes.length === 0
+                ? "Not enough entries yet to compare. Log a few more thoughts and the gap between this and your actual patterns shows up here."
+                : "Each post on the road is a check-in. The road shows the way you've come, not a measured distance — that arrives with more entries."}
+            >
+              {/* A real aspiration has check-in notes but no number yet, so
+                  the road marks the notes as posts passed and stops short of
+                  claiming a distance. */}
+              <div style={{ padding: "14px 16px 4px" }}>
+                <GoalRoad
+                  progress={Math.min(0.6, 0.12 + store.driftNotes.length * 0.09)}
+                  milestones={store.driftNotes.map((_, i) => Math.min(0.58, 0.12 + (i + 1) * 0.09) - 0.04)}
+                  label={`The road toward "${store.aspiration}": ${store.driftNotes.length} ${store.driftNotes.length === 1 ? "check-in" : "check-ins"} along the way so far.`}
+                />
+              </div>
               {store.driftNotes.length === 0 ? (
                 <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing to compare yet.</div>
               ) : (
@@ -5693,22 +5874,21 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                       {i > 0 && divider}
                       <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.saidDate}</div>
                       <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all" }}>"{a.said}"</div>
+                      {/* How close: 100 minus the gap, so a goal of "less
+                          often" (target 0) walks the same road as one of
+                          "more often" (target 100). */}
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                          <span style={{ ...sans, fontSize: 13, color: ivBody, wordBreak: "keep-all" }}>{a.label}</span>
-                          <span style={{ ...mono, fontSize: 12, color: ivHeading, flexShrink: 0 }}>{gap} pt gap</span>
-                        </div>
-                        {/* One track: the band between target and actual is the
-                            gap itself; target is a thin tick, actual a solid mark. */}
-                        <div style={{ position: "relative", height: 8, borderRadius: 4, backgroundColor: "rgba(42,38,33,0.08)", marginTop: 8 }}>
-                          <div style={{ position: "absolute", top: 0, bottom: 0, left: `${Math.min(a.target, a.actual)}%`, width: `${gap}%`, backgroundColor: "rgba(42,38,33,0.14)" }} />
-                          <div style={{ position: "absolute", top: -3, height: 14, width: 2, backgroundColor: ivFaint, left: `${a.target}%` }} />
-                          <div style={{ position: "absolute", top: -3, height: 14, width: 3, borderRadius: 2, backgroundColor: ivHeading, left: `${a.actual}%` }} />
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-                          <span style={{ ...sans, fontSize: 12, color: ivBody }}>Target {a.target}%</span>
-                          <span style={{ ...sans, fontSize: 12, color: ivHeading }}>Actual {a.actual}%</span>
-                        </div>
+                        <GoalRoad
+                          progress={(100 - gap) / 100} variant={i}
+                          label={`${a.label}: you're ${100 - gap}% of the way to the goal, ${gap} points to go.`}
+                        />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
+                        <span style={{ ...sans, fontSize: 13, color: ivBody, wordBreak: "keep-all" }}>{a.label}</span>
+                        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ivHeading, flexShrink: 0 }}>{gap} pt to go</span>
+                      </div>
+                      <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>
+                        Goal {a.target}% · now {a.actual}%
                       </div>
                       <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
                     </div>
