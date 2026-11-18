@@ -82,6 +82,33 @@ body {
   .orb-flow { animation: none; }
 }
 
+/* ── Opening backdrop (see OpeningBackdrop in App.tsx) ────────────────────────
+   Soft blooms wander on long loops; small orbs float near the edges. Each
+   instance sets its own --dx/--dy (or --fx/--fy), --dur and --delay, so no
+   two move in step. */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(var(--dx, 30px), var(--dy, 20px)) scale(1.12); }
+}
+.aurora {
+  animation: aurora-drift var(--dur, 26s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+@keyframes float-drift {
+  0%, 100% { transform: translate(0, 0); }
+  33%      { transform: translate(var(--fx, 10px), calc(var(--fy, 12px) * -1)); }
+  66%      { transform: translate(calc(var(--fx, 10px) * -0.6), var(--fy, 12px)); }
+}
+.float-drift {
+  animation: float-drift var(--dur, 16s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora, .float-drift { animation: none; }
+}
+
 /* ── Edge fade ────────────────────────────────────────────────────────────────
    A scroll region's content fades out at its top and bottom edges instead
    of being sliced by a hard line under the header and above the nav. The

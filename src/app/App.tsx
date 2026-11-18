@@ -676,13 +676,14 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         overflow: "hidden",
       }}
     >
+      <OpeningBackdrop variant="quote" />
       <motion.div
         initial={reducedMotion ? false : { opacity: 0, y: 7 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
-        style={{ ...mono, fontSize: 11, letterSpacing: ".17em", textTransform: "uppercase", color: "rgba(42,38,33,.52)", zIndex: 1 }}
+        style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, zIndex: 1 }}
       >
-        Quote of the day
+        Today's quote
       </motion.div>
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
@@ -726,6 +727,126 @@ const OPENING_BG = ivBg2;
 const OPENING_TEXT = ivHeading;
 const OPENING_MUTED = ivBody;
 
+// ── Opening backdrop ─────────────────────────────────────────────────────────
+// The first screens (quote, splash, auth, login, sign-up, onboarding) were
+// flat ivory with text in the middle — calm, but lifeless, and identical to
+// each other. Behind each one now: a slow aurora in the app's own region
+// colors (three soft blooms drifting on long, out-of-step loops), and a
+// few small orbs of light floating near the edges, away from the text.
+// Each screen gets its own palette, so moving through them feels like
+// moving through a dawn rather than past the same wall. Pure CSS
+// transforms (styles/index.css: .aurora, .float-drift), off under reduced
+// motion; pointer-events none, so it never takes a tap.
+type OpeningVariant = "quote" | "splash" | "auth" | "form" | "welcome" | "speak" | "notice" | "map" | "aspire";
+const OPENING_PALETTES: Record<OpeningVariant, [CognitiveRegion, CognitiveRegion, CognitiveRegion]> = {
+  quote: ["career", "relationships", "creativity"],
+  splash: ["identity", "curiosity", "relationships"],
+  auth: ["identity", "relationships", "career"],
+  form: ["curiosity", "security", "identity"],
+  welcome: ["relationships", "career", "identity"],
+  speak: ["creativity", "relationships", "career"],
+  notice: ["career", "security", "curiosity"],
+  map: ["identity", "curiosity", "security"],
+  aspire: ["security", "career", "curiosity"],
+};
+// Blooms: where each sits (% of the screen) and which way it wanders.
+const AURORA_BLOOMS = [
+  { left: "-30%", top: "-18%", size: 420, dx: "38px", dy: "26px", dur: "26s" },
+  { left: "48%", top: "28%", size: 380, dx: "-44px", dy: "34px", dur: "31s" },
+  { left: "-12%", top: "66%", size: 400, dx: "30px", dy: "-40px", dur: "23s" },
+];
+// Orbs: only in the top and bottom bands and at the very side edges —
+// places no line of text on these screens ever reaches.
+const OPENING_ORBS = [
+  { left: "46%", top: "2%", size: 12, fx: "10px", fy: "8px", dur: "15s" },
+  { left: "84%", top: "6%", size: 10, fx: "-12px", fy: "8px", dur: "18s" },
+  { left: "95%", top: "38%", size: 14, fx: "-6px", fy: "14px", dur: "21s" },
+  { left: "-2%", top: "68%", size: 11, fx: "8px", fy: "-10px", dur: "17s" },
+  { left: "91%", top: "96%", size: 12, fx: "-10px", fy: "-6px", dur: "19s" },
+]
+
+function OpeningBackdrop({ variant }: { variant: OpeningVariant }) {
+  const palette = OPENING_PALETTES[variant];
+  // Out-of-step start points, fixed per mount.
+  const delays = React.useMemo(() => AURORA_BLOOMS.map(() => `-${(Math.random() * 20).toFixed(1)}s`).concat(OPENING_ORBS.map(() => `-${(Math.random() * 15).toFixed(1)}s`)), []);
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      {AURORA_BLOOMS.map((b, i) => (
+        <div
+          key={`b${i}`} className="aurora"
+          style={{
+            position: "absolute", left: b.left, top: b.top, width: b.size, height: b.size, borderRadius: "50%",
+            backgroundImage: `radial-gradient(circle, ${REGION_CONFIG[palette[i]].color}55 0%, ${REGION_CONFIG[palette[i]].color}1f 40%, transparent 68%)`,
+            transition: "background-image 0.8s ease",
+            ["--dx" as string]: b.dx, ["--dy" as string]: b.dy, ["--dur" as string]: b.dur, ["--delay" as string]: delays[i],
+          } as React.CSSProperties}
+        />
+      ))}
+      {OPENING_ORBS.map((o, i) => (
+        <div
+          key={`o${i}`} className="float-drift"
+          style={{
+            position: "absolute", left: o.left, top: o.top,
+            ["--fx" as string]: o.fx, ["--fy" as string]: o.fy, ["--dur" as string]: o.dur, ["--delay" as string]: delays[AURORA_BLOOMS.length + i],
+          } as React.CSSProperties}
+        >
+          <Node color={REGION_CONFIG[palette[i % palette.length]].color} size={o.size} intensity={0.6} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// "There's a pattern in your thinking," drawn: six orbs of light appear
+// one by one, then the lines between them draw in, the way a pattern
+// becomes visible only once enough points are there to connect. After
+// that they keep breathing. Used on the splash (where it has to finish
+// inside the 2.2s auto-advance) and the auth screen.
+const CONSTELLATION_POINTS: { x: number; y: number; r: CognitiveRegion; s: number }[] = [
+  { x: 40, y: 92, r: "identity", s: 9 },
+  { x: 92, y: 40, r: "career", s: 7 },
+  { x: 150, y: 70, r: "relationships", s: 10 },
+  { x: 206, y: 34, r: "curiosity", s: 7 },
+  { x: 232, y: 104, r: "security", s: 8 },
+  { x: 120, y: 122, r: "creativity", s: 6 },
+];
+const CONSTELLATION_LINKS: [number, number][] = [[0, 1], [1, 2], [2, 3], [2, 4], [0, 5], [5, 2]];
+
+function PatternConstellation({ speed = 1, width = 272 }: { speed?: number; width?: number }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const t = (sec: number) => (reduce ? 0 : sec * speed);
+  return (
+    <svg aria-hidden viewBox="0 0 272 150" width={width} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        {CONSTELLATION_POINTS.map((p, i) => (
+          <radialGradient key={i} id={`cg${id}${i}`}>
+            <stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={REGION_CONFIG[p.r].color} /><stop offset="1" stopColor={REGION_CONFIG[p.r].color} stopOpacity="0" />
+          </radialGradient>
+        ))}
+      </defs>
+      {CONSTELLATION_LINKS.map(([a, b], i) => {
+        const A = CONSTELLATION_POINTS[a];
+        const B = CONSTELLATION_POINTS[b];
+        return (
+          <motion.line key={i} x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#2A2621" strokeOpacity="0.28" strokeWidth="1.2" strokeLinecap="round"
+            initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: t(0.4), delay: t(0.75 + i * 0.12), ease: [0.22, 1, 0.36, 1] }} />
+        );
+      })}
+      {CONSTELLATION_POINTS.map((p, i) => (
+        <motion.g key={i} style={{ transformOrigin: `${p.x}px ${p.y}px` }}
+          initial={{ opacity: reduce ? 1 : 0, scale: reduce ? 1 : 0.4 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: t(0.45), delay: t(i * 0.1), ease: [0.22, 1, 0.36, 1] }}>
+          <motion.circle cx={p.x} cy={p.y} r={p.s * 2.4} fill={`url(#cg${id}${i})`}
+            animate={reduce ? undefined : { scale: [1, 1.15, 1] }} transition={reduce ? undefined : { duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 1.4 + i * 0.4 }}
+            style={{ transformOrigin: `${p.x}px ${p.y}px` }} />
+          <circle cx={p.x} cy={p.y} r={p.s * 0.55} fill={REGION_CONFIG[p.r].color} />
+        </motion.g>
+      ))}
+    </svg>
+  );
+}
+
 // ── Screen 1 · Splash ─────────────────────────────────────────────────────────
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
   const reducedMotion = useReducedMotion();
@@ -735,7 +856,10 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
   }, [onDone]);
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <OpeningBackdrop variant="splash" />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {/* Draws itself inside the 2.2s auto-advance (speed < 1). */}
+        <div style={{ marginBottom: 26 }}><PatternConstellation speed={0.7} width={230} /></div>
         {/* Staggered reveal instead of one fade block — reads in the same
             order a person would actually read it (kicker, then the line
             that's the point, then the quieter follow-on), echoing this
@@ -776,13 +900,15 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
 function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGuest?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+      <OpeningBackdrop variant="auth" />
+      <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 28px" }}>
+        <div style={{ marginBottom: 28 }}><PatternConstellation /></div>
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
         <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
       </div>
-      <div style={{ padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ position: "relative", zIndex: 1, padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn ivory onClick={onEmailStart}>Continue with email</PrimaryBtn>
         <GhostBtn ivory onClick={onGuest}>Browse as a guest</GhostBtn>
         {/* Guest mode has no account behind it, so clearing this device's
@@ -882,6 +1008,7 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
+      <OpeningBackdrop variant="form" />
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
@@ -951,6 +1078,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, position: "relative", overflow: "hidden" }}>
+      <OpeningBackdrop variant="form" />
       <div style={{ padding: "16px 22px 0", position: "relative", zIndex: 1, flexShrink: 0 }}>
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
@@ -1200,6 +1328,9 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
+      {/* The backdrop's palette shifts with each step (remounted per step
+          so the blooms pick up the new colors). */}
+      <OpeningBackdrop key={i} variant={(["welcome", "speak", "notice", "map", "aspire"] as const)[Math.min(i, 4)]} />
       <div style={{ display: "flex", gap: 6, position: "relative", zIndex: 1, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
           <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(42,38,33,.7)" : "rgba(42,38,33,.12)" }} />
