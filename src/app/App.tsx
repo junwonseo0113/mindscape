@@ -40,7 +40,7 @@ import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, 
 // screen to screen. Active nav icons use the "fill" weight, outlined when
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
-  ArrowCounterClockwise, ArrowLeft, ArrowRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, Clock, CreditCard,
+  ArrowCounterClockwise, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, ChatCircleText, Clock, Compass, CreditCard, Minus,
   DownloadSimple, Eye, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Question, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
@@ -2112,12 +2112,33 @@ function DiscoveryBeliefList({ beliefIds, store, modernist = false }: { beliefId
   );
 }
 
-// Every recorded entry's emotions, averaged by label across however many
-// times each has shown up, ranked strongest first — the only distribution
-// this can honestly show, since intensity is a per-entry 0–100 rating, not
-// a running total. Entries without analysis yet (real data still catching
-// up, or an entry that predates this field) are simply skipped.
-function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
+// ── How you've changed ───────────────────────────────────────────────────────
+// Five lenses on the same entries. They used to be five identical gray bar
+// lists with cryptic tails ("62 · 1×", "1 toward · 0 away"), so the only
+// way to tell them apart was the title. Now each one:
+//   · leads with a plain one-line takeaway — the same sentence the closed
+//     row shows as its subtitle, so the list reads before anything opens;
+//   · has its own tint (borrowed from the region palette, so nothing new
+//     enters the app's colors) and its own picture, matched to what it
+//     measures: magnitude bars for feelings, a two-sided bar for value
+//     direction, short explained cards for thinking habits, a calendar for
+//     consistency, then-and-now numbers for self-talk;
+//   · says what its numbers mean in words, under the picture.
+const CHANGE_TINT: Record<"emotions" | "values" | "patterns" | "consistency" | "selfTalk", CognitiveRegion> = {
+  emotions: "relationships",
+  values: "security",
+  patterns: "career",
+  consistency: "curiosity",
+  selfTalk: "identity",
+};
+
+const PLEASANT_FEELINGS = new Set([
+  "calm", "happy", "joy", "relief", "gratitude", "grateful", "hope", "hopeful", "anticipation", "excitement", "excited",
+  "pride", "proud", "contentment", "content", "love", "curiosity", "curious", "peace", "peaceful", "relaxed", "satisfied",
+]);
+const isPleasantFeeling = (label: string) => PLEASANT_FEELINGS.has(label.trim().toLowerCase());
+
+function aggregateEmotions(history: StoredHistoryEntry[]) {
   const totals = new Map<string, { sum: number; count: number }>();
   history.forEach((entry) => {
     entry.analysis?.observation.emotions.forEach((em) => {
@@ -2127,29 +2148,327 @@ function EmotionDistribution({ history }: { history: StoredHistoryEntry[] }) {
       totals.set(em.label, cur);
     });
   });
-  const rows = Array.from(totals.entries())
-    .map(([label, { sum, count }]) => ({ label, avg: Math.round(sum / count), count }))
+  return Array.from(totals.entries())
+    .map(([label, { sum, count }]) => ({ label, avg: Math.round(sum / count), count, pleasant: isPleasantFeeling(label) }))
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 6);
+}
 
-  if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)" }}>No emotion data yet. It'll show up here after you leave a few thoughts.</div>;
+function aggregateValues(history: StoredHistoryEntry[]) {
+  const totals = new Map<string, { toward: number; away: number; unclear: number }>();
+  history.forEach((entry) => {
+    const vd = entry.analysis?.interpretation.valueDirection;
+    if (!vd) return;
+    vd.relatedValues.forEach((value) => {
+      const cur = totals.get(value) ?? { toward: 0, away: 0, unclear: 0 };
+      cur[vd.towardOrAway] += 1;
+      totals.set(value, cur);
+    });
+  });
+  return Array.from(totals.entries())
+    .map(([label, t]) => ({ label, ...t, total: t.toward + t.away + t.unclear }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+}
+
+function aggregatePatterns(history: StoredHistoryEntry[]) {
+  const counts = new Map<string, number>();
+  history.forEach((entry) => {
+    entry.analysis?.interpretation.possibleCognitivePatterns.forEach((p) => counts.set(p, (counts.get(p) ?? 0) + 1));
+  });
+  return Array.from(counts.entries()).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 6);
+}
+
+// "A common habit of mind that holds yourself to…" → "Holds yourself to…"
+function plainPatternDescription(label: string): string {
+  const d = COGNITIVE_PATTERN_DESCRIPTIONS[label as keyof typeof COGNITIVE_PATTERN_DESCRIPTIONS] ?? "";
+  const s = d.replace(/^A common habit of mind that /, "");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const RECORDING_HEATMAP_WEEKS = 12;
+type HeatmapDay = { date: Date; count: number; isFuture: boolean };
+
+// Sun–Sat columns, the most recent week last, GitHub-contribution style.
+// The window ends on the Saturday of the week of the *latest entry* (not
+// of today), the same anchoring the Analysis tab's Recent weeks uses: a
+// person who hasn't written this month still sees the shape of when they
+// did write, instead of twelve weeks of empty squares. Days after that
+// entry are marked isFuture and drawn as empty space.
+function buildRecordingHeatmapWeeks(history: StoredHistoryEntry[], numWeeks = RECORDING_HEATMAP_WEEKS): { weeks: HeatmapDay[][]; anchor: Date } {
+  const counts = new Map<string, number>();
+  let latest: Date | null = null;
+  history.forEach((e) => {
+    const d = parseDotDate(e.date);
+    if (!d) return;
+    counts.set(d.toDateString(), (counts.get(d.toDateString()) ?? 0) + 1);
+    if (!latest || d > latest) latest = d;
+  });
+  const anchor = new Date(latest ?? new Date());
+  anchor.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(anchor);
+  endOfWeek.setDate(anchor.getDate() + (6 - anchor.getDay()));
+  const start = new Date(endOfWeek);
+  start.setDate(endOfWeek.getDate() - numWeeks * 7 + 1);
+  const weeks: HeatmapDay[][] = [];
+  const cursor = new Date(start);
+  for (let w = 0; w < numWeeks; w++) {
+    const week: HeatmapDay[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(cursor);
+      const isFuture = dayDate > anchor;
+      week.push({ date: dayDate, count: isFuture ? 0 : counts.get(dayDate.toDateString()) ?? 0, isFuture });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
   }
+  return { weeks, anchor };
+}
 
-  const maxAvg = rows[0].avg || 1;
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// The takeaway sentence for each lens — shown as the closed row's subtitle
+// and again as the opened body's first line. null means "no data yet".
+type ChangeSummaries = Record<keyof typeof CHANGE_TINT, string | null>;
+function summarizeChanges(history: StoredHistoryEntry[]): ChangeSummaries {
+  const emotions = aggregateEmotions(history);
+  const values = aggregateValues(history);
+  const patterns = aggregatePatterns(history);
+  const { weeks, anchor } = buildRecordingHeatmapWeeks(history);
+  const days = weeks.flat().filter((d) => !d.isFuture && d.count > 0);
+  const selfTalk = buildSelfTalkWeeks(history);
+
+  const toward = [...values].filter((v) => v.toward > 0).sort((a, b) => b.toward - a.toward)[0];
+  const away = [...values].filter((v) => v.away > 0).sort((a, b) => b.away - a.away)[0];
+  const allSameCount = patterns.length > 1 && patterns.every((p) => p.count === patterns[0].count);
+  const weekdayCounts = new Array(7).fill(0);
+  days.forEach((d) => { weekdayCounts[d.date.getDay()] += d.count; });
+  const topWeekday = weekdayCounts.indexOf(Math.max(...weekdayCounts));
+  const firstRate = selfTalk[0]?.cognitiveVerbPerHundredWords ?? 0;
+  const lastRate = selfTalk[selfTalk.length - 1]?.cognitiveVerbPerHundredWords ?? 0;
+
+  return {
+    emotions: emotions.length ? `${emotions[0].label} has been the strongest feeling — ${emotions[0].avg} out of 100 on average.` : null,
+    values: toward && away ? `Moving toward ${toward.label}, drifting from ${away.label}.`
+      : toward ? `Mostly moving toward ${toward.label}.`
+      : away ? `Drifting from ${away.label} more than toward anything.`
+      : values.length ? "No clear direction yet — entries touch your values without leaning either way." : null,
+    patterns: !patterns.length ? null
+      : allSameCount ? `${patterns.length} habits of mind showed up, ${patterns[0].count === 1 ? "once each" : `${patterns[0].count} times each`}.`
+      : `${patterns[0].label} comes up most — ${patterns[0].count} ${patterns[0].count === 1 ? "time" : "times"}.`,
+    consistency: days.length
+      ? `You wrote on ${days.length} ${days.length === 1 ? "day" : "days"} in the ${RECORDING_HEATMAP_WEEKS} weeks to ${shortMonthDay(formatDateDots(anchor))}${days.length > 1 ? `, most often on ${WEEKDAY_NAMES[topWeekday]}s` : ""}.`
+      : null,
+    selfTalk: selfTalk.length < 2 ? null
+      : firstRate < 0.05 && lastRate >= 0.05 ? `You've started using reflective words — ${lastRate.toFixed(1)}% of what you wrote lately, none at first.`
+      : lastRate > firstRate + 0.3 ? `You use more reflective words lately — ${firstRate.toFixed(1)}% then, ${lastRate.toFixed(1)}% now.`
+      : lastRate < firstRate - 0.3 ? `You use fewer reflective words lately — ${firstRate.toFixed(1)}% then, ${lastRate.toFixed(1)}% now.`
+      : `Your reflective language has held steady, around ${lastRate.toFixed(1)}% of your words.`,
+  };
+}
+
+function ChangeEmpty({ children }: { children: React.ReactNode }) {
+  return <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, wordBreak: "keep-all" }}>{children}</div>;
+}
+function ChangeNote({ children }: { children: React.ReactNode }) {
+  return <div style={{ ...sans, fontSize: 12, color: ivBody, lineHeight: 1.55, marginTop: 12, wordBreak: "keep-all" }}>{children}</div>;
+}
+
+// Feelings: which ones, how strong. A balance bar first (lighter vs.
+// heavier feelings, weighted by strength), then one bar per feeling in its
+// tone. The tone is a second, quieter cue beside the label — the words do
+// the identifying.
+function ChangeEmotions({ history }: { history: StoredHistoryEntry[] }) {
+  const rows = aggregateEmotions(history);
+  if (rows.length === 0) return <ChangeEmpty>No feelings recorded yet. They show up here after a few entries.</ChangeEmpty>;
+  const light = REGION_CONFIG.security;
+  const heavy = REGION_CONFIG.relationships;
+  const weight = (pleasant: boolean) => rows.filter((r) => r.pleasant === pleasant).reduce((s, r) => s + r.avg * r.count, 0);
+  const lightShare = Math.round((weight(true) / Math.max(1, weight(true) + weight(false))) * 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {rows.map((r) => (
-        <div key={r.label}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 12, color: "rgba(42,38,33,0.5)" }}>{r.avg} · {r.count}×</span>
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, marginBottom: 6 }}>
+        <span style={{ color: light.ink, fontWeight: 600 }}>Lighter {lightShare}%</span>
+        <span style={{ color: heavy.ink, fontWeight: 600 }}>Heavier {100 - lightShare}%</span>
+      </div>
+      <div
+        role="img" aria-label={`Lighter feelings ${lightShare} percent, heavier feelings ${100 - lightShare} percent.`}
+        style={{ height: 10, borderRadius: 5, backgroundImage: `linear-gradient(90deg, ${light.color} 0%, ${light.color} ${Math.max(0, lightShare - 6)}%, ${heavy.color} ${Math.min(100, lightShare + 6)}%, ${heavy.color} 100%)` }}
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 18 }}>
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 5 }}>
+              <span style={{ ...sans, fontSize: 14, fontWeight: 500, color: ivHeading }}>{r.label}</span>
+              <span style={{ ...mono, fontSize: 12, color: ivBody }}>{r.avg}<span style={{ color: ivFaint }}> / 100</span></span>
+            </div>
+            <MeterFill value={r.avg} color={(r.pleasant ? light : heavy).color} track="rgba(42,38,33,0.07)" height={6} radius={3} />
           </div>
-          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(r.avg / maxAvg) * 100}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
+        ))}
+      </div>
+      <ChangeNote>Each bar is how strong that feeling was, on average, on the days it came up. Green leans light, rose leans heavy.</ChangeNote>
+    </div>
+  );
+}
+
+// Values: a two-sided bar per value — away to the left of the center line,
+// toward to the right — so direction is the first thing the eye gets.
+function ChangeValues({ history }: { history: StoredHistoryEntry[] }) {
+  const rows = aggregateValues(history);
+  if (rows.length === 0) return <ChangeEmpty>No value directions yet. They show up here after a few entries.</ChangeEmpty>;
+  const toward = REGION_CONFIG.security;
+  const away = REGION_CONFIG.creativity;
+  const max = Math.max(1, ...rows.map((r) => Math.max(r.toward, r.away)));
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
+        <span style={{ color: away.ink }}>← Away from it</span>
+        <span style={{ color: toward.ink }}>Toward it →</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {rows.map((r) => (
+          <div key={r.label} role="img" aria-label={`${r.label}: ${r.toward} toward, ${r.away} away.`}>
+            <div style={{ ...sans, fontSize: 14, fontWeight: 500, color: ivHeading, textAlign: "center", marginBottom: 5 }}>{r.label}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ ...mono, fontSize: 12, color: r.away ? away.ink : ivFaint, width: 14, textAlign: "right" }}>{r.away}</span>
+              <div style={{ flex: 1, height: 8, borderRadius: "4px 0 0 4px", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", justifyContent: "flex-end", overflow: "hidden" }}>
+                <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ width: `${(r.away / max) * 100}%`, height: "100%", transformOrigin: "right", backgroundImage: `linear-gradient(270deg, ${away.color}66, ${away.color})` }} />
+              </div>
+              <span aria-hidden style={{ width: 2, height: 16, borderRadius: 1, backgroundColor: ivFaint, flexShrink: 0 }} />
+              <div style={{ flex: 1, height: 8, borderRadius: "0 4px 4px 0", backgroundColor: "rgba(42,38,33,0.06)", overflow: "hidden" }}>
+                <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  style={{ width: `${(r.toward / max) * 100}%`, height: "100%", transformOrigin: "left", backgroundImage: `linear-gradient(90deg, ${toward.color}66, ${toward.color})` }} />
+              </div>
+              <span style={{ ...mono, fontSize: 12, color: r.toward ? toward.ink : ivFaint, width: 14 }}>{r.toward}</span>
+            </div>
           </div>
+        ))}
+      </div>
+      <ChangeNote>The numbers are entries. "Toward" means what you did that day moved you closer to something you care about; "away" means it pulled you from it.</ChangeNote>
+    </div>
+  );
+}
+
+// Thinking habits: each one named, counted, and explained in a sentence —
+// the explanation is what makes "Mental filtering" mean something.
+function ChangePatterns({ history }: { history: StoredHistoryEntry[] }) {
+  const rows = aggregatePatterns(history);
+  if (rows.length === 0) return <ChangeEmpty>No thinking habits spotted yet. They show up here after a few entries.</ChangeEmpty>;
+  const tone = REGION_CONFIG.career;
+  return (
+    <div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {rows.map((r) => (
+          <div key={r.label} style={{ borderRadius: shape.sm, backgroundImage: `linear-gradient(135deg, ${tone.tint} 0%, rgba(255,255,255,0.6) 100%)`, padding: "11px 13px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ ...sans, fontSize: 14, fontWeight: 600, color: tone.ink }}>{r.label}</span>
+              <span style={{ ...mono, fontSize: 12, color: tone.ink, flexShrink: 0 }}>{r.count}×</span>
+            </div>
+            <div style={{ ...sans, fontSize: 12.5, color: ivHeading, opacity: 0.8, lineHeight: 1.5, marginTop: 4, wordBreak: "keep-all" }}>{plainPatternDescription(r.label)}</div>
+          </div>
+        ))}
+      </div>
+      <ChangeNote>These are common habits of mind from CBT, not diagnoses. Noticing one is the point — it isn't something to fix.</ChangeNote>
+    </div>
+  );
+}
+
+// Consistency: a twelve-week calendar in the module's blue, with month
+// labels across the top and weekday initials down the side.
+function ChangeConsistency({ history }: { history: StoredHistoryEntry[] }) {
+  const { weeks } = React.useMemo(() => buildRecordingHeatmapWeeks(history), [history]);
+  const tone = REGION_CONFIG.curiosity;
+  const recorded = weeks.flat().filter((d) => !d.isFuture && d.count > 0);
+  if (recorded.length === 0) return <ChangeEmpty>No entries yet. Each day you write fills in a square here.</ChangeEmpty>;
+  const cellColor = (d: HeatmapDay) => (d.isFuture ? "transparent" : d.count === 0 ? "rgba(42,38,33,0.06)" : d.count === 1 ? `${tone.color}99` : tone.ink);
+  const cell = 20;
+  const gap = 4;
+  const label = `Days written in the last ${RECORDING_HEATMAP_WEEKS} weeks: ${recorded.map((d) => shortMonthDay(formatDateDots(d.date))).join(", ")}.`;
+  return (
+    <div>
+      <div role="img" aria-label={label} style={{ display: "flex", gap: 6 }}>
+        <div aria-hidden style={{ display: "flex", flexDirection: "column", gap, paddingTop: 13 + gap }}>
+          {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+            <span key={i} style={{ ...sans, fontSize: 10, lineHeight: `${cell}px`, height: cell, color: i % 2 ? ivBody : "transparent" }}>{d}</span>
+          ))}
         </div>
-      ))}
+        <div aria-hidden style={{ display: "flex", gap, overflowX: "auto" }} className="no-scrollbar">
+          {weeks.map((week, wi) => {
+            const first = week[0].date;
+            const showMonth = wi === 0 || first.getDate() <= 7;
+            return (
+              <div key={wi} style={{ display: "flex", flexDirection: "column", gap, flexShrink: 0 }}>
+                <span style={{ ...sans, fontSize: 10, height: 13, color: ivBody, whiteSpace: "nowrap", width: cell, overflow: "visible" }}>
+                  {showMonth ? first.toLocaleDateString("en-US", { month: "short" }) : ""}
+                </span>
+                {week.map((day, di) => (
+                  <div key={di} title={day.isFuture ? undefined : `${formatDateDots(day.date)} · ${day.count} ${day.count === 1 ? "entry" : "entries"}`}
+                    style={{ width: cell, height: cell, borderRadius: 5, backgroundColor: cellColor(day) }} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, ...sans, fontSize: 11, color: ivBody }}>
+        <span style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: "rgba(42,38,33,0.06)" }} /> none
+        <span style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: `${tone.color}99`, marginLeft: 6 }} /> one entry
+        <span style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: tone.ink, marginLeft: 6 }} /> more
+      </div>
+    </div>
+  );
+}
+
+// Self-talk: two then-and-now numbers instead of a per-week bar list —
+// how much reflective language ("think", "realize", "notice"), and how
+// much the writing is about "I" versus other people.
+function ChangeSelfTalk({ history }: { history: StoredHistoryEntry[] }) {
+  const weeks = buildSelfTalkWeeks(history);
+  if (weeks.length < 2) return <ChangeEmpty>This needs entries from at least two different weeks to compare.</ChangeEmpty>;
+  const tone = REGION_CONFIG.identity;
+  const other = REGION_CONFIG.curiosity;
+  const first = weeks[0];
+  const last = weeks[weeks.length - 1];
+  const delta = last.cognitiveVerbPerHundredWords - first.cognitiveVerbPerHundredWords;
+  const TrendIcon = delta > 0.3 ? ArrowUpRight : delta < -0.3 ? ArrowDownRight : Minus;
+  const iShare = (w: SelfTalkWeek) => {
+    const t = w.firstPersonSingularCount + w.collectiveOrOtherCount;
+    return t > 0 ? Math.round((w.firstPersonSingularCount / t) * 100) : null;
+  };
+  const lastShare = iShare(last);
+  const firstShare = iShare(first);
+  const tile: React.CSSProperties = { flex: 1, minWidth: 140, borderRadius: shape.sm, padding: "12px 13px", backgroundImage: `linear-gradient(150deg, ${tone.tint} 0%, rgba(255,255,255,0.65) 100%)` };
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={tile}>
+          <div style={{ ...sans, fontSize: 12, color: tone.ink, fontWeight: 600 }}>Reflective words</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <span style={{ ...mono, fontSize: 24, fontWeight: 700, color: ivHeading }}>{last.cognitiveVerbPerHundredWords.toFixed(1)}%</span>
+            <TrendIcon size={18} weight="bold" color={tone.ink} />
+          </div>
+          <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>{first.cognitiveVerbPerHundredWords < 0.05 ? "none" : `was ${first.cognitiveVerbPerHundredWords.toFixed(1)}%`} the week of {shortMonthDay(first.weekStart)}</div>
+        </div>
+        <div style={tile}>
+          <div style={{ ...sans, fontSize: 12, color: tone.ink, fontWeight: 600 }}>About you vs. others</div>
+          {lastShare === null ? (
+            <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 8 }}>No pronouns counted yet.</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", height: 10, borderRadius: 5, overflow: "hidden", marginTop: 10, backgroundImage: `linear-gradient(90deg, ${tone.color} 0%, ${tone.color} ${Math.max(0, lastShare - 5)}%, ${other.color} ${Math.min(100, lastShare + 5)}%, ${other.color} 100%)` }} />
+              <div style={{ display: "flex", justifyContent: "space-between", ...sans, fontSize: 12, marginTop: 5 }}>
+                <span style={{ color: tone.ink, fontWeight: 600 }}>"I" {lastShare}%</span>
+                <span style={{ color: other.ink, fontWeight: 600 }}>"we/they" {100 - lastShare}%</span>
+              </div>
+              {firstShare !== null && firstShare !== lastShare && (
+                <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>"I" was {firstShare}% at first</div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      <ChangeNote>Reflective words — "think", "realize", "notice" — as a share of everything you wrote that week. More of them often means stepping back from a feeling to look at it.</ChangeNote>
     </div>
   );
 }
@@ -2166,81 +2485,7 @@ function ComingSoonRow({ label, last }: { label: string; last?: boolean }) {
   );
 }
 
-function ValueDirectionShifts({ history }: { history: StoredHistoryEntry[] }) {
-  const totals = new Map<string, { toward: number; away: number; unclear: number }>();
-  history.forEach((entry) => {
-    const vd = entry.analysis?.interpretation.valueDirection;
-    if (!vd) return;
-    vd.relatedValues.forEach((value) => {
-      const cur = totals.get(value) ?? { toward: 0, away: 0, unclear: 0 };
-      cur[vd.towardOrAway] += 1;
-      totals.set(value, cur);
-    });
-  });
-  const rows = Array.from(totals.entries())
-    .map(([label, t]) => ({ label, ...t, total: t.toward + t.away + t.unclear }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 6);
 
-  if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)" }}>No value-direction data yet. It'll show up here after you leave a few thoughts.</div>;
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {rows.map((r) => (
-        <div key={r.label}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 12, color: "rgba(42,38,33,0.5)" }}>{r.toward} toward · {r.away} away</span>
-          </div>
-          <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}>
-            <div style={{ height: "100%", width: `${(r.toward / r.total) * 100}%`, backgroundColor: "rgba(42,38,33,0.5)" }} />
-            <div style={{ height: "100%", width: `${(r.away / r.total) * 100}%`, backgroundColor: "rgba(42,38,33,0.3)" }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Same bar-list treatment as EmotionDistribution, counting
-// interpretation.possibleCognitivePatterns instead of emotion intensity —
-// only ever the fixed nine-item list analysisFramework's prompt already
-// constrains the model to, never invented labels.
-function CognitivePatternFrequency({ history }: { history: StoredHistoryEntry[] }) {
-  const counts = new Map<string, number>();
-  history.forEach((entry) => {
-    entry.analysis?.interpretation.possibleCognitivePatterns.forEach((p) => {
-      counts.set(p, (counts.get(p) ?? 0) + 1);
-    });
-  });
-  const rows = Array.from(counts.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 6);
-
-  if (rows.length === 0) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)" }}>No recurring thinking patterns yet. It'll show up here after you leave a few thoughts.</div>;
-  }
-
-  const maxCount = rows[0].count || 1;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {rows.map((r) => (
-        <div key={r.label}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span style={{ ...sans, fontSize: 13, color: "#2A2621" }}>{r.label}</span>
-            <span style={{ ...mono, fontSize: 12, color: "rgba(42,38,33,0.5)" }}>{r.count}×</span>
-          </div>
-          <div style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.08)", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${(r.count / maxCount) * 100}%`, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.5)" }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 // Powers the weekly-summary Notification (see App()'s effect near the
 // daily-reminder one) — not a component, just the same kind of real
@@ -2306,180 +2551,7 @@ function buildSelfTalkWeeks(history: StoredHistoryEntry[], maxWeeks = 8): SelfTa
     .slice(-maxWeeks);
 }
 
-// Premium's "language over time" module — the per-entry version of this
-// (compareCognitiveVerbTrend/comparePronounLean in cognitiveLexicon.ts)
-// only ever compares one entry against its 3 most recent neighbors, right
-// after recording (see ScreenSessionSummary). This is the same underlying
-// Pennebaker-style observation, just aggregated into real weekly buckets
-// instead of a single "today vs. recently" read — an accumulated pattern
-// like everything else Premium gates, not a new analysis.
-function SelfTalkTrend({ history }: { history: StoredHistoryEntry[] }) {
-  const weeks = buildSelfTalkWeeks(history);
-  if (weeks.length < 2) {
-    return <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.65)" }}>Not enough weeks of recorded language yet — this fills in once you've written across a few different weeks.</div>;
-  }
 
-  const w = 280;
-  const h = 40;
-  const pad = 4;
-  const maxRate = Math.max(...weeks.map((wk) => wk.cognitiveVerbPerHundredWords), 1);
-  const points = weeks
-    .map((wk, i) => {
-      const x = pad + (i / (weeks.length - 1)) * (w - pad * 2);
-      const y = h - pad - (wk.cognitiveVerbPerHundredWords / maxRate) * (h - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-  // The polyline itself is purely visual — a screen reader gets nothing
-  // from tracing SVG point coordinates, so role="img" + aria-label collapses
-  // the whole chart into the one sentence it's actually communicating,
-  // same idiom as an <img alt="...">.
-  const firstRate = weeks[0].cognitiveVerbPerHundredWords;
-  const lastRate = weeks[weeks.length - 1].cognitiveVerbPerHundredWords;
-  const trendWord = lastRate > firstRate ? "rose to" : lastRate < firstRate ? "fell to" : "stayed at";
-  const sparklineLabel = `Reflective language rate by week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(weeks[weeks.length - 1].weekStart)}: started at ${firstRate.toFixed(1)} per 100 words, ${trendWord} ${lastRate.toFixed(1)} per 100 words.`;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <div>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.65)" }}>
-          Reflective language ("think," "realize," "notice"...) per 100 words, by week
-        </div>
-        <svg role="img" aria-label={sparklineLabel} width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ marginTop: 6, display: "block" }}>
-          <polyline points={points} fill="none" stroke="rgba(42,38,33,0.55)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{shortMonthDay(weeks[0].weekStart)}</span>
-          <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{shortMonthDay(weeks[weeks.length - 1].weekStart)}</span>
-        </div>
-      </div>
-
-      <div>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: "rgba(42,38,33,0.65)", marginBottom: 10 }}>
-          "I" vs. "we/they," by week
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {weeks.map((wk) => {
-            const total = wk.firstPersonSingularCount + wk.collectiveOrOtherCount;
-            return (
-              <div key={wk.weekStart}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ ...sans, fontSize: 11, color: "#2A2621" }}>{shortMonthDay(wk.weekStart)}</span>
-                  {total > 0 && <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{wk.firstPersonSingularCount} "I" · {wk.collectiveOrOtherCount} "we/they"</span>}
-                </div>
-                <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}>
-                  {total > 0 && (
-                    <>
-                      <div style={{ height: "100%", width: `${(wk.firstPersonSingularCount / total) * 100}%`, backgroundColor: "rgba(42,38,33,0.5)" }} />
-                      <div style={{ height: "100%", width: `${(wk.collectiveOrOtherCount / total) * 100}%`, backgroundColor: "rgba(42,38,33,0.3)" }} />
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const RECORDING_HEATMAP_WEEKS = 12;
-
-type HeatmapDay = { date: Date; count: number; isFuture: boolean };
-
-// Sun-Sat columns, most recent week last, ending on the Saturday of the
-// current week (so today's own column is always a complete week, not a
-// partial one cut off mid-week) — the same GitHub-contribution-graph idiom,
-// built from real entry dates only; days beyond today are marked
-// isFuture so the component can render them as empty space rather than a
-// misleading "0 entries" cell for a day that hasn't happened yet.
-function buildRecordingHeatmapWeeks(history: StoredHistoryEntry[], numWeeks = RECORDING_HEATMAP_WEEKS): HeatmapDay[][] {
-  const counts = new Map<string, number>();
-  history.forEach((e) => {
-    const d = parseDotDate(e.date);
-    if (!d) return;
-    const key = d.toDateString();
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  });
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(today);
-  endOfWeek.setDate(today.getDate() + (6 - today.getDay()));
-  const totalDays = numWeeks * 7;
-  const start = new Date(endOfWeek);
-  start.setDate(endOfWeek.getDate() - totalDays + 1);
-
-  const weeks: HeatmapDay[][] = [];
-  const cursor = new Date(start);
-  for (let w = 0; w < numWeeks; w++) {
-    const week: HeatmapDay[] = [];
-    for (let d = 0; d < 7; d++) {
-      const dayDate = new Date(cursor);
-      const isFuture = dayDate > today;
-      week.push({ date: dayDate, count: isFuture ? 0 : (counts.get(dayDate.toDateString()) ?? 0), isFuture });
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    weeks.push(week);
-  }
-  return weeks;
-}
-
-function heatmapCellColor(count: number, isFuture: boolean): string {
-  if (isFuture) return "transparent";
-  if (count === 0) return "rgba(42,38,33,0.07)";
-  if (count === 1) return "rgba(42,38,33,0.3)";
-  return "rgba(42,38,33,0.55)";
-}
-
-// Premium's "consistency" view — same spirit as Profile's streak stat,
-// just showing the actual shape of when entries landed over the last
-// RECORDING_HEATMAP_WEEKS weeks instead of a single running-streak number.
-function RecordingHeatmap({ history }: { history: StoredHistoryEntry[] }) {
-  const weeks = React.useMemo(() => buildRecordingHeatmapWeeks(history), [history]);
-  const recordedDays = weeks.flat().filter((d) => !d.isFuture && d.count > 0);
-  const totalDaysRecorded = recordedDays.length;
-  const cell = 11;
-  const gap = 3;
-  // Same "collapse a purely-visual grid into one sentence" idiom as
-  // SelfTalkTrend's sparkline above — the per-day `title` attributes below
-  // are unreliable on non-interactive, non-focusable divs for a screen
-  // reader, so the grid as a whole gets a real summary instead. Listing
-  // the actual recorded dates (not just a count) is what the visual grid
-  // itself is for, so the accessible version should say the same thing.
-  const heatmapLabel = totalDaysRecorded === 0
-    ? `Recording heatmap for the last ${RECORDING_HEATMAP_WEEKS} weeks. No days recorded yet.`
-    : `Recording heatmap for the last ${RECORDING_HEATMAP_WEEKS} weeks. Recorded on: ${recordedDays.map((d) => shortMonthDay(formatDateDots(d.date))).join(", ")}.`;
-
-  return (
-    <div>
-      <div role="img" aria-label={heatmapLabel} style={{ display: "flex", gap, overflowX: "auto", paddingBottom: 2 }}>
-        {weeks.map((week, wi) => (
-          <div key={wi} aria-hidden="true" style={{ display: "flex", flexDirection: "column", gap, flexShrink: 0 }}>
-            {week.map((day, di) => (
-              <div
-                key={di}
-                title={day.isFuture ? undefined : `${formatDateDots(day.date)} · ${day.count} thought${day.count === 1 ? "" : "s"}`}
-                style={{ width: cell, height: cell, borderRadius: 2.5, backgroundColor: heatmapCellColor(day.count, day.isFuture) }}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-        <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{totalDaysRecorded} day{totalDaysRecorded === 1 ? "" : "s"} recorded in the last {RECORDING_HEATMAP_WEEKS} weeks</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>Less</span>
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.07)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.3)" }} />
-          <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: "rgba(42,38,33,0.55)" }} />
-          <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>More</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // The one shared agree/disagree control — used compactly in the hero (a
 // quick read, available before the user has even scrolled) and again in
@@ -6736,6 +6808,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   // Which of Premium's "how you've changed" modules is unfolded — one at a
   // time, closed by default, so the catalogue above stays the screen.
   const [openDeeper, setOpenDeeper] = React.useState<number | null>(null);
+  const changeSummaries = React.useMemo(() => summarizeChanges(store.history), [store.history]);
 
   const query = search.trim().toLowerCase();
   const matchesSearch = React.useCallback(
@@ -6901,25 +6974,30 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             );
           })}
 
-          {/* ── How you've changed — Premium's longitudinal layer, the same
-          five modules (EmotionDistribution / ValueDirectionShifts /
-          CognitivePatternFrequency / RecordingHeatmap / SelfTalkTrend),
-          now folded into disclosure rows so they add five lines to the
-          screen rather than five screens. Only when Premium Mode is on
-          (store.isPro, toggled from Profile). ── */}
+          {/* ── How you've changed — Premium's longitudinal layer (see
+          ChangeEmotions and its siblings). Each closed row already says
+          its takeaway; opening one shows the picture behind it. Only when
+          Premium Mode is on (store.isPro, toggled from Profile). ── */}
           {store.isPro && (
-            <SettingsGroup header="How you've changed" style={{ marginTop: 28, marginBottom: 0 }}>
+            <SettingsGroup header="How you've changed" footer="Built from every entry so far. Tap a row to see what's behind the sentence." style={{ marginTop: 28, marginBottom: 0 }}>
               {[
-                { title: "Emotion distribution", subtitle: "The average intensity of recorded emotions.", body: <EmotionDistribution history={store.history} /> },
-                { title: "Value shifts", subtitle: "How often what you've written moves toward what you care about, versus away from it.", body: <ValueDirectionShifts history={store.history} /> },
-                { title: "Thinking patterns", subtitle: "Which cognitive patterns show up most in what you've recorded.", body: <CognitivePatternFrequency history={store.history} /> },
-                { title: "Recording consistency", subtitle: "Which days you actually showed up, over time.", body: <RecordingHeatmap history={store.history} /> },
-                { title: "Self-talk over time", subtitle: "How your own language has shifted, week to week.", body: <SelfTalkTrend history={store.history} /> },
-              ].map((d, i) => (
-                <DisclosureRow key={d.title} title={d.title} subtitle={d.subtitle} open={openDeeper === i} onToggle={() => setOpenDeeper((cur) => (cur === i ? null : i))} first={i === 0}>
-                  {d.body}
-                </DisclosureRow>
-              ))}
+                { key: "emotions" as const, title: "Your feelings", Icon: Smiley, body: <ChangeEmotions history={store.history} /> },
+                { key: "values" as const, title: "What you're moving toward", Icon: Compass, body: <ChangeValues history={store.history} /> },
+                { key: "patterns" as const, title: "Thinking habits", Icon: Lightbulb, body: <ChangePatterns history={store.history} /> },
+                { key: "consistency" as const, title: "When you write", Icon: CalendarBlank, body: <ChangeConsistency history={store.history} /> },
+                { key: "selfTalk" as const, title: "How you talk to yourself", Icon: ChatCircleText, body: <ChangeSelfTalk history={store.history} /> },
+              ].map((d, i) => {
+                const tone = REGION_CONFIG[CHANGE_TINT[d.key]];
+                return (
+                  <DisclosureRow
+                    key={d.key} title={d.title} subtitle={changeSummaries[d.key] ?? "Fills in after a few entries."}
+                    icon={<span style={{ ...settingsTile, backgroundColor: tone.tint, color: tone.ink }}><d.Icon size={17} weight="duotone" /></span>}
+                    open={openDeeper === i} onToggle={() => setOpenDeeper((cur) => (cur === i ? null : i))} first={i === 0}
+                  >
+                    {d.body}
+                  </DisclosureRow>
+                );
+              })}
             </SettingsGroup>
           )}
           </>
@@ -7671,20 +7749,21 @@ const HELP_ITEMS = [
 // body measures itself open. Used for Help's questions and for History's
 // "how you've changed" modules — anything that should cost one line of a
 // list until someone asks for it.
-function DisclosureRow({ title, subtitle, open, onToggle, first, titleStyle, children }: { title: string; subtitle?: string; open: boolean; onToggle: () => void; first: boolean; titleStyle?: React.CSSProperties; children: React.ReactNode }) {
+function DisclosureRow({ title, subtitle, icon, open, onToggle, first, titleStyle, children }: { title: string; subtitle?: string; icon?: React.ReactNode; open: boolean; onToggle: () => void; first: boolean; titleStyle?: React.CSSProperties; children: React.ReactNode }) {
   return (
     <div style={{ position: "relative" }}>
-      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: icon ? 16 + 28 + 12 : 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
       <motion.button
         type="button" aria-expanded={open} onClick={onToggle}
         whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }} transition={{ duration: 0.12 }}
-        style={{ width: "100%", border: 0, background: "rgba(42,38,33,0)", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", textAlign: "left", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+        style={{ width: "100%", border: 0, background: "rgba(42,38,33,0)", display: "flex", alignItems: icon ? "flex-start" : "center", gap: 12, padding: "13px 16px", textAlign: "left", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
       >
+        {icon && <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>}
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading, lineHeight: 1.4, display: "block", wordBreak: "keep-all", ...titleStyle }}>{title}</span>
-          {subtitle && <span style={{ ...sans, fontSize: 12, color: ivBody, lineHeight: 1.45, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
+          {subtitle && <span style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.45, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
         </span>
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0 }}>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0, marginTop: icon ? 4 : 0 }}>
           <CaretDown size={14} color={ivFaint} weight="bold" />
         </motion.span>
       </motion.button>
