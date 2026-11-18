@@ -4741,6 +4741,11 @@ function ScreenAiConsent({
         <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>{copy.title}</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
+        {/* What agreeing changes, drawn: the trip to Anthropic only runs
+            once both boxes are ticked. The legal text below is unchanged. */}
+        <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginBottom: 16 }}>
+          <DataPathIllustration aiOn={both} lang={isKoreanLocale() ? "ko" : "en"} />
+        </div>
         <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.7, wordBreak: "keep-all" }}>{copy.intro}</div>
         {block(copy.sensitive, sensitive, setSensitive)}
         {block(copy.overseas, overseas, setOverseas)}
@@ -5539,9 +5544,6 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
   const hasBeliefs = store.beliefs.length > 0;
   const hasAssumptions = store.assumptions.length > 0;
   const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
-  // The one explainer that used to sit mid-page as a long gray card is a
-  // disclosure row at the bottom now, closed until asked for.
-  const [showGlossary, setShowGlossary] = React.useState(false);
   const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
   return (
     // Same full-bleed pattern the rest of Premium's deeper layers use —
@@ -5559,10 +5561,25 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           </div>
         </div>
 
+        {/* How to read this page, as a picture: beliefs run underneath,
+            interpretations are the moments they surface. Replaces the long
+            "difference between a belief and an interpretation" card. */}
+        {hasBeliefs && (
+          <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginTop: 20 }}>
+            <BeliefRootsIllustration />
+            <div style={{ padding: "0 4px 4px" }}>
+              <IllustrationKey items={[
+                { tone: REGION_CONFIG.identity.color, text: <><b style={{ fontWeight: 600 }}>A belief</b> runs underneath — "Safety comes first."</> },
+                { tone: REGION_CONFIG.security.color, text: <><b style={{ fontWeight: 600 }}>An interpretation</b> is a moment it shows — "When I start something new, I tell myself I'm not ready."</> },
+              ]} />
+            </div>
+          </div>
+        )}
+
         <SettingsGroup
           header="Core beliefs"
           style={{ marginTop: 24 }}
-          footer="A background pattern in your choices, not something you'd say out loud. The bar is how much evidence backs it; it takes at least three similar entries to appear."
+          footer="The bar is how much evidence backs each one. It takes three similar entries for a belief to appear."
         >
           {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
@@ -5618,13 +5635,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           </SettingsGroup>
         )}
 
-        <SettingsGroup style={{ marginBottom: 14 }}>
-          <DisclosureRow title="What's the difference between a belief and an interpretation?" open={showGlossary} onToggle={() => setShowGlossary((v) => !v)} first>
-            <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.65, wordBreak: "keep-all" }}>
-              A belief runs quietly in the background — it's the why. An interpretation is the moment it shows up: one situation, read one way, every time. "Safety comes first" is a belief; "when starting something new, I tell myself I'm not ready yet" is the interpretation it produces.
-            </div>
-          </DisclosureRow>
-        </SettingsGroup>
+
 
         <div style={{ ...sans, fontSize: 12, color: ivFaint, lineHeight: 1.5, padding: "0 6px", wordBreak: "keep-all" }}>{DISCLAIMER_NOTICE}</div>
       </div>
@@ -7782,6 +7793,250 @@ function downloadStoreAsJson(store: Store) {
   URL.revokeObjectURL(url);
 }
 
+// ── Explainer illustrations ──────────────────────────────────────────────────
+// Small animated drawings that carry what used to be a paragraph. Each one
+// is a mechanism shown, not decoration: where your data goes, how a belief
+// relates to an interpretation, what the app does with what you say. The
+// sentences they replace are kept — as short captions under the picture,
+// and in full behind a "Full details" row wherever the wording is a
+// promise (privacy, consent). Every one stops moving under reduced motion
+// and has an aria-label saying the same thing in words.
+
+// Sample a cubic Bézier into keyframes for an SVG "travels along a path"
+// dot (motion animates cx/cy through the samples).
+function bezierSamples(p0: RoadPoint, p1: RoadPoint, p2: RoadPoint, p3: RoadPoint, n = 12) {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const u = 1 - t;
+    xs.push(u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0]);
+    ys.push(u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]);
+  }
+  return { xs, ys };
+}
+
+// Where an entry goes. A phone holding your entries, a green scan passing
+// over them (the on-device crisis check, before anything leaves), and —
+// only while AI analysis is on — an entry travelling out to Anthropic and
+// an analysis travelling back. With cloud sync configured, a dashed line
+// to your own encrypted account too.
+function DataPathIllustration({ aiOn, cloud, lang = "en" }: { aiOn: boolean; cloud?: boolean; lang?: "en" | "ko" }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const L = lang === "ko"
+    ? { phone: "이 기기", ai: "Anthropic (미국)", off: "분석 꺼짐", cloud: "내 계정 · 암호화" }
+    : { phone: "This phone", ai: "Anthropic (US)", off: "Analysis off", cloud: "Your account · encrypted" };
+  const violet = REGION_CONFIG.identity;
+  const green = REGION_CONFIG.security;
+  const blue = REGION_CONFIG.curiosity;
+  const out = bezierSamples([140, 96], [178, 66], [226, 66], [264, 96]);
+  const back = { xs: [...out.xs].reverse(), ys: [...out.ys].reverse().map((y) => y + 10) };
+  const loop = { duration: 3.2, repeat: Infinity, ease: "easeInOut" as const };
+  const label = [
+    `Your entries stay on this phone${cloud ? " and, if you've signed up, in your own encrypted account" : ""}.`,
+    "Each one is checked on the phone for signs of crisis before anything is sent.",
+    aiOn ? "With AI analysis on, an entry goes to Anthropic in the US to be analyzed, and the analysis comes back." : "AI analysis is off, so nothing is sent to Anthropic.",
+  ].join(" ");
+  return (
+    <svg role="img" aria-label={label} viewBox="0 0 360 184" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <linearGradient id={`bg${id}`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor={blue.tint} /><stop offset="1" stopColor={violet.tint} /></linearGradient>
+        <linearGradient id={`scan${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={green.color} stopOpacity="0" /><stop offset="0.5" stopColor={green.color} stopOpacity="0.38" /><stop offset="1" stopColor={green.color} stopOpacity="0" />
+        </linearGradient>
+        <radialGradient id={`ai${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.6" stopColor={violet.tint} /><stop offset="1" stopColor={violet.color} stopOpacity="0.25" /></radialGradient>
+        <clipPath id={`screen${id}`}><rect x="52" y="34" width="76" height="116" rx="10" /></clipPath>
+      </defs>
+      <rect width="360" height="184" rx="16" fill={`url(#bg${id})`} />
+
+      {/* The phone and the entries it holds. */}
+      <rect x="44" y="22" width="92" height="140" rx="16" fill="#FFFFFF" stroke="#2A2621" strokeOpacity="0.14" />
+      <rect x="52" y="34" width="76" height="116" rx="10" fill="#FBF8F2" />
+      {[violet, green, blue].map((tone, i) => (
+        <motion.g key={i} animate={reduce ? undefined : { y: [0, -2, 0] }} transition={reduce ? undefined : { duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}>
+          <rect x="60" y={46 + i * 30} width="60" height="20" rx="6" fill={tone.tint} />
+          <rect x="66" y={52 + i * 30} width="30" height="3" rx="1.5" fill={tone.ink} opacity="0.55" />
+          <rect x="66" y={59 + i * 30} width="44" height="3" rx="1.5" fill={tone.ink} opacity="0.3" />
+        </motion.g>
+      ))}
+      {/* The on-device check: a band of green light passing over them. */}
+      <g clipPath={`url(#screen${id})`}>
+        <motion.rect x="52" width="76" height="28" fill={`url(#scan${id})`}
+          initial={{ y: 20 }} animate={reduce ? { y: 60 } : { y: [20, 150] }}
+          transition={reduce ? undefined : { duration: 3.6, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.6 }} />
+      </g>
+      {/* Lock: it stays here. */}
+      <g transform="translate(128 26)">
+        <circle r="10" fill="#2A2621" />
+        <rect x="-4.5" y="-1" width="9" height="7" rx="1.5" fill="#FFFFFF" />
+        <path d="M-2.6 -1 V-3.4 A2.6 2.6 0 0 1 2.6 -3.4 V-1" fill="none" stroke="#FFFFFF" strokeWidth="1.5" />
+      </g>
+      <text x="90" y="178" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621">{L.phone}</text>
+
+      {cloud && (
+        <g>
+          <path d="M136 46 C 160 26, 178 22, 196 28" fill="none" stroke={blue.ink} strokeOpacity="0.5" strokeWidth="1.5" strokeDasharray="3 4" />
+          <path d="M198 36 a10 10 0 0 1 8 -14 a13 13 0 0 1 24 2 a9 9 0 0 1 4 17 h-32 a8 8 0 0 1 -4 -5 z" fill="#FFFFFF" stroke={blue.ink} strokeOpacity="0.35" />
+          <text x="218" y="56" textAnchor="middle" fontSize="9.5" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill={blue.ink}>{L.cloud}</text>
+        </g>
+      )}
+
+      {/* The way to Anthropic — travelled only while analysis is on. */}
+      <motion.path d="M140 96 C 178 66, 226 66, 264 96" fill="none" stroke={violet.ink} strokeWidth="1.8" strokeLinecap="round" strokeDasharray="4 6"
+        strokeOpacity={aiOn ? 0.55 : 0.18}
+        animate={aiOn && !reduce ? { strokeDashoffset: [0, -20] } : undefined} transition={aiOn && !reduce ? { duration: 1.2, repeat: Infinity, ease: "linear" } : undefined} />
+      {aiOn && !reduce && (
+        <>
+          <motion.circle r="4.5" fill={violet.color} cx={out.xs[0]} cy={out.ys[0]} initial={{ cx: out.xs[0], cy: out.ys[0], opacity: 0 }} animate={{ cx: out.xs, cy: out.ys, opacity: [0, 1, 1, 1, 0] }} transition={{ ...loop, repeatDelay: 1.2 }} />
+          <motion.circle r="4.5" fill={green.color} cx={back.xs[0]} cy={back.ys[0]} initial={{ cx: back.xs[0], cy: back.ys[0], opacity: 0 }} animate={{ cx: back.xs, cy: back.ys, opacity: [0, 1, 1, 1, 0] }} transition={{ ...loop, delay: 2.2, repeatDelay: 1.2 }} />
+        </>
+      )}
+      <g opacity={aiOn ? 1 : 0.4}>
+        <motion.circle cx="292" cy="96" r="26" fill={`url(#ai${id})`}
+          animate={aiOn && !reduce ? { scale: [1, 1.06, 1] } : undefined} transition={aiOn && !reduce ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" } : undefined}
+          style={{ transformOrigin: "292px 96px" }} />
+        <path d="M292 82 L295.5 92.5 L306 96 L295.5 99.5 L292 110 L288.5 99.5 L278 96 L288.5 92.5 Z" fill={violet.ink} />
+      </g>
+      <text x="292" y="138" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621" opacity={aiOn ? 1 : 0.55}>{L.ai}</text>
+      {!aiOn && <text x="292" y="153" textAnchor="middle" fontSize="10" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621" opacity="0.55">{L.off}</text>}
+    </svg>
+  );
+}
+
+// A caption row under an illustration: a tinted dot that matches the part
+// of the drawing it describes, and one short line.
+function IllustrationKey({ items }: { items: { tone: string; text: React.ReactNode }[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 12 }}>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+          <span aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: it.tone, marginTop: 5, flexShrink: 0 }} />
+          <span style={{ ...sans, fontSize: 13, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{it.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// A belief and the interpretations it produces, as a plant: the belief is
+// a glowing seed below the soil with roots running out to a second belief
+// (beliefs prop each other up), and above ground three shoots rise in turn
+// — each one a moment the belief showed up.
+function BeliefRootsIllustration() {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const violet = REGION_CONFIG.identity;
+  const gold = REGION_CONFIG.career;
+  const green = REGION_CONFIG.security;
+  const grow = (i: number) => (reduce ? undefined : { duration: 4.5, repeat: Infinity, ease: "easeInOut" as const, delay: i * 0.9, times: [0, 0.35, 0.8, 1] });
+  return (
+    <svg role="img" aria-label="A belief sits underneath, out of sight, with roots joining it to another belief. Above the surface, three shoots rise one after another: each is an interpretation, a moment the belief shows up." viewBox="0 0 360 170" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <linearGradient id={`air${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FBF7EF" /><stop offset="1" stopColor={green.tint} /></linearGradient>
+        <linearGradient id={`soil${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#E3D3BC" /><stop offset="1" stopColor="#CDB797" /></linearGradient>
+        <radialGradient id={`seed${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={violet.color} /><stop offset="1" stopColor={violet.color} stopOpacity="0" /></radialGradient>
+        <radialGradient id={`seed2${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={gold.color} /><stop offset="1" stopColor={gold.color} stopOpacity="0" /></radialGradient>
+      </defs>
+      <rect width="360" height="170" rx="16" fill={`url(#air${id})`} />
+      <path d="M0 92 C 90 86, 260 98, 360 90 L360 154 A16 16 0 0 1 344 170 L16 170 A16 16 0 0 1 0 154 Z" fill={`url(#soil${id})`} />
+
+      {/* Roots: the belief's reach, and the root it shares with another. */}
+      <motion.path d="M150 128 C 175 136, 205 140, 236 132" fill="none" stroke="#8A6A4A" strokeWidth="2" strokeLinecap="round"
+        strokeDasharray="120" initial={{ strokeDashoffset: 120 }} animate={{ strokeDashoffset: 0 }} transition={{ duration: 1.6, ease: [0.22, 1, 0.36, 1] }} />
+      {["M150 128 C 140 142, 120 148, 104 152", "M150 128 C 154 144, 150 152, 142 160", "M236 132 C 250 146, 266 150, 280 154"].map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="#8A6A4A" strokeOpacity="0.55" strokeWidth="1.4" strokeLinecap="round" />
+      ))}
+      <motion.circle cx="150" cy="128" r="16" fill={`url(#seed${id})`} animate={reduce ? undefined : { scale: [1, 1.12, 1] }} transition={reduce ? undefined : { duration: 3.4, repeat: Infinity, ease: "easeInOut" }} style={{ transformOrigin: "150px 128px" }} />
+      <motion.circle cx="236" cy="132" r="12" fill={`url(#seed2${id})`} animate={reduce ? undefined : { scale: [1, 1.1, 1] }} transition={reduce ? undefined : { duration: 3.4, repeat: Infinity, ease: "easeInOut", delay: 1.2 }} style={{ transformOrigin: "236px 132px" }} />
+
+      {/* Shoots: the moments it shows up, rising one after another. */}
+      {[{ x: 96, h: 40 }, { x: 150, h: 54 }, { x: 206, h: 36 }].map((s, i) => (
+        <motion.g key={i} style={{ transformOrigin: `${s.x}px 92px` }}
+          initial={{ scaleY: reduce ? 1 : 0.2 }} animate={reduce ? { scaleY: 1 } : { scaleY: [0.2, 1, 1, 0.2] }} transition={grow(i)}>
+          <path d={`M${s.x} 92 C ${s.x - 2} ${92 - s.h * 0.5}, ${s.x + 3} ${92 - s.h * 0.8}, ${s.x} ${92 - s.h}`} fill="none" stroke={green.ink} strokeWidth="2" strokeLinecap="round" />
+          <path d={`M${s.x} ${92 - s.h * 0.6} c 7 -8, 15 -7, 18 -3 c -6 6, -12 7, -18 3 z`} fill={green.color} />
+          <path d={`M${s.x} ${92 - s.h * 0.85} c -7 -7, -14 -6, -16 -2 c 6 5, 11 6, 16 2 z`} fill={green.color} opacity="0.85" />
+          <circle cx={s.x} cy={92 - s.h} r="3.5" fill={gold.color} />
+        </motion.g>
+      ))}
+      {/* Tie the middle shoot visibly to the seed below it. */}
+      <path d="M150 92 L150 116" stroke="#8A6A4A" strokeWidth="1.6" strokeDasharray="2 3" strokeOpacity="0.6" />
+
+      <text x="292" y="38" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill={green.ink}>Interpretations</text>
+      <text x="292" y="52" textAnchor="middle" fontSize="10" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621" opacity="0.65">the moments it shows</text>
+      <text x="300" y="112" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill={violet.ink}>Beliefs</text>
+      <text x="300" y="126" textAnchor="middle" fontSize="10" fontFamily="'Pretendard Variable', Pretendard, sans-serif" fill="#2A2621" opacity="0.65">running underneath</text>
+    </svg>
+  );
+}
+
+// What the app does, in three beats that light up in turn: you speak (a
+// waveform), it notices what repeats (the same word marked across three
+// lines), a pattern takes shape (orbs joining). One beat at a time keeps
+// the order readable without arrows doing all the work.
+function HowItWorksIllustration() {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const violet = REGION_CONFIG.identity;
+  const gold = REGION_CONFIG.career;
+  const rose = REGION_CONFIG.relationships;
+  const blue = REGION_CONFIG.curiosity;
+  const CYCLE = 7.5;
+  // Each beat is lit for its third of the cycle and dims for the rest.
+  const beat = (i: number) => (reduce
+    ? { animate: { opacity: 1 } }
+    : { animate: { opacity: [0.35, 1, 1, 0.35, 0.35] }, transition: { duration: CYCLE, repeat: Infinity, ease: "easeInOut" as const, times: [0, 0.08, 0.3, 0.38, 1], delay: i * (CYCLE / 3) } });
+  const font = "'Pretendard Variable', Pretendard, sans-serif";
+  return (
+    <svg role="img" aria-label="Three steps: you speak or write; the app notices what repeats across entries; a pattern takes shape as connected beliefs." viewBox="0 0 360 150" style={{ width: "100%", height: "auto", display: "block" }}>
+      <defs>
+        <linearGradient id={`hbg${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor={rose.tint} /><stop offset="0.5" stopColor={gold.tint} /><stop offset="1" stopColor={violet.tint} /></linearGradient>
+      </defs>
+      <rect width="360" height="150" rx="16" fill={`url(#hbg${id})`} />
+      {/* 1 · You speak */}
+      <motion.g {...beat(0)}>
+        <rect x="14" y="22" width="96" height="84" rx="14" fill="#FFFFFF" opacity="0.85" />
+        {[10, 22, 34, 18, 28, 14, 24].map((h, i) => (
+          <motion.rect key={i} x={30 + i * 9} width="5" rx="2.5" fill={rose.ink}
+            initial={{ y: 64 - h / 2, height: h }}
+            animate={reduce ? undefined : { height: [h, h * 0.45, h], y: [64 - h / 2, 64 - (h * 0.45) / 2, 64 - h / 2] }}
+            transition={reduce ? undefined : { duration: 0.9 + (i % 3) * 0.2, repeat: Infinity, ease: "easeInOut" }} />
+        ))}
+        <text x="62" y="128" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily={font} fill="#2A2621">You speak</text>
+      </motion.g>
+      {/* 2 · It notices what repeats */}
+      <motion.g {...beat(1)}>
+        <rect x="132" y="22" width="96" height="84" rx="14" fill="#FFFFFF" opacity="0.85" />
+        {[0, 1, 2].map((r) => (
+          <g key={r}>
+            <rect x="144" y={38 + r * 22} width="72" height="4" rx="2" fill="#2A2621" opacity="0.15" />
+            <motion.rect x={150 + r * 14} y={35 + r * 22} width="26" height="10" rx="3" fill={gold.color}
+              initial={{ opacity: reduce ? 0.7 : 0 }} animate={reduce ? undefined : { opacity: [0, 0.75, 0.75, 0] }}
+              transition={reduce ? undefined : { duration: CYCLE, repeat: Infinity, times: [0.34, 0.42 + r * 0.04, 0.62, 0.7], ease: "easeInOut" }} />
+            <rect x={150 + r * 14} y={38 + r * 22} width="26" height="4" rx="2" fill={gold.ink} opacity="0.8" />
+          </g>
+        ))}
+        <text x="180" y="128" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily={font} fill="#2A2621">It spots repeats</text>
+      </motion.g>
+      {/* 3 · A pattern takes shape */}
+      <motion.g {...beat(2)}>
+        <rect x="250" y="22" width="96" height="84" rx="14" fill="#FFFFFF" opacity="0.85" />
+        <path d="M276 76 L298 46 L322 70 Z" fill="none" stroke={violet.ink} strokeOpacity="0.45" strokeWidth="1.4" />
+        {[{ x: 276, y: 76, c: violet.color }, { x: 298, y: 46, c: gold.color }, { x: 322, y: 70, c: blue.color }].map((o, i) => (
+          <motion.circle key={i} cx={o.x} cy={o.y} r="7" fill={o.c} style={{ transformOrigin: `${o.x}px ${o.y}px` }}
+            animate={reduce ? undefined : { scale: [1, 1.25, 1] }} transition={reduce ? undefined : { duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }} />
+        ))}
+        <text x="298" y="128" textAnchor="middle" fontSize="11" fontWeight="600" fontFamily={font} fill="#2A2621">A pattern forms</text>
+      </motion.g>
+      {/* Order between beats. */}
+      {[118, 236].map((x) => (
+        <path key={x} d={`M${x} 64 l6 0 m-3 -3 l3 3 l-3 3`} fill="none" stroke="#2A2621" strokeOpacity="0.4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+    </svg>
+  );
+}
+
 // ── Screen 14.2 · Data & privacy ───────────────────────────────────────────────
 function ScreenDataPrivacy({
   store,
@@ -7805,6 +8060,7 @@ function ScreenDataPrivacy({
   onDeleteAccount?: () => Promise<void>;
 }) {
   const [armed, setArmed] = React.useState(false);
+  const [showPrivacyDetails, setShowPrivacyDetails] = React.useState(false);
   const [accountArmed, setAccountArmed] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
   const [accountError, setAccountError] = React.useState("");
@@ -7829,15 +8085,32 @@ function ScreenDataPrivacy({
         <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 24px" }}>
-        <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all", padding: "0 6px" }}>
+        {/* Where your data goes, drawn: the phone, the on-device check,
+            and the trip to Anthropic only while analysis is on. The exact
+            wording is a promise, so it stays, word for word, one row down. */}
+        <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginTop: 4 }}>
+          <DataPathIllustration aiOn={!!aiConsentOn} cloud={isCloudSyncConfigured} />
+          <div style={{ padding: "0 4px 4px" }}>
+            <IllustrationKey items={[
+              { tone: REGION_CONFIG.curiosity.color, text: isCloudSyncConfigured ? "Kept on this phone — and in your own encrypted account if you sign up." : "Kept on this phone. There's no account on a server." },
+              { tone: REGION_CONFIG.security.color, text: "Checked here for signs of crisis before anything is sent." },
+              { tone: REGION_CONFIG.identity.color, text: aiConsentOn ? "Sent to Anthropic only to be analyzed, then the analysis comes back." : "Not sent anywhere while AI analysis is off." },
+            ]} />
+          </div>
+        </div>
+        <SettingsGroup style={{ marginTop: 14 }}>
+          <DisclosureRow title="Full details" open={showPrivacyDetails} onToggle={() => setShowPrivacyDetails((v) => !v)} first>
+        <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.75, wordBreak: "keep-all", }}>
           {isCloudSyncConfigured
             ? "Browsing as a guest, everything stays only in this device's browser. If you've signed up, your unconscious beliefs, interpretations, and conversation history are also synced to a private, encrypted account — accessible only to you, never sold or shared, and protected by database-level access rules that make it impossible for anyone else to read your data even by mistake. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed."
             : "This app doesn't create an account on a separate server. Your unconscious beliefs, interpretations, and conversation history are stored only in this device's browser. Text you log with \"Speak your mind\" is only sent to Claude (Anthropic) at the moment it's analyzed, and never leaves your device otherwise."}
         </div>
 
-        <div style={{ ...sans, fontSize: 13, color: ivBody, margin: "16px 0 26px", lineHeight: 1.75, wordBreak: "keep-all", padding: "0 6px" }}>
+        <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 12, lineHeight: 1.75, wordBreak: "keep-all", }}>
           One exception: what you write is checked on this device, before anything is sent anywhere, for language that suggests you might be in crisis. That check never leaves your device either — if it matches, you're shown real crisis resources instead of the usual analysis. Nothing about that check is stored, scored, or shared.
         </div>
+          </DisclosureRow>
+        </SettingsGroup>
 
         <SettingsGroup header="Stored on this device">
           {[
@@ -7974,6 +8247,13 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
         </div>
       </div>
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
+        {/* The app in three beats, before any question is asked. */}
+        <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginBottom: 22 }}>
+          <HowItWorksIllustration />
+          <div style={{ ...sans, fontSize: 13, color: ivHeading, lineHeight: 1.5, padding: "10px 4px 2px", wordBreak: "keep-all" }}>
+            Say what's on your mind, in any order. Over time the app notices what keeps coming back, and shows you the beliefs underneath.
+          </div>
+        </div>
         {onReplayTutorial && (
           <SettingsGroup>
             <SettingsRow icon={<ArrowCounterClockwise size={17} />} label="Replay the tutorial" onClick={onReplayTutorial} />
