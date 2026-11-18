@@ -41,7 +41,7 @@ import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, 
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
   ArrowCounterClockwise, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, ChatCircleText, Clock, Compass, CreditCard, Minus,
-  DownloadSimple, Eye, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Question, ShareNetwork,
+  DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
@@ -2690,62 +2690,148 @@ function DiscoveryReflection({
   );
 }
 
-// A vertical "watch it develop" chain — origin, current understanding,
-// and (when there's a real recorded one) an outcome — instead of a
-// side-by-side then/now comparison. Only ever built from points that
-// trace back to something actually recorded; never a fabricated midpoint.
-function EvolutionTimeline({ points }: { points: { label: string; text: string; accent?: boolean }[] }) {
+// ── Examine, sectioned ───────────────────────────────────────────────────────
+// Examine used to be one column of ivory serif under identical tracked-caps
+// labels, so every section looked like the one before it and nothing said
+// where you were on the page. Each section now has its own header (a
+// tinted icon tile and a sentence-case title, the same grammar as History's
+// "How you've changed"), and its content takes the form of what it is: the
+// discovery as a card in its region's color with a confidence ring, your
+// own words as speech bubbles, the history of the thought as a lit trail.
+function ExamineSectionHeader({ region, icon, title, subtitle }: { region: CognitiveRegion; icon: React.ReactNode; title: string; subtitle?: string }) {
+  const tone = REGION_CONFIG[region];
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      {points.map((p, i) => {
-        const hasNext = i < points.length - 1;
-        return (
-          <div key={i} style={{ display: "flex", gap: 12 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14, flexShrink: 0 }}>
-              <div style={{ width: 9, height: 9, borderRadius: "50%", backgroundColor: p.accent ? ivHeading : ivDivider, flexShrink: 0, marginTop: 3 }} />
-              {hasNext && <div style={{ width: 2, flex: 1, backgroundColor: ivDivider, minHeight: 28 }} />}
-            </div>
-            <div style={{ paddingBottom: 20 }}>
-              <div style={{ ...mono, fontSize: 11, color: ivFaint, marginBottom: 3 }}>{p.label}</div>
-              <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, margin: 0, lineHeight: 1.4, wordBreak: "keep-all" }}>{p.text}</p>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// A single evidence entry — a plain row (date + domain + the extracted
-// quote), not its own card; the ONE secondary container Examine allows for
-// (see EvidenceGroup below) wraps a whole list of these, so a row never
-// needs its own background/border to read as "grounded evidence."
-function EvidenceQuoteCard({ date, quote, domain }: { date: string; quote: string; domain?: string }) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{date}</span>
-        {domain && <span style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivHeading, letterSpacing: "0.04em" }}>{domain}</span>}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+      <span style={{ ...settingsTile, width: 32, height: 32, borderRadius: 9, backgroundColor: tone.tint, color: tone.ink }}>{icon}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ ...serif, fontSize: 20, color: ivHeading, lineHeight: 1.25 }}>{title}</div>
+        {subtitle && <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{subtitle}</div>}
       </div>
-      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, margin: 0, lineHeight: 1.5, wordBreak: "keep-all" }}>"{quote}"</p>
     </div>
   );
 }
 
-// The one restrained secondary surface Examine allows itself — an ivory
-// translucent panel (no glow, no heavy shadow) grouping a list of
-// EvidenceQuoteCard rows (or any similarly-shaped quote list, e.g. the
-// "pointing the other way" entries) with thin internal dividers, instead
-// of giving each quote its own card.
-function EvidenceGroup({ children }: { children: React.ReactNode[] }) {
+function ExamineSection({ region, icon, title, subtitle, children, style }: { region: CognitiveRegion; icon: React.ReactNode; title: string; subtitle?: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ borderRadius: 14, padding: "4px 16px", backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}` }}>
-      {React.Children.map(children, (child, i) => (
-        <div style={{ padding: "14px 0", borderTop: i > 0 ? `1px solid ${ivDivider}` : "none" }}>{child}</div>
+    <section style={{ marginTop: 36, ...style }}>
+      <ExamineSectionHeader region={region} icon={icon} title={title} subtitle={subtitle} />
+      {children}
+    </section>
+  );
+}
+
+// A ring that fills to the confidence value when it scrolls into view.
+function ConfidenceRing({ value, color, size = 64 }: { value: number; color: string; size?: number }) {
+  const r = size / 2 - 5;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, value)) / 100;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${value}% confidence`} style={{ flexShrink: 0 }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(42,38,33,0.08)" strokeWidth="5" />
+      <motion.circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round"
+        strokeDasharray={c} initial={{ strokeDashoffset: c }} whileInView={{ strokeDashoffset: c * (1 - pct) }} viewport={{ once: true }}
+        transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
+        style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
+      />
+      <text x="50%" y="50%" dy="0.35em" textAnchor="middle" fontSize={size * 0.25} fontWeight="700" fontFamily="'Monaspace Neon', ui-monospace, monospace" fill="#2A2621">{value}%</text>
+    </svg>
+  );
+}
+
+// The discovery itself: a card washed in its region's color, the region's
+// orb glowing in the corner, the statement, and the confidence ring.
+function ExamineHero({ kicker, thoughtLabel, text, confidence, entries, region }: { kicker: string; thoughtLabel?: string; text: string; confidence: number; entries: number; region: CognitiveRegion }) {
+  const tone = REGION_CONFIG[region];
+  return (
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: shape.lg, padding: "18px 18px 16px", boxShadow: ivCardShadow, backgroundImage: `linear-gradient(155deg, ${tone.tint} 0%, #FBF8F2 62%, #FBF8F2 100%)` }}>
+      <div aria-hidden style={{ position: "absolute", top: -6, right: -6 }}>
+        <Node color={tone.color} size={34} intensity={0.85} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, ...sans, fontSize: 12, fontWeight: 600, color: ivHeading, backgroundColor: "rgba(255,255,255,0.7)", padding: "4px 9px", borderRadius: shape.full }}>
+          <Sparkle size={12} weight="fill" color={tone.ink} /> {kicker}
+        </span>
+        <RegionBadge region={region} />
+      </div>
+      {thoughtLabel && (
+        <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: tone.ink, margin: "14px 0 0" }}>The "{thoughtLabel}" thought showed up again</p>
+      )}
+      <p style={{ ...serif, fontSize: 22, lineHeight: 1.38, color: ivHeading, margin: "8px 0 0", paddingRight: 24, wordBreak: "keep-all" }}>{text}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${ivDivider}` }}>
+        <ConfidenceRing value={confidence} color={tone.color} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...sans, fontSize: 14, fontWeight: 500, color: ivHeading }}>How sure the AI is</div>
+          <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2, lineHeight: 1.45 }}>
+            Based on {entries} {entries === 1 ? "thing you said" : "things you said"}. It never reaches 100%.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// One thing you actually said, as a speech bubble in the color of the
+// area of life it came from. Entries pointing the other way sit on the
+// right in a warm tone, so for and against read apart at a glance.
+function EvidenceBubble({ date, quote, domain, against, index }: { date: string; quote: string; domain?: string; against?: boolean; index: number }) {
+  const region = domain ? resolveRegion({ domain } as StoredBelief) : "identity";
+  const tone = against ? REGION_CONFIG.creativity : REGION_CONFIG[region];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: index * 0.08 }}
+      style={{ display: "flex", flexDirection: "column", alignItems: against ? "flex-end" : "flex-start" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, padding: "0 6px" }}>
+        <span style={{ ...mono, fontSize: 11, color: ivBody }}>{date}</span>
+        {domain && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tone.ink }}>{domain}</span>}
+      </div>
+      <div style={{
+        position: "relative", maxWidth: "88%", padding: "11px 14px", ...serif, fontStyle: "italic", fontSize: 15, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all",
+        backgroundImage: `linear-gradient(140deg, ${tone.tint} 0%, rgba(255,255,255,0.85) 100%)`,
+        borderRadius: against ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+      }}>
+        "{quote}"
+      </div>
+    </motion.div>
+  );
+}
+
+// A vertical "watch it develop" chain — origin, current understanding, and
+// (when there's a real recorded one) an outcome. Only ever built from
+// points that trace back to something actually recorded; never a
+// fabricated midpoint. Drawn as a trail that warms from faint to the
+// region's color, each point a small orb, the outcome as its own card.
+function EvolutionTimeline({ points, color = ivHeading }: { points: { label: string; text: string; accent?: boolean }[]; color?: string }) {
+  return (
+    <div style={{ position: "relative" }}>
+      {points.length > 1 && (
+        <span aria-hidden style={{ position: "absolute", left: 13, top: 14, bottom: 26, width: 2, borderRadius: 1, backgroundImage: `linear-gradient(180deg, ${color}22 0%, ${color} 100%)` }} />
+      )}
+      {points.map((p, i) => (
+        <motion.div
+          key={i} initial={{ opacity: 0, x: -6 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: i * 0.12 }}
+          style={{ display: "flex", gap: 10, paddingBottom: i < points.length - 1 ? 16 : 0 }}
+        >
+          <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Node color={color} size={p.accent ? 14 : 9} intensity={p.accent ? 0.95 : 0.35 + (i / Math.max(1, points.length - 1)) * 0.4} />
+          </span>
+          <div style={{
+            flex: 1, minWidth: 0, paddingTop: 3,
+            ...(p.accent ? { padding: "10px 12px", borderRadius: shape.sm, backgroundImage: `linear-gradient(140deg, ${color}26 0%, rgba(255,255,255,0.7) 100%)` } : {}),
+          }}>
+            <div style={{ ...mono, fontSize: 11, color: p.accent ? ivHeading : ivBody, marginBottom: 3 }}>{p.label}</div>
+            <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: p.accent ? ivHeading : ivBody, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>{p.text}</p>
+          </div>
+        </motion.div>
       ))}
     </div>
   );
 }
+
+
 
 // The Analysis tab's one layout primitive — a raised white card on the
 // screen's surface-tinted background (see ScreenAnalysis), Apple grouped-
@@ -3274,23 +3360,27 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
       .finally(() => { fetchingRef.current = false; });
   }, [needsRefresh, store.beliefs, updateStore]);
   if (!store.goals.length) return null;
+  // Suggestions, not steps — so no 01/02/03; each gets its own tint and a
+  // small icon instead, and arrives in turn as it scrolls into view.
+  const tones: CognitiveRegion[] = ["security", "career", "curiosity"];
   return (
-    <div>
-      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-        WHERE YOU MIGHT BE HEADED
+    <ExamineSection region="security" icon={<Compass size={17} weight="duotone" />} title="Where you might be headed" subtitle="Directions suggested by the beliefs that keep coming back.">
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {store.goals.slice(0, 3).map((g, i) => {
+          const tone = REGION_CONFIG[tones[i % tones.length]];
+          return (
+            <motion.div
+              key={g.id} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.5 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: i * 0.1 }}
+              style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "13px 14px", borderRadius: shape.md, backgroundImage: `linear-gradient(135deg, ${tone.tint} 0%, rgba(255,255,255,0.75) 100%)`, boxShadow: ivCardShadow }}
+            >
+              <span style={{ ...settingsTile, backgroundColor: "rgba(255,255,255,0.8)", color: tone.ink }}><Footprints size={16} weight="duotone" /></span>
+              <span style={{ ...serif, fontSize: 16, lineHeight: 1.45, color: ivHeading, wordBreak: "keep-all", paddingTop: 2 }}>{g.statement}</span>
+            </motion.div>
+          );
+        })}
       </div>
-      <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
-        Growth directions inferred from your recurring beliefs.
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
-        {store.goals.slice(0, 3).map((g, i) => (
-          <div key={g.id} style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: i > 0 ? `1px solid ${ivDivider}` : "none" }}>
-            <span style={{ ...mono, fontSize: 12, color: ivFaint, flexShrink: 0, paddingTop: 3 }}>{String(i + 1).padStart(2, "0")}</span>
-            <span style={{ ...serif, fontSize: 15, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all" }}>{g.statement}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    </ExamineSection>
   );
 }
 
@@ -3475,6 +3565,9 @@ function ScreenDiscoveryAnalysis({
   const hIndex = examineTarget?.kind === "hypothesis" ? examineTarget.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
   const b = examineTarget?.kind === "belief" ? store.beliefs.find((x) => x.id === examineTarget.id) ?? null : null;
+  // The area of life it lives in — drives the hero's wash, the ring, and
+  // the timeline's color.
+  const examineRegion: CognitiveRegion = h ? resolveRegion({ domain: h.domains?.[0] ?? "identity" } as StoredBelief) : b ? resolveRegion(b) : "identity";
 
   // SECTION 2 — the strongest (most recent) three, shown chronologically.
   const rawEvidence: (StoredEvidenceQuote & { domain?: string })[] = h ? evidenceForHypothesis(h, store.beliefs) : b ? b.evidenceQuotes : [];
@@ -3577,26 +3670,17 @@ function ScreenDiscoveryAnalysis({
                 What the AI has learned about you across your thoughts.
               </div>
 
-              {/* ── TODAY'S DISCOVERY (or RECENT INSIGHT) — title, interpretation,
-              confidence. The interpretation is the one dominant element;
-              confidence stays a quiet trailing line, not a bar. ── */}
-              <div data-tutorial="today-discovery" style={{ marginTop: 36 }}>
+              {/* ── The discovery (or a recent insight) as the hero card. ── */}
+              <div data-tutorial="today-discovery" style={{ marginTop: 24 }}>
                 {examine ? (
-                  <>
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-                      {(examineTarget === pinnedDiscovery ? "Today's discovery" : "Recent insight").toUpperCase()}
-                    </div>
-                    {(h?.thoughtLabel || b?.thoughtLabel) && (
-                      <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, margin: "12px 0 0" }}>
-                        The "{h?.thoughtLabel || b?.thoughtLabel}" thought showed up again
-                      </p>
-                    )}
-                    <p style={{ ...serif, fontSize: 22, lineHeight: 1.42, color: ivHeading, margin: "10px 0 0", wordBreak: "keep-all" }}>{examine.text}</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14 }}>
-                      <ConfidenceGlyph color={ivBody} />
-                      <span style={{ ...sans, fontSize: 12, color: ivBody }}>{h ? h.confidence : b?.confidence ?? 0}% confidence</span>
-                    </div>
-                  </>
+                  <ExamineHero
+                    kicker={examineTarget === pinnedDiscovery ? "Today's discovery" : "Recent insight"}
+                    thoughtLabel={h?.thoughtLabel || b?.thoughtLabel}
+                    text={examine.text}
+                    confidence={h ? h.confidence : b?.confidence ?? 0}
+                    entries={evidence.length}
+                    region={examineRegion}
+                  />
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <svg width="72" height="72" viewBox="0 0 96 96">
@@ -3610,101 +3694,55 @@ function ScreenDiscoveryAnalysis({
                 )}
               </div>
 
-              {/* ── WHERE YOU MIGHT BE HEADED — independent of which discovery
-              is pinned above (inferred from the whole belief set), so it's
-              not gated behind `examine`. Renders nothing until there are
-              enough beliefs and a first inference has come back — see
-              GoalDirectionsPanel. ── */}
-              <div style={{ marginTop: 40 }}>
-                <GoalDirectionsPanel store={store} updateStore={updateStore} />
-              </div>
-
-              {/* ── FOR WHERE YOU ARE NOW — Premium's interpretive layer:
-              what a thought means in the context of who the person has
-              been becoming, not just what it means on its own. Same
-              LiteraryReflectionPanel moved here from the old standalone
-              Premium tab (unchanged — still the curated LITERARY_PASSAGES
-              match, still the existing author-portrait treatment, no
-              constellation-author redesign here), independent of `examine`
-              same as GoalDirectionsPanel above, only shown once Premium
-              Mode is on (store.isPro, toggled from Profile). ── */}
-              {store.isPro && (
-                <div style={{ marginTop: 40 }}>
-                  <LiteraryReflectionPanel store={store} updateStore={updateStore} />
-                </div>
-              )}
-
               {examine && (
                 <>
-                  {/* ── WHY THIS INTERPRETATION — the strongest supporting
-                  evidence, chronological, grouped in the one restrained
-                  translucent surface this screen allows itself. ── */}
-                  <div style={{ marginTop: 40 }}>
-                    <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-                      WHY THIS INTERPRETATION
-                    </div>
-                    <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.5 }}>
-                      These are parts where you actually said this.
-                    </div>
-                    <div style={{ marginTop: 14 }}>
-                      {evidence.length > 0 ? (
-                        <EvidenceGroup>
-                          {evidence.map((e, i) => (
-                            <EvidenceQuoteCard key={i} date={e.date} quote={e.quote} domain={e.domain} />
-                          ))}
-                        </EvidenceGroup>
-                      ) : (
-                        <div style={{ ...sans, fontSize: 13, color: ivBody }}>No entries to cite as evidence yet.</div>
-                      )}
-                    </div>
-
+                  {/* ── Why this reading: your own words, as bubbles. ── */}
+                  <ExamineSection region="career" icon={<Quotes size={17} weight="duotone" />} title="Why this reading" subtitle="Things you actually said that point to it.">
+                    {evidence.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {evidence.map((e, i) => <EvidenceBubble key={i} index={i} date={e.date} quote={e.quote} domain={e.domain} />)}
+                      </div>
+                    ) : (
+                      <div style={{ ...sans, fontSize: 13, color: ivBody }}>No entries to cite as evidence yet.</div>
+                    )}
                     {contradictoryEntries.length > 0 && (
-                      <div style={{ marginTop: 24 }}>
-                        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.1em" }}>
-                          ENTRIES POINTING THE OTHER WAY
-                        </div>
-                        <div style={{ marginTop: 12 }}>
-                          <EvidenceGroup>
-                            {contradictoryEntries.map(({ belief, entry }, i) => (
-                              <EvidenceQuoteCard key={i} date={entry.date} quote={entry.text} domain={belief.domain} />
-                            ))}
-                          </EvidenceGroup>
+                      <div style={{ marginTop: 20 }}>
+                        <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: REGION_CONFIG.creativity.ink, textAlign: "right", marginBottom: 8 }}>And some that point the other way</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {contradictoryEntries.map(({ belief, entry }, i) => <EvidenceBubble key={i} index={i} date={entry.date} quote={entry.text} domain={belief.domain} against />)}
                         </div>
                       </div>
                     )}
-                  </div>
+                  </ExamineSection>
 
-                  {/* ── HOW THIS HAS EVOLVED — only when there's a real trail. ── */}
+                  {/* ── How it has changed — only when there's a real trail. ── */}
                   {evolutionPoints.length > 0 && (
-                    <div style={{ marginTop: 40 }}>
-                      <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-                        HOW THIS HAS EVOLVED
-                      </div>
-                      <div style={{ marginTop: 18 }}>
-                        <EvolutionTimeline points={evolutionPoints} />
-                      </div>
-                    </div>
+                    <ExamineSection region="curiosity" icon={<Path size={17} weight="duotone" />} title="How it has changed" subtitle="From the first time it showed up to now.">
+                      <EvolutionTimeline points={evolutionPoints} color={REGION_CONFIG[examineRegion].color} />
+                    </ExamineSection>
                   )}
-
-                  {/* ── REFLECTION — the considered version of the hero's
-                  quick react; no label of its own, a direct continuation. ── */}
-                  <div style={{ marginTop: 40 }}>
-                    <DiscoveryReflection
-                      reaction={reaction}
-                      reinterpreting={reinterpreting}
-                      exhausted={exhausted}
-                      onReact={handleReact}
-                    />
-                    {h?.investigate && hIndex !== null && (
-                      <motion.div
-                        role="button" tabIndex={0} onClick={() => onInvestigateHypothesis?.(hIndex)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onInvestigateHypothesis?.(hIndex))?.(); } }} whileTap={{ opacity: 0.6 }}
-                        style={{ marginTop: 14, width: "100%", boxSizing: "border-box", textAlign: "center", background: "transparent", border: `1.5px solid ${ivBorder}`, color: ivHeading, borderRadius: 14, padding: 12, ...sans, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-                      >
-                        Dig deeper
-                      </motion.div>
-                    )}
-                  </div>
                 </>
+              )}
+
+              {/* ── Where you might be headed — independent of which
+              discovery is pinned (inferred from the whole belief set);
+              renders nothing until there are enough beliefs. ── */}
+              <GoalDirectionsPanel store={store} updateStore={updateStore} />
+
+              {/* ── For where you are now — Premium's literary match. ── */}
+              {store.isPro && <LiteraryReflectionPanel store={store} updateStore={updateStore} />}
+
+              {/* ── Reflection — does this reading fit? (The "Dig deeper"
+              button that used to follow it is gone.) ── */}
+              {examine && (
+                <div style={{ marginTop: 36, borderRadius: shape.lg, padding: "18px 18px 16px", boxShadow: ivCardShadow, backgroundImage: `linear-gradient(160deg, ${REGION_CONFIG.identity.tint} 0%, #FBF8F2 70%)` }}>
+                  <DiscoveryReflection
+                    reaction={reaction}
+                    reinterpreting={reinterpreting}
+                    exhausted={exhausted}
+                    onReact={handleReact}
+                  />
+                </div>
               )}
             </div>
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
@@ -3852,13 +3890,13 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
   const fade = { duration: reduceMotion ? 0.01 : 0.6, ease: "easeOut" as const };
 
   return (
-    <div>
+    <div style={{ marginTop: 36 }}>
       {/* Toned down from a full-strength label — smaller, lighter weight,
       slightly dimmed — so it reads as a quiet editorial eyebrow rather
       than a bold warning-style tag. Same horizontal grid as every other
       section here (this div has no side padding/margin of its own,
       inheriting Premium's shared content column). */}
-      <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>For where you are now</div>
+      <ExamineSectionHeader region="relationships" icon={<Feather size={17} weight="duotone" />} title="For where you are now" subtitle="A passage matched to what you've been writing." />
       {/* mode="wait" + a slow fade — this is meant to feel like turning to
       a new page, not a UI state flipping; see the brief's "no flashy
       animation... contemplative." */}
@@ -3873,13 +3911,16 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
             </p>
           </motion.div>
         ) : (
-          <motion.div key={passage.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
+          <motion.div key={passage.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}
+            style={{ position: "relative", overflow: "hidden", borderRadius: shape.lg, padding: "24px 18px 18px", boxShadow: ivCardShadow, backgroundImage: `linear-gradient(160deg, ${REGION_CONFIG.relationships.tint} 0%, #FBF8F2 55%, #F7EFE3 100%)` }}>
+            {/* A large, faint opening quote mark — the page's one ornament. */}
+            <span aria-hidden style={{ position: "absolute", top: 4, left: 12, ...serif, fontSize: 84, lineHeight: 0.8, color: REGION_CONFIG.relationships.color, opacity: 0.22, pointerEvents: "none" }}>“</span>
             {/* The passage itself — short (every LITERARY_PASSAGES entry is
             excerpt-length, not a paragraph — see literaryPassages.ts),
             smaller and tighter than a pull-quote, no surrounding box, no
             decorative quotation-mark glyphs (italics alone signal "this is
             quoted," the same convention a literary journal uses). */}
-            <p style={{ ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.55, color: ivHeading, margin: "22px 0 0", wordBreak: "keep-all" }}>
+            <p style={{ position: "relative", ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.55, color: ivHeading, margin: "18px 0 0", wordBreak: "keep-all" }}>
               {passage.exactText}
             </p>
 
@@ -6310,9 +6351,6 @@ function HypothesisDiscoveryBody({
             )}
           </>
         )}
-        <div style={{ marginTop: settled ? 0 : 10 }}>
-          {h.investigate && <GhostBtn onClick={onInvestigate} modernist>Dig deeper</GhostBtn>}
-        </div>
         {settled && exhausted && (
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 12, lineHeight: 1.5, wordBreak: "keep-all", textAlign: "center" }}>
             There doesn't seem to be another way to read the same evidence. We'll take another look once new entries come in.
