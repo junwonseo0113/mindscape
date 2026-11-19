@@ -37,6 +37,7 @@ import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
 import { Node } from "./orb";
 import { DiaryOpening } from "./DiaryOpening";
+import { HomeOrbField } from "./HomeOrbField";
 import { display, hand, mono, MONO_FAMILY, sans, serif } from "./typefaces";
 // Icons: Phosphor (MIT) — one open-source set at one stroke weight in place
 // of the hand-drawn SVGs that used to vary in grid and line width from
@@ -59,9 +60,9 @@ import { pickInputGuidance } from "./inputGuidance";
 // ── 3D, loaded off the startup path ──────────────────────────────────────────
 // three.js + react-three-fiber, plus the brain-cloud generation that runs at
 // module load, used to be in the one startup bundle — parsed and executed
-// while the quote screen was trying to fade in. They're now separate chunks,
-// fetched in the background shortly after launch (see preload3D in App) so
-// they're normally ready before anyone reaches Home.
+// while the quote screen was trying to fade in. They're now separate chunks:
+// the sky is fetched in the background shortly after launch (see preload3D
+// in App); three.js loads only when a screen that still uses it opens.
 const load3D = () => import("./NeuralBeliefGraph3D");
 const loadBrainMap = () => import("./StarGazeMap");
 // The swipe-back "screen underneath" (see peekContent in App) re-mounts a
@@ -77,9 +78,10 @@ function skipWhilePeeking<P extends object>(Comp: React.LazyExoticComponent<Reac
   };
 }
 const NeuralBeliefGraph3D = skipWhilePeeking(React.lazy(load3D));
-const JarBrainPreview = skipWhilePeeking(React.lazy(() => load3D().then((m) => ({ default: m.JarBrainPreview }))));
 const BrainNodeMapScreen = skipWhilePeeking(React.lazy(loadBrainMap));
-function preload3D() { void load3D(); void loadBrainMap(); }
+// Only the sky is preloaded now: Home's orbs are plain HTML (HomeOrbField),
+// so three.js is fetched only when a screen that still uses it opens.
+function preload3D() { void loadBrainMap(); }
 
 // ── Launch config ────────────────────────────────────────────────────────────
 // Off for the initial launch: gathering real usage/feedback matters more
@@ -2377,7 +2379,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
         <Breathe inline amount={1.05}>
           <motion.button type="button" onClick={onOpenInMap} whileTap={{ scale: 0.96, opacity: 0.8 }} transition={SETTLE}
             style={{ ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, border: `1px solid ${ivBorder}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-            See it in the Brain Map →
+            See it in your sky →
           </motion.button>
         </Breathe>
       </div>
@@ -2451,21 +2453,20 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
 
       {(!MONETIZATION_ENABLED || store.isPro) ? (
         <>
-          {/* The real, live node field — the exact same belief nodes the
-          Brain Map itself renders (JarBrainPreview shares buildActiveNodes/
-          region colors/glow with the full graph in NeuralBeliefGraph3D).
-          Tapping a point opens HomeNodeCard for that belief right here;
+          {/* Your beliefs as orbs (HomeOrbField: plain HTML, the same 2D orb
+          the sky and every list use — it replaced a three.js canvas that
+          froze Home for ~0.5s on every mount).
+          Tapping an orb opens HomeNodeCard for that belief right here;
           tapping empty space just dismisses the card. The field never
           opens the Brain Map by itself any more — that's the explicit
           button in the corner (or the card's own link). */}
           <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
-            <React.Suspense fallback={null}>
-              <JarBrainPreview
-                beliefs={store.beliefs}
-                onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
-                onBackgroundTap={() => setSelectedNodeId(null)}
-              />
-            </React.Suspense>
+            <HomeOrbField
+              beliefs={store.beliefs}
+              selectedId={selectedNodeId}
+              onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
+              onBackgroundTap={() => setSelectedNodeId(null)}
+            />
             {/* With zero beliefs the canvas has nothing to draw, so a
                 single resting dot marks where the first belief will
                 appear (pointerEvents: none — nothing here to open yet). */}
