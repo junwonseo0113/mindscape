@@ -24,10 +24,8 @@ import { COGNITIVE_REGIONS, type CognitiveRegion } from "./neuralBrainLayout";
 import type { StoredEvidenceQuote } from "./types";
 import { Node } from "./orb";
 import { AnimatedNumber, MeterFill } from "./motionPrimitives";
+import { display, hand, mono, sans, serif } from "./typefaces";
 
-const serif = { fontFamily: "'Source Serif 4 Variable', 'Gowun Batang', Georgia, serif" };
-const sans = { fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" };
-const mono = { fontFamily: "'Monaspace Neon', ui-monospace, monospace" };
 const INK = "#F3EFFA";
 const INK_SOFT = "rgba(243,239,250,0.78)";
 const INK_FAINT = "rgba(243,239,250,0.55)";
@@ -241,7 +239,7 @@ export default function StarGazeMap({
             </motion.button>
           )}
         </div>
-        <div style={{ ...serif, fontSize: 28, color: INK, marginTop: 12, lineHeight: 1.15 }}>Your sky</div>
+        <div style={{ ...display, fontSize: 36, color: INK, marginTop: 10, lineHeight: 1.05 }}>Your sky</div>
         <div style={{ ...sans, fontSize: 13, color: INK_SOFT, marginTop: 4, lineHeight: 1.45 }}>
           Each star is a belief. Lines show which ones connect.
         </div>
@@ -317,7 +315,7 @@ export default function StarGazeMap({
         {figures.map((f) => (
           <div key={f.region} aria-hidden style={{
             position: "absolute", left: f.cx, top: f.top - 34, transform: "translateX(-50%)", pointerEvents: "none",
-            ...serif, fontStyle: "italic", fontSize: 13, letterSpacing: "0.02em", whiteSpace: "nowrap",
+            ...hand, fontSize: 20, fontWeight: 600, whiteSpace: "nowrap",
             color: REGION_CONFIG[f.region].color, opacity: activeRegion && activeRegion !== f.region ? 0.25 : 0.85,
             textShadow: "0 0 12px rgba(0,0,0,0.6)", transition: "opacity 0.3s",
           }}>
@@ -416,7 +414,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
         <button type="button" aria-label="Close" onClick={onClose} style={{ border: 0, background: "transparent", cursor: "pointer", color: "rgba(42,38,33,0.5)", lineHeight: 0, padding: 6, margin: -6 }}><X size={16} weight="bold" /></button>
       </div>
       {star.b.thoughtLabel && <div style={{ ...serif, fontStyle: "italic", fontSize: 14, color: r.ink, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
-      <div style={{ ...serif, fontSize: 21, color: "#2A2621", lineHeight: 1.35, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
+      <div style={{ ...display, fontSize: 25, color: "#2A2621", lineHeight: 1.25, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
         <MeterFill value={star.b.confidence} color={r.color} track="rgba(42,38,33,0.08)" height={5} radius={3} style={{ flex: 1 }} />
         <span style={{ ...mono, fontSize: 12, color: "rgba(42,38,33,0.65)", whiteSpace: "nowrap" }}><AnimatedNumber value={star.b.confidence} />% · {star.b.evidenceCount} {star.b.evidenceCount === 1 ? "entry" : "entries"}</span>
@@ -424,7 +422,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
 
       {linked.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: "#2A2621", marginBottom: 8 }}>Joined to</div>
+          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: "#2A2621", marginBottom: 6 }}>Joined to</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {linked.map(({ conn, other }) => {
               const o = REGION_CONFIG[other.region];
@@ -447,7 +445,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
 
       {quotes.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: "#2A2621", marginBottom: 8 }}>What you said</div>
+          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: "#2A2621", marginBottom: 6 }}>What you said</div>
           {quotes.map((qt, i) => (
             <div key={i} style={{ marginTop: i ? 8 : 0 }}>
               <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.55)" }}>{qt.date}</div>

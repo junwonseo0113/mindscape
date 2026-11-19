@@ -36,6 +36,7 @@ import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionC
 import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
 import { Node } from "./orb";
+import { display, hand, mono, MONO_FAMILY, sans, serif } from "./typefaces";
 // Icons: Phosphor (MIT) — one open-source set at one stroke weight in place
 // of the hand-drawn SVGs that used to vary in grid and line width from
 // screen to screen. Active nav icons use the "fill" weight, outlined when
@@ -158,14 +159,7 @@ const dkStarfield: React.CSSProperties = {
   backgroundRepeat: "repeat",
 };
 
-// Type: three self-hosted open-source families (loaded in styles/index.css,
-// no Google Fonts round-trip). Source Serif 4 carries headings and quotes
-// — its optical-size axis draws finer at 30px than at 15px — with Gowun
-// Batang filling in Hangul; Pretendard is the sans for both scripts;
-// Monaspace Neon sets the dates and numbers.
-const serif = { fontFamily: "'Source Serif 4 Variable', 'Gowun Batang', Georgia, serif" };
-const sans = { fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" };
-const mono = { fontFamily: "'Monaspace Neon', ui-monospace, monospace" };
+// Type: see typefaces.ts for the five roles (display, hand, serif, sans, mono).
 // Type scale — every fontSize in this file sits on one of these steps:
 //   11  12  13  15  17  20  22  24  28  34
 // They are iOS Dynamic Type's default sizes (caption2 → largeTitle), the
@@ -302,12 +296,12 @@ const PRIMARY_HEADER_SIDE = 30; // px — same left/right grid every primary scr
 const HEADER_TEXT_PRIMARY = ivHeading;
 const HEADER_TEXT_SECONDARY = ivBody;
 const HEADER_TEXT_TERTIARY = ivFaint;
-const primaryTitleStyle: React.CSSProperties = { ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: HEADER_TEXT_PRIMARY };
+const primaryTitleStyle: React.CSSProperties = { ...display, fontSize: 34, lineHeight: 1.05, color: HEADER_TEXT_PRIMARY };
 // whiteSpace/overflow/textOverflow is a safety net, not the primary fix —
 // every subtitle string itself was shortened to comfortably fit one line;
 // this just guarantees it can never wrap even if a header's control row
 // leaves less room than expected.
-const primaryTitleSubtitleStyle: React.CSSProperties = { ...sans, fontSize: 12, fontWeight: 400, color: HEADER_TEXT_SECONDARY, marginTop: 3, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
+const primaryTitleSubtitleStyle: React.CSSProperties = { ...hand, fontSize: 19, fontWeight: 500, color: HEADER_TEXT_SECONDARY, marginTop: 2, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
 // ── Status bar ────────────────────────────────────────────────────────────────
 function StatusBar({ modernist }: { modernist?: boolean }) {
@@ -652,7 +646,7 @@ function ScreenPivot({ kicker, statement, counter, cta }: { kicker?: string; sta
           {kicker && (
             <div style={{ ...sans, fontSize: 13, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em", wordBreak: "keep-all" }}>{kicker}</div>
           )}
-          <div style={{ ...serif, fontSize: 28, color: mdHeading, lineHeight: 1.45, marginTop: kicker ? 14 : 0, wordBreak: "keep-all" }}>{statement}</div>
+          <div style={{ ...display, fontSize: 28, color: mdHeading, lineHeight: 1.45, marginTop: kicker ? 14 : 0, wordBreak: "keep-all" }}>{statement}</div>
         </div>
         <div style={{ flex: 1 }} />
         <div>
@@ -775,7 +769,7 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
           transition={{ duration: reducedMotion ? 0 : .9, delay: reducedMotion ? 0 : .35, ease: "easeOut" }}
           style={{ width: "100%", transform: "translateY(-2%)" }}
         >
-          <div style={{ ...serif, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: ivHeading, wordBreak: "keep-all" }}>
+          <div style={{ ...display, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: ivHeading, wordBreak: "keep-all" }}>
             “{quote.text}”
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 24 }}>
@@ -961,7 +955,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
           initial={reducedMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.55, delay: reducedMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
-          style={{ ...serif, fontSize: 28, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}
+          style={{ ...display, fontSize: 28, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}
         >
           There's a pattern<br />in your thinking.
         </motion.div>
@@ -986,7 +980,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 28px" }}>
         <div style={{ marginBottom: 28 }}><PatternConstellation /></div>
         <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
+        <div style={{ ...display, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
       </div>
@@ -1017,7 +1011,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
 // The ink drops and the drift stop under reduced motion.
 const DIARY_INKS = [REGION_CONFIG.identity.color, REGION_CONFIG.relationships.color, REGION_CONFIG.career.color, REGION_CONFIG.curiosity.color, REGION_CONFIG.security.color, REGION_CONFIG.creativity.color];
 
-function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 19, lineHeight = 34, minHeight, fill, onEnter, style }: {
+function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 25, lineHeight = 36, minHeight, fill, onEnter, style }: {
   value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel: string; autoFocus?: boolean;
   fontSize?: number; lineHeight?: number; minHeight?: number; fill?: boolean; onEnter?: () => void; style?: React.CSSProperties;
 }) {
@@ -1070,7 +1064,7 @@ function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fo
           onKeyDown={onEnter ? (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnter(); } } : undefined}
           rows={fill ? undefined : 2}
           style={{
-            ...serif, width: "100%", resize: "none", border: 0, outline: "none", ...(fill ? { flex: 1, minHeight: 0 } : { minHeight: minHeight ?? lineHeight * 2 + padTop }),
+            ...hand, fontWeight: 500, width: "100%", resize: "none", border: 0, outline: "none", ...(fill ? { flex: 1, minHeight: 0 } : { minHeight: minHeight ?? lineHeight * 2 + padTop }),
             padding: `${padTop}px 0 0`, fontSize, lineHeight: `${lineHeight}px`, color: "#2E2547", caretColor: REGION_CONFIG.relationships.color,
             wordBreak: "keep-all", colorScheme: "light",
             // Ruled lines that scroll with the writing, one per line.
@@ -1078,7 +1072,7 @@ function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fo
             backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight}px)`,
           }}
         />
-        <span aria-hidden style={{ position: "absolute", left: 38, bottom: 10, ...mono, fontSize: 11, color: REGION_CONFIG.identity.ink, opacity: words ? 0.8 : 0.45 }}>
+        <span aria-hidden style={{ position: "absolute", left: 38, bottom: 6, ...hand, fontSize: 18, fontWeight: 600, color: REGION_CONFIG.identity.ink, opacity: words ? 0.85 : 0.45 }}>
           {words} {words === 1 ? "word" : "words"}
         </span>
         {/* The pen, and the ink it flicks while you write. */}
@@ -1125,8 +1119,8 @@ function DiaryPage({ title, subtitle, children }: { title: string; subtitle?: Re
         style={{ position: "absolute", right: 26, top: -6, width: 16, height: 46, transformOrigin: "50% 0%",
           backgroundImage: `linear-gradient(180deg, ${REGION_CONFIG.identity.ink}, ${REGION_CONFIG.identity.color})`,
           clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)", boxShadow: "0 4px 8px rgba(0,0,0,0.15)" }} />
-      <div style={{ ...serif, fontStyle: "italic", fontSize: 14, color: REGION_CONFIG.identity.ink }}>{dateline}</div>
-      <div style={{ ...serif, fontSize: 28, color: ivHeading, lineHeight: 1.2, marginTop: 6 }}>{title}</div>
+      <div style={{ ...hand, fontSize: 21, fontWeight: 500, color: REGION_CONFIG.identity.ink }}>{dateline}</div>
+      <div style={{ ...display, fontSize: 28, color: ivHeading, lineHeight: 1.2, marginTop: 6 }}>{title}</div>
       {subtitle && <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{subtitle}</div>}
       <div style={{ marginTop: 18 }}>{children}</div>
     </motion.div>
@@ -1541,7 +1535,7 @@ function OnboardingBrainDemo() {
       {!activated ? (
         <div style={{ marginTop: 14 }}>
           <DiaryNotePaper
-            value={text} onChange={setText} onEnter={tryIt} fontSize={17} lineHeight={30}
+            value={text} onChange={setText} onEnter={tryIt} fontSize={22} lineHeight={32}
             placeholder="Try writing anything…" ariaLabel="Try writing anything, to preview how your mind map responds"
           />
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
@@ -1681,7 +1675,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
             <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,.52)", letterSpacing: "0.06em" }}>Last thing</div>
-            <div style={{ ...serif, fontSize: 28, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
+            <div style={{ ...display, fontSize: 28, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
               What kind of person<br />do you want to become?
             </div>
             <div style={{ ...sans, fontSize: 13, color: OPENING_MUTED, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
@@ -2275,7 +2269,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       "9:41" overlay (see the App shell) regardless of screen height. */}
       <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         {/* Today's date, written the way a diary heads a page. */}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...serif, fontStyle: "italic", fontSize: 15, color: ivBody }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: ivBody }}>
           <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </span>
@@ -2305,14 +2299,14 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       </div>
 
       <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
-        <div style={{ ...serif, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
+        <div style={{ ...display, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
           What thought crossed<br />your mind today?
         </div>
         {/* One restrained line of supporting copy, matching the reference
         screen's own quiet epigrammatic voice (see the opening flow's
         "There's a pattern in your thinking" for the same register) —
         static and short, not a marketing block. */}
-        <div style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, marginTop: 8 }}>
+        <div style={{ ...hand, fontSize: 22, fontWeight: 500, color: REGION_CONFIG.identity.ink, marginTop: 6 }}>
           A quieter mind begins here.
         </div>
       </div>
@@ -3133,7 +3127,7 @@ function ExamineSectionHeader({ region, icon, title, subtitle }: { region: Cogni
     <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
       <span style={{ ...settingsTile, width: 32, height: 32, borderRadius: 9, backgroundColor: tone.tint, color: tone.ink }}>{icon}</span>
       <div style={{ minWidth: 0 }}>
-        <div style={{ ...serif, fontSize: 20, color: ivHeading, lineHeight: 1.25 }}>{title}</div>
+        <div style={{ ...display, fontSize: 20, color: ivHeading, lineHeight: 1.25 }}>{title}</div>
         {subtitle && <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{subtitle}</div>}
       </div>
     </div>
@@ -3163,7 +3157,7 @@ function ConfidenceRing({ value, color, size = 64 }: { value: number; color: str
         transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
         style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
       />
-      <text x="50%" y="50%" dy="0.35em" textAnchor="middle" fontSize={size * 0.25} fontWeight="700" fontFamily="'Monaspace Neon', ui-monospace, monospace" fill="#2A2621">{value}%</text>
+      <text x="50%" y="50%" dy="0.35em" textAnchor="middle" fontSize={size * 0.25} fontWeight="700" fontFamily={MONO_FAMILY} fill="#2A2621">{value}%</text>
     </svg>
   );
 }
@@ -3186,7 +3180,7 @@ function ExamineHero({ kicker, thoughtLabel, text, confidence, entries, region }
       {thoughtLabel && (
         <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: tone.ink, margin: "14px 0 0" }}>The "{thoughtLabel}" thought showed up again</p>
       )}
-      <p style={{ ...serif, fontSize: 22, lineHeight: 1.38, color: ivHeading, margin: "8px 0 0", paddingRight: 24, wordBreak: "keep-all" }}>{text}</p>
+      <p style={{ ...display, fontSize: 22, lineHeight: 1.38, color: ivHeading, margin: "8px 0 0", paddingRight: 24, wordBreak: "keep-all" }}>{text}</p>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${ivDivider}` }}>
         <ConfidenceRing value={confidence} color={tone.color} />
         <div style={{ minWidth: 0 }}>
@@ -3271,7 +3265,7 @@ function EvolutionTimeline({ points, color = ivHeading }: { points: { label: str
 function SectionCard({ title, subtitle, children, dataTutorial }: { title?: string; subtitle?: string; children: React.ReactNode; dataTutorial?: string }) {
   return (
     <div data-tutorial={dataTutorial} style={{ backgroundColor: mdCard, borderRadius: 20, padding: "22px 20px", boxShadow: mdCardShadow }}>
-      {title && <div style={{ ...serif, fontSize: 20, color: mdHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
+      {title && <div style={{ ...display, fontSize: 20, color: mdHeading, marginBottom: subtitle ? 4 : 18 }}>{title}</div>}
       {subtitle && <div style={{ ...sans, fontSize: 13, color: mdBody, marginBottom: 16, lineHeight: 1.5, wordBreak: "keep-all" }}>{subtitle}</div>}
       {children}
     </div>
@@ -3617,7 +3611,7 @@ function DiscoveryCard({
 
       <p
         style={{
-          ...serif, fontSize: 22, fontWeight: 400, lineHeight: 1.28, color: ivHeading, margin: "14px 0 0", wordBreak: "keep-all",
+          ...display, fontSize: 22, fontWeight: 400, lineHeight: 1.28, color: ivHeading, margin: "14px 0 0", wordBreak: "keep-all",
           overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3,
         }}
       >
@@ -4094,7 +4088,7 @@ function ScreenDiscoveryAnalysis({
               >
                 <ArrowLeft size={13} weight="bold" aria-hidden /> Back
               </span>
-              <div style={{ ...serif, fontSize: 28, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</div>
+              <div style={{ ...display, fontSize: 28, fontWeight: 400, color: ivHeading, marginTop: 14 }}>Examine</div>
               <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 4, lineHeight: 1.4 }}>
                 What the AI has learned about you across your thoughts.
               </div>
@@ -4343,7 +4337,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
           <motion.div key={passage.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}
             style={{ position: "relative", overflow: "hidden", borderRadius: shape.lg, padding: "24px 18px 18px", boxShadow: ivCardShadow, backgroundImage: `linear-gradient(160deg, ${REGION_CONFIG.relationships.tint} 0%, #FBF8F2 55%, #F7EFE3 100%)` }}>
             {/* A large, faint opening quote mark — the page's one ornament. */}
-            <span aria-hidden style={{ position: "absolute", top: 4, left: 12, ...serif, fontSize: 84, lineHeight: 0.8, color: REGION_CONFIG.relationships.color, opacity: 0.22, pointerEvents: "none" }}>“</span>
+            <span aria-hidden style={{ position: "absolute", top: 4, left: 12, ...display, fontSize: 84, lineHeight: 0.8, color: REGION_CONFIG.relationships.color, opacity: 0.22, pointerEvents: "none" }}>“</span>
             {/* The passage itself — short (every LITERARY_PASSAGES entry is
             excerpt-length, not a paragraph — see literaryPassages.ts),
             smaller and tighter than a pull-quote, no surrounding box, no
@@ -4860,7 +4854,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                   transition={{ duration: 0.5, ease: "easeInOut" }}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
                 >
-                  <div style={{ ...serif, fontSize: 22, color: dkHeading, textAlign: "center", lineHeight: 1.6, wordBreak: "keep-all" }}>
+                  <div style={{ ...display, fontSize: 22, color: dkHeading, textAlign: "center", lineHeight: 1.6, wordBreak: "keep-all" }}>
                     Speak freely.<br />You don't need to organize your thoughts.
                   </div>
                   <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all", minHeight: 20 }}>
@@ -5202,7 +5196,7 @@ function ScreenAiConsent({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>{copy.title}</div>
+        <div style={{ ...display, fontSize: 28, color: ivHeading, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>{copy.title}</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         {/* What agreeing changes, drawn: the trip to Anthropic only runs
@@ -5244,7 +5238,7 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
         {error ? (
           <>
             <RevealItem>
-              <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
                 Couldn't analyze that.
               </div>
             </RevealItem>
@@ -5257,7 +5251,7 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
         ) : (
           <>
             <RevealItem>
-              <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
                 Got it.
               </div>
             </RevealItem>
@@ -5301,7 +5295,7 @@ function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void;
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         <RevealItem>
-          <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
             You've recorded three thoughts now.
           </div>
         </RevealItem>
@@ -5362,7 +5356,7 @@ function ScreenCrisisSupport({ onContinue }: { onContinue?: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "48px 28px 24px" }}>
-        <div ref={headingRef} tabIndex={-1} style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all", outline: "none" }}>
+        <div ref={headingRef} tabIndex={-1} style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all", outline: "none" }}>
           It sounds like you might be going through something really hard right now.
         </div>
         <div style={{ ...sans, fontSize: 15, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
@@ -5498,7 +5492,7 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
       then each observation — rather than all at once. */}
       <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         <RevealItem>
-          <div style={{ ...serif, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
+          <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
             Got it.
           </div>
         </RevealItem>
@@ -5745,7 +5739,7 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
   // fact-in-1st-person on one face, the same meaning at 2nd-person distance
   // on the other.
   const [reframeFlipped, setReframeFlipped] = React.useState(false);
-  const statementStyle: React.CSSProperties = { ...serif, fontSize: 20, color: ivHeading, lineHeight: 1.35, wordBreak: "keep-all" };
+  const statementStyle: React.CSSProperties = { ...display, fontSize: 20, color: ivHeading, lineHeight: 1.35, wordBreak: "keep-all" };
   return (
     <div style={{ position: "relative", padding: "14px 16px 4px" }}>
       {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -6147,7 +6141,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
             {hasBeliefs ? "What keeps showing up in your words and choices without your noticing." : "No patterns yet. Log a first thought with \"Speak your mind\" and they'll start to surface here."}
           </div>
@@ -6432,7 +6426,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
             The gap between who you said you wanted to be and what you've actually been doing.
           </div>
@@ -6441,7 +6435,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
           <>
             <SettingsGroup header="What you said" style={{ marginTop: 24 }} footer={store.aspirationSetDate ? `Set on ${store.aspirationSetDate}.` : undefined}>
               <div style={{ padding: "14px 16px" }}>
-                <div style={{ ...serif, fontSize: 20, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{store.aspiration}"</div>
+                <div style={{ ...display, fontSize: 20, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>"{store.aspiration}"</div>
               </div>
               <SettingsRow icon={<ArrowsClockwise size={17} />} label="Set it again" onClick={onSetupAspiration} />
             </SettingsGroup>
@@ -6524,7 +6518,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
+        <div style={{ ...display, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
           We'll keep comparing this to the thoughts you log going forward.
         </div>
@@ -6620,7 +6614,7 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
         >
           <ArrowLeft size={13} weight="bold" aria-hidden /> Back
         </span></Breathe>
-        <div style={{ ...serif, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Your Journey</div>
+        <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Your Journey</div>
         <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6, lineHeight: 1.4, wordBreak: "keep-all" }}>
           Where you started, what's changed since, and how far the goal still is.
         </div>
@@ -6731,7 +6725,7 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</div>
+        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>AI's Hypotheses</div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 6, lineHeight: 1.5 }}>Not certain. Agree or push back to help refine it together.</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
@@ -6817,7 +6811,7 @@ function HypothesisDiscoveryBody({
   return (
     <div>
       <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>Today's Discovery</div>
-      <div style={{ ...serif, fontSize: 22, color: mdHeading, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
+      <div style={{ ...display, fontSize: 22, color: mdHeading, marginTop: 10, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
       <div style={{ marginTop: 18 }}><ConfidenceBar value={h.confidence} modernist /></div>
       <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
         {h.domains.map((d: string) => (<span key={d} style={{ ...sans, fontSize: 11, color: mdBody, backgroundColor: mdTrack, padding: "3px 9px", borderRadius: 999 }}>{d}</span>))}
@@ -7241,7 +7235,7 @@ function HistorySheet({ title, onClose, children }: { title: string; onClose?: (
           display: "flex", flexDirection: "column",
         }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: 20, color: "#2A2621" }}>{title}</span>
+          <span style={{ ...display, fontSize: 20, color: "#2A2621" }}>{title}</span>
           <Breathe inline amount={1.08}><motion.span role="button" tabIndex={0} aria-label="Close" onClick={onClose} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClose?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.5)", cursor: "pointer" }}>Close</motion.span></Breathe>
         </div>
         <div style={{ overflowY: "auto", minHeight: 0 }}>{children}</div>
@@ -7395,7 +7389,6 @@ function SegmentedControl<T extends string>({ options, value, onChange, layoutId
 // A mood check-in is a line on the timeline rather than a page: it's a
 // word, not a thought. Tapping a page opens the same ScreenHistoryDetail
 // the star sheet's "View its story" always led to.
-const JOURNAL_LINE = 24; // px — the serif body's line height, and so the ruling's pitch
 
 function journalMonthLabel(dateStr: string): string {
   const d = parseDotDate(dateStr);
@@ -7411,32 +7404,47 @@ function JournalEntryRow({ entry, beliefs, onOpen }: { entry: StoredHistoryEntry
   const emotion = entry.analysis?.observation.emotions[0]?.label;
   const regions = Array.from(new Set(beliefs.map((b) => resolveRegion(b)))).slice(0, 2);
   const mood = isMoodCheckIn(entry);
+  // Each entry is a small page pasted into the diary: paper tinted by the
+  // area of life it touched, a strip of washi tape, colored ruling, and a
+  // slight tilt that varies from page to page (stable per entry).
+  const tone = REGION_CONFIG[regions[0] ?? (["identity", "relationships", "career", "curiosity", "security", "creativity"] as CognitiveRegion[])[entry.id.length % 6]];
+  const seed = Array.from(entry.id).reduce((a, c) => a + c.charCodeAt(0), 0);
+  const tilt = ((seed % 5) - 2) * 0.35;
+  const LINE = 30;
   return (
     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
       {/* The margin: day and weekday, the way a diary prints them. */}
-      <div style={{ width: 40, flexShrink: 0, textAlign: "center", paddingTop: mood ? 4 : 12 }}>
-        <div style={{ ...serif, fontSize: mood ? 15 : 22, lineHeight: 1, color: mood ? ivBody : ivHeading, fontVariantNumeric: "lining-nums" }}>{dayNumber}</div>
-        <div style={{ ...sans, fontSize: 11, color: ivBody, marginTop: 4 }}>{dayLabel}</div>
+      <div style={{ width: 40, flexShrink: 0, textAlign: "center", paddingTop: mood ? 2 : 10 }}>
+        <div style={{ ...display, fontSize: mood ? 20 : 32, lineHeight: 1, color: mood ? ivBody : ivHeading, fontVariantNumeric: "lining-nums" }}>{dayNumber}</div>
+        <div style={{ ...hand, fontSize: 17, fontWeight: 600, color: ivBody, marginTop: 2 }}>{dayLabel}</div>
       </div>
       {mood ? (
-        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, padding: "7px 0", ...sans, fontSize: 13, color: ivBody }}>
-          <Smiley size={15} color={ivBody} /> <span>{entry.text.replace(/\.$/, "")}</span>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, padding: "5px 0", ...hand, fontSize: 20, fontWeight: 500, color: ivBody }}>
+          <Smiley size={16} color={REGION_CONFIG.security.ink} weight="duotone" /> <span>{entry.text.replace(/\.$/, "")}</span>
         </div>
       ) : (
         <motion.div
           role="button" tabIndex={0} aria-label={`Entry from ${entry.date}`} onClick={onOpen}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-          whileTap={{ scale: 0.985 }} transition={SETTLE}
-          style={{ flex: 1, minWidth: 0, backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "13px 16px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+          initial={{ rotate: tilt }} whileTap={{ scale: 0.985, rotate: 0 }} transition={SETTLE}
+          style={{
+            position: "relative", flex: 1, minWidth: 0, borderRadius: 12, padding: "16px 16px 12px 26px", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+            backgroundColor: "#FFFCF6", backgroundImage: `linear-gradient(150deg, ${tone.color}2e 0%, ${tone.color}12 55%, #FFFCF6 100%)`,
+            boxShadow: `0 0 0 1px rgba(42,38,33,0.06), 0 10px 22px -16px ${tone.ink}`,
+          }}
         >
+          {/* Washi tape and the margin line. */}
+          <span aria-hidden style={{ position: "absolute", top: -8, left: 18, width: 52, height: 16, borderRadius: 2, opacity: 0.85, transform: `rotate(${-4 - tilt * 2}deg)`,
+            backgroundImage: `repeating-linear-gradient(45deg, ${tone.color}aa 0 6px, ${tone.tint} 6px 12px)`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+          <span aria-hidden style={{ position: "absolute", left: 14, top: 10, bottom: 10, width: 1.5, borderRadius: 1, backgroundColor: `${REGION_CONFIG.relationships.color}77` }} />
           {/* Ruled paper: one hairline per text line, drawn behind the
               text at exactly its line height, so the rules only ever sit
               under written lines — never under the margin or the meta. */}
           <div
             style={{
-              ...serif, fontSize: 15, lineHeight: `${JOURNAL_LINE}px`, color: ivHeading, wordBreak: "keep-all",
+              ...hand, fontSize: 22, fontWeight: 500, lineHeight: `${LINE}px`, color: "#2E2547", wordBreak: "keep-all",
               display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden",
-              backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${JOURNAL_LINE - 1}px, rgba(42,38,33,0.1) ${JOURNAL_LINE - 1}px, rgba(42,38,33,0.1) ${JOURNAL_LINE}px)`,
+              backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${LINE - 1}px, ${tone.color}40 ${LINE - 1}px, ${tone.color}40 ${LINE}px)`,
             }}
           >
             {entry.text}
@@ -7488,7 +7496,7 @@ function JournalView({ store, query, onOpenEntry }: { store: Store; query: strin
       {months.map((m) => (
         <section key={m.label} style={{ marginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 10px" }}>
-            <span style={{ ...serif, fontSize: 20, color: ivHeading }}>{m.label}</span>
+            <span style={{ ...display, fontSize: 20, color: ivHeading }}>{m.label}</span>
             <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{m.items.length} {m.items.length === 1 ? "entry" : "entries"}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -7754,7 +7762,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 18px", flexShrink: 0 }}>
                     <Node color={REGION_CONFIG[selectedStar.region].color} size={34} intensity={catalogueOrbIntensity(selectedStar)} />
                   </div>
-                  <div style={{ ...serif, fontSize: 22, lineHeight: 1.42, color: "#2A2621", textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
+                  <div style={{ ...display, fontSize: 22, lineHeight: 1.42, color: "#2A2621", textAlign: "center", wordBreak: "keep-all", marginBottom: 24, flexShrink: 0 }}>
                     {selectedStar.belief.statement}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 15, overflowY: "auto", minHeight: 0 }}>
@@ -7918,7 +7926,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
     : entry.date;
   // The belief this entry fed, resolved to its region for the badge.
   const fedBelief = analysis?.hypothesis.candidateBelief ? store.beliefs.find((b) => b.statement === analysis.hypothesis.candidateBelief) : undefined;
-  const PAGE_LINE = 28; // px — the page body's line height and ruling pitch (a size up from the list's 24)
+  const PAGE_LINE = 36; // px — the page body's line height and ruling pitch
   const field: React.CSSProperties = { padding: "12px 16px", position: "relative" };
   const fieldLabel: React.CSSProperties = { ...sans, fontSize: 12, color: ivBody, marginBottom: 3 };
   const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
@@ -7931,12 +7939,12 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
         {/* The page itself: dateline, then the entry on ruled paper. */}
         <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, boxShadow: ivCardShadow, padding: "16px 20px 18px" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
-            <span style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody }}>{dateline}</span>
+            <span style={{ ...hand, fontSize: 21, fontWeight: 600, color: REGION_CONFIG.identity.ink }}>{dateline}</span>
             {entry.duration && <span style={{ ...mono, fontSize: 11, color: ivFaint, flexShrink: 0 }}>{entry.duration}</span>}
           </div>
           <div
             style={{
-              ...serif, fontSize: 17, lineHeight: `${PAGE_LINE}px`, color: ivHeading, wordBreak: "keep-all",
+              ...hand, fontSize: 26, fontWeight: 500, lineHeight: `${PAGE_LINE}px`, color: "#2E2547", wordBreak: "keep-all",
               backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${PAGE_LINE - 1}px, rgba(42,38,33,0.1) ${PAGE_LINE - 1}px, rgba(42,38,33,0.1) ${PAGE_LINE}px)`,
             }}
           >
@@ -8073,12 +8081,12 @@ function ScreenProfile({
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 16px 24px" }}>
         <div style={{ padding: "0 4px 24px" }}>
           <div style={{ marginBottom: 14 }}><BackButton onClick={onBack} color={ivBody} /></div>
-          <div style={{ ...serif, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</div>
+          <div style={{ ...display, fontSize: 34, fontWeight: 400, color: ivHeading, marginBottom: 6 }}>Profile</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody }}>We've been tracking your journey.</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16, backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: 20, boxShadow: ivCardShadow, marginBottom: 14 }}>
-          <div style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...serif, fontSize: 24, color: "#fff" }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, ...display, fontSize: 24, color: "#fff" }}>
             {initial}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -8194,7 +8202,7 @@ function SettingsGroup({ header, footer, children, style }: { header?: React.Rea
   const items = React.Children.toArray(children);
   return (
     <section style={{ marginBottom: 22, ...style }}>
-      {header && <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody, padding: "0 16px 7px", wordBreak: "keep-all" }}>{header}</div>}
+      {header && <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, padding: "0 14px 4px", lineHeight: 1.15, wordBreak: "keep-all" }}>{header}</div>}
       {/* A barely-there light falloff, top to bottom, so the card sits on
           the page like a sheet catching light instead of a flat cut-out. */}
       <div style={{ backgroundColor: ivSurfaceSolid, backgroundImage: "linear-gradient(180deg, #FDFBF7 0%, #FBF8F2 55%, #F9F5EE 100%)", borderRadius: shape.md, boxShadow: ivCardShadow, overflow: "hidden" }}>
@@ -8276,7 +8284,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Notifications</div>
+        <div style={{ ...display, fontSize: 28, color: ivHeading, marginTop: 10 }}>Notifications</div>
       </div>
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         <SettingsGroup
@@ -8609,7 +8617,7 @@ function ScreenDataPrivacy({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
+        <div style={{ ...display, fontSize: 28, color: ivHeading, marginTop: 10 }}>Data & Privacy</div>
       </div>
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 24px" }}>
         {/* Where your data goes, drawn: the phone, the on-device check,
@@ -8768,7 +8776,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: ivBg2 }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: ivHeading, marginTop: 10 }}>Help</div>
+        <div style={{ ...display, fontSize: 28, color: ivHeading, marginTop: 10 }}>Help</div>
         <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
           There are patterns in your mind. You just can't see them from inside.
         </div>
@@ -8838,7 +8846,7 @@ function ScreenLegalDocument({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 10 }}>{title}</div>
+        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>{title}</div>
         <div style={{ ...mono, fontSize: 11, color: mdFaint, marginTop: 6 }}>Last updated {lastUpdated}</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 32px" }}>
@@ -9015,7 +9023,7 @@ function ScreenPaywall({
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
         <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>
+        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>
           Recording is free.<br />Understanding the pattern isn't yet.
         </div>
         <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 10, lineHeight: 1.6, wordBreak: "keep-all" }}>
@@ -9119,7 +9127,7 @@ function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 10 }}>Payment</div>
+        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>Payment</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
@@ -9161,7 +9169,7 @@ function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; o
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
       <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...serif, fontSize: 28, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
+        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>

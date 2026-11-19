@@ -1,17 +1,22 @@
-/* Type — self-hosted, open-source, no third-party font request at launch.
-   Pretendard's dynamic subset is split by unicode-range, so a Korean
-   screen pulls only the Hangul slices it actually paints. Source Serif 4
-   is the variable cut with an optical-size axis (opsz) — the browser picks
-   the right drawing for each size by itself. Gowun Batang only serves the
-   Hangul that Source Serif lacks. Monaspace Neon is the one monospace. */
+/* Type — a diary's typefaces, all self-hosted via Fontsource (no font
+   request leaves the app at launch).
+   · Instrument Serif — titles and the large statements: a slim editorial
+     serif, like the lettering on a notebook's cover.
+   · Caveat (+ Nanum Pen Script for Hangul) — the handwriting: datelines,
+     section labels, and the words you write on a diary page.
+   · Source Serif 4 (+ Gowun Batang for Hangul) — reading text at small
+     sizes, where a display serif would get tight.
+   · Pretendard — interface text (an Inter-based sans that covers Korean).
+   · JetBrains Mono — numbers and counts. */
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource-variable/caveat/wght.css";
+@import "@fontsource/nanum-pen-script/400.css";
 @import "@fontsource-variable/source-serif-4/opsz.css";
 @import "@fontsource-variable/source-serif-4/opsz-italic.css";
 @import "@fontsource/gowun-batang/400.css";
-@import "@fontsource/monaspace-neon/400.css";
-@import "@fontsource/monaspace-neon/500.css";
-@import "@fontsource/monaspace-neon/600.css";
-@import "@fontsource/monaspace-neon/700.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 /* Tailwind is scoped to shadcn/BKlit UI components only — the rest of this
    app renders with inline styles by design (see the file-level comments
    below), so Tailwind utility classes should stay confined to components
