@@ -3779,76 +3779,95 @@ function DiscoveryCard({
   interpretation,
   thoughtCount,
   confidence,
-  regionColor,
+  region = "identity",
   onExamine,
 }: {
   title: string;
   interpretation: string;
   thoughtCount: number;
   confidence: number;
-  regionColor?: string;
+  region?: CognitiveRegion;
   onExamine?: () => void;
 }) {
+  // Today's discovery as the page's one bright object: the paper washed in
+  // the discovery's own colour, a strip of washi tape holding it to the
+  // page, and its star in the corner with two small lights circling it.
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG[region];
+  const second = REGION_CONFIG[region === "relationships" ? "identity" : "relationships"];
   return (
-    <div
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: 14, rotate: -0.6 }} animate={{ opacity: 1, y: 0, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 150, damping: 20 }}
       style={{
-        position: "relative", boxSizing: "border-box", padding: "24px 22px 20px",
-        borderRadius: 22, backgroundColor: ivSurfaceSolid,
-        border: `1px solid ${ivBorder}`,
-        boxShadow: ivCardShadow,
+        position: "relative", boxSizing: "border-box", padding: "26px 22px 20px", borderRadius: 22,
+        backgroundColor: "#FFFDF8",
+        backgroundImage: `radial-gradient(80% 70% at 100% 0%, ${c.color}40, transparent 60%), radial-gradient(70% 60% at 0% 100%, ${second.color}26, transparent 65%), linear-gradient(180deg, #FFFDF8, #FBF6EE)`,
+        border: `1px solid ${c.color}33`,
+        boxShadow: `0 18px 36px -22px ${c.color}, 0 1px 0 rgba(255,255,255,0.9) inset`,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {regionColor && <Node color={regionColor} size={11} intensity={0.7} />}
-        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: REGION_CONFIG.identity.ink, lineHeight: 1 }}>
-          Today's discovery
+      {/* Washi tape */}
+      <span aria-hidden style={{ position: "absolute", top: -9, left: 26, width: 70, height: 20, borderRadius: 2, transform: "rotate(-5deg)", opacity: 0.9,
+        backgroundImage: `repeating-linear-gradient(45deg, ${c.color}aa 0 7px, ${c.tint} 7px 14px)`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }} />
+      {/* The discovery's star, with two lights orbiting it */}
+      <div aria-hidden style={{ position: "absolute", top: 16, right: 18, width: 64, height: 64 }}>
+        <motion.div animate={reduce ? undefined : { rotate: 360 }} transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
+          style={{ position: "absolute", inset: 0 }}>
+          <span style={{ position: "absolute", left: "50%", top: -2, width: 6, height: 6, marginLeft: -3, borderRadius: "50%", backgroundColor: second.color, boxShadow: `0 0 8px ${second.color}` }} />
+          <span style={{ position: "absolute", left: 4, bottom: 6, width: 4, height: 4, borderRadius: "50%", backgroundColor: REGION_CONFIG.career.color, boxShadow: `0 0 6px ${REGION_CONFIG.career.color}` }} />
+        </motion.div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Breathe amount={1.1}><Node color={c.color} size={30} intensity={0.95} /></Breathe>
         </div>
       </div>
 
-      <p
-        style={{
-          ...display, fontSize: 22, fontWeight: 400, lineHeight: 1.28, color: ivHeading, margin: "14px 0 0", wordBreak: "keep-all",
-          overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3,
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center", gap: 6, paddingRight: 70 }}>
+        <Sparkle size={15} weight="fill" color={c.color} aria-hidden />
+        <div style={{ ...hand, fontSize: 22, fontWeight: 600, color: c.ink, lineHeight: 1 }}>Today's discovery</div>
+      </div>
+
+      <p style={{
+        ...display, fontSize: 25, fontWeight: 400, lineHeight: 1.2, color: ivHeading, margin: "14px 0 0", paddingRight: 54, wordBreak: "keep-all",
+        overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3,
+      }}>
         {title}
       </p>
 
       {interpretation && (
-        <p
-          style={{
-            ...sans, fontSize: 13, color: ivBody, lineHeight: 1.5, margin: "8px 0 0", wordBreak: "keep-all",
-            overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
-          }}
-        >
+        <p style={{
+          ...sans, fontSize: 13, color: ivBody, lineHeight: 1.55, margin: "8px 0 0", wordBreak: "keep-all",
+          overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+        }}>
           {interpretation}
         </p>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 18, paddingTop: 16, borderTop: `1px solid ${ivDivider}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, overflow: "hidden" }}>
-          <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: ivBody, whiteSpace: "nowrap", flexShrink: 0 }}>
-            <ThoughtGlyph color={ivBody} /> {thoughtCount} thought{thoughtCount === 1 ? "" : "s"}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, fontWeight: 600, color: c.ink, backgroundColor: `${c.color}1f`, border: `1px solid ${c.color}33`, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>
+            <ThoughtGlyph color={c.ink} /> {thoughtCount} thought{thoughtCount === 1 ? "" : "s"}
           </span>
-          <MetaDivider color={ivFaint} />
-          <span style={{ display: "flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, color: ivBody, whiteSpace: "nowrap", minWidth: 0 }}>
-            <ConfidenceGlyph color={ivBody} /> {confidence}% confidence
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, fontWeight: 600, color: second.ink, backgroundColor: `${second.color}1a`, border: `1px solid ${second.color}33`, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>
+            <ConfidenceGlyph color={second.ink} /> {confidence}%
           </span>
         </div>
 
-        <Breathe inline amount={1.06}><motion.div
-          role="button"
-          tabIndex={0}
-          aria-label="Examine today's discovery"
-          onClick={onExamine}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onExamine?.(); } }}
-          whileTap={{ opacity: 0.6 }}
-          style={{ display: "inline-flex", alignItems: "center", gap: 5, ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+        <motion.button
+          type="button" aria-label="Examine today's discovery" onClick={onExamine}
+          whileTap={{ scale: 0.94 }} whileHover={reduce ? undefined : { scale: 1.03 }}
+          className={reduce ? undefined : "lens-current"}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6, border: 0, cursor: "pointer", flexShrink: 0,
+            ...sans, fontSize: 13, fontWeight: 700, color: "#FFFFFF", padding: "9px 15px", borderRadius: 999,
+            backgroundImage: `linear-gradient(110deg, ${c.ink}, ${c.color}, ${second.color}, ${c.ink})`,
+            boxShadow: `0 8px 18px -8px ${c.color}`,
+          }}
         >
-          Examine <ArrowRight size={12} weight="bold" aria-hidden />
-        </motion.div></Breathe>
+          Examine <ArrowRight size={13} weight="bold" aria-hidden />
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -3866,58 +3885,68 @@ function DiscoveryCard({
 // the fuller statement demoted to quiet supporting text under it, and the
 // relative date folded into one small, muted metadata line at the bottom
 // instead of a bold colored badge up top.
-function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () => void }) {
-  const color = REGION_CONFIG[item.region].color;
+function InsightCard({ item, onOpen, index = 0 }: { item: RecentInsightItem; onOpen?: () => void; index?: number }) {
+  // A note pinned into the diary: paper washed in the insight's colour, a
+  // short strip of tape, a slight tilt that alternates card to card, the
+  // insight's orb, and its confidence as a small coloured meter.
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG[item.region];
   const intensity = Math.min(1, 0.45 + (item.confidence / 100) * 0.4);
   const primaryLabel = item.thoughtLabel || item.title;
   const showSupporting = !!item.thoughtLabel && item.title !== item.thoughtLabel;
   const metaParts = [
     item.date ? relativeInsightLabel(item.date) : null,
     `${item.thoughtCount} thought${item.thoughtCount === 1 ? "" : "s"}`,
-    `${item.confidence}%`,
   ].filter((p): p is string => !!p);
+  const tilt = index % 2 === 0 ? -1.2 : 1.1;
 
   return (
-    <Breathe amount={1.025} style={{ flexShrink: 0, width: "auto" }}>
     <motion.div
       role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
-      whileTap={{ scale: 0.97, opacity: 0.88 }}
+      initial={reduce ? false : { opacity: 0, y: 16, rotate: 0 }} whileInView={{ opacity: 1, y: 0, rotate: tilt }} viewport={{ once: true, amount: 0.4 }}
+      transition={{ type: "spring", stiffness: 170, damping: 18, delay: reduce ? 0 : index * 0.06 }}
+      whileTap={{ scale: 0.96, rotate: 0 }} whileHover={reduce ? undefined : { y: -3, rotate: 0 }}
       style={{
-        flexShrink: 0, width: 160, boxSizing: "border-box", padding: "13px 14px",
-        borderRadius: shape.md, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`,
-        display: "flex", flexDirection: "column", gap: 8, cursor: "pointer",
+        position: "relative", flexShrink: 0, width: 164, boxSizing: "border-box", padding: "18px 14px 13px", margin: "10px 0 8px",
+        borderRadius: 16, cursor: "pointer",
+        backgroundColor: "#FFFDF8",
+        backgroundImage: `linear-gradient(165deg, ${c.color}33 0%, ${c.color}12 45%, #FFFDF8 80%)`,
+        border: `1px solid ${c.color}3a`,
+        boxShadow: `0 12px 22px -16px ${c.color}`,
+        display: "flex", flexDirection: "column", gap: 8,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Node color={color} size={13} intensity={intensity} />
+      <span aria-hidden style={{ position: "absolute", top: -8, left: "50%", marginLeft: -24, width: 48, height: 16, borderRadius: 2, opacity: 0.85,
+        transform: `rotate(${index % 2 === 0 ? 4 : -4}deg)`, backgroundImage: `repeating-linear-gradient(45deg, ${c.color}99 0 6px, ${c.tint} 6px 12px)` }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <Node color={c.color} size={16} intensity={intensity} />
         <RegionBadge region={item.region} />
       </div>
 
-      <div
-        style={{
-          ...display, fontSize: 17, fontWeight: 400, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all",
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-        }}
-      >
+      <div style={{
+        ...display, fontSize: 18, fontWeight: 400, lineHeight: 1.25, color: ivHeading, wordBreak: "keep-all",
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
         {primaryLabel}
       </div>
 
       {showSupporting && (
-        <div
-          style={{
-            ...sans, fontSize: 11, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all",
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-          }}
-        >
+        <div style={{
+          ...sans, fontSize: 11, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all",
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
           {item.title}
         </div>
       )}
 
-      <div style={{ ...sans, fontSize: 11, color: ivFaint }}>
-        {metaParts.join(" · ")}
+      <div style={{ marginTop: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <MeterFill value={item.confidence} color={c.color} track={`${c.color}1f`} height={4} radius={2} style={{ flex: 1 }} />
+          <span style={{ ...mono, fontSize: 11, color: c.ink, fontWeight: 600 }}>{item.confidence}%</span>
+        </div>
+        <div style={{ ...hand, fontSize: 16, color: ivBody, marginTop: 5 }}>{metaParts.join(" · ")}</div>
       </div>
     </motion.div>
-    </Breathe>
   );
 }
 
@@ -4045,15 +4074,52 @@ function buildWeekActivity(history: StoredHistoryEntry[], maxWeeks = 8): WeekAct
 const reflectiveRate = (w: WeekActivity) => (w.words > 0 ? (w.verbs / w.words) * 100 : null);
 const signedDelta = (n: number, digits = 0) => (n > 0 ? `+${n.toFixed(digits)}` : n < 0 ? `−${Math.abs(n).toFixed(digits)}` : "±0");
 
-function StatTile({ label, value, delta, children, style }: { label: string; value: React.ReactNode; delta?: string; children?: React.ReactNode; style?: React.CSSProperties }) {
+function StatTile({ label, value, delta, children, style, tone = "identity", icon, below }: { label: string; value: React.ReactNode; delta?: string; children?: React.ReactNode; style?: React.CSSProperties; tone?: CognitiveRegion; icon?: React.ReactNode; below?: React.ReactNode }) {
+  // Each tile in its own colour, like a page in a different coloured ink:
+  // a wash of the colour from the corner, the label in that colour's ink,
+  // and the number large in the diary's display face.
+  const c = REGION_CONFIG[tone];
   return (
-    <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, ...style }}>
+    <div style={{
+      position: "relative", overflow: "hidden", borderRadius: shape.md, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14,
+      backgroundColor: "#FFFDF8",
+      backgroundImage: `radial-gradient(110% 90% at 0% 0%, ${c.color}30, transparent 60%), linear-gradient(160deg, ${c.color}12, #FFFDF8 70%)`,
+      border: `1px solid ${c.color}33`, boxShadow: `0 10px 22px -18px ${c.color}`,
+      ...style,
+    }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: ivBody, lineHeight: 1.1, wordBreak: "keep-all" }}>{label}</div>
-        <div style={{ ...mono, fontSize: 24, fontWeight: 700, color: ivHeading, marginTop: 4, lineHeight: 1.1 }}>{value}</div>
-        {delta && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 5 }}>{delta}</div>}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {icon && <span aria-hidden style={{ lineHeight: 0, color: c.color }}>{icon}</span>}
+          <div style={{ ...hand, fontSize: 19, fontWeight: 600, color: c.ink, lineHeight: 1.1, wordBreak: "keep-all" }}>{label}</div>
+        </div>
+        <div style={{ ...display, fontSize: 34, color: ivHeading, marginTop: 4, lineHeight: 1 }}>{value}</div>
+        {delta && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6 }}>{delta}</div>}
+        {below}
       </div>
       {children}
+    </div>
+  );
+}
+
+// The last seven days as seven small stars, lit for each day of the
+// current streak (counting back from today), popping on one after another.
+function StreakStars({ streak }: { streak: number }) {
+  const reduce = useReducedMotion();
+  const lit = Math.min(streak, 7);
+  const c = REGION_CONFIG.career;
+  return (
+    <div role="img" aria-label={`${streak} ${streak === 1 ? "day" : "days"} in a row`} style={{ display: "flex", gap: 3, marginTop: 8 }}>
+      {Array.from({ length: 7 }, (_, i) => {
+        const on = i >= 7 - lit;
+        return (
+          <motion.span key={i}
+            initial={reduce ? false : { scale: 0.3, opacity: 0 }} whileInView={{ scale: 1, opacity: 1 }} viewport={{ once: true }}
+            transition={{ type: "spring", stiffness: 380, damping: 16, delay: reduce ? 0 : 0.1 + i * 0.06 }}
+            style={{ lineHeight: 0, color: on ? c.color : "rgba(42,38,33,0.16)", filter: on ? `drop-shadow(0 0 3px ${c.color})` : undefined }}>
+            <Sparkle size={12} weight="fill" />
+          </motion.span>
+        );
+      })}
     </div>
   );
 }
@@ -4068,34 +4134,37 @@ function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
   const streak = computeStreak(history);
   const maxEntries = Math.max(...weeks.map((w) => w.entries), 1);
   const sparkLabel = `Thoughts per week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(latest.weekStart)}: ${weeks.map((w) => w.entries).join(", ")}.`;
+  const I = REGION_CONFIG.identity, R = REGION_CONFIG.relationships;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
         <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82 }}>Recent weeks</div>
-        <div style={{ ...mono, fontSize: 11, color: ivFaint }}>Week of {shortMonthDay(latest.weekStart)}</div>
+        <div style={{ ...hand, fontSize: 17, color: ivBody }}>Week of {shortMonthDay(latest.weekStart)}</div>
       </div>
       <StatTile
+        tone="identity" icon={<PenNib size={15} weight="fill" />}
         label="Thoughts logged"
         value={<AnimatedNumber value={latest.entries} memoryKey="analysis.weekEntries" />}
         delta={prev ? `${signedDelta(latest.entries - prev.entries)} vs the week before` : "First week"}
         style={{ marginBottom: 10 }}
       >
-        {/* Sparkline: thin bars, a 2px surface gap between them, rounded
-            at the data end and square at the baseline; the current week
-            in ink, the rest in the de-emphasis tint. */}
-        <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 2, width: 128, height: 40, flexShrink: 0 }}>
+        {/* One bar per week, rising in; past weeks in a soft violet, this
+            week in a violet-to-rose gradient with a glow. */}
+        <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 3, width: 132, height: 48, flexShrink: 0 }}>
           {weeks.map((w, i) => {
             const isLatest = i === weeks.length - 1;
             return (
               <motion.div
                 key={w.weekStart} title={`Week of ${shortMonthDay(w.weekStart)}: ${w.entries} ${w.entries === 1 ? "thought" : "thoughts"}`}
                 initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true, amount: 0.6 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 + i * 0.04 }}
+                transition={{ type: "spring", stiffness: 160, damping: 16, delay: 0.08 + i * 0.05 }}
                 style={{
                   flex: 1, maxWidth: 24, transformOrigin: "bottom",
-                  height: `${Math.max((w.entries / maxEntries) * 100, 5)}%`,
-                  borderRadius: "3px 3px 0 0",
-                  backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.1)" : isLatest ? ivHeading : "rgba(42,38,33,0.24)",
+                  height: `${Math.max((w.entries / maxEntries) * 100, 6)}%`,
+                  borderRadius: "4px 4px 1px 1px",
+                  backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.08)" : undefined,
+                  backgroundImage: w.entries === 0 ? undefined : isLatest ? `linear-gradient(180deg, ${R.color}, ${I.color})` : `linear-gradient(180deg, ${I.color}66, ${I.color}33)`,
+                  boxShadow: isLatest && w.entries > 0 ? `0 0 12px -2px ${R.color}` : undefined,
                 }}
               />
             );
@@ -4104,12 +4173,19 @@ function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
       </StatTile>
       <div style={{ display: "flex", gap: 10 }}>
         <StatTile
+          tone="curiosity" icon={<Feather size={15} weight="fill" />}
           label="Reflective language"
-          value={latestRate === null ? "—" : <><AnimatedNumber value={latestRate} memoryKey="analysis.weekRate" format={(n) => n.toFixed(1)} /><span style={{ fontSize: 15, fontWeight: 500 }}>%</span></>}
+          value={latestRate === null ? "—" : <><AnimatedNumber value={latestRate} memoryKey="analysis.weekRate" format={(n) => n.toFixed(1)} /><span style={{ fontSize: 20 }}>%</span></>}
           delta={latestRate !== null && prevRate !== null ? `${signedDelta(latestRate - prevRate, 1)} pt vs the week before` : latestRate === null ? "No text analyzed yet" : "Share of your words"}
           style={{ flex: 1 }}
         />
-        <StatTile label="Streak" value={<><AnimatedNumber value={streak} memoryKey="analysis.streak" /> <span style={{ fontSize: 15, fontWeight: 500 }}>{streak === 1 ? "day" : "days"}</span></>} delta="Days in a row" style={{ flex: 1 }} />
+        <StatTile
+          tone="career" icon={<Sparkle size={15} weight="fill" />}
+          label="Streak"
+          value={<><AnimatedNumber value={streak} memoryKey="analysis.streak" /> <span style={{ fontSize: 20 }}>{streak === 1 ? "day" : "days"}</span></>}
+          below={<StreakStars streak={streak} />}
+          style={{ flex: 1 }}
+        />
       </div>
     </div>
   );
@@ -4161,11 +4237,12 @@ function ScreenDiscoveryAnalysis({
   // DiscoveryCard's one small, quiet node next to its eyebrow label (see
   // the redesign brief: "the relevant node can appear subtly inside or
   // near this card").
-  const discRegionColor = discH
-    ? REGION_CONFIG[resolveRegion({ domain: discH.domains[0] ?? "identity" } as any)].color
+  const discRegion: CognitiveRegion | undefined = discH
+    ? resolveRegion({ domain: discH.domains[0] ?? "identity" } as any)
     : discB
-      ? REGION_CONFIG[resolveRegion(discB)].color
+      ? resolveRegion(discB)
       : undefined;
+  const discRegionColor = discRegion ? REGION_CONFIG[discRegion].color : undefined;
 
   // Everything that could have been Today's Discovery but isn't — see
   // buildRecentInsights. Shown as one horizontally-scrolling row (see
@@ -4417,7 +4494,7 @@ function ScreenDiscoveryAnalysis({
                     interpretation={discInterpretation}
                     thoughtCount={discThoughtCount}
                     confidence={discConfidence}
-                    regionColor={discRegionColor}
+                    region={discRegion}
                     onExamine={() => setExamineTarget(pinnedDiscovery)}
                   />
                 ) : (
@@ -4445,9 +4522,9 @@ function ScreenDiscoveryAnalysis({
                 {recentInsights.length === 0 ? (
                   <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>No other insights yet — check back as more come into focus.</p>
                 ) : (
-                  <div className="no-scrollbar" style={{ display: "flex", gap: 12, marginTop: 14, overflowX: "auto", overscrollBehaviorX: "contain", paddingBottom: 2 }}>
-                    {recentInsights.map((item) => (
-                      <InsightCard key={item.key} item={item} onOpen={() => setExamineTarget(item.target)} />
+                  <div className="no-scrollbar" style={{ display: "flex", gap: 12, marginTop: 6, overflowX: "auto", overscrollBehaviorX: "contain", padding: "0 4px 6px", margin: "6px -4px 0" }}>
+                    {recentInsights.map((item, idx) => (
+                      <InsightCard key={item.key} index={idx} item={item} onOpen={() => setExamineTarget(item.target)} />
                     ))}
                   </div>
                 )}
