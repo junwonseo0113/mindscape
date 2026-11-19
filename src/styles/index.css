@@ -158,6 +158,15 @@ body {
   .ink-wash, .ink-sheen { animation: none; }
 }
 
+/* ── Diary page wash (see DiaryNotePaper in App.tsx) ──────────────────────────
+   The pastel paper's colors drift slowly across it. */
+@keyframes diary-wash {
+  0%, 100% { background-position: 0% 30%; }
+  50%      { background-position: 100% 70%; }
+}
+.diary-wash { animation: diary-wash 18s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .diary-wash { animation: none; } }
+
 /* ── Edge fade ────────────────────────────────────────────────────────────────
    A scroll region's content fades out at its top and bottom edges instead
    of being sliced by a hard line under the header and above the nav. The

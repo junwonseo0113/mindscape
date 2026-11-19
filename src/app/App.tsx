@@ -1007,6 +1007,97 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
   );
 }
 
+// ── DiaryNotePaper ───────────────────────────────────────────────────────────
+// The place you actually write, made to feel like your own diary page
+// rather than a form field: pastel paper whose colors drift slowly, two
+// strips of washi tape holding it down, soft colored ruled lines that
+// scroll with the text (each line exactly one line of writing), a rose
+// margin, and a pen nib in the corner that wiggles while you type and
+// flicks out little drops of colored ink. A word count sits bottom-left.
+// The ink drops and the drift stop under reduced motion.
+const DIARY_INKS = [REGION_CONFIG.identity.color, REGION_CONFIG.relationships.color, REGION_CONFIG.career.color, REGION_CONFIG.curiosity.color, REGION_CONFIG.security.color, REGION_CONFIG.creativity.color];
+
+function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 19, lineHeight = 34, minHeight, fill, onEnter, style }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel: string; autoFocus?: boolean;
+  fontSize?: number; lineHeight?: number; minHeight?: number; fill?: boolean; onEnter?: () => void; style?: React.CSSProperties;
+}) {
+  const reduce = useReducedMotion();
+  const [drops, setDrops] = React.useState<{ id: number; color: string; dx: number }[]>([]);
+  const [typing, setTyping] = React.useState(false);
+  const typingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inkIndex = React.useRef(0);
+  const words = value.trim() ? value.trim().split(/\s+/).length : 0;
+  const padTop = 18;
+  const handle = (v: string) => {
+    onChange(v);
+    setTyping(true);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => setTyping(false), 650);
+    if (reduce || v.length <= value.length) return;
+    const did = Date.now() + Math.random();
+    const color = DIARY_INKS[inkIndex.current++ % DIARY_INKS.length];
+    setDrops((d) => [...d.slice(-8), { id: did, color, dx: (Math.random() - 0.5) * 34 }]);
+    setTimeout(() => setDrops((d) => d.filter((x) => x.id !== did)), 900);
+  };
+  React.useEffect(() => () => { if (typingTimer.current) clearTimeout(typingTimer.current); }, []);
+  const tape = (side: "left" | "right", a: string, b: string) => (
+    <span aria-hidden style={{
+      position: "absolute", top: -9, [side]: 22, width: 64, height: 20, borderRadius: 2, opacity: 0.85,
+      transform: `rotate(${side === "left" ? -6 : 5}deg)`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+      backgroundImage: `repeating-linear-gradient(45deg, ${a} 0 7px, ${b} 7px 14px)`,
+    } as React.CSSProperties} />
+  );
+  return (
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", ...(fill ? { flex: 1, minHeight: 0 } : {}), ...style }}>
+      <div className={reduce ? undefined : "diary-wash"} style={{
+        position: "relative", display: "flex", flexDirection: "column", ...(fill ? { flex: 1, minHeight: 0 } : {}),
+        borderRadius: 16, padding: `0 16px 34px 38px`,
+        // The app's own colors at ~30–35% over warm white: pastel, but with
+        // enough real color that it stays colorful even on the dark
+        // writing screen (plain tints read as gray there).
+        backgroundColor: "#FFFCF6",
+        backgroundImage: `linear-gradient(125deg, ${REGION_CONFIG.relationships.color}5c, ${REGION_CONFIG.career.color}55, ${REGION_CONFIG.creativity.color}4a, ${REGION_CONFIG.curiosity.color}4d, ${REGION_CONFIG.identity.color}55, ${REGION_CONFIG.relationships.color}5c)`,
+        backgroundSize: "180% 180%",
+        boxShadow: "0 0 0 1px rgba(42,38,33,0.06), 0 14px 30px -18px rgba(74,47,94,0.55)",
+      }}>
+        {tape("left", `${REGION_CONFIG.relationships.color}aa`, `${REGION_CONFIG.relationships.tint}`)}
+        {tape("right", `${REGION_CONFIG.curiosity.color}99`, `${REGION_CONFIG.curiosity.tint}`)}
+        {/* Margin line */}
+        <span aria-hidden style={{ position: "absolute", left: 26, top: 10, bottom: 10, width: 1.5, borderRadius: 1, backgroundColor: `${REGION_CONFIG.relationships.color}88` }} />
+        <textarea
+          autoFocus={autoFocus} value={value} placeholder={placeholder} aria-label={ariaLabel}
+          onChange={(e) => handle(e.target.value)}
+          onKeyDown={onEnter ? (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnter(); } } : undefined}
+          rows={fill ? undefined : 2}
+          style={{
+            ...serif, width: "100%", resize: "none", border: 0, outline: "none", ...(fill ? { flex: 1, minHeight: 0 } : { minHeight: minHeight ?? lineHeight * 2 + padTop }),
+            padding: `${padTop}px 0 0`, fontSize, lineHeight: `${lineHeight}px`, color: "#2E2547", caretColor: REGION_CONFIG.relationships.color,
+            wordBreak: "keep-all", colorScheme: "light",
+            // Ruled lines that scroll with the writing, one per line.
+            backgroundColor: "transparent", backgroundAttachment: "local", backgroundPosition: `0 ${padTop}px`,
+            backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight}px)`,
+          }}
+        />
+        <span aria-hidden style={{ position: "absolute", left: 38, bottom: 10, ...mono, fontSize: 11, color: REGION_CONFIG.identity.ink, opacity: words ? 0.8 : 0.45 }}>
+          {words} {words === 1 ? "word" : "words"}
+        </span>
+        {/* The pen, and the ink it flicks while you write. */}
+        <div aria-hidden style={{ position: "absolute", right: 14, bottom: 8 }}>
+          {drops.map((d) => (
+            <motion.span key={d.id} initial={{ x: 0, y: 0, scale: 1, opacity: 0.95 }} animate={{ x: d.dx, y: -38, scale: 0.4, opacity: 0 }} transition={{ duration: 0.85, ease: "easeOut" }}
+              style={{ position: "absolute", left: 4, top: 2, width: 8, height: 8, borderRadius: "50%", backgroundColor: d.color, boxShadow: `0 0 8px ${d.color}` }} />
+          ))}
+          <motion.span animate={typing && !reduce ? { rotate: [-8, 10, -6, 8, -8], y: [0, -2, 0, -2, 0] } : { rotate: 0, y: 0 }}
+            transition={typing && !reduce ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
+            style={{ display: "block", lineHeight: 0, color: REGION_CONFIG.identity.ink }}>
+            <PenNib size={22} weight="duotone" />
+          </motion.span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── DiaryPage ────────────────────────────────────────────────────────────────
 // Login and sign-up as the first page of a diary: a sheet of paper resting
 // on the drifting backdrop, today's date written at the top the way you'd
@@ -1448,28 +1539,27 @@ function OnboardingBrainDemo() {
         )}
       </svg>
       {!activated ? (
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") tryIt(); }}
-            placeholder="Try typing anything…"
-            aria-label="Try typing anything, to preview how the brain map responds"
-            style={{
-              flex: 1, ...sans, fontSize: 15, padding: "10px 12px", borderRadius: 10,
-              border: `1px solid ${mdDivider}`, backgroundColor: mdCard, color: mdHeading, outline: "none",
-            }}
+        <div style={{ marginTop: 14 }}>
+          <DiaryNotePaper
+            value={text} onChange={setText} onEnter={tryIt} fontSize={17} lineHeight={30}
+            placeholder="Try writing anything…" ariaLabel="Try writing anything, to preview how your mind map responds"
           />
-          <motion.div
-            role="button" tabIndex={0} onClick={tryIt} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (tryIt)?.(); } }} whileTap={text.trim() ? { scale: 0.96 } : undefined}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px", borderRadius: 10,
-              backgroundColor: text.trim() ? mdAccent : mdTrack, color: text.trim() ? "#fff" : "#a29d9d",
-              ...sans, fontSize: 13, fontWeight: 700, cursor: text.trim() ? "pointer" : "default", flexShrink: 0,
-            }}
-          >
-            Try it
-          </motion.div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <motion.button
+              type="button" onClick={tryIt} disabled={!text.trim()} whileTap={text.trim() ? { scale: 0.94 } : undefined} transition={SETTLE}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 999, border: 0,
+                ...sans, fontSize: 14, fontWeight: 700, cursor: text.trim() ? "pointer" : "default",
+                color: text.trim() ? "#fff" : "rgba(42,38,33,0.4)",
+                backgroundImage: text.trim() ? `linear-gradient(110deg, ${REGION_CONFIG.identity.color}, ${REGION_CONFIG.relationships.color}, ${REGION_CONFIG.career.color})` : "none",
+                backgroundColor: text.trim() ? undefined : "rgba(42,38,33,0.08)",
+                boxShadow: text.trim() ? `0 8px 18px -10px ${REGION_CONFIG.relationships.color}` : "none",
+                transition: "color 0.2s, box-shadow 0.2s",
+              }}
+            >
+              <Sparkle size={14} weight="fill" /> Try it
+            </motion.button>
+          </div>
         </div>
       ) : (
         <motion.div
@@ -4723,17 +4813,11 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                 </motion.button>
               </Breathe>
             </div>
-            <textarea
-              autoFocus
-              value={text}
-              onChange={(e) => { setText(e.target.value); noteActivity(e.target.value); }}
-              placeholder="Write whatever feels natural."
-              aria-label="Speak your mind"
-              style={{
-                ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none", marginTop: 16,
-                backgroundColor: "transparent", color: dkHeading, fontSize: 20, lineHeight: 1.7,
-                wordBreak: "keep-all", colorScheme: "dark",
-              }}
+            {/* Your page — an open diary on the night desk. */}
+            <DiaryNotePaper
+              autoFocus fill value={text} onChange={(v) => { setText(v); noteActivity(v); }}
+              placeholder="Write whatever feels natural." ariaLabel="Speak your mind"
+              style={{ marginTop: 22 }}
             />
             <AnimatePresence>
               {inputGuidance && (
