@@ -36,6 +36,7 @@ import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionC
 import { useSwipeBack, useScrollMemory } from "./navGestures";
 import { AnimatedNumber, Breathe, Collapse, MeterFill, RevealGroup, RevealItem, SETTLE } from "./motionPrimitives";
 import { Node } from "./orb";
+import { DiaryOpening } from "./DiaryOpening";
 import { display, hand, mono, MONO_FAMILY, sans, serif } from "./typefaces";
 // Icons: Phosphor (MIT) — one open-source set at one stroke weight in place
 // of the hand-drawn SVGs that used to vary in grid and line width from
@@ -923,52 +924,36 @@ function PatternConstellation({ speed = 1, width = 272 }: { speed?: number; widt
   );
 }
 
-// ── Screen 1 · Splash ─────────────────────────────────────────────────────────
+// ── Screen 1 · Splash: the diary opening ──────────────────────────────────────
+// The app opens as a diary: the closed "Mindscape" book, its cover
+// swinging open (DiaryOpening.tsx), and this first page — the date, the
+// pattern drawing itself, and the line the app is built on. Then the view
+// falls into the page and the quote of the day follows on the same ivory.
 function ScreenSplash({ onDone }: { onDone?: () => void }) {
-  const reducedMotion = useReducedMotion();
-  React.useEffect(() => {
-    const t = setTimeout(() => onDone?.(), 2200);
-    return () => clearTimeout(t);
-  }, [onDone]);
+  const reduce = useReducedMotion();
+  const dateline = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const rise = (delay: number) => ({
+    initial: reduce ? false : { opacity: 0, y: 6 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: reduce ? 0 : 0.5, delay: reduce ? 0 : delay, ease: [0.16, 1, 0.3, 1] as const },
+  });
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", backgroundColor: OPENING_BG, color: OPENING_TEXT, padding: 32, position: "relative", overflow: "hidden" }}>
-      <OpeningBackdrop variant="splash" />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-        {/* Draws itself inside the 2.2s auto-advance (speed < 1). */}
-        <div style={{ marginBottom: 26 }}><PatternConstellation speed={0.7} width={230} /></div>
-        {/* Staggered reveal instead of one fade block — reads in the same
-            order a person would actually read it (kicker, then the line
-            that's the point, then the quieter follow-on), echoing this
-            screen's own reflective/serif voice rather than arriving as a
-            flat announcement. Each stage still finishes well inside the
-            fixed 2200ms auto-advance above — this changes how the wait
-            feels, not how long it is. */}
-        <motion.div
-          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0, ease: [0.16, 1, 0.3, 1] }}
-          style={{ ...display, fontSize: 17, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}
-        >
-          Mindscape
-        </motion.div>
-        <motion.div
-          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reducedMotion ? 0 : 0.55, delay: reducedMotion ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
-          style={{ ...display, fontSize: 28, color: OPENING_TEXT, textAlign: "center", marginTop: 18, lineHeight: 1.5, wordBreak: "keep-all" }}
-        >
-          There's a pattern<br />in your thinking.
-        </motion.div>
-        <motion.div
-          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reducedMotion ? 0 : 0.5, delay: reducedMotion ? 0 : 0.4, ease: [0.16, 1, 0.3, 1] }}
-          style={{ ...sans, fontSize: 15, color: OPENING_MUTED, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all" }}
-        >
-          You just can't see it from the inside.
-        </motion.div>
-      </div>
-    </div>
+    <DiaryOpening
+      onDone={onDone}
+      backdrop={<OpeningBackdrop variant="splash" />}
+      page={
+        <>
+          <motion.div {...rise(0)} style={{ ...hand, fontSize: 19, fontWeight: 500, color: REGION_CONFIG.identity.ink }}>{dateline}</motion.div>
+          <div style={{ marginTop: 22 }}><PatternConstellation speed={0.55} width={196} /></div>
+          <motion.div {...rise(0.75)} style={{ ...display, fontSize: 25, lineHeight: 1.2, color: ivHeading, marginTop: 20 }}>
+            There's a pattern in your thinking.
+          </motion.div>
+          <motion.div {...rise(1.05)} style={{ ...hand, fontSize: 20, lineHeight: 1.3, color: ivBody, marginTop: 10 }}>
+            You just can't see it from the inside.
+          </motion.div>
+        </>
+      }
+    />
   );
 }
 
@@ -9377,7 +9362,7 @@ function useIsMobileViewport(): boolean {
 
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = React.useState("quote");
+  const [screen, setScreen] = React.useState("splash");
   // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
   // transitionOverride forces the next screen change's transition kind;
   // zoomClipRef holds the Home jar's rectangle for the jar <-> Brain Map
@@ -9728,8 +9713,8 @@ export default function App() {
 
   let content: React.ReactNode = null;
   switch (screen) {
-    case "quote": content = <ScreenQuoteOfTheDay onDone={() => setScreen("splash")} />; break;
-    case "splash": content = <ScreenSplash onDone={() => setScreen("auth")} />; break;
+    case "quote": content = <ScreenQuoteOfTheDay onDone={() => setScreen("auth")} />; break;
+    case "splash": content = <ScreenSplash onDone={() => setScreen("quote")} />; break;
     case "auth": content = <ScreenAuth onEmailStart={() => setScreen(realStore.account ? "login" : "signup")} onGuest={() => setScreen("onboarding")} />; break;
     case "login": content = (
       <ScreenLogin
