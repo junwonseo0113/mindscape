@@ -1,0 +1,27 @@
+[
+  {
+    "id": "montaigne",
+    "path": "C:\\Users\\user\\.codex\\generated_images\\01a197bf-c6aa-7103-8477-342cf400ceff\\exec-932c86ec-01d4-4326-8f6b-869f1d3af8d7.png",
+    "prompt": "Edit this existing four-portrait atlas: REMOVE ALL background wash, haze, paper, gray or cream color between and around the four portraits. Output TRUE fully transparent alpha outside the drawn people, including the center cross and corners. Preserve all four detailed warm-ivory scribble portraits, their faces, arrangement and existing equal 2x2 cell positions. Keep generous fully transparent gap between the four drawings. Do not add anything. Do not flatten onto any colored background."
+  },
+  {
+    "id": "george-eliot",
+    "path": "C:\\Users\\user\\.codex\\generated_images\\01a197bf-c6aa-7103-8477-342cf400ceff\\exec-16ef4244-207f-4d5f-8a55-be3c8318eca9.png",
+    "prompt": "Edit this existing four-portrait atlas: REMOVE ALL background wash, haze, paper, gray or cream color between and around the four portraits. Output TRUE fully transparent alpha outside the drawn people, including the center cross and corners. Preserve all four detailed warm-ivory scribble portraits, their faces, arrangement and existing equal 2x2 cell positions. Keep generous fully transparent gap between the four drawings. Do not add anything. Do not flatten onto any colored background."
+  },
+  {
+    "id": "william-james",
+    "path": "C:\\Users\\user\\.codex\\generated_images\\01a197bf-c6aa-7103-8477-342cf400ceff\\exec-de816f68-bcc6-476a-8f4f-d8aa02485cb7.png",
+    "prompt": "Edit this existing four-portrait atlas: REMOVE ALL background wash, haze, paper, gray or cream color between and around the four portraits. Output TRUE fully transparent alpha outside the drawn people, including the center cross and corners. Preserve all four detailed warm-ivory scribble portraits, their faces, arrangement and existing equal 2x2 cell positions. Keep generous fully transparent gap between the four drawings. Do not add anything. Do not flatten onto any colored background."
+  },
+  {
+    "id": "austen",
+    "path": "C:\\Users\\user\\.codex\\generated_images\\01a197bf-c6aa-7103-8477-342cf400ceff\\exec-c3bcab29-7d8b-4df8-800b-114f67921623.png",
+    "prompt": "Edit this existing four-portrait atlas: REMOVE ALL background wash, haze, paper, gray or cream color between and around the four portraits. Output TRUE fully transparent alpha outside the drawn people, including the center cross and corners. Preserve all four detailed warm-ivory scribble portraits, their faces, arrangement and existing equal 2x2 cell positions. Keep generous fully transparent gap between the four drawings. Do not add anything. Do not flatten onto any colored background."
+  },
+  {
+    "id": "dostoevsky",
+    "path": "C:\\Users\\user\\.codex\\generated_images\\01a197bf-c6aa-7103-8477-342cf400ceff\\exec-19ed01ce-bde0-403c-9384-9c807af09077.png",
+    "prompt": "Edit this existing four-portrait atlas: REMOVE ALL background wash, haze, paper, gray or cream color between and around the four portraits. Output TRUE fully transparent alpha outside the drawn people, including the center cross and corners. Preserve all four detailed warm-ivory scribble portraits, their faces, arrangement and existing equal 2x2 cell positions. Keep generous fully transparent gap between the four drawings. Do not add anything. Do not flatten onto any colored background."
+  }
+]

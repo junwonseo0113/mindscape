@@ -1,3 +1,4 @@
+import { handleIdealSelf } from "./src/server/idealSelf/service"
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -54,10 +55,27 @@ function apiRoute(
   }
 }
 
+function idealSelfApiRoute(env: Record<string, string>) {
+  return (req: IncomingMessage, res: ServerResponse) => {
+    res.setHeader('Content-Type', 'application/json'); res.setHeader('Cache-Control', 'no-store');
+    let raw = ''; let tooLarge = false;
+    req.on('data', chunk => { if (tooLarge) return; raw += chunk; if (Buffer.byteLength(raw, 'utf8') > 65536) { tooLarge = true; res.statusCode = 413; res.end(JSON.stringify({code:'input_too_large',error:'This request is too large.'})); } });
+    req.on('end', async () => {
+      if (tooLarge) return;
+      let body: unknown;
+      try { body = JSON.parse(raw || '{}'); } catch { res.statusCode = 400; res.end(JSON.stringify({code:'invalid_json',error:'Invalid JSON request.'})); return; }
+      const result = await handleIdealSelf({method:req.method,authorization:req.headers.authorization,body}, env);
+      res.statusCode = result.status; res.end(JSON.stringify(result.json));
+    });
+    req.on('error', () => { if (!res.writableEnded) { res.statusCode=400; res.end(JSON.stringify({code:'request_failed',error:'Could not read the request.'})); } });
+  };
+}
+
 function analyzeApiPlugin(env: Record<string, string>): Plugin {
   return {
     name: 'analyze-api',
     configureServer(server) {
+      server.middlewares.use('/api/ideal-self', idealSelfApiRoute(env))
       server.middlewares.use('/api/reinterpret', apiRoute(env, handleReinterpret))
       server.middlewares.use('/api/analyze', apiRoute(env, handleAnalyze))
       server.middlewares.use('/api/summarize-session', apiRoute(env, handleSummarizeSession))

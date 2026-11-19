@@ -51,7 +51,7 @@ import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, is
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
-import { LITERARY_PASSAGES, selectLiteraryPassage, buildWhyThisFoundYou } from "./literaryPassages";
+import { eligiblePassages, resolveLiterarySelection, sanitizeLiterarySelections, buildWhyThisFoundYou, type LiteraryTarget } from "./literaryPassages";
 import { comparePronounLean, compareCognitiveVerbTrend, extractCognitiveVerbExamples } from "./cognitiveLexicon";
 import { pickInputGuidance } from "./inputGuidance";
 
@@ -4300,7 +4300,13 @@ function ScreenDiscoveryAnalysis({
               <GoalDirectionsPanel store={store} updateStore={updateStore} />
 
               {/* ── For where you are now — Premium's literary match. ── */}
-              {store.isPro && <LiteraryReflectionPanel store={store} updateStore={updateStore} />}
+              {store.isPro && (
+                <LiteraryReflectionPanel
+                  store={store}
+                  updateStore={updateStore}
+                  target={b ? { kind: "belief", id: b.id } : hIndex !== null && store.hypotheses[hIndex] ? { kind: "hypothesis", id: store.hypotheses[hIndex].id } : null}
+                />
+              )}
 
               {/* ── Reflection — does this reading fit? (The "Dig deeper"
               button that used to follow it is gone.) ── */}
@@ -4440,22 +4446,25 @@ const AUTHOR_PORTRAITS: Record<string, string> = {
 // so opening Premium repeatedly never reshuffles the passage on its own —
 // see the brief's "not: app opened → random new quote"), persist it, and
 // render it as a page from a book, not another analytics row.
-function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateStore: (updater: (prev: Store) => Store) => void }) {
+// The reading is chosen per discovery (belief or hypothesis) and cached
+// under that discovery's key with a content signature, so it changes only
+// when that discovery's own material changes — see resolveLiterarySelection.
+function LiteraryReflectionPanel({ store, updateStore, target }: { store: Store; updateStore: (updater: (prev: Store) => Store) => void; target: LiteraryTarget | null }) {
   const reduceMotion = useReducedMotion();
-  const snapshot = store.beliefs.length + store.history.length;
-  const needsRefresh = store.literaryMatchSnapshot !== snapshot;
+  const today = formatDateDots(new Date());
+  const resolved = target ? resolveLiterarySelection(store, target, today) : null;
   React.useEffect(() => {
-    if (!needsRefresh) return;
-    const result = selectLiteraryPassage(store);
-    updateStore((prev) => ({
-      ...prev,
-      literaryMatch: result ? { passageId: result.passage.id, themes: result.themes, selectedDate: formatDateDots(new Date()) } : null,
-      literaryMatchSnapshot: snapshot,
-    }));
-  }, [needsRefresh, store, updateStore, snapshot]);
+    if (!target || (!resolved?.needsSave && !store.literaryMatch)) return;
+    updateStore((prev) => {
+      const current = resolveLiterarySelection(prev, target, today);
+      if (!current.needsSave && !prev.literaryMatch) return prev;
+      return { ...prev, literaryMatch: null, literaryMatchSnapshot: undefined, literarySelections: { ...sanitizeLiterarySelections(prev.literarySelections), [current.key]: current.selection } };
+    });
+  }, [resolved?.key, resolved?.selection.signature, resolved?.needsSave, store.literaryMatch, target, updateStore, today]);
 
-  const match = store.literaryMatch;
-  const passage = match ? LITERARY_PASSAGES.find((p) => p.id === match.passageId) ?? null : null;
+  const match = resolved?.selection.match ?? null;
+  // Eligibility is re-checked at display time, old saved selections included.
+  const passage = match ? eligiblePassages().find((p) => p.id === match.passageId) ?? null : null;
   const portraitSrc = passage ? AUTHOR_PORTRAITS[passage.authorId] : undefined;
   const fade = { duration: reduceMotion ? 0.01 : 0.6, ease: "easeOut" as const };
 

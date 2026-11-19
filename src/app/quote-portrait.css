@@ -1,0 +1,9 @@
+.daily-quote-composition{min-height:0;justify-content:center}
+.quote-line-portrait{position:relative;overflow:hidden}
+.daily-quote-content{display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:18px 0}
+.quote-line-portrait{display:block;align-self:center;width:260px;height:260px;max-width:100%;object-fit:contain;flex-shrink:0;margin:0 0 26px;animation:quote-portrait-reveal 700ms ease-out both}
+.daily-quote-passage{max-width:100%;overflow-wrap:anywhere}
+@keyframes quote-portrait-reveal{from{opacity:0}to{opacity:1}}
+@media(max-height:740px){.quote-line-portrait{width:180px;height:180px;margin-bottom:16px}.daily-quote-passage{font-size:25px!important}.daily-quote-content{padding:10px 0}}
+@media(max-height:610px){.quote-line-portrait{width:132px;height:132px;margin-bottom:10px}.daily-quote-passage{font-size:22px!important;line-height:1.35!important}.daily-quote-content{padding:6px 0}}
+@media(prefers-reduced-motion:reduce){.quote-line-portrait{animation:none}}

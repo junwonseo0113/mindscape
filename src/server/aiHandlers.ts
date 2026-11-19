@@ -27,7 +27,7 @@ export function extractJsonAfterMarker(rawText: string): any | null {
   return JSON.parse(jsonMatch[0])
 }
 
-async function callClaude(apiKey: string, prompt: string, maxTokens: number): Promise<HandlerResult | { text: string }> {
+export async function callClaude(apiKey: string, prompt: string, maxTokens: number, system?: string): Promise<HandlerResult | { text: string }> {
   const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -38,6 +38,7 @@ async function callClaude(apiKey: string, prompt: string, maxTokens: number): Pr
     body: JSON.stringify({
       model: 'claude-sonnet-5',
       max_tokens: maxTokens,
+      ...(system ? { system } : {}),
       messages: [{ role: 'user', content: prompt }],
     }),
   })

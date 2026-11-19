@@ -1,0 +1,838 @@
+[
+  {
+    "portrait": "marcus-aurelius-01",
+    "source": {
+      "title": "Meditations",
+      "url": "https://www.gutenberg.org/ebooks/15877",
+      "translator": "George Long",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "marcus-aurelius-02",
+    "source": {
+      "title": "Meditations",
+      "url": "https://www.gutenberg.org/ebooks/15877",
+      "translator": "George Long",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "marcus-aurelius-03",
+    "source": {
+      "title": "Meditations",
+      "url": "https://www.gutenberg.org/ebooks/15877",
+      "translator": "George Long",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "marcus-aurelius-04",
+    "source": {
+      "title": "Meditations",
+      "url": "https://www.gutenberg.org/ebooks/15877",
+      "translator": "George Long",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "seneca-01",
+    "source": {
+      "title": "On the Shortness of Life",
+      "url": "https://www.gutenberg.org/ebooks/64576",
+      "translator": "Aubrey Stewart",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "seneca-02",
+    "source": {
+      "title": "On the Shortness of Life",
+      "url": "https://www.gutenberg.org/ebooks/64576",
+      "translator": "Aubrey Stewart",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "seneca-03",
+    "source": {
+      "title": "On the Shortness of Life",
+      "url": "https://www.gutenberg.org/ebooks/64576",
+      "translator": "Aubrey Stewart",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "seneca-04",
+    "source": {
+      "title": "On the Shortness of Life",
+      "url": "https://www.gutenberg.org/ebooks/64576",
+      "translator": "Aubrey Stewart",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "montaigne-01",
+    "source": {
+      "title": "Essays",
+      "url": "https://www.gutenberg.org/ebooks/3600",
+      "translator": "Charles Cotton",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "montaigne-02",
+    "source": {
+      "title": "Essays",
+      "url": "https://www.gutenberg.org/ebooks/3600",
+      "translator": "Charles Cotton",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "montaigne-03",
+    "source": {
+      "title": "Essays",
+      "url": "https://www.gutenberg.org/ebooks/3600",
+      "translator": "Charles Cotton",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "montaigne-04",
+    "source": {
+      "title": "Essays",
+      "url": "https://www.gutenberg.org/ebooks/3600",
+      "translator": "Charles Cotton",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "laozi-01",
+    "source": {
+      "title": "Tao Teh King",
+      "url": "https://www.gutenberg.org/ebooks/216",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "laozi-02",
+    "source": {
+      "title": "Tao Teh King",
+      "url": "https://www.gutenberg.org/ebooks/216",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "laozi-03",
+    "source": {
+      "title": "Tao Teh King",
+      "url": "https://www.gutenberg.org/ebooks/216",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "laozi-04",
+    "source": {
+      "title": "Tao Teh King",
+      "url": "https://www.gutenberg.org/ebooks/216",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "confucius-01",
+    "source": {
+      "title": "The Analects",
+      "url": "https://www.gutenberg.org/ebooks/3330",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "confucius-02",
+    "source": {
+      "title": "The Analects",
+      "url": "https://www.gutenberg.org/ebooks/3330",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "confucius-03",
+    "source": {
+      "title": "The Analects",
+      "url": "https://www.gutenberg.org/ebooks/3330",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "confucius-04",
+    "source": {
+      "title": "The Analects",
+      "url": "https://www.gutenberg.org/ebooks/3330",
+      "translator": "James Legge",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "plato-01",
+    "source": {
+      "title": "The Republic",
+      "url": "https://www.gutenberg.org/ebooks/1497",
+      "translator": "Benjamin Jowett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "plato-02",
+    "source": {
+      "title": "The Republic",
+      "url": "https://www.gutenberg.org/ebooks/1497",
+      "translator": "Benjamin Jowett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "plato-03",
+    "source": {
+      "title": "The Republic",
+      "url": "https://www.gutenberg.org/ebooks/1497",
+      "translator": "Benjamin Jowett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "plato-04",
+    "source": {
+      "title": "The Republic",
+      "url": "https://www.gutenberg.org/ebooks/1497",
+      "translator": "Benjamin Jowett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "spinoza-01",
+    "source": {
+      "title": "Ethics",
+      "url": "https://www.gutenberg.org/ebooks/3800",
+      "translator": "R. H. M. Elwes",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "spinoza-02",
+    "source": {
+      "title": "Ethics",
+      "url": "https://www.gutenberg.org/ebooks/3800",
+      "translator": "R. H. M. Elwes",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "spinoza-03",
+    "source": {
+      "title": "Ethics",
+      "url": "https://www.gutenberg.org/ebooks/3800",
+      "translator": "R. H. M. Elwes",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "spinoza-04",
+    "source": {
+      "title": "Ethics",
+      "url": "https://www.gutenberg.org/ebooks/3800",
+      "translator": "R. H. M. Elwes",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "descartes-01",
+    "source": {
+      "title": "Discourse on the Method",
+      "url": "https://www.gutenberg.org/ebooks/59",
+      "translator": "John Veitch",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "descartes-02",
+    "source": {
+      "title": "Discourse on the Method",
+      "url": "https://www.gutenberg.org/ebooks/59",
+      "translator": "John Veitch",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "descartes-03",
+    "source": {
+      "title": "Discourse on the Method",
+      "url": "https://www.gutenberg.org/ebooks/59",
+      "translator": "John Veitch",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "descartes-04",
+    "source": {
+      "title": "Discourse on the Method",
+      "url": "https://www.gutenberg.org/ebooks/59",
+      "translator": "John Veitch",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "hume-01",
+    "source": {
+      "title": "An Enquiry Concerning Human Understanding",
+      "url": "https://www.gutenberg.org/ebooks/9662",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "hume-02",
+    "source": {
+      "title": "An Enquiry Concerning Human Understanding",
+      "url": "https://www.gutenberg.org/ebooks/9662",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "hume-03",
+    "source": {
+      "title": "An Enquiry Concerning Human Understanding",
+      "url": "https://www.gutenberg.org/ebooks/9662",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "hume-04",
+    "source": {
+      "title": "An Enquiry Concerning Human Understanding",
+      "url": "https://www.gutenberg.org/ebooks/9662",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "william-james-01",
+    "source": {
+      "title": "Pragmatism",
+      "url": "https://www.gutenberg.org/ebooks/5116",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "william-james-02",
+    "source": {
+      "title": "Pragmatism",
+      "url": "https://www.gutenberg.org/ebooks/5116",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "william-james-03",
+    "source": {
+      "title": "Pragmatism",
+      "url": "https://www.gutenberg.org/ebooks/5116",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "william-james-04",
+    "source": {
+      "title": "Pragmatism",
+      "url": "https://www.gutenberg.org/ebooks/5116",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "emerson-01",
+    "source": {
+      "title": "Self-Reliance",
+      "url": "https://www.gutenberg.org/ebooks/16643",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "emerson-02",
+    "source": {
+      "title": "Self-Reliance",
+      "url": "https://www.gutenberg.org/ebooks/16643",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "emerson-03",
+    "source": {
+      "title": "Self-Reliance",
+      "url": "https://www.gutenberg.org/ebooks/16643",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "emerson-04",
+    "source": {
+      "title": "Self-Reliance",
+      "url": "https://www.gutenberg.org/ebooks/16643",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "thoreau-01",
+    "source": {
+      "title": "Walden",
+      "url": "https://www.gutenberg.org/ebooks/205",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "thoreau-02",
+    "source": {
+      "title": "Walden",
+      "url": "https://www.gutenberg.org/ebooks/205",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "thoreau-03",
+    "source": {
+      "title": "Walden",
+      "url": "https://www.gutenberg.org/ebooks/205",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "thoreau-04",
+    "source": {
+      "title": "Walden",
+      "url": "https://www.gutenberg.org/ebooks/205",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "whitman-01",
+    "source": {
+      "title": "Leaves of Grass",
+      "url": "https://www.gutenberg.org/ebooks/1322",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "whitman-02",
+    "source": {
+      "title": "Leaves of Grass",
+      "url": "https://www.gutenberg.org/ebooks/1322",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "whitman-03",
+    "source": {
+      "title": "Leaves of Grass",
+      "url": "https://www.gutenberg.org/ebooks/1322",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "whitman-04",
+    "source": {
+      "title": "Leaves of Grass",
+      "url": "https://www.gutenberg.org/ebooks/1322",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dickinson-01",
+    "source": {
+      "title": "Poems, Three Series, Complete",
+      "url": "https://www.gutenberg.org/ebooks/12242",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dickinson-02",
+    "source": {
+      "title": "Poems, Three Series, Complete",
+      "url": "https://www.gutenberg.org/ebooks/12242",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dickinson-03",
+    "source": {
+      "title": "Poems, Three Series, Complete",
+      "url": "https://www.gutenberg.org/ebooks/12242",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dickinson-04",
+    "source": {
+      "title": "Poems, Three Series, Complete",
+      "url": "https://www.gutenberg.org/ebooks/12242",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "wollstonecraft-01",
+    "source": {
+      "title": "A Vindication of the Rights of Woman",
+      "url": "https://www.gutenberg.org/ebooks/3420",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "wollstonecraft-02",
+    "source": {
+      "title": "A Vindication of the Rights of Woman",
+      "url": "https://www.gutenberg.org/ebooks/3420",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "wollstonecraft-03",
+    "source": {
+      "title": "A Vindication of the Rights of Woman",
+      "url": "https://www.gutenberg.org/ebooks/3420",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "wollstonecraft-04",
+    "source": {
+      "title": "A Vindication of the Rights of Woman",
+      "url": "https://www.gutenberg.org/ebooks/3420",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "austen-01",
+    "source": {
+      "title": "Pride and Prejudice",
+      "url": "https://www.gutenberg.org/ebooks/1342",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "austen-02",
+    "source": {
+      "title": "Pride and Prejudice",
+      "url": "https://www.gutenberg.org/ebooks/1342",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "austen-03",
+    "source": {
+      "title": "Pride and Prejudice",
+      "url": "https://www.gutenberg.org/ebooks/1342",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "austen-04",
+    "source": {
+      "title": "Pride and Prejudice",
+      "url": "https://www.gutenberg.org/ebooks/1342",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "george-eliot-01",
+    "source": {
+      "title": "Middlemarch",
+      "url": "https://www.gutenberg.org/ebooks/145",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "george-eliot-02",
+    "source": {
+      "title": "Middlemarch",
+      "url": "https://www.gutenberg.org/ebooks/145",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "george-eliot-03",
+    "source": {
+      "title": "Middlemarch",
+      "url": "https://www.gutenberg.org/ebooks/145",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "george-eliot-04",
+    "source": {
+      "title": "Middlemarch",
+      "url": "https://www.gutenberg.org/ebooks/145",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tolstoy-01",
+    "source": {
+      "title": "Anna Karenina",
+      "url": "https://www.gutenberg.org/ebooks/1399",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tolstoy-02",
+    "source": {
+      "title": "Anna Karenina",
+      "url": "https://www.gutenberg.org/ebooks/1399",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tolstoy-03",
+    "source": {
+      "title": "Anna Karenina",
+      "url": "https://www.gutenberg.org/ebooks/1399",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tolstoy-04",
+    "source": {
+      "title": "Anna Karenina",
+      "url": "https://www.gutenberg.org/ebooks/1399",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dostoevsky-01",
+    "source": {
+      "title": "The Brothers Karamazov",
+      "url": "https://www.gutenberg.org/ebooks/28054",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dostoevsky-02",
+    "source": {
+      "title": "The Brothers Karamazov",
+      "url": "https://www.gutenberg.org/ebooks/28054",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dostoevsky-03",
+    "source": {
+      "title": "The Brothers Karamazov",
+      "url": "https://www.gutenberg.org/ebooks/28054",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "dostoevsky-04",
+    "source": {
+      "title": "The Brothers Karamazov",
+      "url": "https://www.gutenberg.org/ebooks/28054",
+      "translator": "Constance Garnett",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tagore-01",
+    "source": {
+      "title": "Stray Birds",
+      "url": "https://www.gutenberg.org/ebooks/6524",
+      "translator": "Rabindranath Tagore",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tagore-02",
+    "source": {
+      "title": "Stray Birds",
+      "url": "https://www.gutenberg.org/ebooks/6524",
+      "translator": "Rabindranath Tagore",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tagore-03",
+    "source": {
+      "title": "Stray Birds",
+      "url": "https://www.gutenberg.org/ebooks/6524",
+      "translator": "Rabindranath Tagore",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "tagore-04",
+    "source": {
+      "title": "Stray Birds",
+      "url": "https://www.gutenberg.org/ebooks/6524",
+      "translator": "Rabindranath Tagore",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "gibran-01",
+    "source": {
+      "title": "The Prophet",
+      "url": "https://www.gutenberg.org/ebooks/58585",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "gibran-02",
+    "source": {
+      "title": "The Prophet",
+      "url": "https://www.gutenberg.org/ebooks/58585",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "gibran-03",
+    "source": {
+      "title": "The Prophet",
+      "url": "https://www.gutenberg.org/ebooks/58585",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "gibran-04",
+    "source": {
+      "title": "The Prophet",
+      "url": "https://www.gutenberg.org/ebooks/58585",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Exact consecutive words in cited edition; punctuation and case normalized"
+  },
+  {
+    "portrait": "douglass-01",
+    "source": {
+      "title": "West India Emancipation (1857), printed page 22",
+      "url": "https://www.libraryweb.org/~digitized/books/Two_Speeches_by_Frederick_Douglass.pdf#page=24",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Primary scanned edition, printed page 22 (PDF page 24)"
+  },
+  {
+    "portrait": "douglass-02",
+    "source": {
+      "title": "West India Emancipation (1857), printed page 22",
+      "url": "https://www.libraryweb.org/~digitized/books/Two_Speeches_by_Frederick_Douglass.pdf#page=24",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Primary scanned edition, printed page 22 (PDF page 24)"
+  },
+  {
+    "portrait": "douglass-03",
+    "source": {
+      "title": "West India Emancipation (1857), printed page 22",
+      "url": "https://www.libraryweb.org/~digitized/books/Two_Speeches_by_Frederick_Douglass.pdf#page=24",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Primary scanned edition, printed page 22 (PDF page 24)"
+  },
+  {
+    "portrait": "douglass-04",
+    "source": {
+      "title": "West India Emancipation (1857), printed page 22",
+      "url": "https://www.libraryweb.org/~digitized/books/Two_Speeches_by_Frederick_Douglass.pdf#page=24",
+      "note": "Selected passage; terminal punctuation and capitalization may be normalized."
+    },
+    "verification": "Primary scanned edition, printed page 22 (PDF page 24)"
+  }
+]
