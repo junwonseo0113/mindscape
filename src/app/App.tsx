@@ -757,7 +757,7 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         initial={reducedMotion ? false : { opacity: 0, y: 7 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
-        style={{ ...serif, fontStyle: "italic", fontSize: 15, color: ivBody, zIndex: 1 }}
+        style={{ ...display, fontStyle: "italic", fontSize: 17, color: ivBody, zIndex: 1 }}
       >
         Today's quote
       </motion.div>
@@ -947,7 +947,7 @@ function ScreenSplash({ onDone }: { onDone?: () => void }) {
           initial={reducedMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: reducedMotion ? 0 : 0.45, delay: reducedMotion ? 0 : 0, ease: [0.16, 1, 0.3, 1] }}
-          style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}
+          style={{ ...display, fontSize: 17, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center", letterSpacing: "0.02em" }}
         >
           Mindscape
         </motion.div>
@@ -979,7 +979,7 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
       <OpeningBackdrop variant="auth" />
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 28px" }}>
         <div style={{ marginBottom: 28 }}><PatternConstellation /></div>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
+        <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
         <div style={{ ...display, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
           Not a journaling app —<br />a tool for understanding how you think
         </div>
@@ -1170,7 +1170,7 @@ function DiaryField({ label, type = "text", value, onChange, icon, error, valid,
             onChange={(e) => onChange(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
             aria-invalid={error || undefined}
             // 17px keeps iOS from zooming the page on focus.
-            style={{ width: "100%", border: 0, outline: "none", background: "transparent", padding: "10px 0 9px", ...serif, fontSize: 18, color: ink, caretColor: REGION_CONFIG.identity.color }}
+            style={{ width: "100%", border: 0, outline: "none", background: "transparent", padding: "10px 0 9px", ...display, fontSize: 20, color: ink, caretColor: REGION_CONFIG.identity.color }}
           />
         </div>
         <AnimatePresence>
@@ -1644,7 +1644,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             )}
             <div
               style={{
-                ...serif, fontSize: isWelcome ? 34 : 28, color: OPENING_TEXT, marginTop: isWelcome ? 4 : 14,
+                ...display, fontSize: isWelcome ? 34 : 28, color: OPENING_TEXT, marginTop: isWelcome ? 4 : 14,
                 lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all",
               }}
             >
@@ -1689,7 +1689,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             placeholder="e.g. I want to be someone who chooses challenge over safety."
             aria-label="What kind of person do you want to become?"
             style={{
-              ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+              ...display, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
               backgroundColor: "transparent", color: OPENING_TEXT, fontSize: 17, lineHeight: 1.7,
               wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "light",
             }}
@@ -2118,6 +2118,134 @@ const QUICK_MOODS: { label: string; intensity: number }[] = [
   { label: "Frustrated", intensity: 65 },
 ];
 
+// ── Mood faces ───────────────────────────────────────────────────────────────
+// Tapping a quick check-in answers with a small drawn face for that
+// feeling, in its own color, popping up above the row for as long as
+// "Logged: …" shows. Each face moves the way the feeling does: calm
+// breathes slowly with closed eyes and a drifting leaf; happy bounces and
+// throws sparkles; anxious jitters with a wavy mouth and a bead of sweat;
+// sad droops while a tear falls; frustrated shakes under furrowed brows
+// and puffs steam. Under reduced motion each face simply appears, still.
+type MoodKey = "Calm" | "Happy" | "Anxious" | "Sad" | "Frustrated";
+const MOOD_TONES: Record<MoodKey, CognitiveRegion> = {
+  Calm: "security", Happy: "career", Anxious: "curiosity", Sad: "identity", Frustrated: "creativity",
+};
+
+function MoodFace({ mood, size = 72 }: { mood: MoodKey; size?: number }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const tone = REGION_CONFIG[MOOD_TONES[mood]];
+  const ink = "#2E2547";
+  const loop = (duration: number, extra: object = {}) => (reduce ? undefined : { duration, repeat: Infinity, ease: "easeInOut" as const, ...extra });
+  // Whole-face motion per feeling.
+  const body = reduce ? undefined : {
+    Calm: { scale: [1, 1.05, 1] },
+    Happy: { y: [0, -7, 0], rotate: [0, -4, 4, 0] },
+    Anxious: { x: [0, -1.6, 1.6, -1.2, 1.2, 0] },
+    Sad: { y: [0, 2.5, 0], rotate: [0, -2, 0] },
+    Frustrated: { x: [0, -3, 3, -3, 3, 0], rotate: [0, -3, 3, -2, 2, 0] },
+  }[mood];
+  const bodyT = loop({ Calm: 3.2, Happy: 0.9, Anxious: 0.45, Sad: 2.6, Frustrated: 0.6 }[mood]);
+  return (
+    <svg width={size} height={size} viewBox="0 0 80 80" aria-hidden style={{ overflow: "visible", display: "block" }}>
+      <defs>
+        <radialGradient id={`mf${id}`} cx="38%" cy="32%" r="70%">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.9" />
+          <stop offset="0.35" stopColor={tone.tint} />
+          <stop offset="1" stopColor={tone.color} />
+        </radialGradient>
+      </defs>
+      {/* Extras behind/around the face */}
+      {mood === "Happy" && [0, 1, 2, 3, 4].map((i) => {
+        const a = (-150 + i * 30) * (Math.PI / 180);
+        return (
+          <motion.path key={i} d="M0 -4 L1.2 -1.2 L4 0 L1.2 1.2 L0 4 L-1.2 1.2 L-4 0 L-1.2 -1.2 Z" fill={tone.color}
+            initial={{ x: 40, y: 40, scale: 0, opacity: 0 }}
+            animate={reduce ? { x: 40 + Math.cos(a) * 36, y: 40 + Math.sin(a) * 36, scale: 1, opacity: 1 } : { x: [40, 40 + Math.cos(a) * 38], y: [40, 40 + Math.sin(a) * 38], scale: [0, 1.4, 0.6], opacity: [0, 1, 0] }}
+            transition={reduce ? undefined : { duration: 1.1, repeat: Infinity, repeatDelay: 0.3, delay: i * 0.08, ease: "easeOut" }} />
+        );
+      })}
+      {mood === "Calm" && (
+        <motion.path d="M0 0 C 4 -6, 12 -6, 14 0 C 10 4, 4 4, 0 0 Z" fill={REGION_CONFIG.security.color} opacity={0.85}
+          initial={{ x: 62, y: 8 }} animate={reduce ? undefined : { x: [62, 70, 60, 68], y: [6, 14, 22, 30], rotate: [0, 25, -10, 30], opacity: [0, 1, 1, 0] }}
+          transition={loop(3.6)} />
+      )}
+      {mood === "Frustrated" && [0, 1].map((i) => (
+        <motion.circle key={i} r="5" fill="#B9B3C4"
+          cx={i ? 64 : 16} cy={14}
+          initial={{ cx: i ? 64 : 16, cy: 14, r: 3, opacity: 0 }}
+          animate={reduce ? undefined : { cy: [14, 0], r: [3, 8], opacity: [0, 0.8, 0] }}
+          transition={loop(1.1, { delay: i * 0.45, ease: "easeOut" })} />
+      ))}
+
+      <motion.g animate={body} transition={bodyT} style={{ transformBox: "view-box", transformOrigin: "40px 44px" }}>
+        <circle cx="40" cy="42" r="28" fill={`url(#mf${id})`} />
+        {/* Cheeks */}
+        {(mood === "Happy" || mood === "Calm") && (
+          <>
+            <circle cx="25" cy="48" r="4.5" fill={REGION_CONFIG.relationships.color} opacity="0.45" />
+            <circle cx="55" cy="48" r="4.5" fill={REGION_CONFIG.relationships.color} opacity="0.45" />
+          </>
+        )}
+        {/* Eyes */}
+        {mood === "Calm" && (
+          <g fill="none" stroke={ink} strokeWidth="2.4" strokeLinecap="round">
+            <path d="M26 39 Q 30 43 34 39" /><path d="M46 39 Q 50 43 54 39" />
+          </g>
+        )}
+        {mood === "Happy" && (
+          <g fill="none" stroke={ink} strokeWidth="2.6" strokeLinecap="round">
+            <path d="M26 40 Q 30 34 34 40" /><path d="M46 40 Q 50 34 54 40" />
+          </g>
+        )}
+        {(mood === "Anxious" || mood === "Sad") && (
+          <motion.g animate={reduce || mood !== "Anxious" ? undefined : { scaleY: [1, 1, 0.15, 1] }} transition={loop(2.2, { times: [0, 0.85, 0.92, 1] })}
+            style={{ transformBox: "view-box", transformOrigin: "40px 39px" }}>
+            <circle cx="30" cy="39" r={mood === "Anxious" ? 3.6 : 3} fill={ink} />
+            <circle cx="50" cy="39" r={mood === "Anxious" ? 3.6 : 3} fill={ink} />
+            {mood === "Anxious" && (<><circle cx="31.2" cy="37.8" r="1.1" fill="#FFF" /><circle cx="51.2" cy="37.8" r="1.1" fill="#FFF" /></>)}
+          </motion.g>
+        )}
+        {mood === "Frustrated" && (
+          <g>
+            <circle cx="30" cy="41" r="3" fill={ink} /><circle cx="50" cy="41" r="3" fill={ink} />
+            <path d="M23 32 L35 36" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />
+            <path d="M57 32 L45 36" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />
+          </g>
+        )}
+        {mood === "Sad" && (
+          <g fill="none" stroke={ink} strokeWidth="2.2" strokeLinecap="round">
+            <path d="M24 32 L34 30" /><path d="M56 32 L46 30" />
+          </g>
+        )}
+        {mood === "Anxious" && (
+          <g fill="none" stroke={ink} strokeWidth="2.2" strokeLinecap="round">
+            {/* Worried brows: they rise toward the middle. */}
+            <path d="M24 33 Q 29 31 34 29" /><path d="M56 33 Q 51 31 46 29" />
+          </g>
+        )}
+        {/* Mouth */}
+        {mood === "Calm" && <path d="M33 52 Q 40 56 47 52" fill="none" stroke={ink} strokeWidth="2.4" strokeLinecap="round" />}
+        {mood === "Happy" && <path d="M29 49 Q 40 62 51 49 Z" fill={ink} />}
+        {mood === "Anxious" && (
+          <motion.path d="M30 54 Q 33 50 36 54 Q 39 58 42 54 Q 45 50 48 54 Q 50 57 51 55" fill="none" stroke={ink} strokeWidth="2.2" strokeLinecap="round" />
+        )}
+        {mood === "Sad" && <path d="M31 57 Q 40 49 49 57" fill="none" stroke={ink} strokeWidth="2.4" strokeLinecap="round" />}
+        {mood === "Frustrated" && <path d="M31 55 L49 55" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />}
+        {/* Sweat bead and tear */}
+        {mood === "Anxious" && (
+          <motion.path d="M60 26 C 57 31, 57 34, 60 35 C 63 34, 63 31, 60 26 Z" fill={REGION_CONFIG.curiosity.color}
+            animate={reduce ? undefined : { y: [0, 6], opacity: [0, 1, 0] }} transition={loop(1.4, { ease: "easeIn" })} />
+        )}
+        {mood === "Sad" && (
+          <motion.path d="M30 44 C 27 49, 27 52, 30 53 C 33 52, 33 49, 30 44 Z" fill={REGION_CONFIG.curiosity.color}
+            animate={reduce ? undefined : { y: [0, 16], opacity: [0, 1, 1, 0] }} transition={loop(1.8, { ease: "easeIn" })} />
+        )}
+      </motion.g>
+    </svg>
+  );
+}
+
 function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Store) => Store) => void }) {
   const [justLogged, setJustLogged] = React.useState<string | null>(null);
   const clearTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2130,8 +2258,26 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
   };
   React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
   return (
-    <div style={{ width: "100%", padding: "0 2px" }}>
-      <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 6, height: 16, position: "relative" }}>
+    <div style={{ width: "100%", padding: "0 2px", position: "relative" }}>
+      {/* The feeling you just logged, as a face that pops up above the row. */}
+      <AnimatePresence>
+        {justLogged && (justLogged in MOOD_TONES) && (
+          <motion.div
+            key={justLogged} role="img" aria-label={`${justLogged}`}
+            initial={{ opacity: 0, scale: 0.4, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.6, y: -10, transition: { duration: 0.2 } }}
+            transition={{ type: "spring", stiffness: 420, damping: 18 }}
+            style={{
+              position: "absolute", right: 6, bottom: "100%", marginBottom: 2, zIndex: 4, pointerEvents: "none",
+              display: "flex", alignItems: "center", gap: 6, padding: "6px 14px 6px 6px", borderRadius: 999,
+              backgroundColor: "#FFFCF6", boxShadow: `0 12px 26px -14px ${REGION_CONFIG[MOOD_TONES[justLogged as MoodKey]].ink}, 0 0 0 1px rgba(42,38,33,0.06)`,
+            }}
+          >
+            <MoodFace mood={justLogged as MoodKey} size={58} />
+            <span style={{ ...hand, fontSize: 22, fontWeight: 600, color: REGION_CONFIG[MOOD_TONES[justLogged as MoodKey]].ink }}>{justLogged}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivBody, marginBottom: 4, height: 24, position: "relative" }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
@@ -2212,7 +2358,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
       {belief.thoughtLabel && (
         <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: ivBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
       )}
-      <div style={{ ...serif, fontSize: 17, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
         <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
         <span style={{ ...mono, fontSize: 11, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
@@ -2338,7 +2484,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
                 />
-                <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: ivFaint, textAlign: "center" }}>Your first thought will appear here.</div>
+                <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: ivFaint, textAlign: "center" }}>Your first thought will appear here.</div>
               </div>
             )}
           </div>
@@ -2394,8 +2540,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             whileTap={{ opacity: 0.7 }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", minWidth: 0, padding: "6px 4px", margin: "-6px -4px" }}
           >
             <Breathe inline amount={1.04} style={{ display: "inline-flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-              <span style={{ ...serif, fontSize: 17, color: ivHeading, flexShrink: 0 }}>Your mind</span>
-              <span style={{ ...sans, fontSize: 12, color: ivBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <span style={{ ...display, fontSize: 20, color: ivHeading, flexShrink: 0 }}>Your mind</span>
+              <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {/* Counts up only when the number has changed since the
                 last time Home showed it (after a session added beliefs). */}
                 <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
@@ -2435,8 +2581,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           >
             <Sparkle size={15} weight="fill" color={ivHeading} style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 11, color: ivBody }}>Today's discovery</div>
-              <div style={{ ...serif, fontSize: 15, color: ivHeading, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{discovery.text}</div>
+              <div style={{ ...hand, fontSize: 17, fontWeight: 600, color: REGION_CONFIG.identity.ink, lineHeight: 1.1 }}>Today's discovery</div>
+              <div style={{ ...display, fontSize: 17, color: ivHeading, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{discovery.text}</div>
             </div>
             <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
           </motion.div>
@@ -2451,8 +2597,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
               <WaveformIcon color="#fff" />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ ...serif, fontSize: 17, color: ivHeading }}>Speak your mind</span>
-              <span style={{ ...sans, fontSize: 12, color: ivBody }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — ${daysAway} days since your last thought` : "It's okay if it's not organized"}</span>
+              <span style={{ ...display, fontSize: 20, color: ivHeading }}>Speak your mind</span>
+              <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — it's been ${daysAway} days` : "It's okay if it's not organized"}</span>
             </div>
             <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
           </motion.div>
@@ -2521,7 +2667,7 @@ function DiscoveryBeliefList({ beliefIds, store, modernist = false }: { beliefId
         {items.map((belief) => (
           <div key={belief.id} style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: tagBg, borderRadius: 12, padding: "10px 12px" }}>
             <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tagText, flexShrink: 0 }}>{belief.domain}</span>
-            <span style={{ ...serif, fontSize: 13, color: heading, flex: 1, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</span>
+            <span style={{ ...display, fontSize: 15, color: heading, flex: 1, lineHeight: 1.4, wordBreak: "keep-all" }}>{belief.statement}</span>
             <span style={{ ...mono, fontSize: 11, color: tagText, flexShrink: 0 }}>{belief.confidence}%</span>
           </div>
         ))}
@@ -3087,7 +3233,7 @@ function DiscoveryReflection({
       {/* Observer-self framing (ACT: self-as-context) — agree/disagree here
           isn't a verdict on whether the thought is true, just whether this
           reading of it matches what was actually noticed. */}
-      <p style={{ ...serif, fontStyle: "italic", fontSize: 13, color: ivBody, margin: "0 0 16px", lineHeight: 1.5, wordBreak: "keep-all" }}>
+      <p style={{ ...display, fontStyle: "italic", fontSize: 15, color: ivBody, margin: "0 0 16px", lineHeight: 1.5, wordBreak: "keep-all" }}>
         This isn't about deciding whether to believe this thought. It's just about whether it fits who you are right now.
       </p>
       {reinterpreting && (
@@ -3128,7 +3274,7 @@ function ExamineSectionHeader({ region, icon, title, subtitle }: { region: Cogni
       <span style={{ ...settingsTile, width: 32, height: 32, borderRadius: 9, backgroundColor: tone.tint, color: tone.ink }}>{icon}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ ...display, fontSize: 20, color: ivHeading, lineHeight: 1.25 }}>{title}</div>
-        {subtitle && <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{subtitle}</div>}
+        {subtitle && <div style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, marginTop: 1, lineHeight: 1.2, wordBreak: "keep-all" }}>{subtitle}</div>}
       </div>
     </div>
   );
@@ -3178,7 +3324,7 @@ function ExamineHero({ kicker, thoughtLabel, text, confidence, entries, region }
         <RegionBadge region={region} />
       </div>
       {thoughtLabel && (
-        <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: tone.ink, margin: "14px 0 0" }}>The "{thoughtLabel}" thought showed up again</p>
+        <p style={{ ...display, fontStyle: "italic", fontSize: 17, color: tone.ink, margin: "14px 0 0" }}>The "{thoughtLabel}" thought showed up again</p>
       )}
       <p style={{ ...display, fontSize: 22, lineHeight: 1.38, color: ivHeading, margin: "8px 0 0", paddingRight: 24, wordBreak: "keep-all" }}>{text}</p>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${ivDivider}` }}>
@@ -3211,7 +3357,7 @@ function EvidenceBubble({ date, quote, domain, against, index }: { date: string;
         {domain && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tone.ink }}>{domain}</span>}
       </div>
       <div style={{
-        position: "relative", maxWidth: "88%", padding: "11px 14px", ...serif, fontStyle: "italic", fontSize: 15, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all",
+        position: "relative", maxWidth: "88%", padding: "11px 14px", ...display, fontStyle: "italic", fontSize: 17, lineHeight: 1.5, color: ivHeading, wordBreak: "keep-all",
         backgroundImage: `linear-gradient(140deg, ${tone.tint} 0%, rgba(255,255,255,0.85) 100%)`,
         borderRadius: against ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
       }}>
@@ -3246,7 +3392,7 @@ function EvolutionTimeline({ points, color = ivHeading }: { points: { label: str
             ...(p.accent ? { padding: "10px 12px", borderRadius: shape.sm, backgroundImage: `linear-gradient(140deg, ${color}26 0%, rgba(255,255,255,0.7) 100%)` } : {}),
           }}>
             <div style={{ ...mono, fontSize: 11, color: p.accent ? ivHeading : ivBody, marginBottom: 3 }}>{p.label}</div>
-            <p style={{ ...serif, fontStyle: "italic", fontSize: 15, color: p.accent ? ivHeading : ivBody, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>{p.text}</p>
+            <p style={{ ...display, fontStyle: "italic", fontSize: 17, color: p.accent ? ivHeading : ivBody, margin: 0, lineHeight: 1.45, wordBreak: "keep-all" }}>{p.text}</p>
           </div>
         </motion.div>
       ))}
@@ -3419,7 +3565,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
                         <RegionBadge region={region} />
                         <span style={{ ...sans, fontSize: 12, color: ivBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
                       </div>
-                      <div style={{ ...serif, fontSize: 17, lineHeight: 1.4, color: ivHeading, marginTop: 4, wordBreak: "keep-all" }}>{belief.statement}</div>
+                      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: 4, wordBreak: "keep-all" }}>{belief.statement}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
                         <MeterFill value={belief.confidence} color={REGION_CONFIG[region].color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
                         <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />%</span>
@@ -3441,7 +3587,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               {notebookNotes.map((c, i) => (
                 <div key={i} style={{ position: "relative", padding: "16px 18px" }}>
                   {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
-                  <div style={{ ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
+                  <div style={{ ...display, fontStyle: "italic", fontSize: 20, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
                 </div>
               ))}
             </SettingsGroup>
@@ -3604,8 +3750,8 @@ function DiscoveryCard({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {regionColor && <Node color={regionColor} size={11} intensity={0.7} />}
-        <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em" }}>
-          TODAY'S DISCOVERY
+        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: REGION_CONFIG.identity.ink, lineHeight: 1 }}>
+          Today's discovery
         </div>
       </div>
 
@@ -3699,7 +3845,7 @@ function InsightCard({ item, onOpen }: { item: RecentInsightItem; onOpen?: () =>
 
       <div
         style={{
-          ...serif, fontSize: 15, fontWeight: 400, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all",
+          ...display, fontSize: 17, fontWeight: 400, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all",
           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
         }}
       >
@@ -3798,7 +3944,7 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
               style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "13px 14px", borderRadius: shape.md, backgroundImage: `linear-gradient(135deg, ${tone.tint} 0%, rgba(255,255,255,0.75) 100%)`, boxShadow: ivCardShadow }}
             >
               <span style={{ ...settingsTile, backgroundColor: "rgba(255,255,255,0.8)", color: tone.ink }}><Footprints size={16} weight="duotone" /></span>
-              <span style={{ ...serif, fontSize: 16, lineHeight: 1.45, color: ivHeading, wordBreak: "keep-all", paddingTop: 2 }}>{g.statement}</span>
+              <span style={{ ...display, fontSize: 17, lineHeight: 1.45, color: ivHeading, wordBreak: "keep-all", paddingTop: 2 }}>{g.statement}</span>
             </motion.div>
           );
         })}
@@ -3853,7 +3999,7 @@ function StatTile({ label, value, delta, children, style }: { label: string; val
   return (
     <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14, ...style }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...sans, fontSize: 12, color: ivBody, wordBreak: "keep-all" }}>{label}</div>
+        <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: ivBody, lineHeight: 1.1, wordBreak: "keep-all" }}>{label}</div>
         <div style={{ ...mono, fontSize: 24, fontWeight: 700, color: ivHeading, marginTop: 4, lineHeight: 1.1 }}>{value}</div>
         {delta && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 5 }}>{delta}</div>}
       </div>
@@ -3875,7 +4021,7 @@ function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
-        <div style={{ ...sans, fontSize: 13, fontWeight: 500, color: ivBody }}>Recent weeks</div>
+        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82 }}>Recent weeks</div>
         <div style={{ ...mono, fontSize: 11, color: ivFaint }}>Week of {shortMonthDay(latest.weekStart)}</div>
       </div>
       <StatTile
@@ -4237,8 +4383,8 @@ function ScreenDiscoveryAnalysis({
               (its node) rather than just the card's own outer edge — the
               two read as flush at a glance, not merely close. ── */}
               <div style={{ marginTop: 32 }}>
-                <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: ivFaint, letterSpacing: "0.14em", paddingLeft: 14 }}>
-                  FURTHER INSIGHTS
+                <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, paddingLeft: 14 }}>
+                  Further insights
                 </div>
                 {recentInsights.length === 0 ? (
                   <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>No other insights yet — check back as more come into focus.</p>
@@ -4326,7 +4472,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
       <AnimatePresence mode="wait" initial={false}>
         {!passage || !match ? (
           <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={fade}>
-            <p style={{ ...serif, fontStyle: "italic", fontSize: 17, color: ivBody, lineHeight: 1.55, margin: "18px 0 0", wordBreak: "keep-all" }}>
+            <p style={{ ...display, fontStyle: "italic", fontSize: 20, color: ivBody, lineHeight: 1.55, margin: "18px 0 0", wordBreak: "keep-all" }}>
               Keep writing.
             </p>
             <p style={{ ...sans, fontSize: 13, color: ivFaint, lineHeight: 1.6, margin: "8px 0 0", wordBreak: "keep-all" }}>
@@ -4343,7 +4489,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
             smaller and tighter than a pull-quote, no surrounding box, no
             decorative quotation-mark glyphs (italics alone signal "this is
             quoted," the same convention a literary journal uses). */}
-            <p style={{ position: "relative", ...serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.55, color: ivHeading, margin: "18px 0 0", wordBreak: "keep-all" }}>
+            <p style={{ position: "relative", ...display, fontStyle: "italic", fontSize: 20, lineHeight: 1.55, color: ivHeading, margin: "18px 0 0", wordBreak: "keep-all" }}>
               {passage.exactText}
             </p>
 
@@ -4357,7 +4503,7 @@ function LiteraryReflectionPanel({ store, updateStore }: { store: Store; updateS
             redesign here, per the brief. */}
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
               <div style={{ textAlign: "right" }}>
-                <div style={{ ...serif, fontSize: 13, color: ivBody }}>— {passage.author}</div>
+                <div style={{ ...display, fontSize: 15, color: ivBody }}>— {passage.author}</div>
                 {passage.work && (
                   <div style={{ ...sans, fontSize: 11, color: ivFaint, marginTop: 2 }}>{passage.work}</div>
                 )}
@@ -4797,7 +4943,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
             <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: shape.md, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
               <Sparkle size={14} color={dkAccentLight} weight="fill" style={{ marginTop: 3, flexShrink: 0 }} />
               <AnimatePresence mode="wait" initial={false}>
-                <motion.div key={promptHint} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} style={{ ...serif, fontSize: 15, lineHeight: 1.5, color: dkBodyLight, flex: 1, wordBreak: "keep-all" }}>
+                <motion.div key={promptHint} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} style={{ ...display, fontSize: 17, lineHeight: 1.5, color: dkBodyLight, flex: 1, wordBreak: "keep-all" }}>
                   {promptHint}
                 </motion.div>
               </AnimatePresence>
@@ -4884,7 +5030,7 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
                       "this is being measured," which raises self-censorship the
                       same way a visible recording light does. `seconds` is still
                       tracked internally (silence/auto-stop timing), just not shown. */}
-                  <div style={{ ...serif, fontSize: 17, color: dkBodyLight, textAlign: "center" }}>Listening</div>
+                  <div style={{ ...display, fontSize: 20, color: dkBodyLight, textAlign: "center" }}>Listening</div>
                   <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
                     Say whatever comes to mind.
                   </div>
@@ -5695,7 +5841,7 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
               <div style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", color: "#2A2621", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
               <div style={{ flex: 1, paddingBottom: 4 }}>
                 <div style={{ ...sans, fontSize: 11, fontWeight: 700, color: "rgba(42,38,33,0.65)", letterSpacing: "0.04em" }}>{s.label}</div>
-                <div style={{ ...serif, fontSize: 15, color: "#2A2621", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
+                <div style={{ ...display, fontSize: 17, color: "#2A2621", marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}>{s.text}</div>
               </div>
             </div>
             {i < steps.length - 1 && <div style={{ marginLeft: 9, width: 1, height: 14, backgroundColor: "rgba(42,38,33,0.09)" }} />}
@@ -5921,7 +6067,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
               <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>{clusterBeliefs.length} beliefs prop each other up</div>
               <ul style={{ margin: "6px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
                 {clusterBeliefs.map((b) => (
-                  <li key={b.id} style={{ ...serif, fontSize: 14, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</li>
+                  <li key={b.id} style={{ ...display, fontSize: 15, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</li>
                 ))}
               </ul>
             </div>
@@ -6110,8 +6256,8 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
           {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
           <TensionScale a={p.a} b={p.b} />
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.a).color}` }}>"{p.a.statement}"</div>
-            <div style={{ ...serif, fontSize: 16, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.b).color}` }}>"{p.b.statement}"</div>
+            <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.a).color}` }}>"{p.a.statement}"</div>
+            <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.b).color}` }}>"{p.b.statement}"</div>
           </div>
           {p.note && (
             <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${ivDivider}`, lineHeight: 1.55, wordBreak: "keep-all" }}>{p.note}</div>
@@ -6196,7 +6342,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                 <div style={{ display: "flex", alignItems: "center", gap: 6, ...sans, fontSize: 12, color: REGION_CONFIG.career.ink, fontWeight: 600, wordBreak: "keep-all" }}>
                   <Lightning size={13} weight="fill" aria-hidden style={{ flexShrink: 0 }} />{a.trigger}
                 </div>
-                <div style={{ ...serif, fontSize: 17, color: tone.ink, lineHeight: 1.4, marginTop: 4, wordBreak: "keep-all" }}>{a.interpretation}</div>
+                <div style={{ ...display, fontSize: 20, color: tone.ink, lineHeight: 1.4, marginTop: 4, wordBreak: "keep-all" }}>{a.interpretation}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                   {(a.domains ?? []).map((d: string) => (
                     <span key={d} style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 6 }}>{d}</span>
@@ -6222,8 +6368,8 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                   {i > 0 && divider}
                   <SharedRoot a={from} b={to} />
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{from.statement}</div>
-                    <div style={{ ...serif, fontSize: 15, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{to.statement}</div>
+                    <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{from.statement}</div>
+                    <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{to.statement}</div>
                   </div>
                   <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
                 </div>
@@ -6481,7 +6627,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                     <div key={a.said} style={{ position: "relative", padding: "14px 16px" }}>
                       {i > 0 && divider}
                       <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.saidDate}</div>
-                      <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all" }}>"{a.said}"</div>
+                      <div style={{ ...display, fontSize: 20, fontStyle: "italic", color: ivHeading, marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all" }}>"{a.said}"</div>
                       {/* How close: 100 minus the gap, so a goal of "less
                           often" (target 0) walks the same road as one of
                           "more often" (target 100). */}
@@ -6531,7 +6677,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
           placeholder="e.g. I want to be someone who chooses challenge over safety."
           aria-label="Who do you want to become?"
           style={{
-            ...serif, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
+            ...display, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
             backgroundColor: "transparent", color: mdHeading, fontSize: 20, lineHeight: 1.7,
             wordBreak: "keep-all", colorScheme: "light",
           }}
@@ -6660,7 +6806,7 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
 
               <JourneyNode last dotFilled={false}>
                 <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivFaint, textTransform: "uppercase" }}>Goal</div>
-                <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
+                <div style={{ ...display, fontSize: 20, fontStyle: "italic", color: ivHeading, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
                   "{store.aspiration}"
                 </div>
                 <motion.span
@@ -6739,7 +6885,7 @@ function ScreenHypotheses({ onBack, onOpen, store }: { onBack?: () => void; onOp
               key={h.id} role="button" tabIndex={0} onClick={() => onOpen?.(i)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => onOpen?.(i))?.(); } }} whileTap={{ scale: 0.99, opacity: 0.9 }}
               style={{ padding: "18px 0", borderBottom: i < items.length - 1 ? `1px solid ${mdDivider}` : "none", cursor: "pointer" }}
             >
-              <div style={{ ...serif, fontSize: 17, color: mdHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
+              <div style={{ ...display, fontSize: 20, color: mdHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{h.title}</div>
               <div style={{ marginTop: 12 }}>
                 <ConfidenceBar value={h.confidence} modernist />
               </div>
@@ -6827,7 +6973,7 @@ function HypothesisDiscoveryBody({
                   <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{e.date}</span>
                   {e.domain && <span style={{ ...sans, fontSize: 11, color: mdAccentText, backgroundColor: mdAccentSoft, padding: "2px 8px", borderRadius: 999 }}>{e.domain}</span>}
                 </div>
-                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
+                <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{e.quote}"</div>
               </div>
             ))}
           </div>
@@ -6862,7 +7008,7 @@ function HypothesisDiscoveryBody({
                   <span style={{ ...mono, fontSize: 11, color: mdFaint }}>{entry.date}</span>
                   <span style={{ ...sans, fontSize: 11, color: mdWarnTagText, backgroundColor: mdWarnTag, padding: "2px 8px", borderRadius: 999 }}>{belief.domain}</span>
                 </div>
-                <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
+                <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: mdBodyLight, marginTop: 6, lineHeight: 1.55, wordBreak: "keep-all" }}>"{entry.text}"</div>
               </div>
             ))}
           </div>
@@ -6887,7 +7033,7 @@ function HypothesisDiscoveryBody({
       )}
 
       <div style={{ marginTop: 22, padding: 16, borderRadius: 14, backgroundColor: mdAccentSoft, borderLeft: `2px solid ${mdAccent}` }}>
-        <div style={{ ...serif, fontSize: 15, fontStyle: "italic", color: mdHeading, lineHeight: 1.65, wordBreak: "keep-all" }}>{question}</div>
+        <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: mdHeading, lineHeight: 1.65, wordBreak: "keep-all" }}>{question}</div>
       </div>
 
       <div style={{ marginTop: 26 }}>
@@ -6985,7 +7131,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
           <div style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdAccentText, letterSpacing: "0.04em" }}>The First Time This Showed Up</div>
           <div style={{ marginTop: 16, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
             <div style={{ ...mono, fontSize: 11, color: mdFaint }}>{inv.origin.date}</div>
-            <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: mdBodyLight, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>"{inv.origin.quote}"</div>
+            <div style={{ ...display, fontSize: 20, fontStyle: "italic", color: mdBodyLight, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>"{inv.origin.quote}"</div>
           </div>
           <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 18, lineHeight: 1.75, wordBreak: "keep-all" }}>{inv.originNote}</div>
         </div>
@@ -7269,7 +7415,7 @@ function CatalogueFilterRow({ label, note, active, onClick }: { label: string; n
       style={{ padding: "11px 4px", borderBottom: "1px solid rgba(42,38,33,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}
     >
       <div>
-        <div style={{ ...serif, fontSize: 15, color: active ? "#2A2621" : "#2A2621" }}>{label}</div>
+        <div style={{ ...display, fontSize: 17, color: active ? "#2A2621" : "#2A2621" }}>{label}</div>
         <div style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)", marginTop: 2 }}>{note}</div>
       </div>
       {active && <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "#2A2621", flexShrink: 0 }} />}
@@ -7281,7 +7427,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div style={{ ...sans, fontSize: 12, fontWeight: 500, color: ivBody, marginBottom: 3 }}>{label}</div>
-      <div style={{ ...serif, fontSize: 15, color: "#2A2621", lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
+      <div style={{ ...display, fontSize: 17, color: "#2A2621", lineHeight: 1.42, wordBreak: "keep-all" }}>{value}</div>
     </div>
   );
 }
@@ -7335,7 +7481,7 @@ function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; d
         <Node color={color} size={catalogueOrbSize(star)} intensity={catalogueOrbIntensity(star)} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...serif, fontSize: 15, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ ...display, fontSize: 17, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {star.belief.statement}
         </div>
         <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>
@@ -7497,7 +7643,7 @@ function JournalView({ store, query, onOpenEntry }: { store: Store; query: strin
         <section key={m.label} style={{ marginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 10px" }}>
             <span style={{ ...display, fontSize: 20, color: ivHeading }}>{m.label}</span>
-            <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{m.items.length} {m.items.length === 1 ? "entry" : "entries"}</span>
+            <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody }}>{m.items.length} {m.items.length === 1 ? "entry" : "entries"}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {m.items.map((it) => (
@@ -7792,7 +7938,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   >
                     <ArrowLeft size={13} weight="bold" aria-hidden /> Back
                   </motion.span>
-                  <div style={{ ...serif, fontSize: 17, color: "#2A2621", marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
+                  <div style={{ ...display, fontSize: 20, color: "#2A2621", marginBottom: 4, wordBreak: "keep-all", flexShrink: 0 }}>{selectedStar.belief.statement}</div>
                   <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.5)", marginBottom: 18, flexShrink: 0 }}>Its story, in the order it happened.</div>
                   <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
                     {(selectedStar.belief.confidenceHistory?.length ?? 0) > 1 && (
@@ -7815,7 +7961,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                         style={{ padding: "12px 14px", borderRadius: 12, backgroundColor: "rgba(42,38,33,0.045)", border: "1px solid rgba(42,38,33,0.07)", cursor: "pointer" }}
                       >
                         <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{entry.date}</div>
-                        <div style={{ ...serif, fontStyle: "italic", fontSize: 13, color: "#2A2621", marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: "#2A2621", marginTop: 4, lineHeight: 1.45, wordBreak: "keep-all", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           "{entry.text}"
                         </div>
                       </motion.div>
@@ -7856,7 +8002,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(null); setSheet(null); } }}
               style={{ padding: "10px 8px", borderRadius: 10, backgroundColor: !asOfDate ? "rgba(42,38,33,0.08)" : "transparent", cursor: "pointer", marginBottom: 6 }}
             >
-              <span style={{ ...serif, fontSize: 15, color: "#2A2621" }}>Show the whole catalogue</span>
+              <span style={{ ...display, fontSize: 17, color: "#2A2621" }}>Show the whole catalogue</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 280, overflowY: "auto" }}>
               {calendarMilestones.map(([date, count]) => (
@@ -7865,7 +8011,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setAsOfDate(date); setSheet(null); } }}
                   style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 8px", borderBottom: "1px solid rgba(42,38,33,0.06)", cursor: "pointer", backgroundColor: asOfDate === date ? "rgba(42,38,33,0.08)" : "transparent", borderRadius: 8 }}
                 >
-                  <span style={{ ...serif, fontSize: 15, color: "#2A2621" }}>{date} <span style={{ ...sans, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>· {weekdayFromDotDate(date)}</span></span>
+                  <span style={{ ...display, fontSize: 17, color: "#2A2621" }}>{date} <span style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.5)" }}>· {weekdayFromDotDate(date)}</span></span>
                   <span style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.5)" }}>{count} discovered</span>
                 </div>
               ))}
@@ -7976,7 +8122,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
                   <div style={field}>
                     {analysis.observation.situation && divider}
                     <div style={fieldLabel}>Automatic thought</div>
-                    <div style={{ ...serif, fontStyle: "italic", fontSize: 17, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>"{analysis.observation.automaticThought}"</div>
+                    <div style={{ ...display, fontStyle: "italic", fontSize: 20, color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>"{analysis.observation.automaticThought}"</div>
                   </div>
                 )}
                 {analysis.observation.actionUrge && (
@@ -8006,7 +8152,7 @@ function ScreenHistoryDetail({ index, store, onBack }: { index: number; store: S
               <SettingsGroup header="Belief this fed into" style={{ marginTop: 22, marginBottom: 0 }}>
                 <div style={{ padding: "13px 16px", borderLeft: `3px solid ${fedBelief ? REGION_CONFIG[resolveRegion(fedBelief)].color : ivHeading}` }}>
                   {fedBelief && <div style={{ marginBottom: 8 }}><RegionBadge region={resolveRegion(fedBelief)} /></div>}
-                  <div style={{ ...serif, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
+                  <div style={{ ...display, fontSize: 20, fontStyle: "italic", color: ivHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>{analysis.hypothesis.candidateBelief}</div>
                 </div>
               </SettingsGroup>
             )}
@@ -8749,7 +8895,7 @@ function DisclosureRow({ title, subtitle, icon, open, onToggle, first, titleStyl
         {icon && <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>}
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading, lineHeight: 1.4, display: "block", wordBreak: "keep-all", ...titleStyle }}>{title}</span>
-          {subtitle && <span style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.45, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
+          {subtitle && <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, lineHeight: 1.2, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0, marginTop: icon ? 4 : 0 }}>
           <CaretDown size={14} color={ivFaint} weight="bold" />
@@ -8764,7 +8910,7 @@ function DisclosureRow({ title, subtitle, icon, open, onToggle, first, titleStyl
 
 function HelpDisclosure({ question, answer, open, onToggle, first }: { question: string; answer: string; open: boolean; onToggle: () => void; first: boolean }) {
   return (
-    <DisclosureRow title={question} open={open} onToggle={onToggle} first={first} titleStyle={{ ...serif, fontWeight: 400 }}>
+    <DisclosureRow title={question} open={open} onToggle={onToggle} first={first} titleStyle={{ ...display, fontWeight: 400 }}>
       <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.65, wordBreak: "keep-all" }}>{answer}</div>
     </DisclosureRow>
   );

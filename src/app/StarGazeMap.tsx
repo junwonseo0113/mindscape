@@ -376,7 +376,7 @@ export default function StarGazeMap({
         </div>
 
         {stars.length === 0 && w > 0 && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center", ...serif, fontStyle: "italic", fontSize: 16, color: INK_SOFT }}>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center", ...display, fontStyle: "italic", fontSize: 17, color: INK_SOFT }}>
             No stars yet. Each belief that takes shape in what you write appears here as one.
           </div>
         )}
@@ -413,7 +413,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
         <span style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{star.b.domain}</span>
         <button type="button" aria-label="Close" onClick={onClose} style={{ border: 0, background: "transparent", cursor: "pointer", color: "rgba(42,38,33,0.5)", lineHeight: 0, padding: 6, margin: -6 }}><X size={16} weight="bold" /></button>
       </div>
-      {star.b.thoughtLabel && <div style={{ ...serif, fontStyle: "italic", fontSize: 14, color: r.ink, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
+      {star.b.thoughtLabel && <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: r.ink, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
       <div style={{ ...display, fontSize: 25, color: "#2A2621", lineHeight: 1.25, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
         <MeterFill value={star.b.confidence} color={r.color} track="rgba(42,38,33,0.08)" height={5} radius={3} style={{ flex: 1 }} />
@@ -434,7 +434,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
                     <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: o.color }} />
                     <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tension ? "#7a4310" : o.ink }}>{tension ? "In tension" : "Reinforces"}</span>
                   </div>
-                  <div style={{ ...serif, fontSize: 15, color: "#2A2621", marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{other.b.statement}</div>
+                  <div style={{ ...display, fontSize: 17, color: "#2A2621", marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{other.b.statement}</div>
                   {conn.note && <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{conn.note}</div>}
                 </motion.button>
               );
@@ -449,7 +449,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
           {quotes.map((qt, i) => (
             <div key={i} style={{ marginTop: i ? 8 : 0 }}>
               <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.55)" }}>{qt.date}</div>
-              <div style={{ ...serif, fontStyle: "italic", fontSize: 14, color: "#2A2621", lineHeight: 1.45, marginTop: 2, wordBreak: "keep-all" }}>"{qt.quote}"</div>
+              <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: "#2A2621", lineHeight: 1.45, marginTop: 2, wordBreak: "keep-all" }}>"{qt.quote}"</div>
             </div>
           ))}
         </div>
