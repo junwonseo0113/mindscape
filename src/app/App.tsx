@@ -41,7 +41,7 @@ import { Node } from "./orb";
 // screen to screen. Active nav icons use the "fill" weight, outlined when
 // inactive, the way Material 3's navigation bar marks the current tab.
 import {
-  ArrowCounterClockwise, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, ChatCircleText, Clock, Compass, CreditCard, Minus,
+  ArrowCounterClockwise, ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, ArrowsClockwise, BellSimple, BookOpen, CalendarBlank, CaretDown, CaretRight, ChartLineUp, ChatCircleText, Check, Clock, Compass, EnvelopeSimple, EyeSlash, Key, PenNib, UserCircle, CreditCard, Minus,
   DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, Lightning, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
@@ -251,8 +251,14 @@ const ivBg2 = "#F2EEE6";
 // common tell of a generated page (a soft gradient ground behind every
 // screen). One flat tone reads as decided; a gradient reads as a default
 // nobody chose.
+// Diary paper: a fine grain (fractal noise, tiled) and a faint warm
+// darkening toward the edges, the way a page catches less light near its
+// margins. Both are a few percent strong — felt more than seen.
+const PAPER_GRAIN = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E\")";
 const ivBackground: React.CSSProperties = {
   backgroundColor: ivBg2,
+  backgroundImage: `${PAPER_GRAIN}, radial-gradient(ellipse 120% 90% at 50% 40%, rgba(255,252,245,0.55) 0%, rgba(255,252,245,0) 60%, rgba(160,130,90,0.10) 100%)`,
+  backgroundSize: "180px 180px, 100% 100%",
 };
 const ivSurface = "rgba(255,253,248,0.66)"; // restrained translucent card fill over the ivory base
 const ivSurfaceSolid = "#FBF8F2"; // for a card that needs to sit fully opaque above dense content
@@ -354,7 +360,9 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
     // its own tab (see ScreenDiscoveryAnalysis and the App shell's
     // "discoveryAnalysis" case).
     { id: "discoveryAnalysis", label: "Analysis" },
-    { id: "history", label: "History" },
+    // The tab is the person's diary (entries by day, see JournalView); the
+    // route id stays "history".
+    { id: "history", label: "Diary" },
     // Profile used to live here, but Home's top-right icon already opens it
     // (see ScreenHome) — that's still true, and the slot that briefly held a
     // standalone Premium tab is gone too: Premium is no longer a separate
@@ -471,7 +479,79 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
 // onboarding — see OPENING_BG above): a solid ivHeading charcoal pill,
 // matching how every other ivory screen marks its one "active" action
 // (nav, toggles) with charcoal rather than a saturated accent color.
-function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean }) {
+// ── InkButton ────────────────────────────────────────────────────────────────
+// The buttons on the opening screens. The filled one is deep ink with a
+// slow wash of the app's colors moving underneath and a band of light
+// that sweeps across it every few seconds; the outlined one has a border
+// that shades through the same colors. Both lift slightly under a finger,
+// send a ripple out from exactly where they were pressed, and — while
+// working — swap their label for three bouncing dots. All of it stops
+// under reduced motion.
+function InkButton({ children, onClick, disabled, loading, ghost, icon }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; ghost?: boolean; icon?: React.ReactNode }) {
+  const reduce = useReducedMotion();
+  const [ripples, setRipples] = React.useState<{ id: number; x: number; y: number }[]>([]);
+  const off = disabled || loading;
+  const press = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (off || reduce) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const rid = Date.now() + Math.random();
+    setRipples((rs) => [...rs, { id: rid, x: e.clientX - r.left, y: e.clientY - r.top }]);
+    setTimeout(() => setRipples((rs) => rs.filter((x) => x.id !== rid)), 700);
+  };
+  const v = REGION_CONFIG.identity.color, rose = REGION_CONFIG.relationships.color, gold = REGION_CONFIG.career.color;
+  return (
+    <Breathe active={!off} amount={1.02}>
+      <motion.button
+        type="button" disabled={disabled} aria-busy={loading || undefined} onClick={off ? undefined : onClick} onPointerDown={press}
+        whileHover={off ? undefined : { y: -2 }} whileTap={off ? undefined : { scale: 0.97 }} transition={SETTLE}
+        whileFocus={off ? undefined : { boxShadow: `0 0 0 3px ${v}40` }}
+        style={{
+          position: "relative", overflow: "hidden", width: "100%", minHeight: 52, padding: "14px 18px", borderRadius: 16,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 9, cursor: off ? "default" : "pointer",
+          ...sans, fontSize: ghost ? 15 : 17, fontWeight: ghost ? 500 : 600, WebkitTapHighlightColor: "transparent",
+          ...(ghost
+            ? { color: ivHeading, border: "1.5px solid transparent", background: `linear-gradient(${ivBg2}, ${ivBg2}) padding-box, linear-gradient(110deg, ${v}88, ${rose}88, ${gold}88) border-box` }
+            : { color: "#FFFFFF", border: 0, backgroundColor: disabled ? "rgba(42,38,33,.28)" : ivHeading, boxShadow: off ? "none" : `0 10px 24px -12px ${v}cc, 0 4px 10px -6px rgba(42,38,33,.5)` }),
+        }}
+      >
+        {!ghost && !disabled && (
+          <>
+            {/* The color wash moving under the ink. */}
+            <span aria-hidden className={reduce ? undefined : "ink-wash"} style={{
+              position: "absolute", inset: "-60% -20%", opacity: 0.55, pointerEvents: "none",
+              backgroundImage: `radial-gradient(circle at 20% 50%, ${v}aa 0%, transparent 38%), radial-gradient(circle at 80% 40%, ${rose}99 0%, transparent 36%), radial-gradient(circle at 55% 90%, ${gold}88 0%, transparent 34%)`,
+            }} />
+            {/* The sweep of light. */}
+            {!reduce && <span aria-hidden className="ink-sheen" style={{ position: "absolute", top: 0, bottom: 0, width: "40%", pointerEvents: "none",
+              backgroundImage: "linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.28) 50%, transparent 100%)" }} />}
+          </>
+        )}
+        {ripples.map((r) => (
+          <motion.span key={r.id} aria-hidden initial={{ scale: 0, opacity: 0.45 }} animate={{ scale: 9, opacity: 0 }} transition={{ duration: 0.65, ease: "easeOut" }}
+            style={{ position: "absolute", left: r.x - 20, top: r.y - 20, width: 40, height: 40, borderRadius: "50%", pointerEvents: "none", backgroundColor: ghost ? `${v}55` : "rgba(255,255,255,0.55)" }} />
+        ))}
+        <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 9 }}>
+          {loading ? (
+            <span aria-label="Working" style={{ display: "inline-flex", gap: 5, padding: "4px 0" }}>
+              {[0, 1, 2].map((i) => (
+                <motion.span key={i} animate={reduce ? undefined : { y: [0, -5, 0], opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.13, ease: "easeInOut" }}
+                  style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "currentColor", display: "block" }} />
+              ))}
+            </span>
+          ) : (
+            <>
+              {icon}
+              {children}
+            </>
+          )}
+        </span>
+      </motion.button>
+    </Breathe>
+  );
+}
+
+function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false, loading = false, icon }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean; loading?: boolean; icon?: React.ReactNode }) {
+  if (ivory) return <InkButton onClick={onClick} disabled={disabled} loading={loading} icon={icon}>{children}</InkButton>;
   // Breathes while it waits (see Breathe); a disabled button holds still,
   // since there's nothing to invite.
   return (
@@ -499,7 +579,8 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = fa
   );
 }
 
-function GhostBtn({ children, onClick, modernist = false, ivory = false }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean }) {
+function GhostBtn({ children, onClick, modernist = false, ivory = false, icon }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean; icon?: React.ReactNode }) {
+  if (ivory) return <InkButton onClick={onClick} ghost icon={icon}>{children}</InkButton>;
   return (
     <Breathe amount={1.03}>
     <motion.button
@@ -910,8 +991,8 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
         </div>
       </div>
       <div style={{ position: "relative", zIndex: 1, padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn ivory onClick={onEmailStart}>Continue with email</PrimaryBtn>
-        <GhostBtn ivory onClick={onGuest}>Browse as a guest</GhostBtn>
+        <PrimaryBtn ivory onClick={onEmailStart} icon={<EnvelopeSimple size={19} weight="fill" />}>Continue with email</PrimaryBtn>
+        <GhostBtn ivory onClick={onGuest} icon={<BookOpen size={18} />}>Browse as a guest</GhostBtn>
         {/* Guest mode has no account behind it, so clearing this device's
         storage loses everything with nothing to recover from — this used
         to go unmentioned anywhere near the decision itself. Data &
@@ -923,6 +1004,118 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
         </div>
       </div>
     </div>
+  );
+}
+
+// ── DiaryPage ────────────────────────────────────────────────────────────────
+// Login and sign-up as the first page of a diary: a sheet of paper resting
+// on the drifting backdrop, today's date written at the top the way you'd
+// head a page, a faint rose margin line down the left, and a ribbon
+// bookmark hanging from the top edge that sways a little. The sheet rises
+// into place when the screen opens.
+function DiaryPage({ title, subtitle, children }: { title: string; subtitle?: React.ReactNode; children: React.ReactNode }) {
+  const reduce = useReducedMotion();
+  const dateline = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  return (
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: 24, rotate: -1.2 }} animate={{ opacity: 1, y: 0, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 140, damping: 20, delay: 0.05 }}
+      style={{
+        position: "relative", borderRadius: 18, padding: "26px 22px 22px 34px", marginTop: 8,
+        backgroundColor: "#FDFBF6", backgroundImage: "linear-gradient(180deg, #FFFDF9 0%, #FBF7EF 100%)",
+        boxShadow: "0 1px 0 rgba(255,255,255,0.8) inset, 0 18px 40px -22px rgba(74,47,94,0.45), 0 0 0 1px rgba(42,38,33,0.06)",
+      }}
+    >
+      {/* Margin line */}
+      <span aria-hidden style={{ position: "absolute", left: 20, top: 14, bottom: 14, width: 1.5, borderRadius: 1, backgroundColor: `${REGION_CONFIG.relationships.color}66` }} />
+      {/* Ribbon bookmark */}
+      <motion.span aria-hidden
+        animate={reduce ? undefined : { rotate: [0, 3, -2, 0] }} transition={reduce ? undefined : { duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+        style={{ position: "absolute", right: 26, top: -6, width: 16, height: 46, transformOrigin: "50% 0%",
+          backgroundImage: `linear-gradient(180deg, ${REGION_CONFIG.identity.ink}, ${REGION_CONFIG.identity.color})`,
+          clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)", boxShadow: "0 4px 8px rgba(0,0,0,0.15)" }} />
+      <div style={{ ...serif, fontStyle: "italic", fontSize: 14, color: REGION_CONFIG.identity.ink }}>{dateline}</div>
+      <div style={{ ...serif, fontSize: 28, color: ivHeading, lineHeight: 1.2, marginTop: 6 }}>{title}</div>
+      {subtitle && <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{subtitle}</div>}
+      <div style={{ marginTop: 18 }}>{children}</div>
+    </motion.div>
+  );
+}
+
+// ── DiaryField ───────────────────────────────────────────────────────────────
+// The sign-in and sign-up fields, as lines on a diary page instead of
+// boxes: a small icon, the label sitting on the line until you start
+// (then lifting up out of the way), and an ink line that draws in from
+// the left in the app's colors while the field has focus. A quiet check
+// pops in once an email or password is valid; the password has a
+// show/hide eye; an error shakes the line once and turns it warm.
+function DiaryField({ label, type = "text", value, onChange, icon, error, valid, autoComplete }: { label: string; type?: string; value: string; onChange: (v: string) => void; icon: React.ReactNode; error?: boolean; valid?: boolean; autoComplete?: string }) {
+  const id = React.useId();
+  const reduce = useReducedMotion();
+  const [focused, setFocused] = React.useState(false);
+  const [reveal, setReveal] = React.useState(false);
+  const lifted = focused || value.length > 0;
+  const isPassword = type === "password";
+  const ink = error ? mdWarn : ivHeading;
+  return (
+    <motion.div
+      animate={error && !reduce ? { x: [0, -7, 6, -4, 3, 0] } : { x: 0 }}
+      transition={{ duration: 0.42, ease: "easeOut" }}
+      style={{ position: "relative", paddingTop: 18, marginBottom: 18 }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <motion.span
+          animate={{ color: focused ? (error ? mdWarn : REGION_CONFIG.identity.ink) : ivFaint, scale: focused ? 1.08 : 1 }}
+          transition={{ duration: 0.2 }}
+          style={{ display: "flex", flexShrink: 0 }}
+        >
+          {icon}
+        </motion.span>
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+          <motion.label
+            htmlFor={id}
+            animate={lifted ? { y: -24, scale: 0.78, color: focused ? (error ? mdWarn : REGION_CONFIG.identity.ink) : ivBody } : { y: 0, scale: 1, color: ivFaint }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            style={{ position: "absolute", left: 0, top: 10, transformOrigin: "0% 50%", pointerEvents: "none", ...sans, fontSize: 17, fontWeight: lifted ? 600 : 400, whiteSpace: "nowrap" }}
+          >
+            {label}
+          </motion.label>
+          <input
+            id={id} type={isPassword && reveal ? "text" : type} value={value} autoComplete={autoComplete}
+            onChange={(e) => onChange(e.target.value)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+            aria-invalid={error || undefined}
+            // 17px keeps iOS from zooming the page on focus.
+            style={{ width: "100%", border: 0, outline: "none", background: "transparent", padding: "10px 0 9px", ...serif, fontSize: 18, color: ink, caretColor: REGION_CONFIG.identity.color }}
+          />
+        </div>
+        <AnimatePresence>
+          {valid && !error && (
+            <motion.span key="ok" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 500, damping: 22 }}
+              style={{ display: "flex", width: 20, height: 20, borderRadius: "50%", alignItems: "center", justifyContent: "center", backgroundColor: REGION_CONFIG.security.tint, color: REGION_CONFIG.security.ink, flexShrink: 0 }}>
+              <Check size={12} weight="bold" />
+            </motion.span>
+          )}
+        </AnimatePresence>
+        {isPassword && (
+          <motion.button type="button" aria-label={reveal ? "Hide password" : "Show password"} onClick={() => setReveal((v) => !v)} whileTap={{ scale: 0.85 }}
+            style={{ border: 0, background: "transparent", padding: 6, margin: -6, color: ivFaint, cursor: "pointer", lineHeight: 0, flexShrink: 0 }}>
+            {reveal ? <EyeSlash size={18} /> : <Eye size={18} />}
+          </motion.button>
+        )}
+      </div>
+      {/* The writing line, and the ink that draws over it on focus. */}
+      <div style={{ position: "relative", height: 2, marginTop: 2, borderRadius: 1, backgroundColor: error ? `${mdWarn}55` : "rgba(42,38,33,0.16)" }}>
+        <motion.div
+          initial={false}
+          animate={{ scaleX: focused || error ? 1 : 0 }}
+          transition={{ duration: reduce ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            position: "absolute", inset: 0, transformOrigin: "0% 50%", borderRadius: 1,
+            backgroundImage: error ? `linear-gradient(90deg, ${mdWarn}, ${REGION_CONFIG.creativity.color})` : `linear-gradient(90deg, ${REGION_CONFIG.identity.color}, ${REGION_CONFIG.relationships.color}, ${REGION_CONFIG.career.color})`,
+          }}
+        />
+      </div>
+    </motion.div>
   );
 }
 
@@ -1014,13 +1207,18 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Welcome back</div>
-        <div style={{ marginTop: 24 }}>
-          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="••••••••" error={!!error} />
-        </div>
-        {error && <div style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Checking…" : "Log in"}</PrimaryBtn>
+        <DiaryPage title="Welcome back" subtitle="Pick up where you left off.">
+          {/* An error marks only the field it's about; wrong credentials mark both. */}
+          <DiaryField label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} icon={<EnvelopeSimple size={20} />} error={!!error && (!email.trim() || !/both/.test(error))} valid={EMAIL_RE.test(email.trim())} />
+          <DiaryField label="Password" type="password" autoComplete="current-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={!!error && (!/both|valid email/.test(error) || !password)} />
+          <AnimatePresence>
+            {error && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{error}</motion.div>
+            )}
+          </AnimatePresence>
+          <PrimaryBtn ivory onClick={submit} loading={loading} icon={<PenNib size={18} weight="fill" />}>Log in</PrimaryBtn>
+        </DiaryPage>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Don't have an account? </span>
           <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onGoSignup} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoSignup)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Sign up</motion.span></Breathe>
@@ -1084,20 +1282,25 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
         <BackButton onClick={onBack} color={OPENING_MUTED} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative", zIndex: 1, padding: "20px 28px 24px" }}>
-        <div style={{ ...serif, fontSize: 24, color: OPENING_TEXT, lineHeight: 1.4 }}>Let's create an account</div>
-        <div style={{ ...sans, fontSize: 13, color: OPENING_MUTED, marginTop: 8, lineHeight: 1.6, wordBreak: "keep-all" }}>
-          {isCloudSyncConfigured
+        <DiaryPage
+          title="Start your diary"
+          subtitle={isCloudSyncConfigured
             ? "Synced privately to your account, so it's there on any device you log into — never sold, never shared."
             : "It only lives on this device. Nothing is sent to any server."}
-        </div>
-        <div style={{ marginTop: 20 }}>
-          <TextField label="Name" value={name} onChange={setName} placeholder="What should we call you?" error={!!error} />
-          <TextField label="Email" type="email" value={email} onChange={setEmail} placeholder="you@example.com" error={!!error} />
-          <TextField label="Password" type="password" value={password} onChange={setPassword} placeholder="6+ characters" error={!!error} />
-        </div>
-        {error && <div style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{error}</div>}
-        {info && <div style={{ ...sans, fontSize: 13, color: ivHeading, marginTop: 2, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
-        <PrimaryBtn ivory onClick={submit} disabled={loading}>{loading ? "Creating…" : "Sign up"}</PrimaryBtn>
+        >
+          {/* An error marks only the field it's about. */}
+          <DiaryField label="What should we call you?" autoComplete="name" value={name} onChange={setName} icon={<UserCircle size={20} />} error={/your name/.test(error)} valid={name.trim().length > 0} />
+          <DiaryField label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} icon={<EnvelopeSimple size={20} />} error={!!error && !/your name|Password must/.test(error)} valid={EMAIL_RE.test(email.trim())} />
+          <DiaryField label="Password (6+ characters)" type="password" autoComplete="new-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={/Password must/.test(error)} valid={password.length >= 6} />
+          <AnimatePresence>
+            {error && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{error}</motion.div>
+            )}
+          </AnimatePresence>
+          {info && <div style={{ ...sans, fontSize: 13, color: ivHeading, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>{info}</div>}
+          <PrimaryBtn ivory onClick={submit} loading={loading} icon={<PenNib size={18} weight="fill" />}>Sign up</PrimaryBtn>
+        </DiaryPage>
         <div style={{ textAlign: "center", marginTop: 18 }}>
           <span style={{ ...sans, fontSize: 13, color: OPENING_MUTED }}>Already have an account? </span>
           <Breathe inline amount={1.06}><motion.span role="button" tabIndex={0} onClick={onGoLogin} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onGoLogin)?.(); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: ivHeading, fontWeight: 600, cursor: "pointer" }}>Log in</motion.span></Breathe>
@@ -1499,7 +1702,7 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
     {
       screen: "discoveryAnalysis",
       target: "nav-history",
-      title: "See past thoughts in History",
+      title: "Your past thoughts, in your Diary",
       body: "They're gathered here by the date you spoke them. Want to tap in and take a look?",
       navTo: "history",
     },
@@ -1981,7 +2184,11 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       the real device status bar / the desktop preview's transparent
       "9:41" overlay (see the App shell) regardless of screen height. */}
       <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <span style={{ ...mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", color: ivFaint }}>{formatDateDots(new Date())}</span>
+        {/* Today's date, written the way a diary heads a page. */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...serif, fontStyle: "italic", fontSize: 15, color: ivBody }}>
+          <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </span>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {/* Search stands in for "look back through what I've said" —
           the closest real destination for that is History, so it
@@ -7333,7 +7540,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         control row, same technique Mind uses next to its two. ── */}
         <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={primaryTitleStyle}>History</div>
+            <div style={primaryTitleStyle}>Diary</div>
             <div style={primaryTitleSubtitleStyle}>
               {view === "entries" ? "Every entry, in the order you lived it." : "Catalogued over time."}
             </div>
@@ -7867,7 +8074,7 @@ function ScreenProfile({
             another quiet toggle, same as Demo Mode right above it. */}
         <SettingsGroup
           header="Modes"
-          footer="Demo Mode fills every screen with example data; turn it off to see only your own entries — a new account starts empty. Premium Mode weaves a deeper layer into Mind, Analysis, and History: unconscious patterns, distance from your aspiration, and how things have changed over time."
+          footer="Demo Mode fills every screen with example data; turn it off to see only your own entries — a new account starts empty. Premium Mode weaves a deeper layer into Mind, Analysis, and your Diary: unconscious patterns, distance from your aspiration, and how things have changed over time."
         >
           <SettingsRow icon={<Flask size={17} />} label="Demo Mode" trailing={<Switch label="Demo Mode" value={isDemoMode} onChange={onToggleDemoMode} />} />
           <SettingsRow icon={<Sparkle size={17} />} label="Premium Mode" trailing={<Switch label="Premium Mode" value={store.isPro} onChange={(v) => updateStore((prev) => ({ ...prev, isPro: v }))} />} />

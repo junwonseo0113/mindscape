@@ -141,6 +141,23 @@ body {
   .shooting-star { display: none; }
 }
 
+/* ── InkButton (see App.tsx) ──────────────────────────────────────────────────
+   A slow wash of color moving under the button's ink, and a band of light
+   sweeping across it every few seconds. */
+@keyframes ink-wash {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(6%, -4%) rotate(8deg); }
+}
+.ink-wash { animation: ink-wash 9s ease-in-out infinite; }
+@keyframes ink-sheen {
+  0%, 62% { left: -45%; }
+  100%    { left: 120%; }
+}
+.ink-sheen { animation: ink-sheen 4.2s ease-in-out infinite; animation-delay: 1.2s; }
+@media (prefers-reduced-motion: reduce) {
+  .ink-wash, .ink-sheen { animation: none; }
+}
+
 /* ── Edge fade ────────────────────────────────────────────────────────────────
    A scroll region's content fades out at its top and bottom edges instead
    of being sliced by a hard line under the header and above the nav. The
