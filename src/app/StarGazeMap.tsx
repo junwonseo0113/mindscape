@@ -4,17 +4,21 @@
 // six areas of life are six constellations, their stars joined by faint
 // figure lines and named the way constellations are; the real connections
 // between beliefs (store.connections) are the bright lines across the sky —
-// root links solid, tensions dashed in warm light. Someone sits on a hill
-// in the foreground, looking up.
+// root links solid, tensions dashed in warm light. Below the sky is a sea:
+// you're out on it in a small boat with a lantern, the stars sliding slowly
+// past overhead and their colours reflected on the water, as if sailing
+// through a sea of stars.
 //
 // Everything the old map did is still here: search, region filter with
 // counts, Reset, tap a star for its detail (statement, confidence, the
 // beliefs it's joined to and why, what you actually said), and opening
 // straight onto a region or one belief from Home and Mind.
 //
-// It's an HTML/SVG scene, not WebGL: twinkling, the Milky Way's drift and
-// the shooting star are CSS (styles/index.css: .twinkle, .milky-way,
-// .shooting-star), and all of it stops under reduced motion. Stars are real
+// It's an HTML/SVG scene, not WebGL: twinkling, the Milky Way, the shooting
+// star, the drifting star layers, nebulae, waves, glints and the boat are
+// CSS (styles/index.css: .twinkle, .milky-way, .shooting-star, .sky-sail,
+// .nebula, .wave-roll, .sea-glint, .boat-bob, .lens-current), and all of it
+// stops under reduced motion. Stars are real
 // buttons, so they're reachable by keyboard and screen reader.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -33,7 +37,7 @@ const INK_FAINT = "rgba(243,239,250,0.55)";
 type SkyBelief = NeuralBeliefNode & { evidenceQuotes?: StoredEvidenceQuote[]; thoughtLabel?: string };
 
 // Where each constellation sits, as a fraction of the sky band.
-// The bottom ~110px is the hills, so the band ends above them.
+// The bottom ~110px is the sea, so the band ends above it.
 const CONSTELLATION_HOME: Record<CognitiveRegion, [number, number]> = {
   identity: [0.26, 0.12],
   career: [0.72, 0.2],
@@ -62,10 +66,34 @@ function hash(str: string) {
 // twinkle period and phase.
 const FIELD_STARS = (() => {
   const r = seeded(1729);
-  return Array.from({ length: 120 }, () => ({
-    x: r() * 100, y: r() * 80, size: 0.8 + r() * 1.8, dur: 2.4 + r() * 4, delay: -r() * 6, warm: r() < 0.18,
+  return Array.from({ length: 130 }, () => ({
+    x: r() * 100, y: r() * 84, size: 0.8 + r() * 1.9, dur: 2.4 + r() * 4, delay: -r() * 6, warm: r() < 0.18, tint: r(),
   }));
 })();
+// Far stars drift slower than near ones; that difference is what makes the
+// sky read as depth you're moving through.
+const STAR_LAYERS = [
+  { stars: FIELD_STARS.filter((f) => f.size < 1.7), dur: "240s" },
+  { stars: FIELD_STARS.filter((f) => f.size >= 1.7), dur: "130s" },
+];
+const STAR_TINTS = ["#FFFFFF", "#FFFFFF", "#DCD6FF", "#FFE3B8", "#CFE6FF"];
+// Starlight on the water: short horizontal glints that flicker.
+const SEA_GLINTS = (() => {
+  const r = seeded(4242);
+  return Array.from({ length: 26 }, () => ({ x: r() * 100, y: 18 + r() * 70, w: 6 + r() * 16, dur: 2 + r() * 3, delay: -r() * 4 }));
+})();
+// Soft clouds of colour behind the stars.
+const NEBULAE: { region: CognitiveRegion; left: string; top: string; size: number; dx: string; dy: string; dur: string }[] = [
+  { region: "identity", left: "-18%", top: "4%", size: 340, dx: "18px", dy: "10px", dur: "26s" },
+  { region: "relationships", left: "52%", top: "34%", size: 300, dx: "-16px", dy: "12px", dur: "31s" },
+  { region: "curiosity", left: "-8%", top: "52%", size: 280, dx: "14px", dy: "-12px", dur: "23s" },
+];
+// One wave crest, repeated across a 720-wide strip (two matching halves).
+const WAVE = (amp: number, y: number) => {
+  let d = `M0 ${y}`;
+  for (let x = 0; x < 720; x += 60) d += ` q 15 ${-amp} 30 0 t 30 0`;
+  return `${d} L720 40 L0 40 Z`;
+};
 
 function useSize<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
@@ -162,6 +190,7 @@ export default function StarGazeMap({
   const reduce = useReducedMotion();
   const [skyRef, { w, h }] = useSize<HTMLDivElement>();
   const [query, setQuery] = useState("");
+  const [searchFocus, setSearchFocus] = useState(false);
   const [activeRegion, setActiveRegion] = useState<CognitiveRegion | null>(initialActiveRegion);
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedBeliefId);
   const stars = useMemo(() => placeStars(beliefs, w, h), [beliefs, w, h]);
@@ -213,16 +242,33 @@ export default function StarGazeMap({
         position: "absolute", left: "-30%", top: "8%", width: "160%", height: "38%", transform: "rotate(-24deg)", pointerEvents: "none",
         backgroundImage: "radial-gradient(ellipse at center, rgba(196,180,255,0.20) 0%, rgba(150,170,255,0.10) 35%, transparent 70%)",
       }} />
-      {/* Field stars. */}
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        {FIELD_STARS.map((f, i) => (
-          <span key={i} className="twinkle" style={{
-            position: "absolute", left: `${f.x}%`, top: `${f.y}%`, width: f.size, height: f.size, borderRadius: "50%",
-            backgroundColor: f.warm ? "#FFE3B8" : "#FFFFFF", boxShadow: f.size > 2 ? "0 0 4px rgba(255,255,255,0.7)" : undefined,
-            ["--tw-dur" as string]: `${f.dur.toFixed(2)}s`, ["--tw-delay" as string]: `${f.delay.toFixed(2)}s`,
+      {/* Nebulae: soft clouds of the app's colours, breathing slowly. */}
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        {NEBULAE.map((n, i) => (
+          <div key={i} className="nebula" style={{
+            position: "absolute", left: n.left, top: n.top, width: n.size, height: n.size * 0.7, borderRadius: "50%",
+            backgroundImage: `radial-gradient(closest-side, ${REGION_CONFIG[n.region].color}38, ${REGION_CONFIG[n.region].color}12 55%, transparent)`,
+            ["--dx" as string]: n.dx, ["--dy" as string]: n.dy, ["--dur" as string]: n.dur, ["--delay" as string]: `-${i * 7}s`,
           } as React.CSSProperties} />
         ))}
+      </div>
+      {/* Field stars, in two layers sliding past at different speeds. Each
+          layer is two identical halves side by side, so the loop is seamless. */}
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+        {STAR_LAYERS.map((layer, li) => (
+          <div key={li} className="sky-sail" style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "200%", ["--sail-dur" as string]: layer.dur } as React.CSSProperties}>
+            {[0, 50].map((offset) => layer.stars.map((f, i) => (
+              <span key={`${offset}-${i}`} className="twinkle" style={{
+                position: "absolute", left: `${offset + f.x / 2}%`, top: `${f.y}%`, width: f.size, height: f.size, borderRadius: "50%",
+                backgroundColor: f.warm ? "#FFE3B8" : STAR_TINTS[Math.floor(f.tint * STAR_TINTS.length)],
+                boxShadow: f.size > 2 ? "0 0 5px rgba(255,255,255,0.8)" : undefined,
+                ["--tw-dur" as string]: `${f.dur.toFixed(2)}s`, ["--tw-delay" as string]: `${f.delay.toFixed(2)}s`,
+              } as React.CSSProperties} />
+            )))}
+          </div>
+        ))}
         {!reduce && <span className="shooting-star" style={{ position: "absolute", left: "62%", top: "10%" }} />}
+        {!reduce && <span className="shooting-star" style={{ position: "absolute", left: "30%", top: "34%", animationDelay: "8.5s", animationDuration: "14s" }} />}
       </div>
 
       {/* ── Header: back, title, search, constellation chips ── */}
@@ -240,16 +286,31 @@ export default function StarGazeMap({
           )}
         </div>
         <div style={{ ...display, fontSize: 36, color: INK, marginTop: 10, lineHeight: 1.05 }}>Your sky</div>
-        <div style={{ ...sans, fontSize: 13, color: INK_SOFT, marginTop: 4, lineHeight: 1.45 }}>
+        <div style={{ ...hand, fontSize: 19, color: INK_SOFT, marginTop: 4, lineHeight: 1.25 }}>
           Each star is a belief. Lines show which ones connect.
         </div>
-        <div style={{ ...glass, display: "flex", alignItems: "center", gap: 8, borderRadius: 12, padding: "9px 12px", marginTop: 12 }}>
-          <MagnifyingGlass size={16} color={INK_FAINT} aria-hidden />
-          <input
-            value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a belief" aria-label="Search beliefs"
-            style={{ flex: 1, minWidth: 0, border: 0, outline: "none", background: "transparent", color: INK, ...sans, fontSize: 14 }}
-          />
-          {query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")} style={{ border: 0, background: "transparent", color: INK_FAINT, cursor: "pointer", lineHeight: 0, padding: 2 }}><X size={14} /></button>}
+        {/* The search field as a spyglass lens: a rim with a slow current of
+            the app's colours running through it, glowing brighter while
+            you search. */}
+        <div className={reduce ? undefined : "lens-current"} style={{
+          marginTop: 12, padding: 1.5, borderRadius: 15,
+          backgroundImage: `linear-gradient(90deg, ${REGION_CONFIG.identity.color}, ${REGION_CONFIG.relationships.color}, ${REGION_CONFIG.career.color}, ${REGION_CONFIG.curiosity.color}, ${REGION_CONFIG.identity.color})`,
+          boxShadow: searchFocus || query ? `0 0 22px -4px ${REGION_CONFIG.relationships.color}aa, 0 0 40px -10px ${REGION_CONFIG.curiosity.color}` : `0 0 16px -8px ${REGION_CONFIG.identity.color}`,
+          transition: "box-shadow 0.35s",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, borderRadius: 13.5, padding: "10px 12px", backgroundColor: "rgba(12,12,40,0.82)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}>
+            <motion.span aria-hidden style={{ lineHeight: 0, color: REGION_CONFIG.curiosity.color, filter: `drop-shadow(0 0 5px ${REGION_CONFIG.curiosity.color})` }}
+              animate={reduce ? undefined : { rotate: searchFocus ? [0, -12, 8, 0] : 0 }} transition={{ duration: 0.6 }}>
+              <MagnifyingGlass size={17} weight="bold" />
+            </motion.span>
+            <input
+              value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a belief among the stars" aria-label="Search beliefs"
+              onFocus={() => setSearchFocus(true)} onBlur={() => setSearchFocus(false)}
+              className="sky-search"
+              style={{ flex: 1, minWidth: 0, border: 0, outline: "none", background: "transparent", color: INK, ...hand, fontSize: 20, lineHeight: 1, caretColor: REGION_CONFIG.relationships.color }}
+            />
+            {query && <button type="button" aria-label="Clear search" onClick={() => setQuery("")} style={{ border: 0, background: "transparent", color: INK_FAINT, cursor: "pointer", lineHeight: 0, padding: 2 }}><X size={14} /></button>}
+          </div>
         </div>
         <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 10, paddingBottom: 2 }}>
           {COGNITIVE_REGIONS.map((r) => {
@@ -260,11 +321,14 @@ export default function StarGazeMap({
                 onClick={() => { setActiveRegion(on ? null : r); setSelectedId(null); }}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, padding: "6px 11px", borderRadius: 999, cursor: n ? "pointer" : "default",
-                  border: `1px solid ${on ? REGION_CONFIG[r].color : "rgba(255,255,255,0.12)"}`,
-                  backgroundColor: on ? `${REGION_CONFIG[r].color}33` : "rgba(255,255,255,0.06)",
-                  color: n ? INK : "rgba(243,239,250,0.35)", ...sans, fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${on ? REGION_CONFIG[r].color : n ? `${REGION_CONFIG[r].color}55` : "rgba(255,255,255,0.1)"}`,
+                  backgroundImage: n ? `linear-gradient(135deg, ${REGION_CONFIG[r].color}${on ? "66" : "2a"}, rgba(255,255,255,0.04))` : undefined,
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                  boxShadow: on ? `0 0 16px -4px ${REGION_CONFIG[r].color}` : undefined,
+                  color: n ? INK : "rgba(243,239,250,0.35)", ...sans, fontSize: 12, fontWeight: 600, transition: "box-shadow 0.3s",
                 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: REGION_CONFIG[r].color, opacity: n ? 1 : 0.4 }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[r].color, opacity: n ? 1 : 0.4,
+                  boxShadow: n ? `0 0 6px ${REGION_CONFIG[r].color}, 0 0 12px ${REGION_CONFIG[r].color}88` : undefined }} />
                 {REGION_CONFIG[r].label}
                 <span style={{ ...mono, fontSize: 11, color: INK_FAINT }}>{n}</span>
               </motion.button>
@@ -350,7 +414,8 @@ export default function StarGazeMap({
                   ...(s.x > w - 80 ? { right: 0, transform: "translateY(-6px)", textAlign: "right" as const }
                     : s.x < 80 ? { left: 0, transform: "translateY(-6px)" }
                     : { left: "50%", transform: "translate(-50%, -6px)" }),
-                  ...sans, fontSize: 11, color: INK_SOFT, textShadow: "0 1px 6px rgba(0,0,0,0.8)", pointerEvents: "none",
+                  ...sans, fontSize: 11, color: INK, pointerEvents: "none", marginTop: 2,
+                  padding: "2px 7px", borderRadius: 999, backgroundColor: "rgba(10,9,32,0.55)", border: `1px solid ${REGION_CONFIG[s.region].color}40`,
                 }}>
                   {s.b.thoughtLabel || s.b.statement}
                 </span>
@@ -359,18 +424,57 @@ export default function StarGazeMap({
           );
         })}
 
-        {/* Foreground: hills, and someone sitting on one, looking up. */}
-        <svg aria-hidden viewBox="0 0 360 90" preserveAspectRatio="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: 90, pointerEvents: "none" }}>
-          <path d="M0 52 C 60 34, 120 44, 180 40 S 300 26, 360 44 L360 90 L0 90 Z" fill="#1A1436" />
-          <path d="M0 70 C 80 56, 170 70, 250 60 S 330 56, 360 64 L360 90 L0 90 Z" fill="#0B0A1E" />
-        </svg>
-        <svg aria-hidden viewBox="0 0 40 40" style={{ position: "absolute", right: "16%", bottom: 22, width: 34, height: 34, pointerEvents: "none" }}>
-          <circle cx="16" cy="9" r="4.2" fill="#0B0A1E" />
-          <path d="M12 14 C 10 20, 10 26, 13 30 L 27 30 C 27 27, 24 26, 20 25 L 20 16 C 19 14, 15 13, 12 14 Z" fill="#0B0A1E" />
-          <path d="M20 17 L 27 12" stroke="#0B0A1E" strokeWidth="2.2" strokeLinecap="round" />
-        </svg>
+        {/* Foreground: the sea. The horizon glows; each constellation's colour
+            is reflected on the water below it; starlight glints; two lines
+            of waves roll past; and you're out there in a small boat with a
+            lantern, bobbing on them. */}
+        <div aria-hidden style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: HILLS, pointerEvents: "none", overflow: "hidden",
+          backgroundImage: "linear-gradient(180deg, #3A2A66 0%, #1C1645 22%, #0F0C2C 60%, #06051A 100%)" }}>
+          <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1.5, backgroundImage: "linear-gradient(90deg, transparent, rgba(255,214,240,0.75), rgba(200,190,255,0.8), transparent)", boxShadow: "0 0 14px 3px rgba(220,180,255,0.35)" }} />
+          {figures.map((f) => (
+            <div key={f.region} className="sea-glint" style={{
+              position: "absolute", left: f.cx - 14, top: 4, width: 28, height: "78%", borderRadius: "50%", filter: "blur(7px)",
+              backgroundImage: `linear-gradient(180deg, ${REGION_CONFIG[f.region].color}aa, ${REGION_CONFIG[f.region].color}00)`,
+              opacity: activeRegion && activeRegion !== f.region ? 0.15 : 0.7,
+              ["--gl-dur" as string]: `${3 + (hash(f.region) % 20) / 10}s`,
+            } as React.CSSProperties} />
+          ))}
+          {SEA_GLINTS.map((g, i) => (
+            <span key={i} className="sea-glint" style={{
+              position: "absolute", left: `${g.x}%`, top: `${g.y}%`, width: g.w, height: 1.5, borderRadius: 1, backgroundColor: i % 4 === 0 ? "#FFE3B8" : "#E6E0FF",
+              ["--gl-dur" as string]: `${g.dur.toFixed(2)}s`, ["--gl-delay" as string]: `${g.delay.toFixed(2)}s`,
+            } as React.CSSProperties} />
+          ))}
+          {[{ y: 30, top: 6, amp: 4, fill: "rgba(120,100,200,0.16)", dur: "18s" }, { y: 28, top: 30, amp: 5, fill: "rgba(70,55,150,0.22)", dur: "11s" }, { y: 26, top: 58, amp: 6, fill: "rgba(10,8,34,0.55)", dur: "8s" }].map((wv, i) => (
+            <svg key={i} className="wave-roll" viewBox="0 0 720 40" preserveAspectRatio="none"
+              style={{ position: "absolute", left: 0, top: wv.top, width: "200%", height: 40, ["--wave-dur" as string]: wv.dur } as React.CSSProperties}>
+              <path d={WAVE(wv.amp, wv.y)} fill={wv.fill} />
+            </svg>
+          ))}
+        </div>
+        <div aria-hidden className="boat-bob" style={{ position: "absolute", right: "13%", bottom: HILLS - 62, width: 66, height: 60, pointerEvents: "none" }}>
+          {/* Lantern glow, on the water and in the air */}
+          <div style={{ position: "absolute", left: 30, top: 12, width: 40, height: 40, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(255,200,120,0.55), transparent)" }} />
+          <svg viewBox="0 0 66 60" width="66" height="60" style={{ position: "relative", overflow: "visible" }}>
+            {/* Sail */}
+            <path d="M30 6 L30 40 L10 40 Z" fill="#E9E3FF" fillOpacity="0.9" />
+            <path d="M33 12 L33 40 L48 40 Z" fill="#C9BFF5" fillOpacity="0.75" />
+            <line x1="31.5" y1="4" x2="31.5" y2="44" stroke="#0B0A1E" strokeWidth="1.6" />
+            {/* Hull */}
+            <path d="M4 43 L60 43 C 56 52, 48 54, 32 54 C 16 54, 8 52, 4 43 Z" fill="#0B0A1E" />
+            {/* Someone sitting at the stern, looking up */}
+            <circle cx="52" cy="33" r="3.4" fill="#0B0A1E" />
+            <path d="M48 43 C 48 39, 49 37, 52 37 C 55 37, 56 39, 56 43 Z" fill="#0B0A1E" />
+            {/* Lantern on its pole */}
+            <line x1="44" y1="43" x2="47" y2="28" stroke="#0B0A1E" strokeWidth="1.2" />
+            <circle cx="47.5" cy="27" r="2.6" fill="#FFD28A" />
+            <circle cx="47.5" cy="27" r="5" fill="#FFD28A" fillOpacity="0.25" />
+          </svg>
+          {/* Its reflection */}
+          <div style={{ position: "absolute", left: 6, right: 4, top: 52, height: 14, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(255,210,140,0.35), transparent)", filter: "blur(2px)" }} />
+        </div>
 
-        {/* Footer, on the dark hill. */}
+        {/* Footer, on the dark water. */}
         <div style={{ position: "absolute", left: 16, right: 16, bottom: 12, ...sans, fontSize: 12, color: INK_FAINT, pointerEvents: "none" }}>
           {beliefs.length} {beliefs.length === 1 ? "star" : "stars"} · {visibleConnections.length} {visibleConnections.length === 1 ? "connection" : "connections"} · tap a star
         </div>
@@ -404,38 +508,40 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
       role="dialog" aria-label={`About this star: ${star.b.statement}`}
       initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%", transition: { duration: 0.2, ease: "easeIn" } }}
       transition={{ type: "spring", stiffness: 260, damping: 32 }}
-      style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, maxHeight: "62%", overflowY: "auto", borderRadius: "22px 22px 0 0", padding: "16px 18px 22px", boxShadow: "0 -18px 40px rgba(0,0,0,0.35)",
-        backgroundImage: `linear-gradient(170deg, ${r.tint} 0%, #FBF8F2 40%)` }}
+      style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 5, maxHeight: "62%", overflowY: "auto", borderRadius: "22px 22px 0 0", padding: "16px 18px 22px", color: INK,
+        boxShadow: `0 -18px 40px rgba(0,0,0,0.45), 0 -1px 0 ${r.color}66, 0 -12px 40px -16px ${r.color}`,
+        backgroundColor: "#100E2C",
+        backgroundImage: `radial-gradient(120% 60% at 15% 0%, ${r.color}45, transparent 60%), linear-gradient(180deg, #1B1745 0%, #100E2C 70%)` }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Node color={r.color} size={14} intensity={0.9} />
-        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: r.ink, backgroundColor: r.tint, padding: "4px 7px", borderRadius: 6 }}>{r.label}</span>
-        <span style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{star.b.domain}</span>
-        <button type="button" aria-label="Close" onClick={onClose} style={{ border: 0, background: "transparent", cursor: "pointer", color: "rgba(42,38,33,0.5)", lineHeight: 0, padding: 6, margin: -6 }}><X size={16} weight="bold" /></button>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: INK, backgroundColor: `${r.color}38`, border: `1px solid ${r.color}66`, padding: "3px 8px", borderRadius: 999 }}>{r.label}</span>
+        <span style={{ ...sans, fontSize: 12, color: INK_SOFT, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{star.b.domain}</span>
+        <button type="button" aria-label="Close" onClick={onClose} style={{ border: 0, background: "transparent", cursor: "pointer", color: INK_FAINT, lineHeight: 0, padding: 6, margin: -6 }}><X size={16} weight="bold" /></button>
       </div>
-      {star.b.thoughtLabel && <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: r.ink, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
-      <div style={{ ...display, fontSize: 25, color: "#2A2621", lineHeight: 1.25, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
+      {star.b.thoughtLabel && <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: r.color, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
+      <div style={{ ...display, fontSize: 25, color: INK, lineHeight: 1.25, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-        <MeterFill value={star.b.confidence} color={r.color} track="rgba(42,38,33,0.08)" height={5} radius={3} style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, color: "rgba(42,38,33,0.65)", whiteSpace: "nowrap" }}><AnimatedNumber value={star.b.confidence} />% · {star.b.evidenceCount} {star.b.evidenceCount === 1 ? "entry" : "entries"}</span>
+        <MeterFill value={star.b.confidence} color={r.color} track="rgba(255,255,255,0.12)" height={5} radius={3} style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 12, color: INK_SOFT, whiteSpace: "nowrap" }}><AnimatedNumber value={star.b.confidence} />% · {star.b.evidenceCount} {star.b.evidenceCount === 1 ? "entry" : "entries"}</span>
       </div>
 
       {linked.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: "#2A2621", marginBottom: 6 }}>Joined to</div>
+          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 6 }}>Joined to</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {linked.map(({ conn, other }) => {
               const o = REGION_CONFIG[other.region];
               const tension = conn.type === "contradiction";
               return (
                 <motion.button key={other.b.id} type="button" onClick={() => onSelect(other.b.id)} whileTap={{ scale: 0.98 }}
-                  style={{ textAlign: "left", border: 0, cursor: "pointer", borderRadius: 12, padding: "10px 12px", backgroundImage: `linear-gradient(135deg, ${o.tint} 0%, rgba(255,255,255,0.8) 100%)` }}>
+                  style={{ textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 12px", color: INK, border: `1px solid ${o.color}44`, backgroundColor: "rgba(255,255,255,0.03)", backgroundImage: `linear-gradient(135deg, ${o.color}30 0%, rgba(255,255,255,0.02) 100%)` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: o.color }} />
-                    <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tension ? "#7a4310" : o.ink }}>{tension ? "In tension" : "Reinforces"}</span>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: o.color, boxShadow: `0 0 6px ${o.color}` }} />
+                    <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tension ? "#F6B37A" : o.color }}>{tension ? "In tension" : "Reinforces"}</span>
                   </div>
-                  <div style={{ ...display, fontSize: 17, color: "#2A2621", marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{other.b.statement}</div>
-                  {conn.note && <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.65)", marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{conn.note}</div>}
+                  <div style={{ ...display, fontSize: 17, color: INK, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{other.b.statement}</div>
+                  {conn.note && <div style={{ ...sans, fontSize: 12, color: INK_SOFT, marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{conn.note}</div>}
                 </motion.button>
               );
             })}
@@ -445,11 +551,11 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
 
       {quotes.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: "#2A2621", marginBottom: 6 }}>What you said</div>
+          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 6 }}>What you said</div>
           {quotes.map((qt, i) => (
             <div key={i} style={{ marginTop: i ? 8 : 0 }}>
-              <div style={{ ...mono, fontSize: 11, color: "rgba(42,38,33,0.55)" }}>{qt.date}</div>
-              <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: "#2A2621", lineHeight: 1.45, marginTop: 2, wordBreak: "keep-all" }}>"{qt.quote}"</div>
+              <div style={{ ...mono, fontSize: 11, color: INK_FAINT }}>{qt.date}</div>
+              <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: INK, lineHeight: 1.45, marginTop: 2, wordBreak: "keep-all" }}>"{qt.quote}"</div>
             </div>
           ))}
         </div>

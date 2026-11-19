@@ -146,6 +146,37 @@ body {
   .shooting-star { display: none; }
 }
 
+/* ── Sailing a sea of stars (see StarGazeMap.tsx) ─────────────────────────────
+   The sky slides slowly past, two star layers at different speeds (so the
+   near one reads as nearer); waves roll under a small boat that bobs on
+   them; glints of starlight flicker on the water; the search field's rim
+   carries a slow current of the app's colours. Every layer is a 200%-wide
+   strip whose two halves match, so translating by -50% loops seamlessly. */
+@keyframes sky-sail { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.sky-sail { animation: sky-sail var(--sail-dur, 160s) linear infinite; will-change: transform; }
+@keyframes wave-roll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.wave-roll { animation: wave-roll var(--wave-dur, 14s) linear infinite; will-change: transform; }
+@keyframes boat-bob {
+  0%, 100% { transform: translateY(0) rotate(-2.5deg); }
+  50%      { transform: translateY(-3px) rotate(2.5deg); }
+}
+.boat-bob { animation: boat-bob 4.2s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes sea-glint {
+  0%, 100% { opacity: 0.1; transform: scaleX(0.5); }
+  50%      { opacity: 0.9; transform: scaleX(1); }
+}
+.sea-glint { animation: sea-glint var(--gl-dur, 3s) ease-in-out infinite; animation-delay: var(--gl-delay, 0s); }
+@keyframes nebula-breathe {
+  0%, 100% { opacity: 0.75; transform: translate(0, 0) scale(1); }
+  50%      { opacity: 1; transform: translate(var(--dx, 14px), var(--dy, -8px)) scale(1.08); }
+}
+.nebula { animation: nebula-breathe var(--dur, 24s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+@keyframes lens-current { from { background-position: 0% 50%; } to { background-position: 200% 50%; } }
+.lens-current { background-size: 200% 100%; animation: lens-current 7s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sky-sail, .wave-roll, .boat-bob, .sea-glint, .nebula, .lens-current { animation: none; }
+}
+
 /* ── InkButton (see App.tsx) ──────────────────────────────────────────────────
    A slow wash of color moving under the button's ink, and a band of light
    sweeping across it every few seconds. */
@@ -348,3 +379,6 @@ body {
 .theme-stargazing button,.theme-stargazing [role="button"] { touch-action: manipulation; }
 .theme-stargazing button:focus-visible,.theme-stargazing [role="button"]:focus-visible { outline: 2px solid #ecd2a8; outline-offset: 3px; }
 @media(prefers-reduced-motion:reduce) { .theme-stargazing *, .theme-stargazing *::before, .theme-stargazing *::after { animation-duration: .01ms!important; animation-iteration-count: 1!important; transition-duration: .01ms!important; } }
+
+/* The sky's search field: a soft starlight placeholder on the dark lens. */
+.sky-search::placeholder { color: rgba(243, 239, 250, 0.62); }
