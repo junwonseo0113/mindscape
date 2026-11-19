@@ -257,10 +257,13 @@ export default function StarGazeMap({
         {STAR_LAYERS.map((layer, li) => (
           <div key={li} className="sky-sail" style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "200%", ["--sail-dur" as string]: layer.dur } as React.CSSProperties}>
             {[0, 50].map((offset) => layer.stars.map((f, i) => (
-              <span key={`${offset}-${i}`} className="twinkle" style={{
+              // Only every third star twinkles (the rest hold steady): a sky
+              // full of individually animated stars was ~300 running
+              // animations and the main cost of this screen.
+              <span key={`${offset}-${i}`} className={i % 3 === 0 ? "twinkle" : undefined} style={{
                 position: "absolute", left: `${offset + f.x / 2}%`, top: `${f.y}%`, width: f.size, height: f.size, borderRadius: "50%",
                 backgroundColor: f.warm ? "#FFE3B8" : STAR_TINTS[Math.floor(f.tint * STAR_TINTS.length)],
-                boxShadow: f.size > 2 ? "0 0 5px rgba(255,255,255,0.8)" : undefined,
+                boxShadow: f.size > 2.3 ? "0 0 4px rgba(255,255,255,0.75)" : undefined, opacity: i % 3 === 0 ? undefined : 0.75,
                 ["--tw-dur" as string]: `${f.dur.toFixed(2)}s`, ["--tw-delay" as string]: `${f.delay.toFixed(2)}s`,
               } as React.CSSProperties} />
             )))}
