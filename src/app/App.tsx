@@ -3693,7 +3693,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               const pct = relatedBrainBeliefs.length > 0 ? Math.round((count / relatedBrainBeliefs.length) * 100) : 0;
               return (
                 <SettingsRow
-                  key={r} icon={<Node color={REGION_CONFIG[r].color} size={11} intensity={0.75} />} label={REGION_CONFIG[r].label}
+                  key={r} accent={r} icon={<Node color={REGION_CONFIG[r].color} size={11} intensity={0.75} />} label={REGION_CONFIG[r].label}
                   value={<span style={{ ...mono, fontSize: 12 }}>{count} · {pct}%</span>}
                   onClick={onOpenBrainMap ? () => onOpenBrainMap(r) : undefined}
                 />
@@ -3703,7 +3703,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
 
           {onOpenBrainMap && (
             <SettingsGroup>
-              <SettingsRow icon={<Graph size={17} />} label="Open the Brain Map" value={`${store.beliefs.length} ${store.beliefs.length === 1 ? "belief" : "beliefs"}`} onClick={() => onOpenBrainMap()} />
+              <SettingsRow accent="curiosity" icon={<Graph size={17} />} label="Open your sky" value={`${store.beliefs.length} ${store.beliefs.length === 1 ? "belief" : "beliefs"}`} onClick={() => onOpenBrainMap()} />
             </SettingsGroup>
           )}
 
@@ -3714,8 +3714,8 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               (store.isPro, toggled from Profile). */}
           {store.isPro && (
             <SettingsGroup header="Go deeper" style={{ marginBottom: 0 }}>
-              <SettingsRow icon={<ShareNetwork size={17} />} label="Unconscious patterns" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
-              <SettingsRow icon={<Footprints size={17} />} label="Distance from your aspiration" onClick={() => onOpenArtifact?.("drift")} />
+              <SettingsRow accent="relationships" icon={<ShareNetwork size={17} />} label="Unconscious patterns" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+              <SettingsRow accent="career" icon={<Footprints size={17} />} label="Distance from your aspiration" onClick={() => onOpenArtifact?.("drift")} />
             </SettingsGroup>
           )}
         </div>
@@ -8421,6 +8421,9 @@ function SettingsGroup({ header, footer, children, style }: { header?: React.Rea
 
 type SettingsRowProps = {
   icon?: React.ReactNode;
+  // The row's colour: tints its icon tile and its arrow, and colours the
+  // ripple when it's tapped. Defaults to identity's violet.
+  accent?: CognitiveRegion;
   label: React.ReactNode;
   value?: React.ReactNode;
   trailing?: React.ReactNode;
@@ -8438,30 +8441,94 @@ type SettingsRowProps = {
 // saturated color, so a column of them stays quiet.
 const settingsTile: React.CSSProperties = { width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
 
-function SettingsRow({ icon, label, value, trailing, onClick, destructive, center, chevron, divider = true, disabled, style }: SettingsRowProps) {
+// ── Opening a page from the row you tapped ───────────────────────────────────
+// A row that leads somewhere hands its own rectangle to the app shell
+// (OpenFromContext); the next screen then grows out of that row (the
+// "grow" transition: a clip-path opening like the one Home's orbs use to
+// open the sky), instead of sliding in from the side. If the tap doesn't navigate, the hand-off lapses.
+const OpenFromContext = React.createContext<((el: HTMLElement) => void) | null>(null);
+
+// The arrow on a row: a small gem of the row's colour with the caret in
+// its ink. Tapping it sends the caret flying off to the right while a new
+// one slides in behind it.
+function RowArrow({ accent, fired }: { accent: CognitiveRegion; fired: number }) {
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG[accent];
+  return (
+    <motion.span aria-hidden
+      whileHover={reduce ? undefined : { x: 2 }}
+      style={{
+        position: "relative", width: 26, height: 26, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+        display: "inline-flex", alignItems: "center", justifyContent: "center", color: c.ink,
+        backgroundImage: `radial-gradient(circle at 30% 25%, #FFFFFF 0%, ${c.color}30 45%, ${c.color}55 100%)`,
+        boxShadow: `inset 0 0 0 1px ${c.color}55, 0 4px 10px -5px ${c.color}`,
+      }}>
+      {fired > 0 && !reduce && (
+        <motion.span key={`out${fired}`} initial={{ x: 0, opacity: 1 }} animate={{ x: 16, opacity: 0 }} transition={{ duration: 0.28, ease: "easeIn" }}
+          style={{ position: "absolute", lineHeight: 0 }}>
+          <CaretRight size={13} weight="bold" />
+        </motion.span>
+      )}
+      <motion.span key={`in${fired}`} initial={fired > 0 && !reduce ? { x: -14, opacity: 0 } : false} animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.32, delay: 0.12, ease: [0.22, 1, 0.36, 1] }} style={{ lineHeight: 0, display: "block" }}>
+        <CaretRight size={13} weight="bold" />
+      </motion.span>
+    </motion.span>
+  );
+}
+
+function SettingsRow({ icon, label, value, trailing, onClick, destructive, center, chevron, divider = true, disabled, style, accent }: SettingsRowProps) {
+  const reduce = useReducedMotion();
+  const openFrom = React.useContext(OpenFromContext);
+  const rowRef = React.useRef<HTMLDivElement>(null);
+  const [ripples, setRipples] = React.useState<{ id: number; x: number; y: number; size: number }[]>([]);
+  const [fired, setFired] = React.useState(0);
   const interactive = !!onClick && !disabled;
   const showChevron = chevron ?? (!!onClick && !trailing && !center);
   const color = destructive ? mdWarn : ivHeading;
   const inset = icon ? 16 + 28 + 12 : 16;
+  const tone = REGION_CONFIG[accent ?? "identity"];
+  const activate = (pt?: { x: number; y: number }) => {
+    const el = rowRef.current;
+    if (el && !reduce) {
+      const r = el.getBoundingClientRect();
+      const x = pt ? pt.x - r.left : r.width - 30, y = pt ? pt.y - r.top : r.height / 2;
+      const id = Date.now() + Math.random();
+      setRipples((rs) => [...rs.slice(-2), { id, x, y, size: Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)) * 2 }]);
+      setTimeout(() => setRipples((rs) => rs.filter((q) => q.id !== id)), 650);
+    }
+    if (showChevron) setFired((n) => n + 1);
+    if (el && showChevron) openFrom?.(el);
+    onClick?.();
+  };
   return (
     <motion.div
+      ref={rowRef}
       role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-disabled={disabled || undefined}
-      onClick={interactive ? onClick : undefined}
-      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}
-      whileTap={interactive ? { backgroundColor: "rgba(42,38,33,0.07)" } : undefined}
+      onClick={interactive ? (e) => activate({ x: e.clientX, y: e.clientY }) : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } } : undefined}
+      whileTap={interactive ? { backgroundColor: `${tone.color}14` } : undefined}
       transition={{ duration: 0.12 }}
       style={{
-        position: "relative", display: "flex", alignItems: "center", justifyContent: center ? "center" : undefined, gap: 12,
+        position: "relative", display: "flex", alignItems: "center", justifyContent: center ? "center" : undefined, gap: 12, overflow: "hidden",
         minHeight: 46, padding: "10px 16px", cursor: interactive ? "pointer" : "default", backgroundColor: "rgba(42,38,33,0)",
         opacity: disabled ? 0.55 : 1, WebkitTapHighlightColor: "transparent", ...style,
       }}
     >
       {divider && <span aria-hidden style={{ position: "absolute", top: 0, left: inset, right: 0, height: 1, backgroundColor: ivDivider }} />}
-      {icon && <span style={{ ...settingsTile, backgroundColor: destructive ? mdWarnSoft : "rgba(42,38,33,0.07)", color }}>{icon}</span>}
-      <span style={{ ...sans, fontSize: 15, fontWeight: 500, color, flex: center ? undefined : 1, minWidth: 0, lineHeight: 1.3, wordBreak: "keep-all" }}>{label}</span>
-      {value !== undefined && value !== null && <span style={{ ...sans, fontSize: 15, color: ivBody, flexShrink: 0 }}>{value}</span>}
+      {ripples.map((q) => (
+        <motion.span key={q.id} aria-hidden initial={{ scale: 0, opacity: 0.55 }} animate={{ scale: 1, opacity: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          style={{ position: "absolute", left: q.x - q.size / 2, top: q.y - q.size / 2, width: q.size, height: q.size, borderRadius: "50%", pointerEvents: "none",
+            backgroundImage: `radial-gradient(circle, ${tone.color}55 0%, ${tone.color}22 45%, transparent 70%)` }} />
+      ))}
+      {icon && <span style={{ ...settingsTile, position: "relative",
+        ...(destructive ? { backgroundColor: mdWarnSoft, color } : accent
+          ? { backgroundImage: `linear-gradient(135deg, ${tone.color}2e, ${tone.color}14)`, boxShadow: `inset 0 0 0 1px ${tone.color}33`, color: tone.ink }
+          : { backgroundColor: "rgba(42,38,33,0.07)", color }) }}>{icon}</span>}
+      <span style={{ ...sans, fontSize: 15, fontWeight: 500, color, flex: center ? undefined : 1, minWidth: 0, lineHeight: 1.3, wordBreak: "keep-all", position: "relative" }}>{label}</span>
+      {value !== undefined && value !== null && <span style={{ ...sans, fontSize: 15, color: ivBody, flexShrink: 0, position: "relative" }}>{value}</span>}
       {trailing}
-      {showChevron && <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>}
+      {showChevron && <RowArrow accent={destructive ? "career" : accent ?? "identity"} fired={fired} />}
     </motion.div>
   );
 }
@@ -9449,6 +9516,24 @@ export default function App() {
     };
     return true;
   };
+  // A tapped row hands over its rectangle; the next screen grows out of it
+  // (the "grow" transition, a slower cousin of Home's orb zoom). Lapses if
+  // nothing navigates.
+  const openFromRow = React.useCallback((el: HTMLElement) => {
+    const host = contentHostRef.current;
+    if (!host) return;
+    const h = host.getBoundingClientRect();
+    const j = el.getBoundingClientRect();
+    const clip = {
+      jar: `inset(${j.top - h.top}px ${h.right - j.right}px ${h.bottom - j.bottom}px ${j.left - h.left}px round 16px)`,
+      full: `inset(${-h.top}px ${-(window.innerWidth - h.right)}px ${-(window.innerHeight - h.bottom)}px ${-h.left}px round 0px)`,
+    };
+    zoomClipRef.current = clip;
+    transitionOverride.current = "grow";
+    setTimeout(() => {
+      if (transitionOverride.current === "grow" && zoomClipRef.current === clip) transitionOverride.current = null;
+    }, 400);
+  }, []);
   const leaveBrainMap = () => {
     if (brainMapReturnTo === "home" && zoomClipRef.current) transitionOverride.current = "unzoom";
     setScreen(brainMapReturnTo);
@@ -10206,6 +10291,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
+    <OpenFromContext.Provider value={openFromRow}>
     <div style={{ minHeight: "100dvh", backgroundColor: "#EDEAE4", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobileViewport ? 0 : 20 }}>
       <div
         ref={frameRef}
@@ -10315,6 +10401,7 @@ export default function App() {
         )}
       </div>
     </div>
+    </OpenFromContext.Provider>
     </MotionConfig>
   );
 }
