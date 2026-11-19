@@ -2059,45 +2059,6 @@ function buildRecentInsights(store: Store, pinned: DiscoveryTarget | null): Rece
   });
 }
 
-// ── Screen 4 · Home ────────────────────────────────────────────────────────────
-// The ivory redesign's primary reference screen — see the "visual system
-// redesign" pass. The old full-bleed hand-photographed jar/desk scene
-// (homeHeroImg) is gone; nothing replaces it as a background image at all.
-// Instead the screen sits on the shared ivory canvas (ivBackground) and the
-// user's own belief nodes — real data, the shared Node component, no
-// photo, no baked-in art — are the entire visual identity: "the interface
-// is quiet, the user's mind provides the color." Two absolutely-positioned
-// interactive regions replace the old jar's hand-measured coordinates: a
-// generous tap target over the node field (opens the real Brain Map via
-// onOpenBrainMap) and, nested in that same space, the actual node points
-// (HomeNodeField — real beliefs, real region colors, same Node the rest of
-// the app now uses). Belief/connection counts + the region-shortcuts
-// trigger are still real, just restyled and tucked quietly under the field
-// instead of over a photo.
-function HomeRegionShortcutSheet({ beliefs, onSelectRegion, onClose }: { beliefs: StoredBelief[]; onSelectRegion: (region: CognitiveRegion) => void; onClose: () => void }) {
-  const counts = new Map<CognitiveRegion, number>();
-  COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
-  beliefs.forEach((b) => { const r = resolveRegion(b); counts.set(r, (counts.get(r) ?? 0) + 1); });
-  return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-      style={{ position: "absolute", left: 20, right: 20, bottom: "23%", zIndex: 20, backgroundColor: ivSurfaceSolid, border: `1px solid ${ivBorder}`, borderRadius: 18, padding: 12, boxShadow: ivCardShadow }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: ivFaint }}>OPEN A REGION</span>
-        <motion.button type="button" aria-label="Close region shortcuts" onClick={onClose} whileTap={{ scale: 0.96, opacity: 0.65 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }} style={{ width: 36, height: 36, margin: -8, border: 0, borderRadius: "50%", background: "transparent", color: ivFaint, cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", WebkitTapHighlightColor: "transparent" }}>×</motion.button>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {COGNITIVE_REGIONS.map((region) => (
-          <motion.button key={region} onClick={() => onSelectRegion(region)} whileTap={{ scale: 0.96 }}
-            style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${ivBorder}`, borderRadius: 999, background: "rgba(42,38,33,0.03)", padding: "8px 10px", cursor: "pointer", color: ivHeading }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
-            <span style={{ ...sans, fontSize: 12 }}>{REGION_CONFIG[region].label}</span>
-            <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{counts.get(region) ?? 0}</span>
-          </motion.button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
 
 function daysSinceLastEntry(history: StoredHistoryEntry[]): number | null {
   if (history.length === 0) return null;
@@ -2375,17 +2336,18 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
   );
 }
 
+// ── Screen 4 · Home ────────────────────────────────────────────────────────────
+// Kept to what Home is for, top to bottom: the day's date and the profile
+// icon; the question; your beliefs as orbs (tap one to read it in place,
+// or "Your sky" to open the full night sky); "Speak your mind"; and the
+// quick mood check-in. Everything else — today's discovery, counts by
+// region, search — lives on its own tab (Analysis, the sky, Diary).
 function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
-  const [showRegionShortcuts, setShowRegionShortcuts] = React.useState(false);
   // Tapping a point explains it in place (HomeNodeCard); the Brain Map
   // itself is entered only through its own button — or from that card.
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
   const selectedBelief = selectedNodeId ? store.beliefs.find((b) => b.id === selectedNodeId) ?? null : null;
   const daysAway = daysSinceLastEntry(store.history);
-  // The same "today's discovery" the Analysis tab leads with — one line of
-  // it here, as the door to that tab, so Home carries one thing the app
-  // has *noticed* and not only the invitation to speak.
-  const discovery = React.useMemo(() => computeDiscovery(store), [store]);
 
   return (
     <div
@@ -2420,18 +2382,6 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* Search stands in for "look back through what I've said" —
-          the closest real destination for that is History, so it
-          routes there rather than being decorative. */}
-          <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <MagnifyingGlass size={20} color={ivHeading} />
-          </motion.div>
-          </Breathe>
           <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
           <motion.div
             role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
@@ -2447,13 +2397,6 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
       <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
         <div style={{ ...display, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
           What thought crossed<br />your mind today?
-        </div>
-        {/* One restrained line of supporting copy, matching the reference
-        screen's own quiet epigrammatic voice (see the opening flow's
-        "There's a pattern in your thinking" for the same register) —
-        static and short, not a marketing block. */}
-        <div style={{ ...hand, fontSize: 22, fontWeight: 500, color: REGION_CONFIG.identity.ink, marginTop: 6 }}>
-          A quieter mind begins here.
         </div>
       </div>
 
@@ -2477,6 +2420,24 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             {/* With zero beliefs the canvas has nothing to draw, so a
                 single resting dot marks where the first belief will
                 appear (pointerEvents: none — nothing here to open yet). */}
+            {/* The one way into the full sky from Home: a small link on the
+                field's own corner, with the count it opens onto. */}
+            {store.beliefs.length > 0 && (
+              <div style={{ position: "absolute", right: 12, bottom: 6, zIndex: 2 }}>
+                <Breathe inline amount={1.05}>
+                  <motion.button
+                    type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
+                    whileTap={{ scale: 0.95 }} transition={SETTLE}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
+                      backgroundColor: "rgba(255,252,246,0.85)", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+                  >
+                    <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
+                    <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: ivHeading, lineHeight: 1 }}>Your sky</span>
+                    <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: ivBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
+                  </motion.button>
+                </Breathe>
+              </div>
+            )}
             {store.beliefs.length === 0 && (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
                 <motion.div
@@ -2527,66 +2488,11 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         </motion.div>
       )}
 
-      {/* The field's caption bar: what the field is (with a chevron,
-          because tapping it opens the by-region sheet) on the left, and
-          the one way into the full Brain Map on the right — the two
-          controls that used to float at different heights, now on one
-          line directly under what they describe. */}
-      {(!MONETIZATION_ENABLED || store.isPro) && (
-        <div style={{ padding: "6px 20px 0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Open Brain Map regions" onClick={() => setShowRegionShortcuts((v) => !v)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setShowRegionShortcuts((v) => !v); } }}
-            whileTap={{ opacity: 0.7 }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", minWidth: 0, padding: "6px 4px", margin: "-6px -4px" }}
-          >
-            <Breathe inline amount={1.04} style={{ display: "inline-flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-              <span style={{ ...display, fontSize: 20, color: ivHeading, flexShrink: 0 }}>Your mind</span>
-              <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {/* Counts up only when the number has changed since the
-                last time Home showed it (after a session added beliefs). */}
-                <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> belief{store.beliefs.length === 1 ? "" : "s"} · <AnimatedNumber value={store.connections.length} memoryKey="home.connections" /> connection{store.connections.length === 1 ? "" : "s"}
-              </span>
-            </Breathe>
-            <CaretRight size={12} color={ivFaint} weight="bold" style={{ flexShrink: 0 }} />
-          </motion.div>
-          <Breathe inline amount={1.05} style={{ flexShrink: 0 }}>
-            <motion.button
-              type="button" aria-label="Open your Brain Map" onClick={() => onOpenBrainMap?.()}
-              whileTap={{ scale: 0.95, opacity: 0.85 }} transition={SETTLE}
-              style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: ivHeading, backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
-            >
-              <Graph size={13} color={ivHeading} weight="bold" />
-              Brain Map
-            </motion.button>
-          </Breathe>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {showRegionShortcuts && (
-          <HomeRegionShortcutSheet beliefs={store.beliefs} onClose={() => setShowRegionShortcuts(false)} onSelectRegion={(region) => { setShowRegionShortcuts(false); onOpenBrainMap?.(region); }} />
-        )}
-      </AnimatePresence>
 
       {/* The bottom stack sits in the column above the nav, so on a short
           phone it's the node field above that gives way, never the three
           things a person came here to do. */}
-      <div style={{ padding: "12px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        {discovery && (!MONETIZATION_ENABLED || store.isPro) && (
-          <motion.div
-            role="button" tabIndex={0} aria-label="Open today's discovery" onClick={() => onNavSelect?.("discoveryAnalysis")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("discoveryAnalysis"); } }}
-            whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }} transition={{ duration: 0.12 }}
-            style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: "9px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
-          >
-            <Sparkle size={15} weight="fill" color={ivHeading} style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...hand, fontSize: 17, fontWeight: 600, color: REGION_CONFIG.identity.ink, lineHeight: 1.1 }}>Today's discovery</div>
-              <div style={{ ...display, fontSize: 17, color: ivHeading, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{discovery.text}</div>
-            </div>
-            <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
-          </motion.div>
-        )}
+      <div style={{ padding: "14px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
         <div data-tutorial="think-card">
           <Breathe amount={1.025}>
           <motion.div
@@ -2598,7 +2504,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
               <span style={{ ...display, fontSize: 20, color: ivHeading }}>Speak your mind</span>
-              <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `Welcome back — it's been ${daysAway} days` : "It's okay if it's not organized"}</span>
+              <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
             </div>
             <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
           </motion.div>
