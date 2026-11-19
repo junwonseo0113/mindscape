@@ -17,8 +17,10 @@ import * as React from "react";
 import type { Variants, Transition } from "motion/react";
 
 // zoom / unzoom: Home's brain jar opening into (and closing back from) the
-// full Brain Map — see the clip-path variants below.
-export type TransitionKind = "forward" | "back" | "tab" | "opening" | "session" | "zoom" | "unzoom";
+// full Brain Map — see the clip-path variants below. grow: a page opening
+// out of the row that was tapped (same clip-path idea, slower and eased at
+// both ends so the growth itself is visible).
+export type TransitionKind = "forward" | "back" | "tab" | "opening" | "session" | "zoom" | "unzoom" | "grow";
 
 const PRIMARY_TABS = new Set(["home", "analysis", "discoveryAnalysis", "history"]);
 const OPENING = new Set(["quote", "splash", "auth", "login", "signup", "onboarding"]);
@@ -69,6 +71,7 @@ export type TransitionCustom = { kind: TransitionKind; reduce: boolean; clip?: {
 // iOS-style deceleration: fast start, long gentle settle.
 const PUSH_EASE = [0.32, 0.72, 0, 1] as const;
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const;
+const GROW_EASE = [0.65, 0, 0.25, 1] as const;
 
 function enterTransition(kind: TransitionKind): Transition {
   switch (kind) {
@@ -79,6 +82,7 @@ function enterTransition(kind: TransitionKind): Transition {
     case "session": return { duration: 0.28, ease: SOFT_EASE };
     case "zoom": return { duration: 0.55, ease: PUSH_EASE };
     case "unzoom": return { duration: 0.45, ease: PUSH_EASE };
+    case "grow": return { duration: 0.62, ease: GROW_EASE };
   }
 }
 
@@ -87,7 +91,7 @@ export const screenVariants: Variants = {
     if (reduce) return { opacity: 0, zIndex: 2 };
     // clip-path, not a transform: the Brain Map's root is position:fixed,
     // and a transform on this wrapper would re-anchor it mid-animation.
-    if (kind === "zoom" && clip) return { opacity: 1, clipPath: clip.jar, zIndex: 2 };
+    if ((kind === "zoom" || kind === "grow") && clip) return { opacity: 1, clipPath: clip.jar, zIndex: 2 };
     if (kind === "unzoom") return { opacity: 1, scale: 1.04, zIndex: 0 };
     switch (kind) {
       case "forward": return { opacity: 0, x: "6%", zIndex: 2 };
@@ -101,7 +105,7 @@ export const screenVariants: Variants = {
   },
   animate: ({ kind, reduce, clip }: TransitionCustom) => ({
     opacity: 1, x: "0%", scale: 1, filter: "blur(0px)",
-    ...(kind === "zoom" && clip && !reduce ? { clipPath: clip.full } : {}),
+    ...((kind === "zoom" || kind === "grow") && clip && !reduce ? { clipPath: clip.full } : {}),
     transition: reduce ? { duration: 0.12 } : enterTransition(kind),
     // A leftover filter/transform on this wrapper would become the
     // containing block for position:fixed children (the brain map's
@@ -122,6 +126,9 @@ export const screenVariants: Variants = {
         return clip
           ? { ...base, clipPath: clip.jar, opacity: 0, zIndex: 2, transition: t({ duration: 0.45, ease: PUSH_EASE, opacity: { delay: 0.28, duration: 0.17 } }) }
           : { ...base, opacity: 0, zIndex: 2, transition: t({ duration: 0.3 }) };
+      // The page you were on settles back a little as the new one opens over it.
+      case "grow":
+        return { ...base, scale: 0.97, opacity: 1, zIndex: 1, transition: t({ duration: 0.62, ease: GROW_EASE }) };
       case "forward":
         return { ...base, x: "-3%", zIndex: 1, opacity: 1, transition: t({ duration: 0.42, ease: PUSH_EASE }) };
       case "back":
