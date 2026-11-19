@@ -996,9 +996,12 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
 // The ink drops and the drift stop under reduced motion.
 const DIARY_INKS = [REGION_CONFIG.identity.color, REGION_CONFIG.relationships.color, REGION_CONFIG.career.color, REGION_CONFIG.curiosity.color, REGION_CONFIG.security.color, REGION_CONFIG.creativity.color];
 
-function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 25, lineHeight = 36, minHeight, fill, onEnter, style }: {
+function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 25, lineHeight = 36, minHeight, fill, onEnter, style, header, children }: {
   value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel: string; autoFocus?: boolean;
   fontSize?: number; lineHeight?: number; minHeight?: number; fill?: boolean; onEnter?: () => void; style?: React.CSSProperties;
+  // header: written on the first ruled line, above where you type (a
+  // salutation, say). children: overlays on the paper (a seal, a stamp).
+  header?: React.ReactNode; children?: React.ReactNode;
 }) {
   const reduce = useReducedMotion();
   const [drops, setDrops] = React.useState<{ id: number; color: string; dx: number }[]>([]);
@@ -1043,6 +1046,14 @@ function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fo
         {tape("right", `${REGION_CONFIG.curiosity.color}99`, `${REGION_CONFIG.curiosity.tint}`)}
         {/* Margin line */}
         <span aria-hidden style={{ position: "absolute", left: 26, top: 10, bottom: 10, width: 1.5, borderRadius: 1, backgroundColor: `${REGION_CONFIG.relationships.color}88` }} />
+        {header && (
+          <div style={{
+            ...hand, fontWeight: 500, fontSize, lineHeight: `${lineHeight}px`, height: padTop + lineHeight, padding: `${padTop}px 0 0`, flexShrink: 0,
+            color: REGION_CONFIG.identity.ink, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8,
+            backgroundPosition: `0 ${padTop}px`, backgroundRepeat: "no-repeat", backgroundSize: `100% ${lineHeight}px`,
+            backgroundImage: `linear-gradient(to bottom, transparent ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight - 1}px)`,
+          }}>{header}</div>
+        )}
         <textarea
           autoFocus={autoFocus} value={value} placeholder={placeholder} aria-label={ariaLabel}
           onChange={(e) => handle(e.target.value)}
@@ -1050,10 +1061,10 @@ function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fo
           rows={fill ? undefined : 2}
           style={{
             ...hand, fontWeight: 500, width: "100%", resize: "none", border: 0, outline: "none", ...(fill ? { flex: 1, minHeight: 0 } : { minHeight: minHeight ?? lineHeight * 2 + padTop }),
-            padding: `${padTop}px 0 0`, fontSize, lineHeight: `${lineHeight}px`, color: "#2E2547", caretColor: REGION_CONFIG.relationships.color,
+            padding: `${header ? 0 : padTop}px 0 0`, fontSize, lineHeight: `${lineHeight}px`, color: "#2E2547", caretColor: REGION_CONFIG.relationships.color,
             wordBreak: "keep-all", colorScheme: "light",
             // Ruled lines that scroll with the writing, one per line.
-            backgroundColor: "transparent", backgroundAttachment: "local", backgroundPosition: `0 ${padTop}px`,
+            backgroundColor: "transparent", backgroundAttachment: "local", backgroundPosition: `0 ${header ? 0 : padTop}px`,
             backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight - 1}px, ${REGION_CONFIG.identity.color}38 ${lineHeight}px)`,
           }}
         />
@@ -1072,8 +1083,61 @@ function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fo
             <PenNib size={22} weight="duotone" />
           </motion.span>
         </div>
+        {children}
       </div>
     </div>
+  );
+}
+
+// ── Letter to your future self ───────────────────────────────────────────────
+// Where the aspiration is written (the last onboarding page, and Profile →
+// Your Journey): a diary page addressed "Dear future me," with today's date
+// on the same line. When it's saved, a wax seal in the app's colours
+// presses down onto the corner of the page, the way you'd close a letter
+// meant to be opened later; the screen moves on once it has landed.
+const SEAL_MS = 900;
+
+function WaxSeal() {
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG.relationships;
+  return (
+    <motion.div aria-hidden
+      initial={reduce ? { opacity: 0 } : { scale: 2.4, opacity: 0, rotate: -40, y: -30 }}
+      animate={{ scale: 1, opacity: 1, rotate: -12, y: 0 }}
+      transition={reduce ? { duration: 0.2 } : { type: "spring", stiffness: 320, damping: 17 }}
+      style={{ position: "absolute", right: 16, bottom: 40, width: 72, height: 72, zIndex: 3 }}
+    >
+      {!reduce && (
+        <motion.span initial={{ scale: 0.6, opacity: 0.55 }} animate={{ scale: 1.9, opacity: 0 }} transition={{ duration: 0.7, delay: 0.12, ease: "easeOut" }}
+          style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${c.color}` }} />
+      )}
+      <svg viewBox="0 0 72 72" width="72" height="72" style={{ display: "block", filter: `drop-shadow(0 4px 6px ${c.ink}55)` }}>
+        <defs>
+          <radialGradient id="wax" cx="38%" cy="32%" r="70%">
+            <stop offset="0" stopColor="#F59BB4" /><stop offset="0.45" stopColor={c.color} /><stop offset="1" stopColor={c.ink} />
+          </radialGradient>
+        </defs>
+        {/* Melted, uneven rim */}
+        <path d="M36 3c6 0 9 3 14 4s10 5 12 10 4 9 5 14-1 9 0 14-4 10-8 13-8 6-13 7-9 4-14 3-9-3-14-5-9-6-11-11-5-9-5-14 2-10 2-15 5-9 9-12 10-5 14-6 4-2 9-2z" fill="url(#wax)" />
+        <circle cx="36" cy="36" r="21" fill="none" stroke="#FFFFFF" strokeOpacity="0.35" strokeWidth="1.2" />
+        <circle cx="36" cy="36" r="17.5" fill="none" stroke={c.ink} strokeOpacity="0.35" strokeWidth="1" />
+        <text x="36" y="45" textAnchor="middle" style={{ ...display, fontStyle: "italic", fontSize: 26 }} fill="#FFFFFF" fillOpacity="0.88">M</text>
+      </svg>
+    </motion.div>
+  );
+}
+
+function FutureSelfLetter({ value, onChange, sealed, autoFocus, fontSize = 23, lineHeight = 34 }: { value: string; onChange: (v: string) => void; sealed: boolean; autoFocus?: boolean; fontSize?: number; lineHeight?: number }) {
+  const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return (
+    <DiaryNotePaper
+      fill autoFocus={autoFocus} value={value} onChange={onChange} fontSize={fontSize} lineHeight={lineHeight}
+      ariaLabel="What kind of person do you want to become? Write it as a note to your future self"
+      placeholder="I want to be someone who chooses challenge over safety…"
+      header={<><span>Dear future me,</span><span style={{ fontSize: Math.round(fontSize * 0.72), color: REGION_CONFIG.identity.ink, opacity: 0.75 }}>{date}</span></>}
+    >
+      <AnimatePresence>{sealed && <WaxSeal key="seal" />}</AnimatePresence>
+    </DiaryNotePaper>
   );
 }
 
@@ -1588,6 +1652,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
   const totalSteps = ONBOARDING_SLIDES.length + 1;
   const [i, setI] = React.useState(0);
   const [aspiration, setAspiration] = React.useState(initialAspiration ?? "");
+  const [sealing, setSealing] = React.useState(false);
   const isAspirationStep = i === ONBOARDING_SLIDES.length;
   const isLast = i === totalSteps - 1;
   const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
@@ -1659,31 +1724,30 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,.52)", letterSpacing: "0.06em" }}>Last thing</div>
-            <div style={{ ...display, fontSize: 28, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.4, wordBreak: "keep-all" }}>
+            <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: REGION_CONFIG.relationships.ink }}>The last page</div>
+            <div style={{ ...display, fontSize: 30, color: OPENING_TEXT, marginTop: 8, lineHeight: 1.2, wordBreak: "keep-all" }}>
               What kind of person<br />do you want to become?
             </div>
-            <div style={{ ...sans, fontSize: 13, color: OPENING_MUTED, marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
-              Optional. If you write it down, we'll keep showing you the distance between this and the thoughts you leave here going forward.
+            <div style={{ ...hand, fontSize: 19, color: OPENING_MUTED, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>
+              Optional. Write it down, and we'll keep showing you how far your thoughts are from it.
             </div>
           </div>
-          <textarea
-            autoFocus
-            value={aspiration}
-            onChange={(e) => setAspiration(e.target.value)}
-            placeholder="e.g. I want to be someone who chooses challenge over safety."
-            aria-label="What kind of person do you want to become?"
-            style={{
-              ...display, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
-              backgroundColor: "transparent", color: OPENING_TEXT, fontSize: 17, lineHeight: 1.7,
-              wordBreak: "keep-all", marginTop: 18, minHeight: 0, colorScheme: "light",
-            }}
-          />
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 22, paddingBottom: 18 }}>
+            <FutureSelfLetter autoFocus value={aspiration} onChange={setAspiration} sealed={sealing} />
+          </div>
         </div>
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory onClick={() => (isLast ? onDone?.(aspiration.trim() || null) : setI((v) => v + 1))}>
-          {isLast ? (aspiration.trim() ? "Save and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
+        <PrimaryBtn ivory onClick={() => {
+          if (!isLast) return setI((v) => v + 1);
+          const value = aspiration.trim();
+          if (!value) return onDone?.(null);
+          if (sealing) return;
+          // Seal the letter, then move on once the seal has landed.
+          setSealing(true);
+          setTimeout(() => onDone?.(value), SEAL_MS);
+        }}>
+          {isLast ? (aspiration.trim() ? "Seal it and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
         </PrimaryBtn>
       </div>
     </div>
@@ -6655,31 +6719,28 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
 // ── Screen 10.5 · Aspiration setup ────────────────────────────────────────────
 function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?: string | null; onBack?: () => void; onSave?: (value: string) => void }) {
   const [value, setValue] = React.useState(initialValue ?? "");
+  const [sealing, setSealing] = React.useState(false);
+  const save = () => {
+    const v = value.trim();
+    if (!v || sealing) return;
+    setSealing(true);
+    setTimeout(() => onSave?.(v), SEAL_MS);
+  };
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground, position: "relative", overflow: "hidden" }}>
+      <OpeningBackdrop variant="aspire" />
+      <div style={{ padding: "16px 22px 12px", flexShrink: 0, position: "relative", zIndex: 1 }}>
         <BackButton onClick={onBack} />
-        <div style={{ ...display, fontSize: 24, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>Who do you want to become?</div>
-        <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          We'll keep comparing this to the thoughts you log going forward.
+        <div style={{ ...display, fontSize: 30, color: ivHeading, marginTop: 10, lineHeight: 1.2, wordBreak: "keep-all" }}>Who do you want to become?</div>
+        <div style={{ ...hand, fontSize: 19, color: ivBody, marginTop: 8, lineHeight: 1.3, wordBreak: "keep-all" }}>
+          We'll keep comparing it with the thoughts you write here.
         </div>
       </div>
-      <div style={{ flex: 1, minHeight: 0, padding: "8px 22px 0", display: "flex" }}>
-        <textarea
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="e.g. I want to be someone who chooses challenge over safety."
-          aria-label="Who do you want to become?"
-          style={{
-            ...display, flex: 1, width: "100%", resize: "none", border: "none", outline: "none",
-            backgroundColor: "transparent", color: mdHeading, fontSize: 20, lineHeight: 1.7,
-            wordBreak: "keep-all", colorScheme: "light",
-          }}
-        />
+      <div style={{ flex: 1, minHeight: 0, padding: "18px 22px 18px", display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
+        <FutureSelfLetter autoFocus value={value} onChange={setValue} sealed={sealing} />
       </div>
-      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
-        <PrimaryBtn disabled={!value.trim()} onClick={() => onSave?.(value.trim())} modernist>Save</PrimaryBtn>
+      <div style={{ padding: "0 22px 32px", flexShrink: 0, position: "relative", zIndex: 1 }}>
+        <PrimaryBtn ivory disabled={!value.trim()} onClick={save}>{initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
       </div>
     </div>
   );
