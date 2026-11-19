@@ -1,3 +1,4 @@
+import { sanitizeAiConsent } from "./aiConsent";
 // ── Real, on-device user data ────────────────────────────────────────────────
 // The one place this app keeps real, accumulating state instead of curated
 // demo data. Every analysis feeds the current graph back to the model so it
@@ -89,6 +90,7 @@ export function sanitizeStore(parsed: any): Store {
       lensSessions: Array.isArray(parsed.lensSessions)
         ? parsed.lensSessions.filter((s: any) => s && typeof s.id === "string" && typeof s.kind === "string" && typeof s.summary === "string")
         : [],
+  aiConsent: sanitizeAiConsent(parsed.aiConsent),
   };
 }
 

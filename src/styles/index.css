@@ -1,4 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Type — a diary's typefaces, all self-hosted via Fontsource (no font
+   request leaves the app at launch).
+   · Instrument Serif — titles and the large statements: a slim editorial
+     serif, like the lettering on a notebook's cover.
+   · Caveat (+ Nanum Pen Script for Hangul) — the handwriting: datelines,
+     section labels, and the words you write on a diary page.
+   · Source Serif 4 (+ Gowun Batang for Hangul) — reading text at small
+     sizes, where a display serif would get tight.
+   · Pretendard — interface text (an Inter-based sans that covers Korean).
+   · JetBrains Mono — numbers and counts. */
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource-variable/caveat/wght.css";
+@import "@fontsource/nanum-pen-script/400.css";
+@import "@fontsource-variable/source-serif-4/opsz.css";
+@import "@fontsource-variable/source-serif-4/opsz-italic.css";
+@import "@fontsource/gowun-batang/400.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 /* Tailwind is scoped to shadcn/BKlit UI components only — the rest of this
    app renders with inline styles by design (see the file-level comments
    below), so Tailwind utility classes should stay confined to components
@@ -6,7 +24,6 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -25,11 +42,145 @@ html, body {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
   /* Removes the ~300ms tap-response delay mobile browsers otherwise add
      while waiting to see if a tap is the start of a double-tap-to-zoom,
      and stops that double-tap gesture from firing on buttons/cards at all. */
   touch-action: manipulation;
+}
+
+/* ── Breathe (see motionPrimitives.tsx) ───────────────────────────────────────
+   One slow swell per cycle, like animate.css's `pulse` but at a resting
+   breath's tempo rather than a notification's. --breathe-max and
+   --breathe-delay are set per instance by the Breathe wrapper. */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(var(--breathe-max, 1.04)); }
+}
+.breathe {
+  animation: breathe 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: var(--breathe-delay, 0s);
+  transform-origin: center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .breathe { animation: none; }
+}
+
+/* ── Orb flow (see Node in App.tsx) ───────────────────────────────────────────
+   Light drifting inside each small orb: a slow turn plus an uneven wander
+   (three waypoints at different offsets and scales), so the blobs fold
+   past each other rather than circling one point. 11s — well under a
+   breath's pace, so it reads as a current, not a pulse. */
+@keyframes orb-flow {
+  0%   { transform: translate(-6%, 4%) rotate(0deg) scale(1); }
+  33%  { transform: translate(5%, -5%) rotate(125deg) scale(1.08); }
+  66%  { transform: translate(-3%, -7%) rotate(235deg) scale(0.95); }
+  100% { transform: translate(-6%, 4%) rotate(360deg) scale(1); }
+}
+.orb-flow {
+  animation: orb-flow 11s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: var(--orb-delay, 0s);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb-flow { animation: none; }
+}
+
+/* ── Opening backdrop (see OpeningBackdrop in App.tsx) ────────────────────────
+   Soft blooms wander on long loops; small orbs float near the edges. Each
+   instance sets its own --dx/--dy (or --fx/--fy), --dur and --delay, so no
+   two move in step. */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(var(--dx, 30px), var(--dy, 20px)) scale(1.12); }
+}
+.aurora {
+  animation: aurora-drift var(--dur, 26s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+@keyframes float-drift {
+  0%, 100% { transform: translate(0, 0); }
+  33%      { transform: translate(var(--fx, 10px), calc(var(--fy, 12px) * -1)); }
+  66%      { transform: translate(calc(var(--fx, 10px) * -0.6), var(--fy, 12px)); }
+}
+.float-drift {
+  animation: float-drift var(--dur, 16s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora, .float-drift { animation: none; }
+}
+
+/* ── Night sky (see StarGazeMap.tsx) ─────────────────────────────────────────
+   Field stars twinkle on their own periods; the Milky Way band drifts a
+   few pixels over a minute; one shooting star crosses every ~11 seconds. */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+.twinkle {
+  animation: twinkle var(--tw-dur, 3.5s) ease-in-out infinite;
+  animation-delay: var(--tw-delay, 0s);
+}
+@keyframes milky-drift {
+  0%, 100% { translate: 0 0; opacity: 0.9; }
+  50%      { translate: 18px -8px; opacity: 1; }
+}
+.milky-way { animation: milky-drift 60s ease-in-out infinite; }
+@keyframes shooting-star {
+  0%, 82%  { opacity: 0; transform: translate(0, 0) rotate(-32deg) scaleX(0.2); }
+  85%      { opacity: 1; transform: translate(-40px, 26px) rotate(-32deg) scaleX(1); }
+  92%, 100% { opacity: 0; transform: translate(-150px, 96px) rotate(-32deg) scaleX(0.6); }
+}
+.shooting-star {
+  width: 90px; height: 1.5px; border-radius: 1px; transform-origin: right center;
+  background: linear-gradient(270deg, rgba(255,255,255,0.95), rgba(255,255,255,0));
+  animation: shooting-star 11s ease-out infinite;
+  animation-delay: 3s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .twinkle, .milky-way, .shooting-star { animation: none; }
+  .shooting-star { display: none; }
+}
+
+/* ── InkButton (see App.tsx) ──────────────────────────────────────────────────
+   A slow wash of color moving under the button's ink, and a band of light
+   sweeping across it every few seconds. */
+@keyframes ink-wash {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50%      { transform: translate(6%, -4%) rotate(8deg); }
+}
+.ink-wash { animation: ink-wash 9s ease-in-out infinite; }
+@keyframes ink-sheen {
+  0%, 62% { left: -45%; }
+  100%    { left: 120%; }
+}
+.ink-sheen { animation: ink-sheen 4.2s ease-in-out infinite; animation-delay: 1.2s; }
+@media (prefers-reduced-motion: reduce) {
+  .ink-wash, .ink-sheen { animation: none; }
+}
+
+/* ── Diary page wash (see DiaryNotePaper in App.tsx) ──────────────────────────
+   The pastel paper's colors drift slowly across it. */
+@keyframes diary-wash {
+  0%, 100% { background-position: 0% 30%; }
+  50%      { background-position: 100% 70%; }
+}
+.diary-wash { animation: diary-wash 18s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .diary-wash { animation: none; } }
+
+/* ── Edge fade ────────────────────────────────────────────────────────────────
+   A scroll region's content fades out at its top and bottom edges instead
+   of being sliced by a hard line under the header and above the nav. The
+   mask belongs to the scroll container's own box, so it stays put while
+   the content moves under it. 12px at the top (under the header), 32px at
+   the bottom, where the floating nav sits. */
+.edge-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 32px), transparent 100%);
 }
 
 /* ── Modernist screens' real :focus-visible/:hover states ─────────────────────
@@ -66,7 +217,7 @@ body {
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: 'Pretendard Variable', Pretendard, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

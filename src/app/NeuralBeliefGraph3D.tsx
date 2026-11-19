@@ -17,95 +17,11 @@ import {
 } from "./neuralBrainLayout";
 import { StoredEvidenceQuote } from "./types";
 
-export type NeuralBeliefNode = {
-  id: string;
-  domain: string;
-  statement: string;
-  confidence: number;
-  evidenceCount: number;
-  // Optional 0..1 "how recent" signal — falls back to a stable per-id
-  // pseudo value when the caller doesn't have one yet.
-  recency?: number;
-  // "YYYY.MM.DD" (formatDateDots) — when `recency` isn't explicitly given,
-  // this drives real growth/dormancy (see recencyFromDate) instead of the
-  // stable pseudo-random fallback. Demo beliefs mostly don't set this, so
-  // they keep the old pseudo-recency look; real beliefs always do (every
-  // mergeAnalysisIntoStore update stamps it).
-  lastUpdatedAt?: string;
-  // Which of the six app-defined cognitive regions this belief activates a
-  // neuron in. Optional because the backend doesn't produce this yet —
-  // see mapDomainToCognitiveRegion below for the fallback.
-  region?: CognitiveRegion;
-  // Optional — only used by BrainNodeMapScreen's node-detail panel
-  // ("Moments that support this pattern"). Always present in practice (every real
-  // StoredBelief carries its own quotes), optional here only so a caller
-  // that genuinely doesn't have quotes yet isn't forced to fake an array.
-  evidenceQuotes?: StoredEvidenceQuote[];
-  // Emotional granularity (Feldman Barrett) — average distinct-emotion-label
-  // count across this belief's last few supporting entries. Purely a
-  // surface-geometry driver (see ActiveBeliefNode's facetDetail): more
-  // distinct emotions reads as a visibly faceted surface, one flat feeling
-  // reads as smooth. Never shown as a number anywhere.
-  emotionGranularity?: number;
-  // Rumination-possibility (Trapnell & Campbell) — see analysisFramework's
-  // isLikelyRuminating. Purely a visual "still circling" cue (an orbiting
-  // particle in the neuron's own color, never a warning color), never a
-  // label — same non-diagnostic rule as everywhere else this signal appears.
-  ruminationLikely?: boolean;
-};
-
-// Temporary mapping until the backend sends `region` directly: the app's
-// real belief data only carries a freeform `domain` string, so this guesses
-// a cognitive region from keywords and falls back to a stable hash so every
-// domain still lands somewhere deterministic.
-const DOMAIN_REGION_KEYWORDS: [RegExp, CognitiveRegion][] = [
-  [/career|job|work|workplace|profession|occupation/i, "career"],
-  [/relationship|love|family|friend|romance|dating/i, "relationships"],
-  [/safe|security|stability|stable/i, "security"],
-  [/self|identity|value/i, "identity"],
-  [/creativ|art|imagin/i, "creativity"],
-  [/curio|explore|learn|growth/i, "curiosity"],
-];
-
-function mapDomainToCognitiveRegion(domain: string): CognitiveRegion {
-  for (const [pattern, region] of DOMAIN_REGION_KEYWORDS) {
-    if (pattern.test(domain)) return region;
-  }
-  return COGNITIVE_REGIONS[hashString(domain) % COGNITIVE_REGIONS.length];
-}
-
-// Exported so pages outside the canvas (the Analysis tab's region
-// breakdown) can classify the same belief into the same cognitive region
-// without duplicating this lookup — it's pure and needs no 3D state.
-export function resolveRegion(belief: NeuralBeliefNode): CognitiveRegion {
-  return belief.region ?? mapDomainToCognitiveRegion(belief.domain);
-}
-
-// `type` mirrors StoredConnection's — "root" (mutually-reinforcing, the
-// default/undefined case) reads as a calm static line always;
-// "contradiction" gets the dashed/flickering "tension line" treatment,
-// but only while structureMode is on (see BrainScene) — in the calm
-// default view every connection looks the same.
-export type NeuralBeliefConnection = { a: string; b: string; type?: "root" | "contradiction"; note: string };
-
-// Real recency from a "YYYY.MM.DD" date (formatDateDots format), decaying
-// smoothly rather than in visible steps — exponential with a ~3-week time
-// constant, floored well above zero so an old-but-real belief still reads
-// as present tissue, just quieter, never mistaken for background noise
-// (the metaphor is dormancy/pruning-adjacent dimming, not deletion).
-// Exported so History's star catalogue can compute the exact same
-// vitality/dormancy signal the Brain Map itself uses, instead of a second,
-// independently-tuned "recency" concept drifting out of sync with it.
-export function recencyFromDate(dateStr?: string): number | null {
-  if (!dateStr) return null;
-  const parts = dateStr.split(".").map((s) => parseInt(s, 10));
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  const [y, m, d] = parts;
-  const then = new Date(y, m - 1, d).getTime();
-  if (Number.isNaN(then)) return null;
-  const days = Math.max(0, (Date.now() - then) / (1000 * 60 * 60 * 24));
-  return Math.max(0.15, Math.min(1, Math.exp(-days / 21)));
-}
+// Pure region data/helpers live in brainRegions.ts so screens that only
+// need labels/colors don't pull three.js into the startup bundle.
+import { REGION_CONFIG, resolveRegion, recencyFromDate, type NeuralBeliefNode, type NeuralBeliefConnection } from "./brainRegions";
+export { REGION_CONFIG, resolveRegion, recencyFromDate } from "./brainRegions";
+export type { NeuralBeliefNode, NeuralBeliefConnection } from "./brainRegions";
 
 // ── Permanent neural structure — generated once at module load, not from
 // props, and never regenerated on refresh (same seed every time). Real
@@ -174,19 +90,6 @@ const REGION_TINT: Record<string, THREE.Color> = {
 const DEFAULT_TINT = REGION_TINT.core;
 const DIM_TINT = new THREE.Color("#131217");
 const BRIGHT_TINT = new THREE.Color("#3C342A");
-
-// ── Single source of truth for the six cognitive regions: their permanent
-// activation color, display label, and a one-line description of what the
-// category actually means — the legend and RegionBreakdown both read from
-// this map — nothing hardcodes a region's color or meaning anywhere else.
-export const REGION_CONFIG: Record<CognitiveRegion, { color: string; label: string; description: string }> = {
-  identity: { color: "#8B7CFF", label: "Identity", description: "Who you think you are — beliefs about self-perception, self-worth, and values" },
-  security: { color: "#4CAF7A", label: "Security", description: "The standards you use to stay safe in the face of risk and change" },
-  career: { color: "#D9A441", label: "Career", description: "Beliefs you hold about work, achievement, and ability" },
-  relationships: { color: "#E88AAE", label: "Relationships", description: "Recurring thoughts and attitudes in how you relate to other people" },
-  curiosity: { color: "#69A7FF", label: "Curiosity", description: "Your attitude toward exploring and learning new things" },
-  creativity: { color: "#F4A261", label: "Creativity", description: "Beliefs about how you imagine and express yourself" },
-};
 
 // Reserved exclusively for the "this one is selected" indicator (a thin
 // halo on the node itself, plus the matching highlighted edges/lines) —
@@ -732,6 +635,68 @@ function ClusterHaze({ nodes }: { nodes: ActiveNode[] }) {
 // plays once per belief (see ANIMATED_BELIEF_IDS below), never loops.
 const ACTIVATION_FLASH_SECONDS = 0.75;
 
+// ── Inner flow ───────────────────────────────────────────────────────────────
+// Each belief core carries slow currents of light under its surface — the
+// idea of React Bits' "Orb" (a noise field drifting inside a sphere), done
+// as a patch on the core's own MeshStandardMaterial instead of a separate
+// WebGL canvas per orb, so lighting, picking and the per-frame color/
+// emissive updates in ActiveBeliefNode all keep working unchanged.
+//
+// The field is two passes of domain-warped sines (no noise texture, no
+// extra draw call): the second pass folds the first, so the bands drift
+// and merge into each other rather than turning around a center — a
+// current, not a vortex. Speeds sit around a third of a radian a second:
+// slower than the node's own breathing pulse, so the two never read as
+// one mechanical beat.
+const ORB_FLOW_GLSL = /* glsl */ `
+varying vec3 vFlowPos;
+uniform float uFlowTime;
+float orbFlow(vec3 p, float t) {
+  vec3 q = p * 2.2;
+  q += 0.55 * vec3(sin(q.y * 1.7 + t * 0.45), sin(q.z * 1.9 - t * 0.38), sin(q.x * 1.5 + t * 0.52));
+  q += 0.35 * vec3(sin(q.z * 2.3 - t * 0.31), sin(q.x * 2.1 + t * 0.27), sin(q.y * 2.5 - t * 0.35));
+  float f = 0.5 * sin(q.x + q.y * 0.8 + t * 0.2) + 0.5 * sin(q.y - q.z * 0.9 - t * 0.17);
+  return 0.5 + 0.5 * f;
+}
+`;
+
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function useFlowingCoreMaterial(color: string, emissiveIntensity: number, opacity: number) {
+  const uniforms = useMemo(() => ({ uFlowTime: { value: 0 }, uFlowInvR: { value: 1 } }), []);
+  const material = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity, roughness: 0.3, metalness: 0.04, transparent: true, opacity });
+    m.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, uniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vFlowPos;\nuniform float uFlowInvR;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFlowPos = position * uFlowInvR;");
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", `#include <common>\n${ORB_FLOW_GLSL}`)
+        .replace(
+          "#include <emissivemap_fragment>",
+          [
+            "#include <emissivemap_fragment>",
+            "float orbF = orbFlow(vFlowPos, uFlowTime);",
+            // Brightness rides the field (dim troughs, lit crests)…
+            "totalEmissiveRadiance *= 0.72 + 0.5 * orbF;",
+            // …and only the crests lift toward white, as thin veins.
+            "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), 0.22 * smoothstep(0.62, 1.0, orbF));",
+          ].join("\n"),
+        );
+    };
+    // One compiled program shared by every flowing core.
+    m.customProgramCacheKey = () => "orb-flow-v1";
+    return m;
+    // Color/emissive/opacity are driven per frame by the caller; only the
+    // initial values are read here, so this is built once per node.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniforms]);
+  useEffect(() => () => material.dispose(), [material]);
+  return { material, uniforms };
+}
+
 // ── Point-of-light rendering for active belief nodes ─────────────────────────
 // Every active node is drawn as four concentric, camera-facing layers
 // instead of one lit sphere: a tiny near-white pinpoint, a small saturated
@@ -858,9 +823,15 @@ function ActiveBeliefNode({
   // the only thing that ever turns gold, and only while selected/focused —
   // the selection indicator, never the region indicator.
   const haloTargetOpacity = isSelected ? 0.4 : isFocused ? 0.2 : 0;
+  const { material: coreMaterial, uniforms: flowUniforms } = useFlowingCoreMaterial(node.color, baseEmissive, opacity);
+  const reduceMotion = useMemo(prefersReducedMotion, []);
 
   useFrame(({ clock }, delta) => {
     if (!ref.current) return;
+    // Inner flow: each node starts at its own point in the field (phase)
+    // so neighbours never ripple in step; frozen for reduced motion.
+    flowUniforms.uFlowTime.value = reduceMotion ? phase * 3 : clock.elapsedTime + phase * 3;
+    flowUniforms.uFlowInvR.value = 1 / Math.max(r, 1e-4);
     visibility.current += ((isHiddenBySelection ? 0 : 1) - visibility.current) * Math.min(1, delta * 6);
     ref.current.visible = visibility.current > 0.01;
 
@@ -979,15 +950,7 @@ function ActiveBeliefNode({
         onPointerOut={() => onHoverChange(false)}
       >
         <icosahedronGeometry args={[r, facetDetail]} />
-        <meshStandardMaterial
-          color={node.color}
-          emissive={node.color}
-          emissiveIntensity={baseEmissive}
-          roughness={0.3}
-          metalness={0.04}
-          transparent
-          opacity={opacity}
-        />
+        <primitive object={coreMaterial} attach="material" />
       </mesh>
       {node.ruminationLikely && (
         <mesh ref={orbitRef}>
@@ -1316,7 +1279,11 @@ export function JarBrainPreview({
       // cap is what was making each node's now much-larger glow sprite (a
       // fixed-resolution texture, stretched further per NODE_SCALE_TIERS)
       // and low-poly core visibly blocky on high-DPI screens.
-      dpr={typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 3) : 2}
+      // …capped at 2 rather than the device's full ratio, though: on a
+      // 3× phone this canvas covers 43% of the screen and runs every frame,
+      // and 3× meant 2.25× the pixels of 2× for a difference nobody could
+      // see on the glow sprites — but could feel as Home-screen judder.
+      dpr={typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 2}
       // A mild frame (not the aggressive zoom this used before the nodes
       // themselves got a real "hero" size tier below) — the tier now does
       // the actual work of making these five nodes big; this just keeps
@@ -1401,10 +1368,10 @@ function NodeDetailCard({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: selectedNode.color, flexShrink: 0 }} />
-        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 10.5, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
-        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10.5, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
+        <span style={{ fontFamily: "Inter, sans-serif", fontSize: 11, fontWeight: 600, color: selectedNode.color }}>{REGION_CONFIG[selectedNode.region].label}</span>
+        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#8b83a3", marginLeft: "auto" }}>{selectedNode.confidence}% confidence</span>
       </div>
-      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 14, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
+      <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontStyle: "italic", fontSize: 15, color: "#F2EEFA", marginBottom: 4, lineHeight: 1.4, wordBreak: "keep-all" }}>
         {selectedNode.statement}
       </div>
       <div style={{ fontFamily: "Inter, sans-serif", fontSize: 11, color: "#8b83a3" }}>{selectedNode.evidenceCount} pieces of evidence</div>
@@ -1675,7 +1642,7 @@ export default function NeuralBeliefGraph3D({
               top: 10,
               background: "rgba(31,27,22,0.9)",
               color: "#fff",
-              fontSize: 11.5,
+              fontSize: 12,
               fontFamily: "Inter, sans-serif",
               padding: "8px 12px",
               borderRadius: 10,
@@ -1692,7 +1659,7 @@ export default function NeuralBeliefGraph3D({
             left: 12,
             bottom: 10,
             fontFamily: "Inter, sans-serif",
-            fontSize: 10,
+            fontSize: 11,
             color: "rgba(255,255,255,0.35)",
             pointerEvents: "none",
           }}
