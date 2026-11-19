@@ -3466,6 +3466,33 @@ function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredB
   );
 }
 
+// How often a thought comes up, said in words instead of a percentage:
+// the confidence score behind it, read as "a lot / often / now and then",
+// with five small dots in the thought's colour. Used wherever a belief's
+// strength is shown to the person (Mind, Patterns, the sky's star sheet).
+function howOften(confidence: number) {
+  return {
+    label: confidence >= 75 ? "Comes up a lot" : confidence >= 50 ? "Comes up often" : "Comes up now and then",
+    dots: Math.max(1, Math.round(confidence / 20)),
+  };
+}
+
+function OftenDots({ confidence, region, extra }: { confidence: number; region: CognitiveRegion; extra?: string }) {
+  const c = REGION_CONFIG[region];
+  const { label, dots } = howOften(confidence);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
+        {Array.from({ length: 5 }, (_, k) => (
+          <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: k < dots ? c.color : "rgba(42,38,33,0.12)", boxShadow: k < dots ? `0 0 5px ${c.color}88` : undefined }} />
+        ))}
+      </span>
+      <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: c.ink }}>{label}</span>
+      {extra && <span style={{ ...sans, fontSize: 12, color: ivBody }}>{extra}</span>}
+    </div>
+  );
+}
+
 function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
   const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
@@ -3563,8 +3590,6 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               notebookBeliefs.map((belief, i) => {
                 const region = resolveRegion(belief);
                 const c = REGION_CONFIG[region];
-                const dots = Math.max(1, Math.round(belief.confidence / 20));
-                const often = belief.confidence >= 75 ? "Comes up a lot" : belief.confidence >= 50 ? "Comes up often" : "Comes up now and then";
                 return (
                   <div key={belief.id} style={{ position: "relative", display: "flex", gap: 12, padding: "14px 16px 15px" }}>
                     {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -3573,14 +3598,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ ...display, fontSize: 22, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                        <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
-                          {Array.from({ length: 5 }, (_, k) => (
-                            <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: k < dots ? c.color : "rgba(42,38,33,0.12)", boxShadow: k < dots ? `0 0 5px ${c.color}88` : undefined }} />
-                          ))}
-                        </span>
-                        <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: c.ink }}>{often}</span>
-                      </div>
+                      <div style={{ marginTop: 8 }}><OftenDots confidence={belief.confidence} region={region} /></div>
                     </div>
                   </div>
                 );
@@ -5937,11 +5955,11 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
     <div style={{ position: "relative", padding: "14px 16px 4px" }}>
       {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
       <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 24 }}>
-        <RegionBadge region={region} />
+        <Node color={color} size={12} intensity={0.75} />
         <span style={{ ...sans, fontSize: 12, color: ivBody, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
         <span style={{ flex: 1 }} />
-        {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdWarnLabel, flexShrink: 0 }}>Conflicting entries</span>}
-        {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, flexShrink: 0 }}>Confirmed repeatedly</span>}
+        {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdWarnLabel, flexShrink: 0 }}>Mixed signals</span>}
+        {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, flexShrink: 0 }}>Keeps showing up</span>}
       </div>
       {belief.distancedReframe ? (
         <div style={{ marginTop: 8, perspective: 800 }}>
@@ -5955,11 +5973,8 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
       ) : (
         <div style={{ ...statementStyle, marginTop: 8 }}>{belief.statement}</div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0, whiteSpace: "nowrap" }}>
-          <AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} {belief.evidenceCount === 1 ? "entry" : "entries"}
-        </span>
+      <div style={{ marginTop: 10 }}>
+        <OftenDots confidence={belief.confidence} region={region} extra={`· in ${belief.evidenceCount} ${belief.evidenceCount === 1 ? "entry" : "entries"}`} />
       </div>
       <motion.button
         type="button" aria-expanded={showDetails} onClick={() => setShowDetails((v) => !v)} whileTap={{ opacity: 0.6 }}
@@ -6102,7 +6117,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (clusters.length === 0) return null;
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
-    <SettingsGroup header="Beliefs that support each other" footer="Core beliefs rarely show up alone; several tend to appear together, propping each other up.">
+    <SettingsGroup header="Thoughts that hold each other up" footer="Thoughts like these rarely come alone. They tend to show up together, each one making the others feel more true.">
       {clusters.map((clusterIds, ci) => {
         const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
         if (clusterBeliefs.length === 0) return null;
@@ -6111,7 +6126,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
             {ci > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
             <BeliefClusterDiagram count={clusterBeliefs.length} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>{clusterBeliefs.length} beliefs prop each other up</div>
+              <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>These {clusterBeliefs.length} hold each other up</div>
               <ul style={{ margin: "6px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
                 {clusterBeliefs.map((b) => (
                   <li key={b.id} style={{ ...display, fontSize: 15, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</li>
@@ -6194,8 +6209,8 @@ function TensionScale({ a, b }: { a: StoredBelief; b: StoredBelief }) {
         <circle cx="160" cy="40" r="5" fill="#6B4E37" />
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 6, ...sans, fontSize: 12 }}>
-        <span style={{ color: ra.ink, fontWeight: 600, maxWidth: "46%" }}>{shortBelief(a)} · {a.confidence}%</span>
-        <span style={{ color: rb.ink, fontWeight: 600, maxWidth: "46%", textAlign: "right" }}>{shortBelief(b)} · {b.confidence}%</span>
+        <span style={{ color: ra.ink, fontWeight: 600, maxWidth: "46%" }}>{shortBelief(a)}</span>
+        <span style={{ color: rb.ink, fontWeight: 600, maxWidth: "46%", textAlign: "right" }}>{shortBelief(b)}</span>
       </div>
     </div>
   );
@@ -6297,7 +6312,7 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   const pairs = findContradictionPairs(beliefs, connections);
   if (pairs.length === 0) return null;
   return (
-    <SettingsGroup header="Tension between what you've said" footer="This doesn't decide which one is right. It just places the two side by side.">
+    <SettingsGroup header="Where you pull two ways" footer="Two things you've said that don't quite fit together. This doesn't decide which one is right; it just puts them side by side.">
       {pairs.map((p, i) => (
         <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
           {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -6334,7 +6349,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Patterns you might not notice</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
             {hasBeliefs ? "What keeps showing up in your words and choices without your noticing." : "No patterns yet. Log a first thought with \"Speak your mind\" and they'll start to surface here."}
           </div>
@@ -6356,9 +6371,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         )}
 
         <SettingsGroup
-          header="Core beliefs"
+          header="Thoughts that keep coming back"
           style={{ marginTop: 24 }}
-          footer="The bar is how much evidence backs each one. It takes three similar entries for a belief to appear."
+          footer="The dots show how often each one comes up in what you write. A thought appears here once it has shown up three times."
         >
           {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
@@ -6372,9 +6387,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
-        <SettingsGroup header="Recurring interpretations" footer="Specific moments — in this situation, you read it this way. More concrete than a belief, with an observed trigger.">
+        <SettingsGroup header="How you tend to read moments" footer="Specific moments: when this happens, you tend to read it this way. Smaller and more concrete than the thoughts above.">
           {!hasAssumptions ? (
-            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious interpretations discovered yet.</div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing like this has shown up yet.</div>
           ) : (
             [
               <div key="ripple" style={{ padding: "12px 12px 4px" }}>
@@ -6395,7 +6410,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                     <span key={d} style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 6 }}>{d}</span>
                   ))}
                   <span style={{ flex: 1 }} />
-                  <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count} {a.count === 1 ? "conversation" : "conversations"}</span>
+                  <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count === 1 ? "once" : `${a.count} times`}</span>
                 </div>
               </div>
               );
@@ -6405,7 +6420,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         </SettingsGroup>
 
         {store.connections.length > 0 && (
-          <SettingsGroup header="Discovered connections" footer="Two beliefs that looked different but come from the same root.">
+          <SettingsGroup header="Same root, different thoughts" footer="Two thoughts that look different on the surface but grow from the same place.">
             {store.connections.map((c, i) => {
               const from = visibleBeliefs.find((b) => b.id === c.a);
               const to = visibleBeliefs.find((b) => b.id === c.b);
@@ -6619,9 +6634,9 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>How close you are to who you want to be</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            The gap between who you said you wanted to be and what you've actually been doing.
+            Who you said you want to be, next to what you've actually been doing.
           </div>
         </div>
         {hasAspiration ? (
@@ -6667,7 +6682,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
               <SettingsRow icon={<Footprints size={17} />} label="Tell us who you want to become" onClick={onSetupAspiration} />
             </SettingsGroup>
             {examples.length > 0 && (
-              <SettingsGroup header="What this looks like" footer="Examples, until you set your own.">
+              <SettingsGroup header="What it could look like" footer="Examples, until you write your own.">
                 {examples.map((a, i) => {
                   const gap = Math.abs(a.target - a.actual);
                   return (
@@ -6686,10 +6701,10 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
                         <span style={{ ...sans, fontSize: 13, color: ivBody, wordBreak: "keep-all" }}>{a.label}</span>
-                        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ivHeading, flexShrink: 0 }}>{gap} pt to go</span>
+                        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ivHeading, flexShrink: 0 }}>{gap} to go</span>
                       </div>
                       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>
-                        Goal {a.target}% · now {a.actual}%
+                        Now {a.actual} out of 100 · aiming for {a.target}
                       </div>
                       <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
                     </div>

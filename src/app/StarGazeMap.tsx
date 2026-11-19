@@ -27,7 +27,6 @@ import { REGION_CONFIG, resolveRegion, recencyFromDate, type NeuralBeliefNode, t
 import { COGNITIVE_REGIONS, type CognitiveRegion } from "./neuralBrainLayout";
 import type { StoredEvidenceQuote } from "./types";
 import { Node } from "./orb";
-import { AnimatedNumber, MeterFill } from "./motionPrimitives";
 import { display, hand, mono, sans, serif } from "./typefaces";
 
 const INK = "#F3EFFA";
@@ -287,7 +286,7 @@ export default function StarGazeMap({
         </div>
         <div style={{ ...display, fontSize: 36, color: INK, marginTop: 10, lineHeight: 1.05 }}>Your sky</div>
         <div style={{ ...hand, fontSize: 19, color: INK_SOFT, marginTop: 4, lineHeight: 1.25 }}>
-          Each star is a belief. Lines show which ones connect.
+          Each star is a thought that keeps coming back. Lines join the ones that go together.
         </div>
         {/* The search field as a spyglass lens: a rim with a slow current of
             the app's colours running through it, glowing brighter while
@@ -519,16 +518,25 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
         <span style={{ ...sans, fontSize: 12, color: INK_SOFT, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{star.b.domain}</span>
         <button type="button" aria-label="Close" onClick={onClose} style={{ border: 0, background: "transparent", cursor: "pointer", color: INK_FAINT, lineHeight: 0, padding: 6, margin: -6 }}><X size={16} weight="bold" /></button>
       </div>
-      {star.b.thoughtLabel && <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: r.color, marginTop: 12 }}>The "{star.b.thoughtLabel}" thought</div>}
-      <div style={{ ...display, fontSize: 25, color: INK, lineHeight: 1.25, marginTop: 6, wordBreak: "keep-all" }}>{star.b.statement}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-        <MeterFill value={star.b.confidence} color={r.color} track="rgba(255,255,255,0.12)" height={5} radius={3} style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, color: INK_SOFT, whiteSpace: "nowrap" }}><AnimatedNumber value={star.b.confidence} />% · {star.b.evidenceCount} {star.b.evidenceCount === 1 ? "entry" : "entries"}</span>
+      <div style={{ ...display, fontSize: 25, color: INK, lineHeight: 1.25, marginTop: 12, wordBreak: "keep-all" }}>“{star.b.statement}”</div>
+      {star.b.thoughtLabel && <div style={{ ...hand, fontSize: 18, color: r.color, marginTop: 4 }}>{star.b.thoughtLabel}</div>}
+      {/* How often it comes up, in words and five dots, not a percentage. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
+          {Array.from({ length: 5 }, (_, k) => {
+            const on = k < Math.max(1, Math.round(star.b.confidence / 20));
+            return <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: on ? r.color : "rgba(255,255,255,0.16)", boxShadow: on ? `0 0 6px ${r.color}` : undefined }} />;
+          })}
+        </span>
+        <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: INK }}>
+          {star.b.confidence >= 75 ? "Comes up a lot" : star.b.confidence >= 50 ? "Comes up often" : "Comes up now and then"}
+        </span>
+        <span style={{ ...sans, fontSize: 12, color: INK_SOFT }}>· in {star.b.evidenceCount} {star.b.evidenceCount === 1 ? "entry" : "entries"}</span>
       </div>
 
       {linked.length > 0 && (
         <div style={{ marginTop: 18 }}>
-          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 6 }}>Joined to</div>
+          <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: INK, marginBottom: 6 }}>Connected thoughts</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {linked.map(({ conn, other }) => {
               const o = REGION_CONFIG[other.region];
@@ -538,7 +546,7 @@ function StarSheet({ star, linked, onClose, onSelect }: { star: PlacedStar; link
                   style={{ textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 12px", color: INK, border: `1px solid ${o.color}44`, backgroundColor: "rgba(255,255,255,0.03)", backgroundImage: `linear-gradient(135deg, ${o.color}30 0%, rgba(255,255,255,0.02) 100%)` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: o.color, boxShadow: `0 0 6px ${o.color}` }} />
-                    <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tension ? "#F6B37A" : o.color }}>{tension ? "In tension" : "Reinforces"}</span>
+                    <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: tension ? "#F6B37A" : o.color }}>{tension ? "Pulls against it" : "Goes along with it"}</span>
                   </div>
                   <div style={{ ...display, fontSize: 17, color: INK, marginTop: 3, lineHeight: 1.4, wordBreak: "keep-all" }}>{other.b.statement}</div>
                   {conn.note && <div style={{ ...sans, fontSize: 12, color: INK_SOFT, marginTop: 3, lineHeight: 1.45, wordBreak: "keep-all" }}>{conn.note}</div>}
