@@ -2375,6 +2375,12 @@ function MoodFace({ mood, size = 72 }: { mood: MoodKey; size?: number }) {
   );
 }
 
+const homeCardSurface: React.CSSProperties = {
+  backgroundColor: "rgba(255,255,255,0.08)",
+  borderRadius: shape.lg,
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)",
+};
+
 function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (prev: Store) => Store) => void; onSayWhy?: (mood: string) => void }) {
   const [justLogged, setJustLogged] = React.useState<string | null>(null);
   // The last feeling logged, kept a little longer than the face so "Say
@@ -2398,7 +2404,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
   }, []);
   const tone = askWhy && askWhy in MOOD_TONES ? REGION_CONFIG[MOOD_TONES[askWhy as MoodKey]] : null;
   return (
-    <div style={{ width: "100%", padding: "0 2px", position: "relative" }}>
+    <div style={{ ...homeCardSurface, width: "100%", padding: "10px 14px", position: "relative" }}>
       {/* The feeling you just logged, as a face that pops up above the row. */}
       <AnimatePresence>
         {justLogged && (justLogged in MOOD_TONES) && (
@@ -2417,7 +2423,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivBody, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: dkHeading, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
@@ -2454,11 +2460,11 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
               whileTap={{ scale: 0.95, opacity: 0.82 }}
               // The chosen pill fills and gives one small pulse; the others
               // settle back without any motion of their own.
-              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: ivHeading } : { scale: 1, backgroundColor: ivSurfaceSolid }}
+              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: dkHeading } : { scale: 1, backgroundColor: "rgba(255,255,255,0.10)" }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
             >
-              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? "#fff" : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
+              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? dkBg : dkHeading, transition: "color 0.2s" }}>{m.label}</span>
             </motion.button>
             </Breathe>
           );
@@ -2501,30 +2507,30 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
       transition={SETTLE}
       style={{
         position: "absolute", left: 20, right: 20, top: "44%", zIndex: 3,
-        backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.lg, padding: "14px 16px 12px",
-        boxShadow: "0 14px 36px rgba(120,105,80,0.18)",
+        backgroundColor: "#191735", border: `1px solid ${dkDivider}`, borderRadius: shape.lg, padding: "14px 16px 12px",
+        boxShadow: "0 14px 36px rgba(0,0,0,0.35)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Node color={color} size={12} intensity={Math.min(1, 0.45 + (belief.confidence / 100) * 0.4)} />
         <RegionBadge region={region} />
-        <span style={{ ...sans, fontSize: 12, color: ivBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
+        <span style={{ ...sans, fontSize: 12, color: dkBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
         <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
-          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivFaint, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
+          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: dkBody, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
         </Breathe>
       </div>
       {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: ivBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: dkBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
       )}
-      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: dkHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 11, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
+        <MeterFill value={belief.confidence} color={color} track="rgba(255,255,255,0.12)" style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 11, color: dkBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
         <Breathe inline amount={1.05}>
           <motion.button type="button" onClick={onOpenInMap} whileTap={{ scale: 0.96, opacity: 0.8 }} transition={SETTLE}
-            style={{ ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, border: `1px solid ${ivBorder}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+            style={{ ...sans, fontSize: 12, fontWeight: 700, color: dkHeading, border: `1px solid ${dkDivider}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             See it in your sky →
           </motion.button>
         </Breathe>
@@ -2549,176 +2555,161 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
   return (
     <div
       style={{
-        position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden",
-        // Inside, a plain column: header, headline, the node field taking
-        // whatever height is left, its caption bar, the bottom stack, nav.
-        // Percent-of-screen placement used to let the caption and the
-        // stack collide on a short phone; in a column only the field
-        // gives way.
-        display: "flex", flexDirection: "column",
-        // Every other screen just fills its slot (height: 100%) below the
-        // App shell's fixed status-bar clearance. Home is the one screen
-        // whose composition is meant to run edge-to-edge under the
-        // transparent status bar overlay (see the App shell), so instead
-        // of asking the shared frame to change shape for it — the actual
-        // cause of an earlier bug where switching screens made the whole
-        // frame visibly jump — Home extends itself 30px above its given
-        // slot instead. Header, node field, mind summary, Speak-your-mind
-        // card, and nav all sit on the one ivory canvas by percentage, all
-        // visible at once with no overflow:auto anywhere (unchanged from
-        // before — only the backdrop and every surface's styling changed).
+        position: "absolute", top: -30, left: 0, right: 0, bottom: 0,
+        backgroundColor: "#060A1C",
+        backgroundImage: "radial-gradient(ellipse at 48% 32%, rgba(150,170,255,0.17), transparent 56%), linear-gradient(180deg, #060A1C 0%, #0E1538 36%, #221B4A 64%, #4A2F5E 84%, #7A4C66 100%)",
+        display: "flex", flexDirection: "column", overflow: "hidden",
       }}
     >
-      {/* top is a fixed px, not a %, specifically so it stays clear of
-      the real device status bar / the desktop preview's transparent
-      "9:41" overlay (see the App shell) regardless of screen height. */}
-      <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        {/* Today's date, written the way a diary heads a page. */}
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: ivBody }}>
-          <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
-          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-        </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
-          <motion.div
-            role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-          >
-            <User size={20} color={ivHeading} />
-          </motion.div>
-          </Breathe>
-        </div>
-      </div>
-
-      <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
-        <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: ivHeading, wordBreak: "keep-all" }}>
-          What crossed your mind today?
-        </div>
-      </div>
-
-      {/* The main feature: how close you are to who you want to be. */}
-      <div style={{ padding: "16px 18px 0", flexShrink: 0 }}>
-        <VoyageCard
-          closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
-          aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
-        />
-      </div>
-
-      {(!MONETIZATION_ENABLED || store.isPro) ? (
-        <>
-          {/* Your beliefs as orbs (HomeOrbField: plain HTML, the same 2D orb
-          the sky and every list use — it replaced a three.js canvas that
-          froze Home for ~0.5s on every mount).
-          Tapping an orb opens HomeNodeCard for that belief right here;
-          tapping empty space just dismisses the card. The field never
-          opens the Brain Map by itself any more — that's the explicit
-          button in the corner (or the card's own link). */}
-          <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
-            <HomeOrbField
-              beliefs={store.beliefs}
-              selectedId={selectedNodeId}
-              onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
-              onBackgroundTap={() => setSelectedNodeId(null)}
-            />
-            {/* With zero beliefs the canvas has nothing to draw, so a
-                single resting dot marks where the first belief will
-                appear (pointerEvents: none — nothing here to open yet). */}
-            {/* The one way into the full sky from Home: a small link on the
-                field's own corner, with the count it opens onto. */}
-            {store.beliefs.length > 0 && (
-              <div style={{ position: "absolute", right: 12, bottom: 6, zIndex: 2 }}>
-                <Breathe inline amount={1.05}>
-                  <motion.button
-                    type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
-                    whileTap={{ scale: 0.95 }} transition={SETTLE}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
-                      backgroundColor: "rgba(255,252,246,0.85)", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
-                  >
-                    <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
-                    <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: ivHeading, lineHeight: 1 }}>Your sky</span>
-                    <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: ivBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
-                  </motion.button>
-                </Breathe>
-              </div>
-            )}
-            {store.beliefs.length === 0 && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
-                <motion.div
-                  animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                  style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
-                />
-                <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: ivFaint, textAlign: "center" }}>Your first thought will appear here.</div>
-              </div>
-            )}
-          </div>
-          <AnimatePresence>
-            {selectedBelief && (
-              <HomeNodeCard
-                key={selectedBelief.id}
-                belief={selectedBelief}
-                onClose={() => setSelectedNodeId(null)}
-                onOpenInMap={() => { setSelectedNodeId(null); onOpenBrainMap?.(undefined, selectedBelief.id); }}
-              />
-            )}
-          </AnimatePresence>
-
-        </>
-      ) : (
-        // Locked teaser instead of quietly rendering an always-empty
-        // field — a free store's beliefs/connections never populate
-        // (see appendUnanalyzedEntry in realStore.ts), so without this
-        // a free user would just see an empty field forever with no
-        // explanation why. Routes through onOpenBrainMap/"brainmap"
-        // rather than a separate handler — that route already renders
-        // ScreenPaywall for a non-Pro store.
-        <motion.div
-          data-tutorial="brain-card"
-          role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-          style={{
-            flex: 1, minHeight: 160, margin: "20px 18% 8px",
-            backgroundColor: ivSurface, border: `1px solid ${ivBorder}`, cursor: "pointer", borderRadius: 24,
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
-          }}
-        >
-          <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(42,38,33,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <LockSimple size={20} color={ivHeading} />
+      <div className="no-scrollbar" style={{ position: "relative", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {/* top is a fixed px, not a %, specifically so it stays clear of
+        the real device status bar / the desktop preview's transparent
+        "9:41" overlay (see the App shell) regardless of screen height. */}
+        <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          {/* Today's date, written the way a diary heads a page. */}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: dkBody }}>
+            <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </span>
-          <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>See your Brain Map</div>
-          <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
-            Upgrade to Pro to see your unconscious beliefs light up and connect.
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
+            <motion.div
+              role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
+              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
+            >
+              <User size={20} color={dkHeading} />
+            </motion.div>
+            </Breathe>
           </div>
-        </motion.div>
-      )}
-
-
-      {/* The bottom stack sits in the column above the nav, so on a short
-          phone it's the node field above that gives way, never the three
-          things a person came here to do. */}
-      <div style={{ padding: "14px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-        <div data-tutorial="think-card">
-          <Breathe amount={1.025}>
-          <motion.div
-            role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
-            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <WaveformIcon color="#fff" />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-              <span style={{ ...display, fontSize: 20, color: ivHeading }}>Speak your mind</span>
-              <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
-            </div>
-            <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
-          </motion.div>
-          </Breathe>
         </div>
-        <QuickMoodCheckIn updateStore={updateStore} onSayWhy={(mood) => onStartThink?.(mood)} />
+
+        <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
+          <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: dkHeading, wordBreak: "keep-all" }}>
+            What crossed your mind today?
+          </div>
+        </div>
+
+        {(!MONETIZATION_ENABLED || store.isPro) ? (
+          <>
+            {/* Your beliefs as orbs (HomeOrbField: plain HTML, the same 2D orb
+            the sky and every list use — it replaced a three.js canvas that
+            froze Home for ~0.5s on every mount).
+            Tapping an orb opens HomeNodeCard for that belief right here;
+            tapping empty space just dismisses the card. The field never
+            opens the Brain Map by itself any more — that's the explicit
+            button in the corner (or the card's own link). */}
+            <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
+              <HomeOrbField
+                beliefs={store.beliefs}
+                selectedId={selectedNodeId}
+                onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
+                onBackgroundTap={() => setSelectedNodeId(null)}
+              />
+              {/* With zero beliefs the canvas has nothing to draw, so a
+                  single resting dot marks where the first belief will
+                  appear (pointerEvents: none — nothing here to open yet). */}
+              {/* The one way into the full sky from Home: a small link on the
+                  field's own corner, with the count it opens onto. */}
+              {store.beliefs.length > 0 && (
+                <div style={{ position: "absolute", right: 12, bottom: 6, zIndex: 2 }}>
+                  <Breathe inline amount={1.05}>
+                    <motion.button
+                      type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
+                      whileTap={{ scale: 0.95 }} transition={SETTLE}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
+                        backgroundColor: "rgba(14,21,56,0.85)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
+                    >
+                      <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
+                      <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: dkHeading, lineHeight: 1 }}>Your sky</span>
+                      <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: dkBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
+                    </motion.button>
+                  </Breathe>
+                </div>
+              )}
+              {store.beliefs.length === 0 && (
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
+                  <motion.div
+                    animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
+                  />
+                  <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: dkBody, textAlign: "center" }}>Your first thought will appear here.</div>
+                </div>
+              )}
+            </div>
+            <AnimatePresence>
+              {selectedBelief && (
+                <HomeNodeCard
+                  key={selectedBelief.id}
+                  belief={selectedBelief}
+                  onClose={() => setSelectedNodeId(null)}
+                  onOpenInMap={() => { setSelectedNodeId(null); onOpenBrainMap?.(undefined, selectedBelief.id); }}
+                />
+              )}
+            </AnimatePresence>
+
+          </>
+        ) : (
+          // Locked teaser instead of quietly rendering an always-empty
+          // field — a free store's beliefs/connections never populate
+          // (see appendUnanalyzedEntry in realStore.ts), so without this
+          // a free user would just see an empty field forever with no
+          // explanation why. Routes through onOpenBrainMap/"brainmap"
+          // rather than a separate handler — that route already renders
+          // ScreenPaywall for a non-Pro store.
+          <motion.div
+            data-tutorial="brain-card"
+            role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
+            style={{
+              flex: 1, minHeight: 160, margin: "20px 18% 8px",
+              backgroundColor: "rgba(255,255,255,0.08)", border: `1px solid ${dkDivider}`, cursor: "pointer", borderRadius: 24,
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
+            }}
+          >
+            <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <LockSimple size={20} color={dkHeading} />
+            </span>
+            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>See your Brain Map</div>
+            <div style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
+              Upgrade to Pro to see your unconscious beliefs light up and connect.
+            </div>
+          </motion.div>
+        )}
+
+
+        {/* The main feature: how close you are to who you want to be. */}
+        <div style={{ padding: "8px 18px 0", flexShrink: 0 }}>
+          <VoyageCard theme="night"
+            closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+            aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
+          />
+        </div>
+
+        <div style={{ padding: "14px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div data-tutorial="think-card">
+            <Breathe amount={1.025}>
+            <motion.div
+              role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
+              style={{ ...homeCardSurface, display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer" }}
+            >
+              <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.13)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <WaveformIcon color="#fff" />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+                <span style={{ ...display, fontSize: 20, color: dkHeading }}>Speak your mind</span>
+                <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: dkBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
+              </div>
+              <ArrowRight size={16} color={dkHeading} weight="bold" style={{ flexShrink: 0 }} />
+            </motion.div>
+            </Breathe>
+          </div>
+          <QuickMoodCheckIn updateStore={updateStore} onSayWhy={(mood) => onStartThink?.(mood)} />
+        </div>
       </div>
 
       <div style={{ flexShrink: 0 }}>
-        <BottomNav active="home" onSelect={onNavSelect} vintage />
+        <BottomNav active="home" onSelect={onNavSelect} dark />
       </div>
     </div>
   );
@@ -10080,7 +10071,7 @@ export default function App() {
   // screens (writing, the sky, analysis in progress) and dark text elsewhere.
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const dark = ["think", "processing", "brainmap"].includes(screen);
+    const dark = ["home", "think", "processing", "brainmap"].includes(screen);
     NativeStatusBar.setStyle({ style: dark ? StatusBarStyle.Dark : StatusBarStyle.Light }).catch(() => {});
   }, [screen]);
   // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
@@ -10893,7 +10884,7 @@ export default function App() {
   // shared frame/status-bar system entirely (its own fixed-position,
   // full-viewport UI with no shared chrome), so this flag never reaches it.
   const isModernistScreen = [
-    "home", "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
+    "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
     "beliefs", "assumptions", "drift", "journeyMap", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
     "paywall", "checkout", "manageSubscription", "privacyPolicy", "termsOfService",
     "quote", "splash", "auth", "login", "signup", "onboarding",
