@@ -3424,6 +3424,93 @@ function SectionCard({ title, subtitle, children, dataTutorial }: { title?: stri
 // "Analysis" tab (see ScreenDiscoveryAnalysis and the "discoveryAnalysis"
 // case in the App shell below), leaving this one to answer a single
 // question: "what does my confirmed belief network actually look like?"
+// ── ConnectionThread ─────────────────────────────────────────────────────────
+// Two beliefs and what joins them, drawn: each belief a glowing orb in its
+// own color, a woven thread between them that shades from one color to the
+// other, and light traveling along it both ways — each orb flaring as the
+// light reaches it, because the two keep feeding each other. The note
+// that explains the connection sits under the picture as a quote, its
+// first clause set larger, so the idea lands before the sentence does.
+function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredBelief; note: string; tension?: boolean }) {
+  const reduce = useReducedMotion();
+  const id = React.useId().replace(/:/g, "");
+  const ra = REGION_CONFIG[resolveRegion(a)], rb = REGION_CONFIG[resolveRegion(b)];
+  const label = (x: StoredBelief) => x.thoughtLabel || x.statement;
+  const CYCLE = 2.6;
+  // The thread: two strands braided around the line between the orbs.
+  const strand = (phase: number) => {
+    const pts: string[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40;
+      const x = 82 + t * 156;
+      const y = 62 + Math.sin(t * Math.PI * 3 + phase) * 9 * Math.sin(t * Math.PI);
+      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    return pts.join(" ");
+  };
+  const flare = (delay: number) => (reduce ? undefined : { duration: CYCLE, repeat: Infinity, delay, ease: "easeOut" as const, times: [0, 0.12, 0.5, 1] });
+  // The split: the clause before "seems"/"connects"/"," leads, larger.
+  const cut = note.search(/\s(seems|seem|connects?|is linked|ties|because)\s|,\s/);
+  const lead = cut > 12 ? note.slice(0, cut) : "";
+  const rest = cut > 12 ? note.slice(cut) : note;
+  const font = "'Pretendard Variable', Pretendard, sans-serif";
+  return (
+    <div>
+      <svg role="img" aria-label={`"${a.statement}" and "${b.statement}" are joined${tension ? ", pulling against each other" : " and feed each other"}.`}
+        viewBox="0 0 320 128" style={{ width: "100%", height: "auto", display: "block" }}>
+        <defs>
+          <linearGradient id={`cbg${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor={ra.tint} /><stop offset="1" stopColor={rb.tint} /></linearGradient>
+          <linearGradient id={`cth${id}`} x1="82" y1="0" x2="238" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor={ra.color} /><stop offset="1" stopColor={rb.color} /></linearGradient>
+          {[["a", ra], ["b", rb]].map(([k, t]) => (
+            <radialGradient key={k as string} id={`co${k}${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={(t as typeof ra).color} /><stop offset="1" stopColor={(t as typeof ra).color} stopOpacity="0" /></radialGradient>
+          ))}
+        </defs>
+        <rect width="320" height="128" rx="16" fill={`url(#cbg${id})`} opacity="0.75" />
+        {/* The braided thread, its strands slowly turning. */}
+        {[0, Math.PI].map((ph, i) => (
+          <motion.polyline key={i} points={strand(ph)} fill="none" stroke={`url(#cth${id})`} strokeWidth="2.2" strokeLinecap="round"
+            strokeDasharray={tension ? "5 6" : undefined} opacity={0.75}
+            initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 1, delay: 0.2 + i * 0.15, ease: [0.22, 1, 0.36, 1] }} />
+        ))}
+        {/* Light traveling both ways. */}
+        {!reduce && (
+          <>
+            <motion.circle r="4.5" fill="#FFFFFF" cy={62} cx={82} initial={{ cx: 82, opacity: 0 }}
+              animate={{ cx: [82, 238], opacity: [0, 1, 1, 0] }} transition={{ duration: CYCLE * 0.55, repeat: Infinity, repeatDelay: CYCLE * 0.45, ease: "easeInOut" }}
+              style={{ filter: `drop-shadow(0 0 6px ${ra.color})` }} />
+            <motion.circle r="4.5" fill="#FFFFFF" cy={62} cx={238} initial={{ cx: 238, opacity: 0 }}
+              animate={{ cx: [238, 82], opacity: [0, 1, 1, 0] }} transition={{ duration: CYCLE * 0.55, repeat: Infinity, repeatDelay: CYCLE * 0.45, delay: CYCLE * 0.5, ease: "easeInOut" }}
+              style={{ filter: `drop-shadow(0 0 6px ${rb.color})` }} />
+          </>
+        )}
+        {/* The two beliefs, flaring as the light arrives. */}
+        {[{ x: 62, g: `coa${id}`, c: ra.color, d: CYCLE * 0.98 }, { x: 258, g: `cob${id}`, c: rb.color, d: CYCLE * 0.48 }].map((o, i) => (
+          <g key={i}>
+            {/* Flares by growing its radius (scaling an SVG node around a
+                point is unreliable across browsers). */}
+            <motion.circle cx={o.x} cy={62} r={26} fill={`url(#${o.g})`}
+              initial={{ r: 26 }} animate={reduce ? undefined : { r: [26, 36, 29, 26] }} transition={flare(o.d)} />
+            <circle cx={o.x} cy={62} r="8" fill={o.c} />
+            <circle cx={o.x - 2.4} cy={59.6} r="2.6" fill="#FFFFFF" opacity="0.9" />
+          </g>
+        ))}
+        <text x="16" y="112" textAnchor="start" fontSize="11" fontWeight="600" fontFamily={font} fill={ra.ink}>{label(a).length > 24 ? `${label(a).slice(0, 23)}…` : label(a)}</text>
+        <text x="304" y="112" textAnchor="end" fontSize="11" fontWeight="600" fontFamily={font} fill={rb.ink}>{label(b).length > 24 ? `${label(b).slice(0, 23)}…` : label(b)}</text>
+      </svg>
+      <div style={{ position: "relative", marginTop: 12, padding: "2px 0 0 18px" }}>
+        <span aria-hidden style={{ position: "absolute", left: 0, top: -6, ...display, fontSize: 44, lineHeight: 1, color: ra.color, opacity: 0.55 }}>“</span>
+        {lead && (
+          <div style={{ ...display, fontSize: 24, lineHeight: 1.2, wordBreak: "keep-all",
+            backgroundImage: `linear-gradient(90deg, ${ra.ink}, ${rb.ink})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+            {lead}
+          </div>
+        )}
+        <div style={{ ...display, fontStyle: "italic", fontSize: lead ? 18 : 20, lineHeight: 1.45, color: ivBody, marginTop: lead ? 4 : 0, wordBreak: "keep-all" }}>{rest.trim()}</div>
+      </div>
+    </div>
+  );
+}
+
 function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
   const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
@@ -3584,12 +3671,20 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               surfaces). An observation, never styled as a warning. */}
           {notebookNotes.length > 0 && (
             <SettingsGroup header="What connects them">
-              {notebookNotes.map((c, i) => (
-                <div key={i} style={{ position: "relative", padding: "16px 18px" }}>
-                  {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
-                  <div style={{ ...display, fontStyle: "italic", fontSize: 20, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
-                </div>
-              ))}
+              {notebookNotes.map((c, i) => {
+                const A = store.beliefs.find((x) => x.id === c.a);
+                const B = store.beliefs.find((x) => x.id === c.b);
+                return (
+                  <div key={i} style={{ position: "relative", padding: "14px 14px 16px" }}>
+                    {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
+                    {A && B ? (
+                      <ConnectionThread a={A} b={B} note={c.note} tension={c.type === "contradiction"} />
+                    ) : (
+                      <div style={{ ...display, fontStyle: "italic", fontSize: 20, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
+                    )}
+                  </div>
+                );
+              })}
             </SettingsGroup>
           )}
 
