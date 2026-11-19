@@ -3466,43 +3466,46 @@ function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredB
   );
 }
 
+// How often a thought comes up, said in words instead of a percentage:
+// the confidence score behind it, read as "a lot / often / now and then",
+// with five small dots in the thought's colour. Used wherever a belief's
+// strength is shown to the person (Mind, Patterns, the sky's star sheet).
+function howOften(confidence: number) {
+  return {
+    label: confidence >= 75 ? "Comes up a lot" : confidence >= 50 ? "Comes up often" : "Comes up now and then",
+    dots: Math.max(1, Math.round(confidence / 20)),
+  };
+}
+
+function OftenDots({ confidence, region, extra }: { confidence: number; region: CognitiveRegion; extra?: string }) {
+  const c = REGION_CONFIG[region];
+  const { label, dots } = howOften(confidence);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
+        {Array.from({ length: 5 }, (_, k) => (
+          <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: k < dots ? c.color : "rgba(42,38,33,0.12)", boxShadow: k < dots ? `0 0 5px ${c.color}88` : undefined }} />
+        ))}
+      </span>
+      <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: c.ink }}>{label}</span>
+      {extra && <span style={{ ...sans, fontSize: 12, color: ivBody }}>{extra}</span>}
+    </div>
+  );
+}
+
 function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
   const reduceMotion = useReducedMotion();
   // Same "pin today's discovery, scope the network to it" logic
   // ScreenDiscoveryAnalysis uses (see there for the fuller machinery this
-  // mirrors) — kept here too because it's what relatedBrainBeliefs below
-  // scopes around, falling back to every confirmed belief once there's
-  // nothing pinned yet, so this screen never renders empty just because no
-  // discovery has surfaced.
+  // mirrors) — the thoughts and the thread shown here are the ones behind
+  // the pinned discovery.
   const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
   const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
   const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
   const h = hIndex !== null ? store.hypotheses[hIndex] : null;
   const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
 
-  // The beliefs related to *this* discovery, not the whole brain (Home
-  // already shows that). A hypothesis names its own relatedBeliefIds; a
-  // belief-kind discovery's "related" set is itself plus anything
-  // connected to it. Falls back to the full brain only if that set somehow
-  // comes up empty, so the card is never just a blank field.
-  const relatedBeliefIds = React.useMemo(() => {
-    if (h) return new Set(h.relatedBeliefIds);
-    if (b) {
-      const linked = store.connections.filter((c) => c.a === b.id || c.b === b.id).map((c) => (c.a === b.id ? c.b : c.a));
-      return new Set([b.id, ...linked]);
-    }
-    return new Set<string>();
-  }, [h, b, store.connections]);
-  const relatedBrainBeliefs = React.useMemo(() => {
-    const filtered = store.beliefs.filter((belief) => relatedBeliefIds.has(belief.id));
-    const base = filtered.length > 0 ? filtered : store.beliefs;
-    return base.map((belief) => ({
-      ...belief,
-      emotionGranularity: beliefEmotionGranularity(belief, store.history),
-      ruminationLikely: isLikelyRuminating(belief, store.connections, store.history),
-    }));
-  }, [store.beliefs, store.connections, store.history, relatedBeliefIds]);
-  // Exactly the discovery itself, not its wider "related" context above —
+  // Exactly the discovery itself —
   // a hypothesis IS the relationship between several beliefs, so all of
   // them are the discovery; a belief-kind discovery is just that one
   // belief, not everything connected to it. Used by DiscoveryBeliefList
@@ -3526,17 +3529,6 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
     () => store.connections.filter((c) => discoveryBeliefIds.includes(c.a) && discoveryBeliefIds.includes(c.b) && c.note),
     [discoveryBeliefIds, store.connections]
   );
-  // Per-region counts across relatedBrainBeliefs — same source and same
-  // resolveRegion classification RegionBreakdown used, so "active" here can
-  // never disagree with what the brain graph above is actually showing.
-  const notebookRegionCounts = React.useMemo(() => {
-    const counts = new Map<CognitiveRegion, number>();
-    COGNITIVE_REGIONS.forEach((r) => counts.set(r, 0));
-    relatedBrainBeliefs.forEach((b) => counts.set(resolveRegion(b), (counts.get(resolveRegion(b)) ?? 0) + 1));
-    return counts;
-  }, [relatedBrainBeliefs]);
-  const notebookActiveRegions = COGNITIVE_REGIONS.filter((r) => (notebookRegionCounts.get(r) ?? 0) > 0);
-  const notebookInactiveRegions = COGNITIVE_REGIONS.filter((r) => (notebookRegionCounts.get(r) ?? 0) === 0);
 
   return (
     <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
@@ -3555,7 +3547,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={primaryTitleStyle}>Mind</div>
             <div style={primaryTitleSubtitleStyle}>
-              The beliefs behind today's discovery, in detail.
+              What's going on underneath, in plain words.
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
@@ -3578,7 +3570,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
 
         {/* ── The notebook content itself — reads the exact same discovery
         data DiscoveryBeliefList/RegionBreakdown compute elsewhere (see
-        notebookBeliefs/notebookNotes/notebookRegionCounts above); neither
+        notebookBeliefs/notebookNotes above); neither
         shared component was touched, and DiscoveryBeliefList is still used
         verbatim by ScreenHypothesisDetail. Same PRIMARY_HEADER_SIDE grid as
         the header above so sections line up under "Mind" instead of
@@ -3589,35 +3581,30 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
         yet, unlike the belief list below it, so the tutorial step never
         aims at something that may not exist. ── */}
         <div data-tutorial="mind-neurons" className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
-          {/* 1 · The beliefs beneath today's discovery — each a row with
-              its region badge, the statement, and its confidence as a
-              meter that fills on arrival rather than a bare number. */}
-          <SettingsGroup header="Beneath today's discovery" style={{ marginTop: 10 }}>
+          {/* 1 · The thoughts behind today's discovery, in plain words: the
+              statement itself, and how often it comes up, said in words
+              (and five small dots) rather than a percentage and a region
+              label. */}
+          <SettingsGroup header={notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"} style={{ marginTop: 10 }}>
             {notebookBeliefs.length > 0 ? (
               notebookBeliefs.map((belief, i) => {
                 const region = resolveRegion(belief);
+                const c = REGION_CONFIG[region];
                 return (
-                  <div key={belief.id} style={{ position: "relative", display: "flex", gap: 12, padding: "13px 16px 14px" }}>
+                  <div key={belief.id} style={{ position: "relative", display: "flex", gap: 12, padding: "14px 16px 15px" }}>
                     {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
-                    <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Node color={REGION_CONFIG[region].color} size={14} intensity={0.6 + (belief.confidence / 100) * 0.4} />
+                    <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                      <Node color={c.color} size={15} intensity={0.6 + (belief.confidence / 100) * 0.4} />
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 28 }}>
-                        <RegionBadge region={region} />
-                        <span style={{ ...sans, fontSize: 12, color: ivBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
-                      </div>
-                      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: 4, wordBreak: "keep-all" }}>{belief.statement}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-                        <MeterFill value={belief.confidence} color={REGION_CONFIG[region].color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
-                        <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />%</span>
-                      </div>
+                      <div style={{ ...display, fontSize: 22, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
+                      <div style={{ marginTop: 8 }}><OftenDots confidence={belief.confidence} region={region} /></div>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing has surfaced yet. A pattern needs a few entries before it shows up here.</div>
+              <div style={{ ...sans, fontSize: 14, color: ivBody, padding: "13px 16px", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
             )}
           </SettingsGroup>
 
@@ -3625,7 +3612,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               exists (the same store.connections note DiscoveryBeliefList
               surfaces). An observation, never styled as a warning. */}
           {notebookNotes.length > 0 && (
-            <SettingsGroup header="What connects them">
+            <SettingsGroup header="How they fit together">
               {notebookNotes.map((c, i) => {
                 const A = store.beliefs.find((x) => x.id === c.a);
                 const B = store.beliefs.find((x) => x.id === c.b);
@@ -3643,79 +3630,21 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
             </SettingsGroup>
           )}
 
-          {/* 3 · Where it lives — one thin segmented bar (one whole, split
-              by region, no text on the marks) and a row per region that
-              has a share, each a door into the Brain Map focused there.
-              Regions with nothing are named once, in the footer, instead
-              of listed as zeros. */}
-          <SettingsGroup
-            header="Where it lives"
-            footer={notebookInactiveRegions.length > 0 ? `Nothing yet in ${notebookInactiveRegions.map((r) => REGION_CONFIG[r].label).join(", ")}.` : undefined}
-          >
-            <div style={{ padding: "14px 16px 12px" }}>
-              <div
-                role="img"
-                aria-label={notebookActiveRegions.length > 0 ? `Share of beliefs by region: ${notebookActiveRegions.map((r) => `${REGION_CONFIG[r].label} ${notebookRegionCounts.get(r) ?? 0}`).join(", ")}.` : "No beliefs yet."}
-                style={{ height: 8, borderRadius: 4, overflow: "hidden", backgroundColor: "rgba(42,38,33,0.08)" }}
-              >
-                {/* One bar, the regions running into each other: each share
-                    holds its own color through its middle and blends into
-                    its neighbor over a short band at the boundary, so the
-                    whole reads as one mind with several tints, not a row of
-                    separate boxes. The rows below carry the exact numbers. */}
-                {notebookActiveRegions.length > 0 && (
-                  <motion.div
-                    initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    style={{
-                      height: "100%", transformOrigin: "left",
-                      backgroundImage: (() => {
-                        const total = notebookActiveRegions.reduce((s, r) => s + (notebookRegionCounts.get(r) ?? 0), 0) || 1;
-                        const blend = 4; // % of the bar on each side of a boundary
-                        let at = 0;
-                        const stops: string[] = [];
-                        notebookActiveRegions.forEach((r, i) => {
-                          const share = ((notebookRegionCounts.get(r) ?? 0) / total) * 100;
-                          const c = REGION_CONFIG[r].color;
-                          const start = i === 0 ? 0 : Math.min(at + blend, at + share / 2);
-                          const end = i === notebookActiveRegions.length - 1 ? 100 : Math.max(at + share - blend, at + share / 2);
-                          stops.push(`${c} ${start.toFixed(1)}%`, `${c} ${end.toFixed(1)}%`);
-                          at += share;
-                        });
-                        return `linear-gradient(90deg, ${stops.join(", ")})`;
-                      })(),
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-            {notebookActiveRegions.map((r) => {
-              const count = notebookRegionCounts.get(r) ?? 0;
-              const pct = relatedBrainBeliefs.length > 0 ? Math.round((count / relatedBrainBeliefs.length) * 100) : 0;
-              return (
-                <SettingsRow
-                  key={r} accent={r} icon={<Node color={REGION_CONFIG[r].color} size={11} intensity={0.75} />} label={REGION_CONFIG[r].label}
-                  value={<span style={{ ...mono, fontSize: 12 }}>{count} · {pct}%</span>}
-                  onClick={onOpenBrainMap ? () => onOpenBrainMap(r) : undefined}
-                />
-              );
-            })}
-          </SettingsGroup>
-
           {onOpenBrainMap && (
             <SettingsGroup>
-              <SettingsRow accent="curiosity" icon={<Graph size={17} />} label="Open your sky" value={`${store.beliefs.length} ${store.beliefs.length === 1 ? "belief" : "beliefs"}`} onClick={() => onOpenBrainMap()} />
+              <SettingsRow accent="curiosity" icon={<Sparkle size={17} weight="fill" />} label="See all your thoughts as stars" value={`${store.beliefs.length}`} onClick={() => onOpenBrainMap()} />
             </SettingsGroup>
           )}
 
-          {/* 4 · Go deeper — Premium's structural layer: the full belief
+          {/* 3 · Look closer — Premium's structural layer: the full belief
               map with interpretations and contradictions
               (ScreenBeliefMap), and the distance between current self and
               aspiration (ScreenDrift). Only once Premium Mode is on
               (store.isPro, toggled from Profile). */}
           {store.isPro && (
-            <SettingsGroup header="Go deeper" style={{ marginBottom: 0 }}>
-              <SettingsRow accent="relationships" icon={<ShareNetwork size={17} />} label="Unconscious patterns" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
-              <SettingsRow accent="career" icon={<Footprints size={17} />} label="Distance from your aspiration" onClick={() => onOpenArtifact?.("drift")} />
+            <SettingsGroup header="Look closer" style={{ marginBottom: 0 }}>
+              <SettingsRow accent="relationships" icon={<ShareNetwork size={17} />} label="Patterns you might not notice" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+              <SettingsRow accent="career" icon={<Footprints size={17} />} label="How close you are to who you want to be" onClick={() => onOpenArtifact?.("drift")} />
             </SettingsGroup>
           )}
         </div>
@@ -6026,11 +5955,11 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
     <div style={{ position: "relative", padding: "14px 16px 4px" }}>
       {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
       <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 24 }}>
-        <RegionBadge region={region} />
+        <Node color={color} size={12} intensity={0.75} />
         <span style={{ ...sans, fontSize: 12, color: ivBody, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
         <span style={{ flex: 1 }} />
-        {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdWarnLabel, flexShrink: 0 }}>Conflicting entries</span>}
-        {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, flexShrink: 0 }}>Confirmed repeatedly</span>}
+        {belief.status === "conflicted" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: mdWarnLabel, flexShrink: 0 }}>Mixed signals</span>}
+        {belief.status === "supported" && <span style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, flexShrink: 0 }}>Keeps showing up</span>}
       </div>
       {belief.distancedReframe ? (
         <div style={{ marginTop: 8, perspective: 800 }}>
@@ -6044,11 +5973,8 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
       ) : (
         <div style={{ ...statementStyle, marginTop: 8 }}>{belief.statement}</div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 12, color: ivBody, flexShrink: 0, whiteSpace: "nowrap" }}>
-          <AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} {belief.evidenceCount === 1 ? "entry" : "entries"}
-        </span>
+      <div style={{ marginTop: 10 }}>
+        <OftenDots confidence={belief.confidence} region={region} extra={`· in ${belief.evidenceCount} ${belief.evidenceCount === 1 ? "entry" : "entries"}`} />
       </div>
       <motion.button
         type="button" aria-expanded={showDetails} onClick={() => setShowDetails((v) => !v)} whileTap={{ opacity: 0.6 }}
@@ -6191,7 +6117,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (clusters.length === 0) return null;
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
-    <SettingsGroup header="Beliefs that support each other" footer="Core beliefs rarely show up alone; several tend to appear together, propping each other up.">
+    <SettingsGroup header="Thoughts that hold each other up" footer="Thoughts like these rarely come alone. They tend to show up together, each one making the others feel more true.">
       {clusters.map((clusterIds, ci) => {
         const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
         if (clusterBeliefs.length === 0) return null;
@@ -6200,7 +6126,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
             {ci > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
             <BeliefClusterDiagram count={clusterBeliefs.length} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>{clusterBeliefs.length} beliefs prop each other up</div>
+              <div style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading }}>These {clusterBeliefs.length} hold each other up</div>
               <ul style={{ margin: "6px 0 0", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
                 {clusterBeliefs.map((b) => (
                   <li key={b.id} style={{ ...display, fontSize: 15, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all" }}>{b.statement}</li>
@@ -6283,8 +6209,8 @@ function TensionScale({ a, b }: { a: StoredBelief; b: StoredBelief }) {
         <circle cx="160" cy="40" r="5" fill="#6B4E37" />
       </svg>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 6, ...sans, fontSize: 12 }}>
-        <span style={{ color: ra.ink, fontWeight: 600, maxWidth: "46%" }}>{shortBelief(a)} · {a.confidence}%</span>
-        <span style={{ color: rb.ink, fontWeight: 600, maxWidth: "46%", textAlign: "right" }}>{shortBelief(b)} · {b.confidence}%</span>
+        <span style={{ color: ra.ink, fontWeight: 600, maxWidth: "46%" }}>{shortBelief(a)}</span>
+        <span style={{ color: rb.ink, fontWeight: 600, maxWidth: "46%", textAlign: "right" }}>{shortBelief(b)}</span>
       </div>
     </div>
   );
@@ -6386,7 +6312,7 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   const pairs = findContradictionPairs(beliefs, connections);
   if (pairs.length === 0) return null;
   return (
-    <SettingsGroup header="Tension between what you've said" footer="This doesn't decide which one is right. It just places the two side by side.">
+    <SettingsGroup header="Where you pull two ways" footer="Two things you've said that don't quite fit together. This doesn't decide which one is right; it just puts them side by side.">
       {pairs.map((p, i) => (
         <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
           {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -6423,7 +6349,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Unconscious patterns</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Patterns you might not notice</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
             {hasBeliefs ? "What keeps showing up in your words and choices without your noticing." : "No patterns yet. Log a first thought with \"Speak your mind\" and they'll start to surface here."}
           </div>
@@ -6445,9 +6371,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         )}
 
         <SettingsGroup
-          header="Core beliefs"
+          header="Thoughts that keep coming back"
           style={{ marginTop: 24 }}
-          footer="The bar is how much evidence backs each one. It takes three similar entries for a belief to appear."
+          footer="The dots show how often each one comes up in what you write. A thought appears here once it has shown up three times."
         >
           {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
@@ -6461,9 +6387,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
-        <SettingsGroup header="Recurring interpretations" footer="Specific moments — in this situation, you read it this way. More concrete than a belief, with an observed trigger.">
+        <SettingsGroup header="How you tend to read moments" footer="Specific moments: when this happens, you tend to read it this way. Smaller and more concrete than the thoughts above.">
           {!hasAssumptions ? (
-            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious interpretations discovered yet.</div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing like this has shown up yet.</div>
           ) : (
             [
               <div key="ripple" style={{ padding: "12px 12px 4px" }}>
@@ -6484,7 +6410,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                     <span key={d} style={{ ...sans, fontSize: 11, fontWeight: 600, color: ivBody, backgroundColor: "rgba(42,38,33,0.06)", padding: "3px 8px", borderRadius: 6 }}>{d}</span>
                   ))}
                   <span style={{ flex: 1 }} />
-                  <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count} {a.count === 1 ? "conversation" : "conversations"}</span>
+                  <span style={{ ...mono, fontSize: 11, color: ivFaint }}>{a.count === 1 ? "once" : `${a.count} times`}</span>
                 </div>
               </div>
               );
@@ -6494,7 +6420,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         </SettingsGroup>
 
         {store.connections.length > 0 && (
-          <SettingsGroup header="Discovered connections" footer="Two beliefs that looked different but come from the same root.">
+          <SettingsGroup header="Same root, different thoughts" footer="Two thoughts that look different on the surface but grow from the same place.">
             {store.connections.map((c, i) => {
               const from = visibleBeliefs.find((b) => b.id === c.a);
               const to = visibleBeliefs.find((b) => b.id === c.b);
@@ -6708,9 +6634,9 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
       <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", padding: `${PRIMARY_HEADER_TOP}px 16px calc(24px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
         <div style={{ padding: "0 6px" }}>
           <BackButton onClick={onBack} color={ivBody} />
-          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Distance from your goal</div>
+          <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>How close you are to who you want to be</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            The gap between who you said you wanted to be and what you've actually been doing.
+            Who you said you want to be, next to what you've actually been doing.
           </div>
         </div>
         {hasAspiration ? (
@@ -6756,7 +6682,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
               <SettingsRow icon={<Footprints size={17} />} label="Tell us who you want to become" onClick={onSetupAspiration} />
             </SettingsGroup>
             {examples.length > 0 && (
-              <SettingsGroup header="What this looks like" footer="Examples, until you set your own.">
+              <SettingsGroup header="What it could look like" footer="Examples, until you write your own.">
                 {examples.map((a, i) => {
                   const gap = Math.abs(a.target - a.actual);
                   return (
@@ -6775,10 +6701,10 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
                         <span style={{ ...sans, fontSize: 13, color: ivBody, wordBreak: "keep-all" }}>{a.label}</span>
-                        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ivHeading, flexShrink: 0 }}>{gap} pt to go</span>
+                        <span style={{ ...sans, fontSize: 13, fontWeight: 600, color: ivHeading, flexShrink: 0 }}>{gap} to go</span>
                       </div>
                       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>
-                        Goal {a.target}% · now {a.actual}%
+                        Now {a.actual} out of 100 · aiming for {a.target}
                       </div>
                       <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
                     </div>
