@@ -3500,7 +3500,7 @@ function SectionCard({ title, subtitle, children, dataTutorial }: { title?: stri
 // light reaches it, because the two keep feeding each other. The note
 // that explains the connection sits under the picture as a quote, its
 // first clause set larger, so the idea lands before the sentence does.
-function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredBelief; note: string; tension?: boolean }) {
+function ConnectionThread({ a, b, note, tension, night }: { a: StoredBelief; b: StoredBelief; note: string; tension?: boolean; night?: boolean }) {
   const reduce = useReducedMotion();
   const id = React.useId().replace(/:/g, "");
   const ra = REGION_CONFIG[resolveRegion(a)], rb = REGION_CONFIG[resolveRegion(b)];
@@ -3534,7 +3534,7 @@ function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredB
             <radialGradient key={k as string} id={`co${k}${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={(t as typeof ra).color} /><stop offset="1" stopColor={(t as typeof ra).color} stopOpacity="0" /></radialGradient>
           ))}
         </defs>
-        <rect width="320" height="128" rx="16" fill={`url(#cbg${id})`} opacity="0.75" />
+        {!night && <rect width="320" height="128" rx="16" fill={`url(#cbg${id})`} opacity="0.75" />}
         {/* The braided thread, its strands slowly turning. */}
         {[0, Math.PI].map((ph, i) => (
           <motion.polyline key={i} points={strand(ph)} fill="none" stroke={`url(#cth${id})`} strokeWidth="2.2" strokeLinecap="round"
@@ -3563,18 +3563,18 @@ function ConnectionThread({ a, b, note, tension }: { a: StoredBelief; b: StoredB
             <circle cx={o.x - 2.4} cy={59.6} r="2.6" fill="#FFFFFF" opacity="0.9" />
           </g>
         ))}
-        <text x="16" y="112" textAnchor="start" fontSize="11" fontWeight="600" fontFamily={font} fill={ra.ink}>{label(a).length > 24 ? `${label(a).slice(0, 23)}…` : label(a)}</text>
-        <text x="304" y="112" textAnchor="end" fontSize="11" fontWeight="600" fontFamily={font} fill={rb.ink}>{label(b).length > 24 ? `${label(b).slice(0, 23)}…` : label(b)}</text>
+        <text x="16" y="112" textAnchor="start" fontSize="11" fontWeight="600" fontFamily={font} fill={night ? ra.color : ra.ink}>{label(a).length > 24 ? `${label(a).slice(0, 23)}…` : label(a)}</text>
+        <text x="304" y="112" textAnchor="end" fontSize="11" fontWeight="600" fontFamily={font} fill={night ? rb.color : rb.ink}>{label(b).length > 24 ? `${label(b).slice(0, 23)}…` : label(b)}</text>
       </svg>
       <div style={{ position: "relative", marginTop: 12, padding: "2px 0 0 18px" }}>
         <span aria-hidden style={{ position: "absolute", left: 0, top: -6, ...display, fontSize: 44, lineHeight: 1, color: ra.color, opacity: 0.55 }}>“</span>
         {lead && (
           <div style={{ ...display, fontSize: 24, lineHeight: 1.2, wordBreak: "keep-all",
-            backgroundImage: `linear-gradient(90deg, ${ra.ink}, ${rb.ink})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
+            backgroundImage: night ? `linear-gradient(90deg, ${ra.color}, ${rb.color})` : `linear-gradient(90deg, ${ra.ink}, ${rb.ink})`, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>
             {lead}
           </div>
         )}
-        <div style={{ ...display, fontStyle: "italic", fontSize: lead ? 18 : 20, lineHeight: 1.45, color: ivBody, marginTop: lead ? 4 : 0, wordBreak: "keep-all" }}>{rest.trim()}</div>
+        <div style={{ ...display, fontStyle: "italic", fontSize: lead ? 18 : 20, lineHeight: 1.45, color: night ? "rgba(244,239,255,0.72)" : ivBody, marginTop: lead ? 4 : 0, wordBreak: "keep-all" }}>{rest.trim()}</div>
       </div>
     </div>
   );
@@ -3591,18 +3591,51 @@ function howOften(confidence: number) {
   };
 }
 
-function OftenDots({ confidence, region, extra }: { confidence: number; region: CognitiveRegion; extra?: string }) {
+function OftenDots({ confidence, region, extra, night }: { confidence: number; region: CognitiveRegion; extra?: string; night?: boolean }) {
   const c = REGION_CONFIG[region];
   const { label, dots } = howOften(confidence);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <span aria-hidden style={{ display: "inline-flex", gap: 3 }}>
         {Array.from({ length: 5 }, (_, k) => (
-          <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: k < dots ? c.color : "rgba(42,38,33,0.12)", boxShadow: k < dots ? `0 0 5px ${c.color}88` : undefined }} />
+          <span key={k} style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: k < dots ? c.color : night ? "rgba(255,255,255,0.16)" : "rgba(42,38,33,0.12)", boxShadow: k < dots ? `0 0 ${night ? 8 : 5}px ${c.color}${night ? "cc" : "88"}` : undefined }} />
         ))}
       </span>
-      <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: c.ink }}>{label}</span>
-      {extra && <span style={{ ...sans, fontSize: 12, color: ivBody }}>{extra}</span>}
+      <span style={{ ...hand, fontSize: 18, fontWeight: 600, color: night ? c.color : c.ink }}>{label}</span>
+      {extra && <span style={{ ...sans, fontSize: 12, color: night ? "rgba(244,239,255,0.6)" : ivBody }}>{extra}</span>}
+    </div>
+  );
+}
+
+// Mind's one bold card: a patch of night sky. A fixed scatter of stars
+// (a few twinkle, on the same .twinkle CSS the sky screen uses) and a
+// soft band of light, with the card's content on top.
+const NIGHT_STARS = Array.from({ length: 34 }, (_, i) => {
+  const r = (n: number) => ((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
+  return { x: r(1) * 100, y: r(2) * 100, s: r(3) < 0.15 ? 2.2 : r(3) < 0.5 ? 1.4 : 1, o: 0.35 + r(4) * 0.6, tw: i % 3 === 0, d: 2.5 + r(5) * 3, dl: r(6) * 4 };
+});
+
+function NightCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  const reduce = useReducedMotion();
+  return (
+    <div style={{
+      position: "relative", overflow: "hidden", borderRadius: shape.md, color: "#F4EFFF",
+      backgroundColor: "#1E1A3C",
+      backgroundImage: `radial-gradient(90% 60% at 85% 0%, ${REGION_CONFIG.identity.color}55, transparent 60%), radial-gradient(80% 60% at 0% 100%, ${REGION_CONFIG.relationships.color}33, transparent 60%), linear-gradient(170deg, #1E1A3C 0%, #2A2352 60%, #352A55 100%)`,
+      boxShadow: `0 18px 34px -20px #1E1A3C, inset 0 0 0 1px rgba(255,255,255,0.06)`,
+      ...style,
+    }}>
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: "-20%", right: "-20%", top: "30%", height: "22%", transform: "rotate(-14deg)",
+          backgroundImage: "linear-gradient(180deg, transparent, rgba(255,255,255,0.06) 40%, rgba(200,190,255,0.08) 55%, transparent)", filter: "blur(6px)" }} />
+        {NIGHT_STARS.map((st, i) => (
+          <span key={i} className={st.tw && !reduce ? "twinkle" : undefined}
+            style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, width: st.s, height: st.s, borderRadius: "50%", backgroundColor: "#fff", opacity: st.o,
+              boxShadow: st.s > 2 ? "0 0 6px rgba(255,255,255,0.8)" : undefined,
+              ["--tw-dur" as string]: `${st.d}s`, ["--tw-delay" as string]: `-${st.dl}s` } as React.CSSProperties} />
+        ))}
+      </div>
+      <div style={{ position: "relative" }}>{children}</div>
     </div>
   );
 }
@@ -3706,29 +3739,29 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
             return (
               <section style={{ marginTop: 10 }}>
                 <SectionHeading>{joined ? "How your thoughts fit together" : notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"}</SectionHeading>
-                <div style={{ ...quietCard, padding: notebookBeliefs.length > 0 ? "14px 14px 6px" : "14px 16px" }}>
-                  {joined && <ConnectionThread a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
+                <NightCard style={{ padding: notebookBeliefs.length > 0 ? "14px 14px 6px" : "14px 16px" }}>
+                  {joined && <ConnectionThread night a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
                   {notebookBeliefs.length > 0 ? (
                     <div style={{ marginTop: joined ? 14 : 0 }}>
                       {notebookBeliefs.map((belief, i) => {
                         const region = resolveRegion(belief);
                         return (
-                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? `1px solid ${ivDivider}` : undefined }}>
+                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
                             <span style={{ width: 18, display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 5 }}>
                               <Node color={REGION_CONFIG[region].color} size={12} intensity={0.6 + (belief.confidence / 100) * 0.4} />
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
-                              <div style={{ marginTop: 5 }}><OftenDots confidence={belief.confidence} region={region} /></div>
+                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: "#F4EFFF", wordBreak: "keep-all" }}>“{belief.statement}”</div>
+                              <div style={{ marginTop: 5 }}><OftenDots night confidence={belief.confidence} region={region} /></div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div style={{ ...sans, fontSize: 14, color: ivBody, lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
+                    <div style={{ ...sans, fontSize: 14, color: "rgba(244,239,255,0.72)", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
                   )}
-                </div>
+                </NightCard>
               </section>
             );
           })()}
@@ -7644,11 +7677,37 @@ function catalogueOrbIntensity(star: CatalogueStar): number {
 // as-of-date mismatch) fades the whole row rather than removing it, so the
 // list's overall shape never jumps. `isLast` drops this row's own divider
 // so a family section doesn't end with a trailing hairline.
+// One area of life in the Patterns catalogue, drawn as its own page of the
+// diary: a heading with that area's orb and name in its ink, and a card
+// with a coloured spine down the left and a wash of the same colour.
+function CatalogueFamily({ region, count, children }: { region: CognitiveRegion; count: number; children: React.ReactNode }) {
+  const c = REGION_CONFIG[region];
+  return (
+    <section style={{ marginTop: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 6px 8px" }}>
+        <Node color={c.color} size={14} intensity={0.9} />
+        <span style={{ ...hand, fontSize: 22, fontWeight: 600, color: c.ink, lineHeight: 1 }}>{c.label}</span>
+        <span style={{ ...hand, fontSize: 17, color: ivBody, lineHeight: 1 }}>· {count} {count === 1 ? "thought" : "thoughts"}</span>
+      </div>
+      <div style={{
+        position: "relative", overflow: "hidden", borderRadius: shape.md, paddingLeft: 5,
+        backgroundColor: "#FFFDF8", backgroundImage: `linear-gradient(100deg, ${c.color}22 0%, ${c.color}0a 50%, transparent 85%)`,
+        border: `1px solid ${c.color}33`, boxShadow: `0 10px 22px -18px ${c.ink}`,
+      }}>
+        <span aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 5, backgroundImage: `linear-gradient(180deg, ${c.color}, ${c.ink})` }} />
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; dimmed: boolean; first?: boolean; onOpen: () => void }) {
-  const color = REGION_CONFIG[star.region].color;
+  const tone = REGION_CONFIG[star.region];
+  const color = tone.color;
+  const since = star.firstDiscovered ? star.firstDiscovered.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
   const metaParts = [
-    star.firstDiscovered ? formatDateDots(star.firstDiscovered) : null,
-    `${star.appearances} time${star.appearances === 1 ? "" : "s"}`,
+    `came up ${star.appearances} time${star.appearances === 1 ? "" : "s"}`,
+    since ? `since ${since}` : null,
   ].filter((p): p is string => !!p);
   return (
     <motion.div
@@ -7656,7 +7715,7 @@ function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; d
       aria-label={`${REGION_CONFIG[star.region].label} pattern: ${star.belief.statement}`}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
-      whileTap={{ backgroundColor: "rgba(42,38,33,0.07)" }}
+      whileTap={{ backgroundColor: `${color}1a` }}
       animate={{ opacity: dimmed ? 0.3 : 1 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       style={{
@@ -7664,7 +7723,7 @@ function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; d
         cursor: "pointer", backgroundColor: "rgba(42,38,33,0)", WebkitTapHighlightColor: "transparent",
       }}
     >
-      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      {!first && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: `${color}2e` }} />}
       {/* A fixed 28px column keeps every title flush regardless of how
           big the star itself is. */}
       <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -7674,11 +7733,11 @@ function CatalogueCell({ star, dimmed, first, onOpen }: { star: CatalogueStar; d
         <div style={{ ...display, fontSize: 17, lineHeight: 1.32, color: ivHeading, wordBreak: "keep-all", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {star.belief.statement}
         </div>
-        <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>
-          {metaParts.join(" · ")}
+        <div style={{ ...hand, fontSize: 17, fontWeight: 500, color: tone.ink, marginTop: 2 }}>
+          {metaParts.join(", ")}
         </div>
       </div>
-      <Breathe inline amount={1.3}><CaretRight size={14} color={ivFaint} weight="bold" style={{ display: "block" }} /></Breathe>
+      <Breathe inline amount={1.3}><CaretRight size={14} color={tone.ink} weight="bold" style={{ display: "block", opacity: 0.7 }} /></Breathe>
     </motion.div>
   );
 }
@@ -8010,17 +8069,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           {COGNITIVE_REGIONS.filter((region) => (filterMode?.type === "region" ? filterMode.region === region : (families.get(region)?.length ?? 0) > 0)).map((region) => {
             const stars = families.get(region) ?? [];
             return (
-              <SettingsGroup
-                key={region}
-                header={
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                    <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: REGION_CONFIG[region].color }} />
-                    {REGION_CONFIG[region].label}
-                    <span style={{ ...mono, fontSize: 12, color: ivFaint }}>{stars.length}</span>
-                  </span>
-                }
-                style={{ marginTop: 18, marginBottom: 0 }}
-              >
+              <CatalogueFamily key={region} region={region} count={stars.length}>
                 {stars.length > 0 ? (
                   stars.map((star, i) => (
                     <CatalogueCell
@@ -8031,7 +8080,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 ) : (
                   <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing here yet.</div>
                 )}
-              </SettingsGroup>
+              </CatalogueFamily>
             );
           })}
 
@@ -8700,8 +8749,8 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, pl
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } }}
       initial={{ rotate: plain ? 0 : tilt }} whileHover={reduce || plain ? undefined : { y: -2, rotate: 0 }} whileTap={plain ? { backgroundColor: `${c.color}14` } : { scale: 0.98, rotate: 0 }} transition={SETTLE}
       style={plain ? {
-        position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "13px 14px 13px 16px", cursor: "pointer",
-        backgroundColor: "rgba(0,0,0,0)", WebkitTapHighlightColor: "transparent",
+        position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "14px 14px 14px 16px", cursor: "pointer",
+        backgroundColor: "rgba(0,0,0,0)", backgroundImage: `linear-gradient(90deg, ${c.color}24 0%, ${c.color}0d 45%, transparent 75%)`, WebkitTapHighlightColor: "transparent",
       } : {
         position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "16px 14px 16px 16px", borderRadius: 16, cursor: "pointer",
         backgroundColor: "#FFFCF6", backgroundImage: `radial-gradient(120% 100% at 0% 0%, ${c.color}30, transparent 55%), linear-gradient(160deg, ${c.color}14, #FFFCF6 70%)`,
@@ -8720,7 +8769,7 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, pl
       </span>
       <span aria-hidden style={{
         position: "relative", width: plain ? 36 : 44, height: plain ? 36 : 44, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
-        backgroundImage: `radial-gradient(circle at 32% 28%, ${c.color}, ${c.ink})`, boxShadow: plain ? `0 4px 10px -5px ${c.ink}` : `0 6px 14px -6px ${c.ink}, 0 0 0 3px #FFFCF6, 0 0 0 4px ${c.color}55`,
+        backgroundImage: `radial-gradient(circle at 32% 28%, ${c.color}, ${c.ink})`, boxShadow: plain ? `0 4px 12px -4px ${c.color}, 0 0 0 3px #FFFDF8, 0 0 0 4px ${c.color}44` : `0 6px 14px -6px ${c.ink}, 0 0 0 3px #FFFCF6, 0 0 0 4px ${c.color}55`,
       }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <span style={{ display: "block", ...display, fontSize: plain ? 18 : 19, color: ivHeading, lineHeight: 1.2, wordBreak: "keep-all" }}>{title}</span>

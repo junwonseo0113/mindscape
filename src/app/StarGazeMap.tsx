@@ -315,24 +315,34 @@ export default function StarGazeMap({
           </div>
         </div>
         <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 10, paddingBottom: 2 }}>
-          {COGNITIVE_REGIONS.map((r) => {
+          {/* Each area of life as a small glowing tag in its own colour: its
+              orb, its name in hand like the constellation names in the sky,
+              and how many stars it holds. Areas with no stars yet aren't
+              shown; there's nothing to filter to. */}
+          {COGNITIVE_REGIONS.filter((r) => regionCounts[r] > 0).map((r, i) => {
             const on = activeRegion === r;
             const n = regionCounts[r];
+            const c = REGION_CONFIG[r];
             return (
-              <motion.button key={r} type="button" aria-pressed={on} disabled={n === 0} whileTap={n ? { scale: 0.95 } : undefined}
+              <motion.button key={r} type="button" aria-pressed={on} aria-label={`${c.label}, ${n} ${n === 1 ? "star" : "stars"}`}
+                initial={reduce ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: on ? -2 : 0 }} whileTap={{ scale: 0.94 }}
+                transition={{ type: "spring", stiffness: 380, damping: 24, delay: reduce ? 0 : 0.15 + i * 0.05 }}
                 onClick={() => { setActiveRegion(on ? null : r); setSelectedId(null); }}
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, padding: "6px 11px", borderRadius: 999, cursor: n ? "pointer" : "default",
-                  border: `1px solid ${on ? REGION_CONFIG[r].color : n ? `${REGION_CONFIG[r].color}55` : "rgba(255,255,255,0.1)"}`,
-                  backgroundImage: n ? `linear-gradient(135deg, ${REGION_CONFIG[r].color}${on ? "66" : "2a"}, rgba(255,255,255,0.04))` : undefined,
-                  backgroundColor: "rgba(255,255,255,0.04)",
-                  boxShadow: on ? `0 0 16px -4px ${REGION_CONFIG[r].color}` : undefined,
-                  color: n ? INK : "rgba(243,239,250,0.35)", ...sans, fontSize: 12, fontWeight: 600, transition: "box-shadow 0.3s",
+                  position: "relative", display: "inline-flex", alignItems: "center", gap: 7, flexShrink: 0, padding: "5px 12px 5px 7px", borderRadius: 999, cursor: "pointer",
+                  border: `1px solid ${on ? c.color : `${c.color}66`}`,
+                  backgroundColor: on ? `${c.color}40` : "rgba(20,16,40,0.45)",
+                  backgroundImage: `radial-gradient(120% 140% at 0% 50%, ${c.color}${on ? "88" : "38"}, transparent 70%)`,
+                  boxShadow: on ? `0 0 18px -2px ${c.color}, inset 0 0 10px ${c.color}55` : `0 0 12px -6px ${c.color}`,
+                  backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", transition: "background-color 0.25s, box-shadow 0.25s",
                 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: REGION_CONFIG[r].color, opacity: n ? 1 : 0.4,
-                  boxShadow: n ? `0 0 6px ${REGION_CONFIG[r].color}, 0 0 12px ${REGION_CONFIG[r].color}88` : undefined }} />
-                {REGION_CONFIG[r].label}
-                <span style={{ ...mono, fontSize: 11, color: INK_FAINT }}>{n}</span>
+                <span style={{ lineHeight: 0 }}><Node color={c.color} size={14} intensity={on ? 1 : 0.8} /></span>
+                <span style={{ ...hand, fontSize: 19, fontWeight: 600, lineHeight: 1, color: on ? "#FFFFFF" : c.color, textShadow: on ? `0 0 8px ${c.color}` : undefined }}>{c.label}</span>
+                <span style={{
+                  ...sans, fontSize: 11, fontWeight: 700, lineHeight: 1, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, boxSizing: "border-box",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  color: on ? c.ink : "#1A1533", backgroundColor: on ? "#FFFFFF" : c.color,
+                }}>{n}</span>
               </motion.button>
             );
           })}
