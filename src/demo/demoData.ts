@@ -65,6 +65,7 @@ export const DEMO_STORE: Store = {
   history: [
     {
       id: "demo-entry-0", date: "2026.07.28", text: "Got a job offer, but I feel like I want to wait and see a bit longer...", duration: "4 min 12 sec",
+      aspirationStep: { direction: "away", size: 2, note: "You leaned toward waiting instead of taking the offer you wanted." },
       analysis: {
         observation: {
           situation: "Received a job offer",
@@ -89,7 +90,26 @@ export const DEMO_STORE: Store = {
       languageObservation: { wordCount: 17, cognitiveVerbCount: 1, cognitiveVerbPerHundredWords: 5.88, firstPersonSingularCount: 2, collectiveOrOtherCount: 0 },
     },
     {
+      id: "demo-entry-4", date: "2026.07.27", text: "I volunteered to lead the new project, even though part of me wanted to wait until I felt ready.", duration: "1 min 50 sec",
+      aspirationStep: { direction: "toward", size: 2, note: "You took the harder option before you felt ready." },
+      analysis: {
+        observation: {
+          situation: "Offered to lead a new project at work",
+          automaticThought: "I'm not ready yet, but I'll try anyway",
+          emotions: [{ label: "Nervousness", intensity: 45 }, { label: "Pride", intensity: 40 }],
+          actionUrge: "Raised a hand before the doubt could win",
+        },
+        interpretation: {
+          possibleCognitivePatterns: [],
+          valueDirection: { relatedValues: ["Growth"], towardOrAway: "toward", explanation: "Choosing to lead moved toward growth despite the doubt." },
+        },
+        hypothesis: { candidateBelief: "", confidence: 0, status: "insufficient_data", supportingEntryIds: [], contradictoryEntryIds: [], reasoningSummary: "" },
+      },
+      languageObservation: { wordCount: 19, cognitiveVerbCount: 1, cognitiveVerbPerHundredWords: 5.26, firstPersonSingularCount: 3, collectiveOrOtherCount: 0 },
+    },
+    {
       id: "demo-entry-1", date: "2026.07.25", text: "After the presentation, I kept replaying only the parts I regretted...", duration: "2 min 40 sec",
+      aspirationStep: { direction: "away", size: 1, note: "You spent the evening on what went wrong rather than what you tried." },
       analysis: {
         observation: {
           situation: "Finished a presentation",
@@ -112,6 +132,7 @@ export const DEMO_STORE: Store = {
     },
     {
       id: "demo-entry-2", date: "2026.07.21", text: "Lately I can't tell if deciding things alone is actually comfortable, or if I'm just used to it...", duration: "6 min 5 sec",
+      aspirationStep: { direction: "unclear", size: 1, note: "" },
       analysis: {
         observation: {
           situation: "Reflected on deciding things alone",
@@ -233,8 +254,10 @@ export const DEMO_STORE: Store = {
     },
   ],
 
-  aspiration: null,
-  aspirationSetDate: null,
+  // Demo Mode shows the main feature: a set aspiration, so Home's voyage,
+  // the Analysis chart and each entry's step all have something to show.
+  aspiration: "I want to be someone who chooses challenge over safety.",
+  aspirationSetDate: "2026.02.03",
   // Shown only while no aspiration is set, explicitly framed in-copy as
   // examples — real users see none of this once they set an aspiration,
   // and see no aspirationExamples at all since real Store objects never
@@ -265,7 +288,10 @@ export const DEMO_STORE: Store = {
       note: "58% of conversations that mentioned trying something new ended with \"once I'm a bit more ready.\"",
     },
   ],
-  driftNotes: [],
+  driftNotes: [
+    { date: "2026.07.27", note: "You said you want to choose challenge over safety, and this week you volunteered to lead before feeling ready." },
+    { date: "2026.07.28", note: "The \"wait and see\" pattern came back with the job offer, the same pull toward safety you said you want to move past." },
+  ],
   settings: { dailyReminder: true, dailyReminderTime: "20:00", newHypothesisAlert: true, weeklySummary: false },
   account: null,
   entryCount: 47,

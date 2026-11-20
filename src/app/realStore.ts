@@ -18,6 +18,7 @@ import { sanitizeAiConsent } from "./aiConsent";
 
 import { sanitizeLiterarySelections, validLiteraryMatch } from './literaryPassages';
 import {
+  AspirationStep,
   EntryAnalysis,
   LensKind,
   PendingBeliefCandidate,
@@ -160,6 +161,17 @@ export function appendUnanalyzedEntry(prev: Store, rawText: string): Store {
     history: capHistory([...prev.history, historyEntry]),
     entryCount: prev.entryCount + 1,
   };
+}
+
+// The model's read on whether an entry moved toward who the person wants to
+// be. Anything malformed is dropped rather than guessed at.
+export function sanitizeAspirationStep(raw: any): AspirationStep | null {
+  if (!raw || typeof raw !== "object") return null;
+  const direction = raw.direction === "toward" || raw.direction === "away" || raw.direction === "unclear" ? raw.direction : null;
+  const n = Math.round(Number(raw.size));
+  const size = (n === 1 || n === 2 || n === 3 ? n : 1) as 1 | 2 | 3;
+  const note = typeof raw.note === "string" ? raw.note.trim().slice(0, 200) : "";
+  return direction ? { direction, size, note } : null;
 }
 
 // ── Mood check-ins ───────────────────────────────────────────────────────────
@@ -484,7 +496,8 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   const actDefusion = thoughtLabelSuggestion && distancedReframeSuggestion
     ? { thoughtLabel: thoughtLabelSuggestion, reframe: distancedReframeSuggestion }
     : null;
-  const historyEntry: StoredHistoryEntry = { id: entryId, date: today, text: rawText, analysis, languageObservation, sessionSummary, actDefusion };
+  const aspirationStep = sanitizeAspirationStep(result?.aspirationStep);
+  const historyEntry: StoredHistoryEntry = { id: entryId, date: today, text: rawText, analysis, languageObservation, sessionSummary, actDefusion, ...(aspirationStep ? { aspirationStep } : {}) };
   const history: StoredHistoryEntry[] = capHistory([...prev.history, historyEntry]);
 
   // ── Assumptions: unchanged mechanism — the model still returns the full

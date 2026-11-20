@@ -200,7 +200,7 @@ Write this analysis in 2-4 short sentences. Then write a line reading "===JSON==
 - The number of confirmed patterns plus existing connections is ${networkSize} so far. Only when there are 4+ confirmed patterns AND 2+ connections, and only if there's a genuinely higher-level observation that cuts across multiple patterns, put it in metaInsight — always keep the "this may be the case" tone. If the condition isn't met, metaInsight must be null.
 - If metaInsight is not null, also fill in metaInsightConfidence (integer 0-100), metaInsightDomains (2-3 related domain words), metaInsightBeliefStatements (2-4 statements from matchableBeliefs that support this, copied exactly), and metaInsightThoughtLabel (a short noun phrase for this whole insight, same style as [Naming the thought] above). If null, all four are null.
 
-${aspirationBlock ? `[Distance from who they want to be — Identity Drift]\n- Compare what this person has said they want to become with the actual tendency shown in their confirmed patterns. If there's a concrete behavioral gap, note it in driftNote in one or two sentences, carefully pointing out only the visible difference between "what they said" and "the pattern that actually keeps repeating." Null if it's hard to tell.\n` : '- No "who they want to become" has been set for this request, so driftNote must always be null.\n'}
+${aspirationBlock ? `[Distance from who they want to be — Identity Drift]\n- Compare what this person has said they want to become with the actual tendency shown in their confirmed patterns. If there's a concrete behavioral gap, note it in driftNote in one or two sentences, carefully pointing out only the visible difference between "what they said" and "the pattern that actually keeps repeating." Null if it's hard to tell.\n- aspirationStep: judge THIS entry alone against who they want to become. direction is "toward" if what they did or how they thought here is in the spirit of it, "away" if it runs against it, "unclear" if the entry doesn't touch it. size is 1 (small), 2 (clear) or 3 (big, a real change of behavior). note is one short, warm sentence addressed to ${addressTerm === 'you' ? 'them as "you"' : addressTerm} that names the specific thing in the entry (e.g. "You said what you wanted instead of waiting."). Observational, never a judgment of them as a person.\n` : '- No "who they want to become" has been set for this request, so driftNote and aspirationStep must always be null.\n'}
 [Other]
 - changeNote: one sentence on what was observed this time (e.g. "An entry matching an existing pattern was confirmed again," or "A new candidate was observed," or the fact that a contradiction/connection was found). Null if this is the very first entry with no prior record.
 
@@ -238,7 +238,8 @@ The final JSON must match the schema below exactly. Starting from the line after
   "metaInsightDomains": "string[] or null",
   "metaInsightBeliefStatements": "string[] or null",
   "metaInsightThoughtLabel": "string or null",
-  "driftNote": "string or null"
+  "driftNote": "string or null",
+  "aspirationStep": { "direction": "toward | away | unclear", "size": "1 | 2 | 3", "note": "one short sentence" } or null
 }
 
 New entry:

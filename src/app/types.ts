@@ -188,6 +188,14 @@ export type LanguageObservation = {
   collectiveOrOtherCount: number;
 };
 
+export type AspirationStep = {
+  direction: "toward" | "away" | "unclear";
+  // 1 = a small step, 2 = a clear one, 3 = a big one.
+  size: 1 | 2 | 3;
+  // One short sentence to the person, e.g. "You spoke up instead of waiting."
+  note: string;
+};
+
 export type StoredHistoryEntry = {
   // Stable id, independent of array position or date — this is what
   // supportingEntryIds/contradictoryEntryIds reference, and what lets a
@@ -204,6 +212,10 @@ export type StoredHistoryEntry = {
   // When the entry was made, to the minute. Only check-ins set it, so the
   // next written entry can tell the AI which feeling came just before it.
   at?: string;
+  // Did this entry move toward or away from who the person said they want
+  // to be (Store.aspiration)? Set by /api/analyze when an aspiration
+  // exists; see aspirationPath.ts for how steps add up to a distance.
+  aspirationStep?: AspirationStep;
   // Only demo entries carry a recorded duration today.
   duration?: string;
   // The raw entry and the AI's read on it are stored side by side but kept
