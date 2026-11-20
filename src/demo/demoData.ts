@@ -30,7 +30,7 @@ export const DEMO_STORE: Store = {
     },
     { id: "demo-belief-2", domain: "Relationships", statement: "It's better to do things alone", confidence: 57, evidenceCount: 18, evidenceQuotes: [], status: "emerging", thoughtLabel: "Distancing thought", supportingEntryIds: ["demo-entry-2"] },
     { id: "demo-belief-3", domain: "Work", statement: "I can only start once it's perfect", confidence: 71, evidenceCount: 26, evidenceQuotes: [], status: "supported", possibleCognitivePatterns: ["All-or-nothing thinking", "Should statements"], thoughtLabel: "Perfectionism thought" },
-    { id: "demo-belief-4", domain: "Values", statement: "Freedom matters more than money", confidence: 45, evidenceCount: 12, evidenceQuotes: [], status: "conflicted", thoughtLabel: "Freedom-vs-security conflict thought" },
+    { id: "demo-belief-4", domain: "Values", statement: "Freedom matters more than money", confidence: 45, evidenceCount: 12, evidenceQuotes: [], status: "conflicted", thoughtLabel: "Freedom-vs-security conflict thought", supportingEntryIds: ["demo-entry-4"] },
   ],
 
   // Same trigger -> interpretation shape as real StoredAssumption, so the
