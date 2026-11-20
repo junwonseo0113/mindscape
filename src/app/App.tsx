@@ -36,7 +36,7 @@ import { PathChart, PathLegend, VoyageCard } from "./Voyage";
 import { haptic, isNative, notifyNow, startNativeSpeech, syncReminders, type NativeSpeechSession } from "./native";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
-import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
+import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentEntryMemory, recentMoodContext, type EntryMemory, type RecentMood } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
@@ -5672,6 +5672,7 @@ function ScreenProcessing({
   aspiration,
   name,
   recentMoods,
+  recentEntries,
   onDone,
   onError,
   onCancel,
@@ -5688,6 +5689,9 @@ function ScreenProcessing({
   // Check-ins from the last few hours (see recentMoodContext), sent as
   // background for reading this entry's feelings.
   recentMoods?: RecentMood[];
+  // The last few entries as short gists (recentEntryMemory), so the
+  // analysis can tell "this again" from "this is new".
+  recentEntries?: EntryMemory[];
   // sessionSummary is undefined whenever /api/summarize-session didn't
   // return one (no key, network error, bad response) — a missing summary
   // never blocks or fails the main analysis, per Feature 3's own spec.
@@ -5745,7 +5749,7 @@ function ScreenProcessing({
     fetch(apiUrl("/api/analyze"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods }),
+      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods, recentEntries }),
       signal: analyzeAbort.signal,
     })
       .then(async (res) => {
@@ -10706,6 +10710,7 @@ export default function App() {
         aspiration={store.aspiration}
         name={store.account?.name}
         recentMoods={recentMoodContext(store.history)}
+        recentEntries={recentEntryMemory(store.history)}
         onDone={(result, sessionSummary) => {
           if (result) {
             const accumulate = !MONETIZATION_ENABLED || store.isPro;

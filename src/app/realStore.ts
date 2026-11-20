@@ -105,11 +105,24 @@ export function loadStore(): Store {
   }
 }
 
-export function saveStore(store: Store) {
+// Returns whether the store was written. If the phone's storage for this
+// app is full, it keeps the newest entries and tries again with fewer
+// (500, then 250, then 100), so a full disk costs the oldest pages here
+// rather than every new one. A signed-in user's cloud copy keeps them all.
+export function saveStore(store: Store): boolean {
+  const write = (s: Store) => localStorage.setItem(STORE_KEY, JSON.stringify(s));
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+    write(store);
+    return true;
   } catch {
-    // private-mode / storage-full — non-fatal, just don't persist
+    for (const keep of [500, 250, 100]) {
+      try {
+        write({ ...store, history: capHistory(store.history, keep) });
+        console.warn(`[store] storage full: kept the newest ${keep} entries on this device`);
+        return true;
+      } catch { /* try fewer */ }
+    }
+    return false; // private mode, or storage unavailable
   }
 }
 
@@ -184,16 +197,66 @@ export const isMoodCheckIn = (e: StoredHistoryEntry) => e.kind === "mood" || /^C
 // check-ins. One shared cap of 50 meant a week of frequent taps could push
 // someone's real entries (the evidence behind their beliefs) out of the
 // store.
-export const HISTORY_CAP = 50;
-export const MOOD_CAP = 60;
-export function capHistory(history: StoredHistoryEntry[]): StoredHistoryEntry[] {
+//
+// A diary has to keep its pages, so the limits are generous: the last 1000
+// written entries (years of regular use) and 300 check-ins. To keep that
+// within the phone's storage, only the newest FULL_DETAIL entries keep the
+// AI's full write-up; older ones are compacted to what the app still reads
+// from them (the text, feelings, toward/away, the thought they back).
+export const HISTORY_CAP = 1000;
+export const MOOD_CAP = 300;
+export const FULL_DETAIL = 100;
+
+// An older entry with the AI's long-form text removed. Nothing a screen
+// reads from an old entry is lost: text, date, feelings, its step toward
+// who you want to be, its language counts and the short session summary.
+export function compactEntry(e: StoredHistoryEntry): StoredHistoryEntry {
+  if (!e.analysis) return e;
+  const { actDefusion: _a, selfCompassionNote: _s, ...rest } = e;
+  const a = e.analysis;
+  return {
+    ...rest,
+    analysis: {
+      observation: { situation: "", automaticThought: a.observation.automaticThought, emotions: a.observation.emotions, actionUrge: "" },
+      interpretation: {
+        possibleCognitivePatterns: a.interpretation.possibleCognitivePatterns,
+        valueDirection: { relatedValues: a.interpretation.valueDirection.relatedValues, towardOrAway: a.interpretation.valueDirection.towardOrAway, explanation: "" },
+      },
+      hypothesis: { ...a.hypothesis, reasoningSummary: "" },
+    },
+  };
+}
+
+export function capHistory(history: StoredHistoryEntry[], writtenCap = HISTORY_CAP): StoredHistoryEntry[] {
   let written = 0, moods = 0;
-  const keep = new Array<boolean>(history.length);
+  const out: StoredHistoryEntry[] = [];
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (isMoodCheckIn(history[i])) keep[i] = ++moods <= MOOD_CAP;
-    else keep[i] = ++written <= HISTORY_CAP;
+    const e = history[i];
+    if (isMoodCheckIn(e)) { if (++moods <= MOOD_CAP) out.push(e); continue; }
+    written += 1;
+    if (written > writtenCap) continue;
+    out.push(written > FULL_DETAIL ? compactEntry(e) : e);
   }
-  return history.filter((_, i) => keep[i]);
+  return out.reverse();
+}
+
+// The last few written entries, as short gists, so /api/analyze can see
+// what came just before ("this again", "this is new") instead of reading
+// every entry as if it were the first. Oldest first.
+export type EntryMemory = { date: string; gist: string; step?: "toward" | "away" };
+export function recentEntryMemory(history: StoredHistoryEntry[], n = 5): EntryMemory[] {
+  return history
+    .filter((e) => !isMoodCheckIn(e))
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (a.e.date < b.e.date ? -1 : a.e.date > b.e.date ? 1 : a.i - b.i))
+    .map(({ e }) => e)
+    .slice(-n)
+    .map((e) => {
+      const gist = (e.sessionSummary || e.analysis?.observation.automaticThought || e.text).replace(/\s+/g, " ").trim().slice(0, 220);
+      const dir = e.aspirationStep?.direction;
+      return { date: e.date, gist, ...(dir === "toward" || dir === "away" ? { step: dir } : {}) };
+    })
+    .filter((m) => m.gist);
 }
 
 // The feelings someone tapped in the last 12 hours, oldest first, for the
