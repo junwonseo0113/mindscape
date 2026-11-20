@@ -2768,7 +2768,7 @@ function DiscoveryBeliefList({ beliefIds, store, modernist = false }: { beliefId
       </div>
       {notes.map((c, i) => (
         <div key={i} style={{ ...sans, fontSize: 12, color: noteText, backgroundColor: noteBg, borderRadius: 10, padding: "10px 12px", marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          {c.note}
+          <Emph text={c.note} color={noteText} />
         </div>
       ))}
     </div>
@@ -3551,7 +3551,7 @@ function ConnectionThread({ a, b, note, tension, night }: { a: StoredBelief; b: 
   return (
     <div>
       <svg role="img" aria-label={`"${a.statement}" and "${b.statement}" are joined${tension ? ", pulling against each other" : " and feed each other"}.`}
-        viewBox="0 0 320 128" style={{ width: "100%", height: "auto", display: "block" }}>
+        viewBox="0 0 320 112" style={{ width: "100%", height: "auto", display: "block" }}>
         <defs>
           <linearGradient id={`cbg${id}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor={ra.tint} /><stop offset="1" stopColor={rb.tint} /></linearGradient>
           <linearGradient id={`cth${id}`} x1="82" y1="0" x2="238" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor={ra.color} /><stop offset="1" stopColor={rb.color} /></linearGradient>
@@ -3559,7 +3559,7 @@ function ConnectionThread({ a, b, note, tension, night }: { a: StoredBelief; b: 
             <radialGradient key={k as string} id={`co${k}${id}`}><stop offset="0" stopColor="#FFFFFF" /><stop offset="0.35" stopColor={(t as typeof ra).color} /><stop offset="1" stopColor={(t as typeof ra).color} stopOpacity="0" /></radialGradient>
           ))}
         </defs>
-        {!night && <rect width="320" height="128" rx="16" fill={`url(#cbg${id})`} opacity="0.75" />}
+        {!night && <rect width="320" height="112" rx="16" fill={`url(#cbg${id})`} opacity="0.75" />}
         {/* The braided thread, its strands slowly turning. */}
         {[0, Math.PI].map((ph, i) => (
           <motion.polyline key={i} points={strand(ph)} fill="none" stroke={`url(#cth${id})`} strokeWidth="2.2" strokeLinecap="round"
@@ -3588,8 +3588,6 @@ function ConnectionThread({ a, b, note, tension, night }: { a: StoredBelief; b: 
             <circle cx={o.x - 2.4} cy={59.6} r="2.6" fill="#FFFFFF" opacity="0.9" />
           </g>
         ))}
-        <text x="16" y="112" textAnchor="start" fontSize="11" fontWeight="600" fontFamily={font} fill={night ? ra.color : ra.ink}>{label(a).length > 24 ? `${label(a).slice(0, 23)}…` : label(a)}</text>
-        <text x="304" y="112" textAnchor="end" fontSize="11" fontWeight="600" fontFamily={font} fill={night ? rb.color : rb.ink}>{label(b).length > 24 ? `${label(b).slice(0, 23)}…` : label(b)}</text>
       </svg>
       <div style={{ position: "relative", marginTop: 12, padding: "2px 0 0 18px" }}>
         <span aria-hidden style={{ position: "absolute", left: 0, top: -6, ...display, fontSize: 44, lineHeight: 1, color: ra.color, opacity: 0.55 }}>“</span>
@@ -3599,7 +3597,7 @@ function ConnectionThread({ a, b, note, tension, night }: { a: StoredBelief; b: 
             {lead}
           </div>
         )}
-        <div style={{ ...display, fontStyle: "italic", fontSize: lead ? 18 : 20, lineHeight: 1.45, color: night ? "rgba(244,239,255,0.72)" : ivBody, marginTop: lead ? 4 : 0, wordBreak: "keep-all" }}>{rest.trim()}</div>
+        <div style={{ ...display, fontStyle: "italic", fontSize: lead ? 18 : 20, lineHeight: 1.45, color: night ? "rgba(244,239,255,0.72)" : ivBody, marginTop: lead ? 4 : 0, wordBreak: "keep-all" }}><Emph text={rest.trim()} keys={[a.statement, b.statement, a.thoughtLabel, b.thoughtLabel]} color={night ? "#FFFFFF" : ivHeading} /></div>
       </div>
     </div>
   );
@@ -3758,7 +3756,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
             const joined = !!(note && A && B);
             return (
               <section style={{ marginTop: 10 }}>
-                <SectionHeading>{joined ? "How your thoughts fit together" : notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"}</SectionHeading>
+                <SectionHeading>{joined ? "How they connect" : notebookBeliefs.length === 1 ? "Today's thought" : "Today's thoughts"}</SectionHeading>
                 <StarPaperCard a={A ? resolveRegion(A) : "identity"} b={B ? resolveRegion(B) : "relationships"} style={{ padding: notebookBeliefs.length > 0 ? "16px 16px 6px" : "16px" }}>
                   {joined && <ConnectionThread a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
                   {notebookBeliefs.length > 0 ? (
@@ -3790,18 +3788,18 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               Premium (store.isPro, toggled from Profile). */}
           {(onOpenBrainMap || store.isPro) && (
             <section style={{ marginTop: 30 }}>
-              <SectionHeading>Look closer</SectionHeading>
+              <SectionHeading>Go deeper</SectionHeading>
               <StarPaperCard a="curiosity" b="career" tapeLeft style={{ overflow: "visible" }}>
                 {onOpenBrainMap && (
-                  <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="See all your thoughts as stars"
-                    note="Every thought that keeps coming back, in one sky" badge={`${store.beliefs.length}`} onClick={() => onOpenBrainMap()} />
+                  <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="Your sky"
+                    badge={`${store.beliefs.length} ${store.beliefs.length === 1 ? "star" : "stars"}`} onClick={() => onOpenBrainMap()} />
                 )}
                 {store.isPro && (
                   <>
-                    <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Patterns you might not notice"
-                      note={store.beliefs.length > 0 ? "What keeps coming back, and what pulls against what" : "Nothing yet. Keep writing and they'll show up here"} onClick={() => onOpenArtifact?.("beliefs")} />
-                    <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="How close you are to who you want to be"
-                      note="Your thoughts next to the person you said you want to be" onClick={() => onOpenArtifact?.("drift")} />
+                    <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Hidden patterns"
+                      badge={store.beliefs.length > 0 ? undefined : "None yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+                    <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="Who you want to be"
+                      onClick={() => onOpenArtifact?.("drift")} />
                   </>
                 )}
               </StarPaperCard>
@@ -3928,7 +3926,7 @@ function DiscoveryCard({
           ...sans, fontSize: 13, color: ivBody, lineHeight: 1.55, margin: "8px 0 0", wordBreak: "keep-all",
           overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
         }}>
-          {interpretation}
+          <Emph text={interpretation} />
         </p>
       )}
 
@@ -3938,7 +3936,7 @@ function DiscoveryCard({
             <ThoughtGlyph color={c.ink} /> {thoughtCount} thought{thoughtCount === 1 ? "" : "s"}
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, ...sans, fontSize: 11, fontWeight: 600, color: second.ink, backgroundColor: `${second.color}1a`, border: `1px solid ${second.color}33`, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap" }}>
-            <ConfidenceGlyph color={second.ink} /> {confidence}%
+            <ConfidenceGlyph color={second.ink} /> {howOften(confidence).label}
           </span>
         </div>
 
@@ -3974,6 +3972,42 @@ function DiscoveryCard({
 // the fuller statement demoted to quiet supporting text under it, and the
 // relative date folded into one small, muted metadata line at the bottom
 // instead of a bold colored badge up top.
+// ── Emph ────────────────────────────────────────────────────────────────────
+// Bolds the part of a sentence that matters, so a longer explanation can be
+// skimmed. What counts as "the part that matters", in order:
+//   1. anything in quotes ("Safety comes first"),
+//   2. any of `keys` (the thoughts the sentence is about), and numbers with
+//      their unit ("62 out of 100", "3 times", "78%"),
+//   3. if nothing above matched, the sentence's opening clause, up to the
+//      first comma, dash or linking verb ("seems", "may", "because"...).
+const EMPH_NUM = /\b\d+(?:\.\d+)?\s?(?:%|out of 100|times?|entries|entry|days?|weeks?)/gi;
+function Emph({ text, keys = [], color = ivHeading }: { text: string; keys?: (string | undefined)[]; color?: string }) {
+  const b = (t: string, k: React.Key) => <b key={k} style={{ fontWeight: 700, color, fontStyle: "normal" }}>{t}</b>;
+  const ranges: [number, number][] = [];
+  const add = (start: number, end: number) => { if (end > start && !ranges.some(([a, z]) => start < z && end > a)) ranges.push([start, end]); };
+  for (const m of text.matchAll(/["“]([^"”]{2,80})["”]/g)) add(m.index!, m.index! + m[0].length);
+  const lower = text.toLowerCase();
+  keys.filter((k): k is string => !!k && k.length > 3).sort((a, z) => z.length - a.length).forEach((k) => {
+    const i = lower.indexOf(k.toLowerCase());
+    if (i >= 0) add(i, i + k.length);
+  });
+  for (const m of text.matchAll(EMPH_NUM)) add(m.index!, m.index! + m[0].length);
+  if (ranges.length === 0) {
+    const cut = text.search(/,\s|\s[—–-]\s|\s(?:seems?|may|might|is|are|tends?|because|when)\s/);
+    if (cut > 8 && cut < text.length * 0.65) add(0, cut);
+  }
+  if (ranges.length === 0) return <>{text}</>;
+  ranges.sort((x, y) => x[0] - y[0]);
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  ranges.forEach(([a, z], i) => { if (a > at) out.push(text.slice(at, a)); out.push(b(text.slice(a, z), i)); at = z; });
+  if (at < text.length) out.push(text.slice(at));
+  return <>{out}</>;
+}
+
+// A bold word in hand-written copy.
+const B = ({ children }: { children: React.ReactNode }) => <b style={{ fontWeight: 700, color: ivHeading }}>{children}</b>;
+
 // ── Quiet pieces for Mind and Analysis ─────────────────────────────────────
 // Each of those pages has one bold card at the top (today's discovery, the
 // two thoughts joined by a thread). Everything below it sits in this same
@@ -3998,7 +4032,6 @@ function SectionHeading({ children, aside }: { children: React.ReactNode; aside?
 function InsightRow({ item, onOpen, divider }: { item: RecentInsightItem; onOpen?: () => void; divider?: boolean }) {
   const c = REGION_CONFIG[item.region];
   const primary = item.thoughtLabel || item.title;
-  const supporting = item.thoughtLabel && item.title !== item.thoughtLabel ? item.title : null;
   return (
     <motion.div role="button" tabIndex={0} onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
@@ -4010,7 +4043,6 @@ function InsightRow({ item, onOpen, divider }: { item: RecentInsightItem; onOpen
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "block", ...display, fontSize: 18, color: ivHeading, lineHeight: 1.25, wordBreak: "keep-all" }}>{primary}</span>
-        {supporting && <span style={{ display: "block", ...sans, fontSize: 13, color: ivBody, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{supporting}</span>}
       </span>
       {item.thoughtCount > 0 && <span style={{ ...hand, fontSize: 17, color: c.ink, flexShrink: 0 }}>{item.thoughtCount} {item.thoughtCount === 1 ? "entry" : "entries"}</span>}
       <CaretRight size={14} color={ivBody} weight="bold" style={{ flexShrink: 0 }} />
@@ -4237,7 +4269,7 @@ function MoodThoughtsPanel({ store }: { store: Store }) {
           </div>
         ) : (
           <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>
-            When you check in and also write something on the same day, this will show which of your thoughts tend to come with which feeling.
+            Check in <B>and</B> write on the same day to see which thoughts come with which feeling.
           </p>
         )}
       </div>
@@ -6296,7 +6328,7 @@ function BeliefNetworkSection({ beliefs, connections }: { beliefs: StoredBelief[
   if (clusters.length === 0) return null;
   const byId = new Map(beliefs.map((b) => [b.id, b]));
   return (
-    <SettingsGroup header="Thoughts that hold each other up" footer="Thoughts like these rarely come alone. They tend to show up together, each one making the others feel more true.">
+    <SettingsGroup header="Thoughts that hold each other up" footer={<>These show up <B>together</B>, each one making the others <B>feel more true</B>.</>}>
       {clusters.map((clusterIds, ci) => {
         const clusterBeliefs = clusterIds.map((id) => byId.get(id)).filter((b): b is StoredBelief => !!b);
         if (clusterBeliefs.length === 0) return null;
@@ -6491,7 +6523,7 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
   const pairs = findContradictionPairs(beliefs, connections);
   if (pairs.length === 0) return null;
   return (
-    <SettingsGroup header="Where you pull two ways" footer="Two things you've said that don't quite fit together. This doesn't decide which one is right; it just puts them side by side.">
+    <SettingsGroup header="Where you pull two ways" footer={<>Two things you've said that <B>don't fit together</B>. Neither one is marked right.</>}>
       {pairs.map((p, i) => (
         <div key={i} style={{ position: "relative", padding: "14px 16px" }}>
           {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
@@ -6501,7 +6533,7 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
             <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all", paddingLeft: 10, borderLeft: `3px solid ${regionOfBelief(p.b).color}` }}>"{p.b.statement}"</div>
           </div>
           {p.note && (
-            <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${ivDivider}`, lineHeight: 1.55, wordBreak: "keep-all" }}>{p.note}</div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${ivDivider}`, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={p.note} keys={[p.a.statement, p.b.statement]} /></div>
           )}
         </div>
       ))}
@@ -6530,7 +6562,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           <BackButton onClick={onBack} color={ivBody} />
           <div style={{ ...display, fontSize: 28, fontWeight: 400, lineHeight: 1.15, color: ivHeading, marginTop: 14 }}>Patterns you might not notice</div>
           <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 6, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            {hasBeliefs ? "What keeps showing up in your words and choices without your noticing." : "No patterns yet. Log a first thought with \"Speak your mind\" and they'll start to surface here."}
+            {hasBeliefs ? <>What shows up in your words <B>without you noticing</B>.</> : <>No patterns yet. Write with <B>Speak your mind</B> and they'll show up here.</>}
           </div>
         </div>
 
@@ -6552,7 +6584,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <SettingsGroup
           header="Thoughts that keep coming back"
           style={{ marginTop: 24 }}
-          footer="The dots show how often each one comes up in what you write. A thought appears here once it has shown up three times."
+          footer={<>More dots means it <B>comes up more often</B>. A thought shows up here after <B>3 entries</B>.</>}
         >
           {visibleBeliefs.length === 0 ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
@@ -6566,7 +6598,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
 
-        <SettingsGroup header="How you tend to read moments" footer="Specific moments: when this happens, you tend to read it this way. Smaller and more concrete than the thoughts above.">
+        <SettingsGroup header="How you tend to read moments" footer={<><B>When this happens</B>, you tend to <B>read it this way</B>.</>}>
           {!hasAssumptions ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing like this has shown up yet.</div>
           ) : (
@@ -6599,7 +6631,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         </SettingsGroup>
 
         {store.connections.length > 0 && (
-          <SettingsGroup header="Same root, different thoughts" footer="Two thoughts that look different on the surface but grow from the same place.">
+          <SettingsGroup header="Same root, different thoughts" footer={<>They look different but <B>grow from the same place</B>.</>}>
             {store.connections.map((c, i) => {
               const from = visibleBeliefs.find((b) => b.id === c.a);
               const to = visibleBeliefs.find((b) => b.id === c.b);
@@ -6612,7 +6644,7 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
                     <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{from.statement}</div>
                     <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.45, wordBreak: "keep-all" }}>{to.statement}</div>
                   </div>
-                  <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}>{c.note}</div>
+                  <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={c.note} /></div>
                 </div>
               );
             })}
@@ -6849,7 +6881,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                   <div key={i} style={{ position: "relative", padding: "13px 16px" }}>
                     {i > 0 && divider}
                     <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{d.date}</div>
-                    <div style={{ ...sans, fontSize: 15, color: ivHeading, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{d.note}</div>
+                    <div style={{ ...sans, fontSize: 15, color: ivHeading, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={d.note} /></div>
                   </div>
                 ))
               )}
@@ -6857,7 +6889,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
           </>
         ) : (
           <>
-            <SettingsGroup style={{ marginTop: 24 }} footer="One sentence is enough. We'll keep showing the gap between it and what you actually log.">
+            <SettingsGroup style={{ marginTop: 24 }} footer={<><B>One sentence</B> is enough. We'll show the <B>gap</B> between it and what you write.</>}>
               <SettingsRow icon={<Footprints size={17} />} label="Tell us who you want to become" onClick={onSetupAspiration} />
             </SettingsGroup>
             {examples.length > 0 && (
@@ -6885,7 +6917,7 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
                       <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>
                         Now {a.actual} out of 100 · aiming for {a.target}
                       </div>
-                      <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}>{a.note}</div>
+                      <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 10, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={a.note} /></div>
                     </div>
                   );
                 })}
@@ -7026,7 +7058,7 @@ function ScreenJourneyMap({ onBack, store, onSetupAspiration }: { onBack?: () =>
                         You are here
                       </div>
                     )}
-                    <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{n.note}</div>
+                    <div style={{ ...sans, fontSize: 13, color: ivBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={n.note} /></div>
                   </JourneyNode>
                 );
               })}
@@ -8105,7 +8137,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
           its takeaway; opening one shows the picture behind it. Only when
           Premium Mode is on (store.isPro, toggled from Profile). ── */}
           {store.isPro && (
-            <SettingsGroup header="How you've changed" footer="Built from every entry so far. Tap a row to see what's behind the sentence." style={{ marginTop: 28, marginBottom: 0 }}>
+            <SettingsGroup header="How you've changed" footer="Tap a row for the details." style={{ marginTop: 28, marginBottom: 0 }}>
               {[
                 { key: "emotions" as const, title: "Your feelings", Icon: Smiley, body: <ChangeEmotions history={store.history} /> },
                 { key: "values" as const, title: "What you're moving toward", Icon: Compass, body: <ChangeValues history={store.history} /> },
@@ -9282,7 +9314,7 @@ function DisclosureRow({ title, subtitle, icon, open, onToggle, first, titleStyl
         {icon && <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>}
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ ...sans, fontSize: 15, fontWeight: 500, color: ivHeading, lineHeight: 1.4, display: "block", wordBreak: "keep-all", ...titleStyle }}>{title}</span>
-          {subtitle && <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, lineHeight: 1.2, display: "block", marginTop: 2, wordBreak: "keep-all" }}>{subtitle}</span>}
+          {subtitle && <span style={{ ...hand, fontSize: 19, fontWeight: 500, color: ivBody, lineHeight: 1.2, display: "block", marginTop: 2, wordBreak: "keep-all" }}><Emph text={subtitle} /></span>}
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={SETTLE} style={{ display: "flex", flexShrink: 0, marginTop: icon ? 4 : 0 }}>
           <CaretDown size={14} color={ivFaint} weight="bold" />
