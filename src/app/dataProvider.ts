@@ -10,7 +10,8 @@ import type { Store } from "./types";
 import { loadStore, saveStore, sanitizeStore } from "./realStore";
 import { DEMO_STORE } from "../demo/demoData";
 import { supabase } from "./supabaseClient";
-import { pullStoreFromCloud, pushStoreToCloud } from "./cloudSync";
+import { CloudSyncer, pullStoreFromCloud } from "./cloudSync";
+import { mergeStores } from "./storeMerge";
 
 const DEMO_MODE_KEY = "mijeong.isDemoMode";
 // Real users start clean: a brand-new visitor gets their own empty state
@@ -98,28 +99,39 @@ export function useAppData() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Fires once per transition into "signed in" (a fresh login, or an
-  // existing session Supabase restores on page load) — pulls whatever's
-  // already in the cloud down and makes it the local copy of record. A
-  // brand-new signup has no cloud row yet, so this is a no-op for them;
-  // updateRealStore's push below is what creates that first row, the
-  // moment anything actually changes.
+  // On signing in (or a restored session): fetch the cloud copy, MERGE it
+  // with this device's copy (entries written here as a guest or offline
+  // are kept, see storeMerge.ts), save the result here, and upload it so
+  // the cloud has this device's entries too. From then on a CloudSyncer
+  // batches every change into conflict-safe uploads.
+  const syncerRef = React.useRef<CloudSyncer | null>(null);
+  const realStoreRef = React.useRef(realStore);
+  realStoreRef.current = realStore;
   React.useEffect(() => {
     if (!cloudUserId) return;
     let cancelled = false;
     pullStoreFromCloud(cloudUserId).then((cloud) => {
-      if (cancelled || !cloud) return;
-      // Same field-by-field defaulting loadStore applies to a localStorage
-      // read — a cloud row can just as easily be malformed (written by an
-      // older/newer schema version, or edited by hand in the Supabase
-      // dashboard), and trusting it outright would skip every safeguard
-      // that protects the local path.
-      const sanitized = sanitizeStore(cloud);
-      setRealStore(sanitized);
-      saveStore(sanitized);
+      if (cancelled) return;
+      const merged = cloud ? mergeStores(realStoreRef.current, cloud.store) : realStoreRef.current;
+      setRealStore(merged);
+      saveStore(merged);
+      // After a conflict, fold the other device's changes into whatever this
+      // device has now (it may have changed while the upload was in flight).
+      const syncer = new CloudSyncer(cloudUserId, cloud?.revision ?? 0, (fromConflict) => {
+        setRealStore((prev) => {
+          const next = mergeStores(prev, fromConflict);
+          saveStore(next);
+          return next;
+        });
+      });
+      syncerRef.current = syncer;
+      syncer.queue(merged, 0);
     });
     return () => {
       cancelled = true;
+      syncerRef.current?.flush();
+      syncerRef.current?.stop();
+      syncerRef.current = null;
     };
   }, [cloudUserId]);
 
@@ -135,7 +147,7 @@ export function useAppData() {
     setRealStore((prev) => {
       const next = updater(prev);
       saveStore(next);
-      if (cloudUserId) pushStoreToCloud(cloudUserId, next);
+      syncerRef.current?.queue(next);
       return next;
     });
   };

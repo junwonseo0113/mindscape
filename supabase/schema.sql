@@ -20,6 +20,9 @@
 create table if not exists public.user_stores (
   user_id uuid references auth.users(id) on delete cascade primary key,
   store_data jsonb not null,
+  -- Bumped on every save; see save_user_store in
+  -- migrations/20261120_store_revisions.sql (run that file too).
+  revision bigint not null default 0,
   updated_at timestamptz not null default now()
 );
 

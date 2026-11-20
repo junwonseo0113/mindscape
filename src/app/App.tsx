@@ -55,7 +55,7 @@ import {
   DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, Lightning, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
-import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
+import { cloudDeleteAccount, cloudResetPassword, cloudSignIn, cloudSignOut, cloudSignUp, flushCloudSync } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
 import { useAppData } from "./dataProvider";
@@ -1374,10 +1374,22 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [resetInfo, setResetInfo] = React.useState("");
+  // "Forgot password?" (accounts in the cloud only): emails a reset link.
+  const forgot = async () => {
+    setError(""); setResetInfo("");
+    if (!EMAIL_RE.test(email.trim())) { setError("Type your email above first, then tap \"Forgot password?\" again."); return; }
+    try {
+      await cloudResetPassword(email.trim());
+      setResetInfo(`We sent a link to ${email.trim()} to set a new password.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't send the reset email.");
+    }
+  };
 
   const submit = async () => {
     if (loading) return;
-    setError("");
+    setError(""); setResetInfo("");
     if (!email.trim() || !password) { setError("Please enter both an email and a password."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
     setLoading(true);
@@ -1427,7 +1439,19 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                 style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{error}</motion.div>
             )}
+            {resetInfo && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                style={{ ...sans, fontSize: 13, color: REGION_CONFIG.security.ink, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{resetInfo}</motion.div>
+            )}
           </AnimatePresence>
+          {isCloudSyncConfigured && (
+            <div style={{ textAlign: "right", marginTop: -6, marginBottom: 14 }}>
+              <motion.span role="button" tabIndex={0} onClick={forgot} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); forgot(); } }}
+                whileTap={{ opacity: 0.6 }} style={{ ...hand, fontSize: 18, fontWeight: 600, color: REGION_CONFIG.identity.ink, cursor: "pointer" }}>
+                Forgot password?
+              </motion.span>
+            </div>
+          )}
           <PrimaryBtn ivory onClick={submit} loading={loading} icon={<PenNib size={18} weight="fill" />}>Log in</PrimaryBtn>
         </DiaryPage>
         <div style={{ textAlign: "center", marginTop: 18 }}>
@@ -1457,7 +1481,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
     setInfo("");
     if (!name.trim()) { setError("Please enter your name."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
 
     if (isCloudSyncConfigured) {
@@ -1502,7 +1526,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
           {/* An error marks only the field it's about. */}
           <DiaryField label="What should we call you?" autoComplete="name" value={name} onChange={setName} icon={<UserCircle size={20} />} error={/your name/.test(error)} valid={name.trim().length > 0} />
           <DiaryField label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} icon={<EnvelopeSimple size={20} />} error={!!error && !/your name|Password must/.test(error)} valid={EMAIL_RE.test(email.trim())} />
-          <DiaryField label="Password (6+ characters)" type="password" autoComplete="new-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={/Password must/.test(error)} valid={password.length >= 6} />
+          <DiaryField label="Password (8+ characters)" type="password" autoComplete="new-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={/Password must/.test(error)} valid={password.length >= 8} />
           <AnimatePresence>
             {error && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
@@ -8863,7 +8887,8 @@ function ScreenProfile({
   };
   const logOut = onNavSelect
     ? () => {
-        if (isCloudSyncConfigured) cloudSignOut();
+        // Finish uploading anything not yet saved to the cloud, then sign out.
+        if (isCloudSyncConfigured) flushCloudSync().finally(() => cloudSignOut());
         onNavSelect("auth");
       }
     : undefined;

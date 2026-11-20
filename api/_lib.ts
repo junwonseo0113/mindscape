@@ -26,11 +26,48 @@ export function applyCors(req: any, res: any): boolean {
   return false
 }
 
+// ── Abuse limits ──
+// These endpoints spend the project's Anthropic credit, and anyone who
+// finds the URL can call them. Two cheap guards:
+//  · a request body over 64 KB is refused (a diary entry is a few KB);
+//  · each caller (by IP) gets RATE_LIMIT requests per RATE_WINDOW_MS.
+// The counter lives in this server instance's memory, so it's a speed bump
+// against scripts, not an exact quota; for a hard limit put Vercel's
+// firewall rate limiting (or a KV-backed counter) in front.
+const MAX_BODY_BYTES = 64 * 1024
+const RATE_LIMIT = 30
+const RATE_WINDOW_MS = 10 * 60 * 1000
+const hits = new Map<string, number[]>()
+
+function clientIp(req: any): string {
+  const fwd = req.headers?.['x-forwarded-for']
+  return (Array.isArray(fwd) ? fwd[0] : typeof fwd === 'string' ? fwd.split(',')[0] : req.socket?.remoteAddress ?? 'unknown').trim()
+}
+
+export function rateLimited(req: any, now = Date.now()): boolean {
+  const ip = clientIp(req)
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
+  recent.push(now)
+  hits.set(ip, recent)
+  if (hits.size > 5000) for (const [k, v] of hits) if (now - v[v.length - 1] > RATE_WINDOW_MS) hits.delete(k)
+  return recent.length > RATE_LIMIT
+}
+
 export function withApiRoute(handler: (apiKey: string, body: any) => Promise<HandlerResult>) {
   return async (req: any, res: any) => {
     if (applyCors(req, res)) return
     if (req.method !== 'POST') {
       res.status(405).end('Method not allowed')
+      return
+    }
+    res.setHeader('Cache-Control', 'no-store')
+    if (Buffer.byteLength(JSON.stringify(req.body ?? {}), 'utf8') > MAX_BODY_BYTES) {
+      res.status(413).json({ error: 'This entry is too long to analyze in one go. Try splitting it in two.' })
+      return
+    }
+    if (rateLimited(req)) {
+      res.setHeader('Retry-After', String(Math.ceil(RATE_WINDOW_MS / 1000)))
+      res.status(429).json({ error: 'Too many requests in a short time. Please wait a few minutes and try again.' })
       return
     }
 
