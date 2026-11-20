@@ -31,6 +31,7 @@ import {
 import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
 import { describeQuery, parseQuery, scoreDoc, type SearchDoc } from "./smartSearch";
 import { apiUrl } from "./apiBase";
+import { haptic, isNative, notifyNow, startNativeSpeech, syncReminders, type NativeSpeechSession } from "./native";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
 import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
@@ -532,7 +533,7 @@ function InkButton({ children, onClick, disabled, loading, ghost, icon, tone = "
   return (
     <Breathe active={!off} amount={1.02}>
       <motion.button
-        type="button" disabled={disabled} aria-busy={loading || undefined} onClick={off ? undefined : onClick} onPointerDown={press}
+        type="button" disabled={disabled} aria-busy={loading || undefined} onClick={off ? undefined : () => { haptic("press"); onClick?.(); }} onPointerDown={press}
         whileHover={off ? undefined : { y: -2 }} whileTap={off ? undefined : { scale: 0.97 }} transition={SETTLE}
         whileFocus={off ? undefined : { boxShadow: `0 0 0 3px ${v}40` }}
         style={{
@@ -1860,6 +1861,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
           if (sealing) return;
           // Seal the letter, then move on once the seal has landed.
           setSealing(true);
+          haptic("success");
           setTimeout(() => onDone?.(value), SEAL_MS);
         }}>
           {isLast ? (aspiration.trim() ? "Seal it and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
@@ -2446,7 +2448,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
           return (
             <Breathe key={m.label} inline amount={1.05} style={{ flexShrink: 0 }}>
             <motion.button
-              type="button" aria-label={`Log mood: ${m.label}`} onClick={() => logMood(m.label, m.intensity)}
+              type="button" aria-label={`Log mood: ${m.label}`} onClick={() => { haptic("tap"); logMood(m.label, m.intensity); }}
               whileTap={{ scale: 0.95, opacity: 0.82 }}
               // The chosen pill fills and gives one small pulse; the others
               // settle back without any motion of their own.
@@ -5143,9 +5145,12 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
   const [transcript, setTranscript] = React.useState("");
   const [interim, setInterim] = React.useState("");
   const [micError, setMicError] = React.useState<string | null>(null);
-  const voiceSupportedRef = React.useRef(!!getSpeechRecognitionCtor());
+  // The web's speech API, or on the iOS app the system recogniser (native.ts).
+  const voiceSupportedRef = React.useRef(!!getSpeechRecognitionCtor() || isNative);
+  const nativeSpeechRef = React.useRef<NativeSpeechSession | null>(null);
   const recognitionRef = React.useRef<any>(null);
-  const micLevelRef = useMicLevel(recording);
+  // On iOS the recogniser owns the microphone and reports its own level.
+  const micLevelRef = useMicLevel(recording && !isNative);
   const manualStopRef = React.useRef(false);
   // Guards the transition out of this screen — without it, a fast double
   // tap on "Next" (or on the orb to stop recording) before the parent's
@@ -5184,7 +5189,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
     return () => clearInterval(t);
   }, [recording]);
 
-  React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); }, []);
+  React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); nativeSpeechRef.current?.stop(); }, []);
 
   // Guidance only applies while input is actually expected — typing (text
   // mode, whether or not anything's written yet) or actively recording.
@@ -5218,6 +5223,19 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
     setSeconds(0);
     setMicError(null);
     finalTranscriptRef.current = "";
+    haptic("press");
+    if (isNative) {
+      setRecording(true);
+      startNativeSpeech({
+        onText: (t) => { finalTranscriptRef.current = t; setTranscript(t); noteActivity(t); },
+        onLevel: (l) => { micLevelRef.current = l; },
+        onError: (msg) => { setMicError(msg); setRecording(false); nativeSpeechRef.current?.stop(); nativeSpeechRef.current = null; },
+      }).then((session) => {
+        if (!session) { setRecording(false); return; }
+        nativeSpeechRef.current = session;
+      });
+      return;
+    }
     const SR = getSpeechRecognitionCtor();
     if (SR) {
       manualStopRef.current = false;
@@ -5270,6 +5288,14 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
   const stopRecording = () => {
     if (submitted) return;
     setSubmitted(true);
+    haptic("press");
+    if (nativeSpeechRef.current) {
+      const session = nativeSpeechRef.current;
+      nativeSpeechRef.current = null;
+      setRecording(false);
+      session.stop().then((t) => onDone?.((t || finalTranscriptRef.current).trim()));
+      return;
+    }
     manualStopRef.current = true;
     recognitionRef.current?.stop?.();
     recognitionRef.current = null;
@@ -5283,7 +5309,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
   // action lives in the header, where the keyboard can never cover it —
   // a bottom button on a phone is hidden the moment you start typing.
   const canSubmit = !!text.trim() && !submitted;
-  const submitText = () => { if (!canSubmit) return; setSubmitted(true); onDone?.(text.trim()); };
+  const submitText = () => { if (!canSubmit) return; haptic("press"); setSubmitted(true); onDone?.(text.trim()); };
   const entryStamp = React.useMemo(() => new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), []);
   const iconBtn: React.CSSProperties = { border: 0, background: "transparent", padding: 6, margin: -6, cursor: "pointer", lineHeight: 0, WebkitTapHighlightColor: "transparent" };
   return (
@@ -8771,9 +8797,7 @@ function ScreenProfile({
 
         <SettingsGroup>
           {MONETIZATION_ENABLED && store.isPro && <SettingsRow icon={<CreditCard size={17} />} label="Manage subscription" value={planLabel ?? undefined} onClick={onOpenManageSubscription} />}
-          {/* Reminders use the web Notification API, which the iOS app's web
-              view doesn't have, so the setting is web-only for now. */}
-          {!Capacitor.isNativePlatform() && <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />}
+          <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />
           <SettingsRow icon={<LockSimple size={17} />} label="Data & Privacy" onClick={() => onOpenSettings?.("dataPrivacy")} />
           <SettingsRow icon={<Question size={17} />} label="Help" onClick={() => onOpenSettings?.("help")} />
         </SettingsGroup>
@@ -8896,6 +8920,7 @@ function SettingsRow({ icon, label, value, trailing, onClick, destructive, cente
     }
     if (showChevron) setFired((n) => n + 1);
     if (el && showChevron) openFrom?.(el);
+    haptic("tap");
     onClick?.();
   };
   return (
@@ -8955,6 +8980,7 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, pl
     }
     setFired((n) => n + 1);
     if (el) openFrom?.(el);
+    haptic("tap");
     onClick?.();
   };
   return (
@@ -9021,7 +9047,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
       <div className="edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         <SettingsGroup
           footer={settings.dailyReminder
-            ? "Once a day, a nudge to log what's on your mind. It only fires while this app is open in a tab — there's no server behind it yet to reach you when it's closed."
+            ? (isNative ? "Once a day at this time, a nudge to write what's on your mind." : "Once a day, a nudge to log what's on your mind. It only fires while this app is open in a tab — there's no server behind it yet to reach you when it's closed.")
             : "Once a day, a nudge to log what's on your mind."}
         >
           <SettingsRow icon={<BellSimple size={17} />} label="Daily reminder" trailing={<Switch label="Daily reminder" value={settings.dailyReminder} onChange={(v) => onChange?.({ ...settings, dailyReminder: v })} />} />
@@ -10106,6 +10132,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [store.settings.dailyReminder, store.settings.dailyReminderTime]);
 
+  // iOS app: real reminders that fire with the app closed (native.ts).
+  React.useEffect(() => {
+    syncReminders({
+      daily: store.settings.dailyReminder,
+      time: store.settings.dailyReminderTime,
+      weekly: store.settings.weeklySummary && (!MONETIZATION_ENABLED || store.isPro),
+    });
+  }, [store.settings.dailyReminder, store.settings.dailyReminderTime, store.settings.weeklySummary, store.isPro]);
+
   // Weekly-summary Notification — same plain-Notification-API, tab-must-
   // be-open mechanism as the daily reminder above, just checked on an
   // hourly cadence (a "has 7 days passed" question doesn't need minute
@@ -10481,8 +10516,10 @@ export default function App() {
             const accumulate = !MONETIZATION_ENABLED || store.isPro;
             const isUpsellMoment = !accumulate && store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
             const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary, accumulate);
+            haptic("success");
+            const foundNewPattern = merged.beliefs.length > store.beliefs.length || merged.hypotheses.length > store.hypotheses.length;
+            if (store.settings.newHypothesisAlert && foundNewPattern && isNative) notifyNow("A new pattern showed up", "Take a look at what your recent thoughts have in common.");
             if (store.settings.newHypothesisAlert && typeof Notification !== "undefined" && Notification.permission === "granted") {
-              const foundNewPattern = merged.beliefs.length > store.beliefs.length || merged.hypotheses.length > store.hypotheses.length;
               if (foundNewPattern) new Notification("A new pattern showed up", { body: "Take a look at what your recent thoughts have in common." });
             }
             updateStore(() => (isUpsellMoment ? { ...merged, hasSeenUpgradePrompt: true } : merged));

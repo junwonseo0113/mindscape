@@ -26,6 +26,12 @@ const config: CapacitorConfig = {
       backgroundColor: "#EDEAE4",
       showSpinner: false,
     },
+    // The page shrinks to sit above the keyboard, so the writing paper and
+    // "Done" are never hidden behind it.
+    Keyboard: {
+      resize: "native",
+      resizeOnFullScreen: true,
+    },
     StatusBar: {
       style: "LIGHT",
       overlaysWebView: true,

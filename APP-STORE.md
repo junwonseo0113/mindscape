@@ -18,7 +18,7 @@ they need your Apple account, a Mac with Xcode, and the deployed site.
 | AI calls go to the deployed site from inside the app | `src/app/apiBase.ts`, `.env.ios` |
 | The API accepts calls from the app (CORS) | `api/_lib.ts` (`applyCors`) |
 | Status bar text turns light on dark screens | `App.tsx` (screen effect) |
-| Things the iOS web view can't do are hidden, not broken: voice input, reminders | `App.tsx` |
+| **Native phone features** (`src/app/native.ts`): speaking an entry through iOS speech recognition, daily and weekly reminders as local notifications (they fire with the app closed), "new pattern" alerts, haptic taps, the page resizing above the keyboard | `native.ts`, `capacitor.config.ts` |
 | Account deletion inside the app (required by Apple) | Profile → Data & Privacy |
 | Privacy policy, terms, EULA (EN/KO) | `public/legal/` |
 
@@ -59,7 +59,10 @@ In Xcode: select the **App** target → **Signing & Capabilities** → tick
 ### 5. Try it
 Pick an iPhone simulator (or your phone) and press ▶. Check: the opening
 diary, guest mode, writing an entry and getting an analysis, the sky,
-Profile → Data & Privacy.
+Profile → Data & Privacy. On a **real iPhone** also check what the simulator
+can't: speaking an entry ("Use voice instead"; allow microphone and speech),
+haptic taps, and a reminder (Profile → Notifications, set a time a minute
+ahead, lock the phone).
 
 ### 6. Create the app in App Store Connect
 <https://appstoreconnect.apple.com> → Apps → **+** → New App: iOS, name
@@ -143,11 +146,8 @@ about thoughts and feelings and points to crisis support). Expected rating: 12+.
 
 ## Known limits of the iOS app (version 1.0)
 
-- **Voice entries** aren't offered: iOS's web view has no speech-to-text, so
-  the "Use voice instead" button is hidden there. A native speech plugin can
-  add it later.
-- **Reminders** (daily nudge, weekly summary) use web notifications, which
-  the app can't show, so that setting is hidden on iOS. Local notifications
-  (`@capacitor/local-notifications`) can bring them back.
 - **Email confirmation links** open in Safari. After confirming, come back to
   the app and log in.
+- The **weekly reminder** says "your week is ready" rather than quoting the
+  week's top pattern, because a scheduled notification's text is fixed when
+  it's scheduled.
