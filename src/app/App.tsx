@@ -4961,7 +4961,7 @@ function VoiceWaveform({ levelRef }: { levelRef: React.MutableRefObject<number> 
         <div
           key={i}
           ref={(el) => { barsRef.current[i] = el; }}
-          style={{ width: 2, borderRadius: 1, backgroundColor: "#F4F1EC", height: 3, opacity: 0.3 }}
+          style={{ width: 3, borderRadius: 2, backgroundColor: LAMP, boxShadow: `0 0 6px ${LAMP}88`, height: 3, opacity: 0.3 }}
         />
       ))}
     </div>
@@ -4974,46 +4974,153 @@ function VoiceWaveform({ levelRef }: { levelRef: React.MutableRefObject<number> 
 // explain itself. Recording shifts the same breathing to a warmer glow and
 // a slightly quicker pulse — still smooth, never flashy.
 function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => void }) {
+  // Lamp gold while waiting (with a microphone), rose while listening (with
+  // a stop square), and a soft ring of light breathing around it.
+  const c = recording ? REGION_CONFIG.relationships : null;
   return (
     <motion.div
-      role="button"
-      tabIndex={0}
+      role="button" tabIndex={0} aria-label={recording ? "Stop" : "Start talking"}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
       whileTap={{ scale: 0.94 }}
       animate={{ scale: recording ? [1, 1.06, 1] : [1, 1.04, 1] }}
       transition={{ duration: recording ? 1.7 : 2.5, repeat: Infinity, ease: "easeInOut" }}
       style={{
-        width: 76,
-        height: 76,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        // Flat fills, not a gradient sphere — and ivHeading's own charcoal
-        // for the idle state rather than a violet one, same "charcoal is
-        // the one active color, not a substitute accent" rule every other
-        // primary action in the app already follows (see ivHeading above).
-        backgroundColor: recording ? "#8A4A34" : ivHeading,
-        // A faint light ring: charcoal on the dark think screen needs an edge to read as a control.
-        boxShadow: "0 0 0 1px rgba(255,255,255,0.14)",
+        position: "relative", width: 76, height: 76, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+        color: recording ? "#FFFFFF" : "#3A2508",
+        backgroundImage: recording ? `radial-gradient(circle at 32% 28%, ${c!.color}, ${c!.ink})` : `radial-gradient(circle at 32% 28%, #FBE3AE, ${LAMP} 55%, #D9973F)`,
+        boxShadow: recording ? `0 0 34px -4px ${c!.color}, inset 0 1px 0 rgba(255,255,255,0.35)` : `0 0 34px -6px ${LAMP}, inset 0 1px 0 rgba(255,255,255,0.5)`,
       }}
     >
-      <motion.div
-        animate={{
-          opacity: recording ? [0.6, 1, 0.6] : [0.4, 0.7, 0.4],
-          scale: [0.9, 1.05, 0.9],
-        }}
-        transition={{ duration: recording ? 1.4 : 2.6, repeat: Infinity, ease: "easeInOut" }}
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: "50%",
-          backgroundColor: recording ? "#FFD9C7" : "#E8E3F5",
-        }}
-      />
+      <motion.span aria-hidden
+        animate={{ opacity: [0.5, 0, 0.5], scale: [1, 1.45, 1] }} transition={{ duration: recording ? 1.4 : 2.6, repeat: Infinity, ease: "easeOut" }}
+        style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${recording ? c!.color : LAMP}` }} />
+      {recording ? <span style={{ width: 20, height: 20, borderRadius: 5, backgroundColor: "#FFFFFF" }} /> : <Microphone size={28} weight="fill" />}
     </motion.div>
+  );
+}
+
+// ── The night desk ───────────────────────────────────────────────────────────
+// Where "Speak your mind" happens: a window of night sky (fixed stars, a
+// third of them twinkling on the shared .twinkle CSS) and the warm pool of
+// a desk lamp falling on the page. Everything on it is lit by that lamp:
+// the date in gold hand, the prompt on a sticky note, a cloth "Done" tab.
+const DESK_STARS = Array.from({ length: 40 }, (_, i) => {
+  const r = (n: number) => ((Math.sin(i * 91.17 + n * 47.31) * 24634.6345) % 1 + 1) % 1;
+  return { x: r(1) * 100, y: r(2) * 100, s: r(3) < 0.12 ? 2.2 : r(3) < 0.45 ? 1.4 : 1, o: 0.25 + r(4) * 0.55, tw: i % 3 === 0, d: 2.5 + r(5) * 3, dl: r(6) * 4 };
+});
+const LAMP = "#F6C978";
+const LAMP_TEXT = "#F2DDB2";
+
+function NightDeskBackdrop() {
+  const reduce = useReducedMotion();
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none",
+      backgroundImage: "linear-gradient(180deg, #17142F 0%, #221C45 55%, #2B2149 100%)" }}>
+      <div style={{ position: "absolute", left: "-20%", right: "-20%", top: "8%", height: "26%", transform: "rotate(-12deg)", filter: "blur(10px)",
+        backgroundImage: "linear-gradient(180deg, transparent, rgba(200,190,255,0.07) 45%, rgba(255,220,240,0.05) 60%, transparent)" }} />
+      {DESK_STARS.map((st, i) => (
+        <span key={i} className={st.tw && !reduce ? "twinkle" : undefined}
+          style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, width: st.s, height: st.s, borderRadius: "50%", backgroundColor: "#fff", opacity: st.o,
+            boxShadow: st.s > 2 ? "0 0 6px rgba(255,255,255,0.8)" : undefined,
+            ["--tw-dur" as string]: `${st.d}s`, ["--tw-delay" as string]: `-${st.dl}s` } as React.CSSProperties} />
+      ))}
+      {/* The lamp's light on the desk, warm and centred behind the page. */}
+      <div style={{ position: "absolute", left: "50%", top: "32%", width: "150%", height: "75%", transform: "translateX(-50%)",
+        backgroundImage: `radial-gradient(closest-side, ${LAMP}38, ${LAMP}14 55%, transparent)` }} />
+    </div>
+  );
+}
+
+// A round, frosted button for the night desk's top bar.
+const deskIconBtn: React.CSSProperties = {
+  width: 36, height: 36, borderRadius: "50%", border: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+  color: LAMP_TEXT, backgroundColor: "rgba(255,255,255,0.08)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+  backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent",
+};
+
+// ── You, writing it down ─────────────────────────────────────────────────────
+// The voice screen's picture: an open diary under the lamp. While you talk
+// a pen writes your words into it, line after line, then the page settles
+// and it starts again; while waiting, the pen rests on a half-written page.
+// Lines are fixed squiggles (deterministic), drawn with pathLength.
+function scribble(x0: number, x1: number, y: number, seed: number) {
+  let d = `M${x0} ${y}`;
+  let x = x0;
+  let k = seed;
+  while (x < x1 - 4) {
+    k = (k * 9301 + 49297) % 233280;
+    const step = 5 + (k % 5);
+    const h = 2.2 + ((k >> 3) % 4) * 0.9;
+    d += ` q${(step / 2).toFixed(1)} ${(-h).toFixed(1)} ${step} 0`;
+    x += step;
+    if (k % 7 === 0 && x < x1 - 14) { d += ` m5 0`; x += 5; }
+  }
+  return d;
+}
+const DIARY_LINES = [0, 1, 2, 3].map((i) => ({ y: 58 + i * 17, x0: 142, x1: i === 3 ? 196 : 222, d: scribble(142, i === 3 ? 196 : 222, 58 + i * 17, 11 + i * 7) }));
+const DIARY_LEFT_LINES = [0, 1, 2, 3, 4].map((i) => scribble(42, i === 4 ? 92 : 118, 50 + i * 17, 3 + i * 5));
+
+function DiaryWritingScene({ writing }: { writing: boolean }) {
+  const reduce = useReducedMotion();
+  const ink = REGION_CONFIG.identity.ink;
+  const LINE = 1.5, CYCLE = DIARY_LINES.length * LINE + 1.2;
+  const animate = writing && !reduce;
+  // Pen tip keyframes: along each line in turn, then lifted back to the top.
+  const xs: number[] = [], ys: number[] = [], times: number[] = [];
+  DIARY_LINES.forEach((l, i) => {
+    xs.push(l.x0, l.x1); ys.push(l.y, l.y);
+    times.push((i * LINE) / CYCLE, ((i + 1) * LINE - 0.15) / CYCLE);
+  });
+  xs.push(DIARY_LINES[0].x0); ys.push(DIARY_LINES[0].y - 14); times.push(1);
+  const rest = { x: 204, y: 108 };
+  return (
+    <svg viewBox="0 0 260 176" role="img" aria-label={writing ? "A pen writing in your diary as you talk" : "Your diary, open, with a pen resting on it"} style={{ width: "100%", maxWidth: 300, height: "auto", display: "block", overflow: "visible" }}>
+      <defs>
+        <radialGradient id="dws-lamp" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stopColor={LAMP} stopOpacity="0.45" /><stop offset="1" stopColor={LAMP} stopOpacity="0" /></radialGradient>
+        <linearGradient id="dws-l" x1="0" x2="1"><stop offset="0" stopColor="#F3E7CF" /><stop offset="1" stopColor="#FFF9EC" /></linearGradient>
+        <linearGradient id="dws-r" x1="0" x2="1"><stop offset="0" stopColor="#FFF9EC" /><stop offset="1" stopColor="#F6EBD3" /></linearGradient>
+      </defs>
+      <ellipse cx="130" cy="92" rx="130" ry="84" fill="url(#dws-lamp)" />
+      {/* Cover peeking out under the pages, and its ribbon. */}
+      <path d="M20 40 Q130 26 240 40 L246 150 Q130 138 14 150 Z" fill={REGION_CONFIG.relationships.ink} />
+      <path d="M128 140 L128 170 L133 164 L138 170 L138 140 Z" fill={REGION_CONFIG.career.color} />
+      {/* The two pages, bowing toward the spine. */}
+      <path d="M26 36 Q78 28 130 40 L130 146 Q78 134 22 144 Z" fill="url(#dws-l)" />
+      <path d="M130 40 Q182 28 234 36 L238 144 Q182 134 130 146 Z" fill="url(#dws-r)" />
+      <path d="M130 40 L130 146" stroke="rgba(90,60,30,0.25)" strokeWidth="2" />
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <g key={i} stroke={REGION_CONFIG.curiosity.color} strokeOpacity="0.25" strokeWidth="0.8">
+          <path d={`M38 ${52 + i * 17} Q80 ${48 + i * 17} 122 ${52 + i * 17}`} fill="none" />
+          <path d={`M138 ${52 + i * 17} Q180 ${48 + i * 17} 228 ${52 + i * 17}`} fill="none" />
+        </g>
+      ))}
+      {/* Yesterday's page, already written. */}
+      {DIARY_LEFT_LINES.map((d, i) => <path key={i} d={d} fill="none" stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" strokeLinecap="round" />)}
+      {/* Today's page, being written. */}
+      {DIARY_LINES.map((l, i) => (
+        <motion.path key={`${i}${animate}`} d={l.d} fill="none" stroke={ink} strokeWidth="1.5" strokeLinecap="round"
+          initial={{ pathLength: animate ? 0 : i < 2 ? 1 : 0 }}
+          animate={animate ? { pathLength: [0, 0, 1, 1, 0] } : { pathLength: i < 2 ? 1 : 0 }}
+          transition={animate ? { duration: CYCLE, repeat: Infinity, times: [0, (i * LINE) / CYCLE, ((i + 1) * LINE - 0.15) / CYCLE, 0.96, 1], ease: "linear" } : { duration: 0 }} />
+      ))}
+      {/* The pen: its nib at (0,0), body angled up and to the right. */}
+      <motion.g
+        key={animate ? "writing" : "resting"}
+        initial={animate ? { x: xs[0], y: ys[0] } : { x: rest.x, y: rest.y }}
+        animate={animate ? { x: xs, y: ys } : { x: rest.x, y: rest.y }}
+        transition={animate ? { duration: CYCLE, repeat: Infinity, times, ease: "linear" } : { type: "spring", stiffness: 120, damping: 16 }}>
+        <motion.g animate={animate ? { rotate: [0, -4, 0, 3, 0] } : { rotate: 0 }} transition={animate ? { duration: 0.35, repeat: Infinity } : undefined}>
+          <g transform="rotate(-38)">
+            <path d="M0 0 L-3 -9 L3 -9 Z" fill="#E6C27A" />
+            <rect x="-4" y="-13" width="8" height="5" rx="1" fill="#C9A24E" />
+            <rect x="-4.5" y="-58" width="9" height="46" rx="4.5" fill={REGION_CONFIG.identity.color} />
+            <rect x="-4.5" y="-58" width="3" height="46" rx="1.5" fill="#FFFFFF" opacity="0.35" />
+            <rect x="-5" y="-40" width="10" height="3" fill="#E6C27A" />
+          </g>
+        </motion.g>
+      </motion.g>
+    </svg>
   );
 }
 
@@ -5176,28 +5283,35 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
   const entryStamp = React.useMemo(() => new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }), []);
   const iconBtn: React.CSSProperties = { border: 0, background: "transparent", padding: 6, margin: -6, cursor: "pointer", lineHeight: 0, WebkitTapHighlightColor: "transparent" };
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px 0", minHeight: 46 }}>
-        <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
-          <motion.button type="button" aria-label={recording ? "Stop and discard" : "Cancel"} onClick={onBack} whileTap={{ opacity: 0.6 }} style={{ ...iconBtn, color: dkBodyLight }}>
-            <X size={18} />
-          </motion.button>
-        </Breathe>
-        {/* When this was said — quiet, like a journal's dateline. */}
-        <span style={{ ...mono, fontSize: 11, letterSpacing: "0.04em", color: dkBody }}>{entryStamp}</span>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#17142F", overflow: "hidden" }}>
+      <NightDeskBackdrop />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 18px 0", minHeight: 46 }}>
+        <motion.button type="button" aria-label={recording ? "Stop and discard" : "Cancel"} onClick={onBack} whileTap={{ scale: 0.9 }} style={deskIconBtn}>
+          <X size={17} weight="bold" />
+        </motion.button>
+        {/* When this was said, written like a diary's dateline. */}
+        <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: LAMP_TEXT, textShadow: `0 0 12px ${LAMP}55` }}>{entryStamp}</span>
         {textMode ? (
           <Breathe inline amount={1.05} active={canSubmit}>
             <motion.button
               type="button" disabled={!canSubmit} onClick={submitText}
               whileTap={canSubmit ? { scale: 0.95, opacity: 0.85 } : undefined} transition={SETTLE}
-              style={{ ...sans, fontSize: 13, fontWeight: 700, color: canSubmit ? "#fff" : dkBody, backgroundColor: canSubmit ? dkAccent : dkTrack, border: 0, borderRadius: shape.full, padding: "7px 14px", minHeight: 32, cursor: canSubmit ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}
+              style={{
+                position: "relative", ...hand, fontSize: 20, fontWeight: 700, lineHeight: 1, border: 0, borderRadius: 12, padding: "8px 16px", minHeight: 36,
+                color: canSubmit ? "#3A2508" : "rgba(242,221,178,0.45)", cursor: canSubmit ? "pointer" : "default", WebkitTapHighlightColor: "transparent",
+                backgroundColor: canSubmit ? LAMP : "rgba(255,255,255,0.07)",
+                backgroundImage: canSubmit ? `linear-gradient(135deg, #FBE0A6, ${LAMP} 55%, #E3A94F)` : "none",
+                boxShadow: canSubmit ? `0 8px 18px -8px ${LAMP}, inset 0 1px 0 rgba(255,255,255,0.5)` : "inset 0 0 0 1px rgba(255,255,255,0.1)",
+                transition: "background-color 0.25s, color 0.25s",
+              }}
             >
+              <span aria-hidden style={{ position: "absolute", inset: 3, borderRadius: 9, border: `1.2px dashed ${canSubmit ? "rgba(90,55,10,0.4)" : "rgba(255,255,255,0.12)"}`, pointerEvents: "none" }} />
               Done
             </motion.button>
           </Breathe>
         ) : !recording ? (
           <Breathe inline amount={1.06}>
-            <motion.span role="button" tabIndex={0} onClick={() => { setTextMode(true); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode(true); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...sans, fontSize: 13, color: dkBodyLight, cursor: "pointer" }}>
+            <motion.span role="button" tabIndex={0} onClick={() => { setTextMode(true); setMicError(null); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTextMode(true); setMicError(null); } }} whileTap={{ opacity: 0.6 }} style={{ ...hand, fontSize: 20, fontWeight: 600, color: LAMP_TEXT, cursor: "pointer" }}>
               Write instead
             </motion.span>
           </Breathe>
@@ -5208,19 +5322,26 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
 
       {textMode ? (
         <>
-          <div style={{ flex: 1, minHeight: 0, padding: "18px 20px 16px", display: "flex", flexDirection: "column" }}>
+          <div style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, padding: "18px 20px 16px", display: "flex", flexDirection: "column" }}>
             {/* The prompt is its own object above the entry, not a
             placeholder that vanishes at the first keystroke — it stays
             while you write, and can be swapped for another. */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: shape.md, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
-              <Sparkle size={14} color={dkAccentLight} weight="fill" style={{ marginTop: 3, flexShrink: 0 }} />
+            {/* The prompt, on a sticky note stuck to the desk above the page. */}
+            <div style={{
+              position: "relative", display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 12px 12px 16px", borderRadius: "4px 4px 14px 4px", flexShrink: 0,
+              transform: "rotate(-1.2deg)", marginRight: 18,
+              backgroundColor: "#FFF1B8", backgroundImage: "linear-gradient(170deg, #FFF6CF 0%, #FFEDA8 70%, #F8DF8E 100%)",
+              boxShadow: `0 12px 22px -12px rgba(0,0,0,0.55), 0 0 30px -10px ${LAMP}`,
+            }}>
+              <span aria-hidden style={{ position: "absolute", top: -7, left: "50%", marginLeft: -26, width: 52, height: 15, transform: "rotate(3deg)", opacity: 0.85,
+                backgroundImage: `repeating-linear-gradient(45deg, ${REGION_CONFIG.relationships.color}aa 0 6px, ${REGION_CONFIG.relationships.tint} 6px 12px)` }} />
               <AnimatePresence mode="wait" initial={false}>
-                <motion.div key={promptHint} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} style={{ ...display, fontSize: 17, lineHeight: 1.5, color: dkBodyLight, flex: 1, wordBreak: "keep-all" }}>
+                <motion.div key={promptHint} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }} style={{ ...hand, fontSize: 21, fontWeight: 600, lineHeight: 1.2, color: "#4A3A14", flex: 1, wordBreak: "keep-all" }}>
                   {promptHint}
                 </motion.div>
               </AnimatePresence>
               <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
-                <motion.button type="button" aria-label="Another prompt" onClick={() => setPromptHint(pickThinkPrompt())} whileTap={{ rotate: 180, opacity: 0.7 }} transition={{ duration: 0.3 }} style={{ ...iconBtn, color: dkBody, marginTop: -3 }}>
+                <motion.button type="button" aria-label="Another prompt" onClick={() => setPromptHint(pickThinkPrompt())} whileTap={{ rotate: 180, opacity: 0.7 }} transition={{ duration: 0.3 }} style={{ ...iconBtn, color: "#8A6A22", marginTop: -3 }}>
                   <ArrowsClockwise size={15} />
                 </motion.button>
               </Breathe>
@@ -5239,7 +5360,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
-                  style={{ ...sans, fontSize: 13, color: dkBody, marginTop: 10, marginBottom: 4, lineHeight: 1.6, wordBreak: "keep-all" }}
+                  style={{ ...hand, fontSize: 19, color: LAMP_TEXT, marginTop: 10, marginBottom: 4, lineHeight: 1.25, wordBreak: "keep-all" }}
                 >
                   {inputGuidance}
                 </motion.div>
@@ -5249,9 +5370,17 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
               <Breathe inline amount={1.05}>
                 <motion.button
                   type="button" onClick={() => { setTextMode(false); setMicError(null); }} whileTap={{ scale: 0.95, opacity: 0.8 }} transition={SETTLE}
-                  style={{ ...sans, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: dkBodyLight, background: "transparent", border: `1px solid ${dkDivider}`, borderRadius: shape.full, padding: "7px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}
+                  style={{
+                    ...hand, display: "inline-flex", alignItems: "center", gap: 8, fontSize: 19, fontWeight: 600, lineHeight: 1, color: LAMP_TEXT,
+                    backgroundColor: "rgba(255,255,255,0.07)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
+                    border: 0, borderRadius: shape.full, padding: "5px 14px 5px 5px", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+                  }}
                 >
-                  <Microphone size={14} /> Use voice instead
+                  <span style={{ width: 26, height: 26, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff",
+                    backgroundImage: `radial-gradient(circle at 32% 28%, ${REGION_CONFIG.relationships.color}, ${REGION_CONFIG.relationships.ink})`, boxShadow: `0 0 12px -2px ${REGION_CONFIG.relationships.color}` }}>
+                    <Microphone size={14} weight="fill" />
+                  </span>
+                  Use voice instead
                 </motion.button>
               </Breathe>
             </div>
@@ -5259,7 +5388,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
         </>
       ) : (
         <>
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
+          <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px" }}>
             <AnimatePresence mode="wait">
               {!recording ? (
                 <motion.div
@@ -5270,12 +5399,13 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                   // the recording UI can't appear until it's done.
                   exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
                   transition={{ duration: 0.5, ease: "easeInOut" }}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}
                 >
+                  <div style={{ width: "100%", marginBottom: 18 }}><DiaryWritingScene writing={false} /></div>
                   <div style={{ ...display, fontSize: 22, color: dkHeading, textAlign: "center", lineHeight: 1.6, wordBreak: "keep-all" }}>
                     Speak freely.<br />You don't need to organize your thoughts.
                   </div>
-                  <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 14, lineHeight: 1.6, wordBreak: "keep-all", minHeight: 20 }}>
+                  <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: LAMP_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.25, wordBreak: "keep-all", minHeight: 20 }}>
                     {promptHint}
                   </div>
                   {!voiceSupportedRef.current && (
@@ -5296,14 +5426,15 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeIn" } }}
                   transition={{ duration: 0.5, ease: "easeInOut" }}
-                  style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}
                 >
+                  <div style={{ width: "100%", marginBottom: 18 }}><DiaryWritingScene writing /></div>
                   {/* No mm:ss countup here on purpose — a visible timer reads as
                       "this is being measured," which raises self-censorship the
                       same way a visible recording light does. `seconds` is still
                       tracked internally (silence/auto-stop timing), just not shown. */}
-                  <div style={{ ...display, fontSize: 20, color: dkBodyLight, textAlign: "center" }}>Listening</div>
-                  <div style={{ ...sans, fontSize: 13, color: dkBody, textAlign: "center", marginTop: 12, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                  <div style={{ ...display, fontSize: 24, color: dkHeading, textAlign: "center" }}>Listening…</div>
+                  <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: LAMP_TEXT, textAlign: "center", marginTop: 12, lineHeight: 1.25, wordBreak: "keep-all" }}>
                     Say whatever comes to mind.
                   </div>
                   {/* No live transcript here on purpose — watching your own
@@ -5331,7 +5462,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
               )}
             </AnimatePresence>
           </div>
-          <div style={{ padding: "0 32px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+          <div style={{ position: "relative", zIndex: 1, padding: "0 32px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
             {recording && <VoiceWaveform levelRef={micLevelRef} />}
             <NeuronOrb recording={recording} onClick={() => (recording ? stopRecording() : startRecording())} />
           </div>
