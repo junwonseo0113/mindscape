@@ -484,7 +484,10 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
 // send a ripple out from exactly where they were pressed, and — while
 // working — swap their label for three bouncing dots. All of it stops
 // under reduced motion.
-function InkButton({ children, onClick, disabled, loading, ghost, icon }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; ghost?: boolean; icon?: React.ReactNode }) {
+// Both now take the page's colour (`tone`). The filled one is a cloth tab in
+// that colour's ink with a stitched edge, like the diary's cover; the
+// outlined one is a slip of paper held on by washi tape. Labels are in hand.
+function InkButton({ children, onClick, disabled, loading, ghost, icon, tone = "identity" }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; loading?: boolean; ghost?: boolean; icon?: React.ReactNode; tone?: CognitiveRegion }) {
   const reduce = useReducedMotion();
   const [ripples, setRipples] = React.useState<{ id: number; x: number; y: number }[]>([]);
   const off = disabled || loading;
@@ -495,7 +498,8 @@ function InkButton({ children, onClick, disabled, loading, ghost, icon }: { chil
     setRipples((rs) => [...rs, { id: rid, x: e.clientX - r.left, y: e.clientY - r.top }]);
     setTimeout(() => setRipples((rs) => rs.filter((x) => x.id !== rid)), 700);
   };
-  const v = REGION_CONFIG.identity.color, rose = REGION_CONFIG.relationships.color, gold = REGION_CONFIG.career.color;
+  const c = REGION_CONFIG[tone];
+  const v = c.color, rose = REGION_CONFIG.relationships.color, gold = REGION_CONFIG.career.color;
   return (
     <Breathe active={!off} amount={1.02}>
       <motion.button
@@ -505,18 +509,38 @@ function InkButton({ children, onClick, disabled, loading, ghost, icon }: { chil
         style={{
           position: "relative", overflow: "hidden", width: "100%", minHeight: 52, padding: "14px 18px", borderRadius: 16,
           display: "flex", alignItems: "center", justifyContent: "center", gap: 9, cursor: off ? "default" : "pointer",
-          ...sans, fontSize: ghost ? 15 : 17, fontWeight: ghost ? 500 : 600, WebkitTapHighlightColor: "transparent",
+          ...hand, fontSize: ghost ? 22 : 24, fontWeight: 700, lineHeight: 1, WebkitTapHighlightColor: "transparent",
           ...(ghost
-            ? { color: ivHeading, border: "1.5px solid transparent", background: `linear-gradient(${ivBg2}, ${ivBg2}) padding-box, linear-gradient(110deg, ${v}88, ${rose}88, ${gold}88) border-box` }
-            : { color: "#FFFFFF", border: 0, backgroundColor: disabled ? "rgba(42,38,33,.28)" : ivHeading, boxShadow: off ? "none" : `0 10px 24px -12px ${v}cc, 0 4px 10px -6px rgba(42,38,33,.5)` }),
+            ? {
+              color: c.ink, border: 0, backgroundColor: "#FFFCF6",
+              backgroundImage: `linear-gradient(160deg, ${v}1f, transparent 60%)`,
+              boxShadow: `0 0 0 1px ${v}40, 0 10px 20px -14px ${c.ink}`,
+            }
+            : {
+              color: "#FFFFFF", border: 0, textShadow: "0 1px 1px rgba(0,0,0,.18)",
+              backgroundColor: disabled ? "rgba(42,38,33,.24)" : c.ink,
+              backgroundImage: disabled ? "none" : `linear-gradient(120deg, ${c.ink} 0%, ${c.ink} 45%, ${v} 140%)`,
+              boxShadow: off ? "none" : `0 12px 24px -12px ${c.ink}, 0 4px 10px -6px rgba(42,38,33,.45), inset 0 1px 0 rgba(255,255,255,.22)`,
+            }),
         }}
       >
+        {/* Stitching around a filled tab, the same as the diary's cloth cover. */}
+        {!ghost && (
+          <span aria-hidden style={{ position: "absolute", inset: 4, borderRadius: 12, border: `1.5px dashed rgba(255,255,255,${disabled ? 0.35 : 0.5})`, pointerEvents: "none" }} />
+        )}
+        {/* A strip of washi tape holding the paper slip down. */}
+        {ghost && (
+          <span aria-hidden style={{
+            position: "absolute", top: -2, left: 18, width: 46, height: 13, transform: "rotate(-5deg)", pointerEvents: "none", opacity: 0.85,
+            backgroundImage: `repeating-linear-gradient(45deg, ${v}99 0 5px, ${v}55 5px 10px)`,
+          }} />
+        )}
         {!ghost && !disabled && (
           <>
             {/* The color wash moving under the ink. */}
             <span aria-hidden className={reduce ? undefined : "ink-wash"} style={{
-              position: "absolute", inset: "-60% -20%", opacity: 0.55, pointerEvents: "none",
-              backgroundImage: `radial-gradient(circle at 20% 50%, ${v}aa 0%, transparent 38%), radial-gradient(circle at 80% 40%, ${rose}99 0%, transparent 36%), radial-gradient(circle at 55% 90%, ${gold}88 0%, transparent 34%)`,
+              position: "absolute", inset: "-60% -20%", opacity: 0.35, pointerEvents: "none",
+              backgroundImage: `radial-gradient(circle at 20% 50%, ${v}aa 0%, transparent 38%), radial-gradient(circle at 80% 40%, ${rose}88 0%, transparent 36%), radial-gradient(circle at 55% 90%, ${gold}77 0%, transparent 34%)`,
             }} />
             {/* The sweep of light. */}
             {!reduce && <span aria-hidden className="ink-sheen" style={{ position: "absolute", top: 0, bottom: 0, width: "40%", pointerEvents: "none",
@@ -547,8 +571,8 @@ function InkButton({ children, onClick, disabled, loading, ghost, icon }: { chil
   );
 }
 
-function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false, loading = false, icon }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean; loading?: boolean; icon?: React.ReactNode }) {
-  if (ivory) return <InkButton onClick={onClick} disabled={disabled} loading={loading} icon={icon}>{children}</InkButton>;
+function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = false, loading = false, icon, tone }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; modernist?: boolean; ivory?: boolean; loading?: boolean; icon?: React.ReactNode; tone?: CognitiveRegion }) {
+  if (ivory) return <InkButton onClick={onClick} disabled={disabled} loading={loading} icon={icon} tone={tone}>{children}</InkButton>;
   // Breathes while it waits (see Breathe); a disabled button holds still,
   // since there's nothing to invite.
   return (
@@ -576,8 +600,8 @@ function PrimaryBtn({ children, onClick, disabled, modernist = false, ivory = fa
   );
 }
 
-function GhostBtn({ children, onClick, modernist = false, ivory = false, icon }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean; icon?: React.ReactNode }) {
-  if (ivory) return <InkButton onClick={onClick} ghost icon={icon}>{children}</InkButton>;
+function GhostBtn({ children, onClick, modernist = false, ivory = false, icon, tone }: { children: React.ReactNode; onClick?: () => void; modernist?: boolean; ivory?: boolean; icon?: React.ReactNode; tone?: CognitiveRegion }) {
+  if (ivory) return <InkButton onClick={onClick} ghost icon={icon} tone={tone}>{children}</InkButton>;
   return (
     <Breathe amount={1.03}>
     <motion.button
@@ -1800,7 +1824,7 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
         </div>
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory onClick={() => {
+        <PrimaryBtn ivory tone={isAspirationStep ? "security" : slide?.kicker ? SLIDE_TONES[slide.icon] ?? "identity" : "identity"} onClick={() => {
           if (!isLast) return setI((v) => v + 1);
           const value = aspiration.trim();
           if (!value) return onDone?.(null);
@@ -3721,9 +3745,10 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
           )}
 
           {onOpenBrainMap && (
-            <SettingsGroup>
-              <SettingsRow accent="curiosity" icon={<Sparkle size={17} weight="fill" />} label="See all your thoughts as stars" value={`${store.beliefs.length}`} onClick={() => onOpenBrainMap()} />
-            </SettingsGroup>
+            <div style={{ marginBottom: 26 }}>
+              <DiaryLinkCard accent="curiosity" tilt={-0.4} icon={<Sparkle size={20} weight="fill" />} title="See all your thoughts as stars"
+                note="Every thought that keeps coming back, in one sky" badge={`${store.beliefs.length} ★`} onClick={() => onOpenBrainMap()} />
+            </div>
           )}
 
           {/* 3 · Look closer — Premium's structural layer: the full belief
@@ -3732,10 +3757,15 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
               aspiration (ScreenDrift). Only once Premium Mode is on
               (store.isPro, toggled from Profile). */}
           {store.isPro && (
-            <SettingsGroup header="Look closer" style={{ marginBottom: 0 }}>
-              <SettingsRow accent="relationships" icon={<ShareNetwork size={17} />} label="Patterns you might not notice" value={store.beliefs.length > 0 ? undefined : "Nothing yet"} onClick={() => onOpenArtifact?.("beliefs")} />
-              <SettingsRow accent="career" icon={<Footprints size={17} />} label="How close you are to who you want to be" onClick={() => onOpenArtifact?.("drift")} />
-            </SettingsGroup>
+            <section>
+              <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, padding: "0 14px 10px", lineHeight: 1.15 }}>Look closer</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <DiaryLinkCard accent="relationships" tilt={0.4} icon={<ShareNetwork size={20} weight="bold" />} title="Patterns you might not notice"
+                  note={store.beliefs.length > 0 ? "What keeps coming back, and what pulls against what" : "Nothing yet. Keep writing and they'll show up here"} onClick={() => onOpenArtifact?.("beliefs")} />
+                <DiaryLinkCard accent="career" tilt={-0.3} icon={<Footprints size={20} weight="fill" />} title="How close you are to who you want to be"
+                  note="Your thoughts next to the person you said you want to be" onClick={() => onOpenArtifact?.("drift")} />
+              </div>
+            </section>
           )}
         </div>
 
@@ -6925,7 +6955,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
         <FutureSelfLetter autoFocus value={value} onChange={setValue} sealed={sealing} />
       </div>
       <div style={{ padding: "0 22px 32px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory disabled={!value.trim()} onClick={save}>{initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
+        <PrimaryBtn ivory tone="security" disabled={!value.trim()} onClick={save}>{initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
       </div>
     </div>
   );
@@ -8715,6 +8745,66 @@ function SettingsRow({ icon, label, value, trailing, onClick, destructive, cente
       {value !== undefined && value !== null && <span style={{ ...sans, fontSize: 15, color: ivBody, flexShrink: 0, position: "relative" }}>{value}</span>}
       {trailing}
       {showChevron && <RowArrow accent={destructive ? "career" : accent ?? "identity"} fired={fired} />}
+    </motion.div>
+  );
+}
+
+// ── DiaryLinkCard ────────────────────────────────────────────────────────────
+// A way into another page, drawn as a card pasted into the diary: paper
+// washed in the page's colour, a strip of washi tape, a round sticker for
+// the icon, the title with a line in hand saying what's inside, and the
+// gem arrow. Opens its page by growing out of the card (OpenFromContext).
+function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0 }: {
+  icon: React.ReactNode; title: string; note?: string; badge?: string; accent: CognitiveRegion; onClick?: () => void; tilt?: number;
+}) {
+  const reduce = useReducedMotion();
+  const openFrom = React.useContext(OpenFromContext);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [fired, setFired] = React.useState(0);
+  const [ripple, setRipple] = React.useState<{ id: number; x: number; y: number; size: number } | null>(null);
+  const c = REGION_CONFIG[accent];
+  const activate = (pt?: { x: number; y: number }) => {
+    const el = ref.current;
+    if (el && !reduce) {
+      const r = el.getBoundingClientRect();
+      const x = pt ? pt.x - r.left : r.width - 30, y = pt ? pt.y - r.top : r.height / 2;
+      setRipple({ id: Date.now(), x, y, size: Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)) * 2 });
+    }
+    setFired((n) => n + 1);
+    if (el) openFrom?.(el);
+    onClick?.();
+  };
+  return (
+    <motion.div
+      ref={ref} role="button" tabIndex={0} aria-label={note ? `${title}. ${note}` : title}
+      onClick={(e) => activate({ x: e.clientX, y: e.clientY })}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } }}
+      initial={{ rotate: tilt }} whileHover={reduce ? undefined : { y: -2, rotate: 0 }} whileTap={{ scale: 0.98, rotate: 0 }} transition={SETTLE}
+      style={{
+        position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "16px 14px 16px 16px", borderRadius: 16, cursor: "pointer",
+        backgroundColor: "#FFFCF6", backgroundImage: `radial-gradient(120% 100% at 0% 0%, ${c.color}30, transparent 55%), linear-gradient(160deg, ${c.color}14, #FFFCF6 70%)`,
+        boxShadow: `0 0 0 1px ${c.color}33, 0 12px 24px -18px ${c.ink}`, WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      <span aria-hidden style={{ position: "absolute", top: -6, right: 34, width: 52, height: 15, transform: "rotate(4deg)", opacity: 0.8, pointerEvents: "none",
+        backgroundImage: `repeating-linear-gradient(-45deg, ${c.color}99 0 5px, ${c.color}55 5px 10px)` }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 16, overflow: "hidden", pointerEvents: "none" }}>
+        {ripple && (
+          <motion.span key={ripple.id} initial={{ scale: 0, opacity: 0.6 }} animate={{ scale: 1, opacity: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: "absolute", left: ripple.x - ripple.size / 2, top: ripple.y - ripple.size / 2, width: ripple.size, height: ripple.size, borderRadius: "50%",
+              backgroundImage: `radial-gradient(circle, ${c.color}55 0%, ${c.color}22 45%, transparent 70%)` }} />
+        )}
+      </span>
+      <span aria-hidden style={{
+        position: "relative", width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
+        backgroundImage: `radial-gradient(circle at 32% 28%, ${c.color}, ${c.ink})`, boxShadow: `0 6px 14px -6px ${c.ink}, 0 0 0 3px #FFFCF6, 0 0 0 4px ${c.color}55`,
+      }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0, position: "relative" }}>
+        <span style={{ display: "block", ...display, fontSize: 19, color: ivHeading, lineHeight: 1.2, wordBreak: "keep-all" }}>{title}</span>
+        {note && <span style={{ display: "block", ...hand, fontSize: 18, fontWeight: 500, color: c.ink, lineHeight: 1.15, marginTop: 4, wordBreak: "keep-all" }}>{note}</span>}
+      </span>
+      {badge && <span style={{ ...hand, fontSize: 19, fontWeight: 700, color: c.ink, flexShrink: 0, position: "relative" }}>{badge}</span>}
+      <RowArrow accent={accent} fired={fired} />
     </motion.div>
   );
 }
