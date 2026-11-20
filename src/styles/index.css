@@ -381,4 +381,3 @@ body {
 @media(prefers-reduced-motion:reduce) { .theme-stargazing *, .theme-stargazing *::before, .theme-stargazing *::after { animation-duration: .01ms!important; animation-iteration-count: 1!important; transition-duration: .01ms!important; } }
 
 /* The sky's search field: a soft starlight placeholder on the dark lens. */
-.sky-search::placeholder { color: rgba(243, 239, 250, 0.62); }
