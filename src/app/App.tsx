@@ -3695,75 +3695,62 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
         yet, unlike the belief list below it, so the tutorial step never
         aims at something that may not exist. ── */}
         <div data-tutorial="mind-neurons" className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
-          {/* 1 · The thoughts behind today's discovery, in plain words: the
-              statement itself, and how often it comes up, said in words
-              (and five small dots) rather than a percentage and a region
-              label. */}
-          <SettingsGroup header={notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"} style={{ marginTop: 10 }}>
-            {notebookBeliefs.length > 0 ? (
-              notebookBeliefs.map((belief, i) => {
-                const region = resolveRegion(belief);
-                const c = REGION_CONFIG[region];
-                return (
-                  <div key={belief.id} style={{ position: "relative", display: "flex", gap: 12, padding: "14px 16px 15px" }}>
-                    {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16 + 28 + 12, right: 0, height: 1, backgroundColor: ivDivider }} />}
-                    <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                      <Node color={c.color} size={15} intensity={0.6 + (belief.confidence / 100) * 0.4} />
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ ...display, fontSize: 22, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
-                      <div style={{ marginTop: 8 }}><OftenDots confidence={belief.confidence} region={region} /></div>
+          {/* The one bold card on this page: today's thoughts, joined by
+              their thread when there is one, each with how often it comes
+              up. Everything after it is a plain list of places to go. */}
+          {(() => {
+            const note = notebookNotes[0];
+            const A = note ? store.beliefs.find((x) => x.id === note.a) : undefined;
+            const B = note ? store.beliefs.find((x) => x.id === note.b) : undefined;
+            const joined = !!(note && A && B);
+            return (
+              <section style={{ marginTop: 10 }}>
+                <SectionHeading>{joined ? "How your thoughts fit together" : notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"}</SectionHeading>
+                <div style={{ ...quietCard, padding: notebookBeliefs.length > 0 ? "14px 14px 6px" : "14px 16px" }}>
+                  {joined && <ConnectionThread a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
+                  {notebookBeliefs.length > 0 ? (
+                    <div style={{ marginTop: joined ? 14 : 0 }}>
+                      {notebookBeliefs.map((belief, i) => {
+                        const region = resolveRegion(belief);
+                        return (
+                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? `1px solid ${ivDivider}` : undefined }}>
+                            <span style={{ width: 18, display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 5 }}>
+                              <Node color={REGION_CONFIG[region].color} size={12} intensity={0.6 + (belief.confidence / 100) * 0.4} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
+                              <div style={{ marginTop: 5 }}><OftenDots confidence={belief.confidence} region={region} /></div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div style={{ ...sans, fontSize: 14, color: ivBody, padding: "13px 16px", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
-            )}
-          </SettingsGroup>
+                  ) : (
+                    <div style={{ ...sans, fontSize: 14, color: ivBody, lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
 
-          {/* 2 · The connective thread between those beliefs, when one
-              exists (the same store.connections note DiscoveryBeliefList
-              surfaces). An observation, never styled as a warning. */}
-          {notebookNotes.length > 0 && (
-            <SettingsGroup header="How they fit together">
-              {notebookNotes.map((c, i) => {
-                const A = store.beliefs.find((x) => x.id === c.a);
-                const B = store.beliefs.find((x) => x.id === c.b);
-                return (
-                  <div key={i} style={{ position: "relative", padding: "14px 14px 16px" }}>
-                    {i > 0 && <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />}
-                    {A && B ? (
-                      <ConnectionThread a={A} b={B} note={c.note} tension={c.type === "contradiction"} />
-                    ) : (
-                      <div style={{ ...display, fontStyle: "italic", fontSize: 20, lineHeight: 1.6, color: ivHeading, wordBreak: "keep-all" }}>{c.note}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </SettingsGroup>
-          )}
-
-          {onOpenBrainMap && (
-            <div style={{ marginBottom: 26 }}>
-              <DiaryLinkCard accent="curiosity" tilt={-0.4} icon={<Sparkle size={20} weight="fill" />} title="See all your thoughts as stars"
-                note="Every thought that keeps coming back, in one sky" badge={`${store.beliefs.length} ★`} onClick={() => onOpenBrainMap()} />
-            </div>
-          )}
-
-          {/* 3 · Look closer — Premium's structural layer: the full belief
-              map with interpretations and contradictions
-              (ScreenBeliefMap), and the distance between current self and
-              aspiration (ScreenDrift). Only once Premium Mode is on
-              (store.isPro, toggled from Profile). */}
-          {store.isPro && (
-            <section>
-              <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, padding: "0 14px 10px", lineHeight: 1.15 }}>Look closer</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <DiaryLinkCard accent="relationships" tilt={0.4} icon={<ShareNetwork size={20} weight="bold" />} title="Patterns you might not notice"
-                  note={store.beliefs.length > 0 ? "What keeps coming back, and what pulls against what" : "Nothing yet. Keep writing and they'll show up here"} onClick={() => onOpenArtifact?.("beliefs")} />
-                <DiaryLinkCard accent="career" tilt={-0.3} icon={<Footprints size={20} weight="fill" />} title="How close you are to who you want to be"
-                  note="Your thoughts next to the person you said you want to be" onClick={() => onOpenArtifact?.("drift")} />
+          {/* Places to go from here, as one list. "Look closer" pages are
+              Premium (store.isPro, toggled from Profile). */}
+          {(onOpenBrainMap || store.isPro) && (
+            <section style={{ marginTop: 30 }}>
+              <SectionHeading>Look closer</SectionHeading>
+              <div style={quietCard}>
+                {onOpenBrainMap && (
+                  <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="See all your thoughts as stars"
+                    note="Every thought that keeps coming back, in one sky" badge={`${store.beliefs.length}`} onClick={() => onOpenBrainMap()} />
+                )}
+                {store.isPro && (
+                  <>
+                    <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Patterns you might not notice"
+                      note={store.beliefs.length > 0 ? "What keeps coming back, and what pulls against what" : "Nothing yet. Keep writing and they'll show up here"} onClick={() => onOpenArtifact?.("beliefs")} />
+                    <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="How close you are to who you want to be"
+                      note="Your thoughts next to the person you said you want to be" onClick={() => onOpenArtifact?.("drift")} />
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -3934,70 +3921,50 @@ function DiscoveryCard({
 // the fuller statement demoted to quiet supporting text under it, and the
 // relative date folded into one small, muted metadata line at the bottom
 // instead of a bold colored badge up top.
-function InsightCard({ item, onOpen, index = 0 }: { item: RecentInsightItem; onOpen?: () => void; index?: number }) {
-  // A note pinned into the diary: paper washed in the insight's colour, a
-  // short strip of tape, a slight tilt that alternates card to card, the
-  // insight's orb, and its confidence as a small coloured meter.
-  const reduce = useReducedMotion();
-  const c = REGION_CONFIG[item.region];
-  const intensity = Math.min(1, 0.45 + (item.confidence / 100) * 0.4);
-  const primaryLabel = item.thoughtLabel || item.title;
-  const showSupporting = !!item.thoughtLabel && item.title !== item.thoughtLabel;
-  const metaParts = [
-    item.date ? relativeInsightLabel(item.date) : null,
-    `${item.thoughtCount} thought${item.thoughtCount === 1 ? "" : "s"}`,
-  ].filter((p): p is string => !!p);
-  const tilt = index % 2 === 0 ? -1.2 : 1.1;
+// ── Quiet pieces for Mind and Analysis ─────────────────────────────────────
+// Each of those pages has one bold card at the top (today's discovery, the
+// two thoughts joined by a thread). Everything below it sits in this same
+// plain paper card with the same section heading, so the page reads as one
+// notebook instead of a scrapbook of differently decorated boxes.
+const quietCard: React.CSSProperties = {
+  backgroundColor: "#FFFDF8", borderRadius: shape.md, border: "1px solid rgba(42,38,33,0.08)",
+  boxShadow: "0 10px 22px -18px rgba(42,38,33,0.5)", overflow: "hidden",
+};
 
+function SectionHeading({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <motion.div
-      role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
-      initial={reduce ? false : { opacity: 0, y: 16, rotate: 0 }} whileInView={{ opacity: 1, y: 0, rotate: tilt }} viewport={{ once: true, amount: 0.4 }}
-      transition={{ type: "spring", stiffness: 170, damping: 18, delay: reduce ? 0 : index * 0.06 }}
-      whileTap={{ scale: 0.96, rotate: 0 }} whileHover={reduce ? undefined : { y: -3, rotate: 0 }}
-      style={{
-        position: "relative", flexShrink: 0, width: 164, boxSizing: "border-box", padding: "18px 14px 13px", margin: "10px 0 8px",
-        borderRadius: 16, cursor: "pointer",
-        backgroundColor: "#FFFDF8",
-        backgroundImage: `linear-gradient(165deg, ${c.color}33 0%, ${c.color}12 45%, #FFFDF8 80%)`,
-        border: `1px solid ${c.color}3a`,
-        boxShadow: `0 12px 22px -16px ${c.color}`,
-        display: "flex", flexDirection: "column", gap: 8,
-      }}
-    >
-      <span aria-hidden style={{ position: "absolute", top: -8, left: "50%", marginLeft: -24, width: 48, height: 16, borderRadius: 2, opacity: 0.85,
-        transform: `rotate(${index % 2 === 0 ? 4 : -4}deg)`, backgroundImage: `repeating-linear-gradient(45deg, ${c.color}99 0 6px, ${c.tint} 6px 12px)` }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <Node color={c.color} size={16} intensity={intensity} />
-        <RegionBadge region={item.region} />
-      </div>
+    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, padding: "0 4px 8px" }}>
+      <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, lineHeight: 1.15 }}>{children}</div>
+      {aside && <div style={{ ...hand, fontSize: 17, color: ivBody, flexShrink: 0 }}>{aside}</div>}
+    </div>
+  );
+}
 
-      <div style={{
-        ...display, fontSize: 18, fontWeight: 400, lineHeight: 1.25, color: ivHeading, wordBreak: "keep-all",
-        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-      }}>
-        {primaryLabel}
-      </div>
-
-      {showSupporting && (
-        <div style={{
-          ...sans, fontSize: 11, color: ivBody, lineHeight: 1.4, wordBreak: "keep-all",
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-        }}>
-          {item.title}
-        </div>
-      )}
-
-      <div style={{ marginTop: "auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <MeterFill value={item.confidence} color={c.color} track={`${c.color}1f`} height={4} radius={2} style={{ flex: 1 }} />
-          <span style={{ ...mono, fontSize: 11, color: c.ink, fontWeight: 600 }}>{item.confidence}%</span>
-        </div>
-        <div style={{ ...hand, fontSize: 16, color: ivBody, marginTop: 5 }}>{metaParts.join(" · ")}</div>
-      </div>
+// One insight as a line in a list: its orb, its name, the fuller sentence
+// on one line under it, and how many entries it rests on.
+function InsightRow({ item, onOpen, divider }: { item: RecentInsightItem; onOpen?: () => void; divider?: boolean }) {
+  const c = REGION_CONFIG[item.region];
+  const primary = item.thoughtLabel || item.title;
+  const supporting = item.thoughtLabel && item.title !== item.thoughtLabel ? item.title : null;
+  return (
+    <motion.div role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen?.(); } }}
+      whileTap={{ backgroundColor: `${c.color}14` }} transition={{ duration: 0.12 }}
+      style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "13px 14px 13px 16px", cursor: "pointer", backgroundColor: "rgba(0,0,0,0)", WebkitTapHighlightColor: "transparent" }}>
+      {divider && <span aria-hidden style={{ position: "absolute", top: 0, left: 50, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      <span style={{ width: 22, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+        <Node color={c.color} size={14} intensity={Math.min(1, 0.45 + (item.confidence / 100) * 0.4)} />
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", ...display, fontSize: 18, color: ivHeading, lineHeight: 1.25, wordBreak: "keep-all" }}>{primary}</span>
+        {supporting && <span style={{ display: "block", ...sans, fontSize: 13, color: ivBody, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{supporting}</span>}
+      </span>
+      {item.thoughtCount > 0 && <span style={{ ...hand, fontSize: 17, color: c.ink, flexShrink: 0 }}>{item.thoughtCount} {item.thoughtCount === 1 ? "entry" : "entries"}</span>}
+      <CaretRight size={14} color={ivBody} weight="bold" style={{ flexShrink: 0 }} />
     </motion.div>
   );
 }
+
 
 // ── Screen 4.6 · Analysis ──────────────────────────────────────────────────────
 // Brought fully into the Mind screen's own design system: the same full-
@@ -4121,35 +4088,8 @@ function buildWeekActivity(history: StoredHistoryEntry[], maxWeeks = 8): WeekAct
   return weeks;
 }
 
-const reflectiveRate = (w: WeekActivity) => (w.words > 0 ? (w.verbs / w.words) * 100 : null);
 const signedDelta = (n: number, digits = 0) => (n > 0 ? `+${n.toFixed(digits)}` : n < 0 ? `−${Math.abs(n).toFixed(digits)}` : "±0");
 
-function StatTile({ label, value, delta, children, style, tone = "identity", icon, below }: { label: string; value: React.ReactNode; delta?: string; children?: React.ReactNode; style?: React.CSSProperties; tone?: CognitiveRegion; icon?: React.ReactNode; below?: React.ReactNode }) {
-  // Each tile in its own colour, like a page in a different coloured ink:
-  // a wash of the colour from the corner, the label in that colour's ink,
-  // and the number large in the diary's display face.
-  const c = REGION_CONFIG[tone];
-  return (
-    <div style={{
-      position: "relative", overflow: "hidden", borderRadius: shape.md, padding: "14px 16px", display: "flex", alignItems: "center", gap: 14,
-      backgroundColor: "#FFFDF8",
-      backgroundImage: `radial-gradient(110% 90% at 0% 0%, ${c.color}30, transparent 60%), linear-gradient(160deg, ${c.color}12, #FFFDF8 70%)`,
-      border: `1px solid ${c.color}33`, boxShadow: `0 10px 22px -18px ${c.color}`,
-      ...style,
-    }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {icon && <span aria-hidden style={{ lineHeight: 0, color: c.color }}>{icon}</span>}
-          <div style={{ ...hand, fontSize: 19, fontWeight: 600, color: c.ink, lineHeight: 1.1, wordBreak: "keep-all" }}>{label}</div>
-        </div>
-        <div style={{ ...display, fontSize: 34, color: ivHeading, marginTop: 4, lineHeight: 1 }}>{value}</div>
-        {delta && <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6 }}>{delta}</div>}
-        {below}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 // The last seven days as seven small stars, lit for each day of the
 // current streak (counting back from today), popping on one after another.
@@ -4213,11 +4153,8 @@ function MoodThoughtsPanel({ store }: { store: Store }) {
   const toneOf = (mood: string) => REGION_CONFIG[MOOD_TONES[mood as MoodKey] ?? "identity"];
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
-        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82 }}>Moods and thoughts</div>
-        <div style={{ ...hand, fontSize: 17, color: ivBody }}>{checkIns.length} check-in{checkIns.length === 1 ? "" : "s"}</div>
-      </div>
-      <div style={{ borderRadius: shape.md, padding: "14px 16px", backgroundColor: "#FFFDF8", border: "1px solid rgba(42,38,33,0.08)", boxShadow: "0 10px 22px -18px rgba(42,38,33,0.5)" }}>
+      <SectionHeading aside={`${checkIns.length} check-in${checkIns.length === 1 ? "" : "s"}`}>Moods and thoughts</SectionHeading>
+      <div style={{ ...quietCard, padding: "14px 16px" }}>
         {/* How often each feeling was tapped, as chips in that feeling's colour. */}
         <div role="list" aria-label="How often you checked in with each feeling" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {tally.map(([mood, n]) => {
@@ -4260,63 +4197,45 @@ function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
   if (weeks.length === 0) return null;
   const latest = weeks[weeks.length - 1];
   const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-  const latestRate = reflectiveRate(latest);
-  const prevRate = prev ? reflectiveRate(prev) : null;
   const streak = computeStreak(history);
   const maxEntries = Math.max(...weeks.map((w) => w.entries), 1);
   const sparkLabel = `Thoughts per week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(latest.weekStart)}: ${weeks.map((w) => w.entries).join(", ")}.`;
-  const I = REGION_CONFIG.identity, R = REGION_CONFIG.relationships;
+  const I = REGION_CONFIG.identity;
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
-        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82 }}>Recent weeks</div>
-        <div style={{ ...hand, fontSize: 17, color: ivBody }}>Week of {shortMonthDay(latest.weekStart)}</div>
-      </div>
-      <StatTile
-        tone="identity" icon={<PenNib size={15} weight="fill" />}
-        label="Thoughts logged"
-        value={<AnimatedNumber value={latest.entries} memoryKey="analysis.weekEntries" />}
-        delta={prev ? `${signedDelta(latest.entries - prev.entries)} vs the week before` : "First week"}
-        style={{ marginBottom: 10 }}
-      >
-        {/* One bar per week, rising in; past weeks in a soft violet, this
-            week in a violet-to-rose gradient with a glow. */}
-        <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 3, width: 132, height: 48, flexShrink: 0 }}>
-          {weeks.map((w, i) => {
-            const isLatest = i === weeks.length - 1;
-            return (
-              <motion.div
-                key={w.weekStart} title={`Week of ${shortMonthDay(w.weekStart)}: ${w.entries} ${w.entries === 1 ? "thought" : "thoughts"}`}
-                initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true, amount: 0.6 }}
-                transition={{ type: "spring", stiffness: 160, damping: 16, delay: 0.08 + i * 0.05 }}
-                style={{
-                  flex: 1, maxWidth: 24, transformOrigin: "bottom",
-                  height: `${Math.max((w.entries / maxEntries) * 100, 6)}%`,
-                  borderRadius: "4px 4px 1px 1px",
-                  backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.08)" : undefined,
-                  backgroundImage: w.entries === 0 ? undefined : isLatest ? `linear-gradient(180deg, ${R.color}, ${I.color})` : `linear-gradient(180deg, ${I.color}66, ${I.color}33)`,
-                  boxShadow: isLatest && w.entries > 0 ? `0 0 12px -2px ${R.color}` : undefined,
-                }}
-              />
-            );
-          })}
+      <SectionHeading aside={`Week of ${shortMonthDay(latest.weekStart)}`}>Recent weeks</SectionHeading>
+      <div style={{ ...quietCard, display: "flex" }}>
+        {/* This week's count, with a small bar per week behind it. */}
+        <div style={{ flex: 1.4, minWidth: 0, padding: "14px 16px" }}>
+          <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: I.ink }}>Written this week</div>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, marginTop: 4 }}>
+            <div>
+              <div style={{ ...display, fontSize: 34, color: ivHeading, lineHeight: 1 }}><AnimatedNumber value={latest.entries} memoryKey="analysis.weekEntries" /></div>
+              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6 }}>{prev ? `${signedDelta(latest.entries - prev.entries)} vs the week before` : "First week"}</div>
+            </div>
+            <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 3, width: 84, height: 40, flexShrink: 0 }}>
+              {weeks.map((w, i) => {
+                const isLatest = i === weeks.length - 1;
+                return (
+                  <motion.div key={w.weekStart} title={`Week of ${shortMonthDay(w.weekStart)}: ${w.entries} ${w.entries === 1 ? "entry" : "entries"}`}
+                    initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true, amount: 0.6 }}
+                    transition={{ type: "spring", stiffness: 160, damping: 16, delay: 0.08 + i * 0.05 }}
+                    style={{
+                      flex: 1, transformOrigin: "bottom", height: `${Math.max((w.entries / maxEntries) * 100, 6)}%`, borderRadius: "3px 3px 1px 1px",
+                      backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.08)" : isLatest ? I.color : `${I.color}55`,
+                    }} />
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </StatTile>
-      <div style={{ display: "flex", gap: 10 }}>
-        <StatTile
-          tone="curiosity" icon={<Feather size={15} weight="fill" />}
-          label="Reflective language"
-          value={latestRate === null ? "—" : <><AnimatedNumber value={latestRate} memoryKey="analysis.weekRate" format={(n) => n.toFixed(1)} /><span style={{ fontSize: 20 }}>%</span></>}
-          delta={latestRate !== null && prevRate !== null ? `${signedDelta(latestRate - prevRate, 1)} pt vs the week before` : latestRate === null ? "No text analyzed yet" : "Share of your words"}
-          style={{ flex: 1 }}
-        />
-        <StatTile
-          tone="career" icon={<Sparkle size={15} weight="fill" />}
-          label="Streak"
-          value={<><AnimatedNumber value={streak} memoryKey="analysis.streak" /> <span style={{ fontSize: 20 }}>{streak === 1 ? "day" : "days"}</span></>}
-          below={<StreakStars streak={streak} />}
-          style={{ flex: 1 }}
-        />
+        <span aria-hidden style={{ width: 1, margin: "14px 0", backgroundColor: ivDivider }} />
+        {/* Days in a row with something written. */}
+        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px" }}>
+          <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: REGION_CONFIG.career.ink }}>Days in a row</div>
+          <div style={{ ...display, fontSize: 34, color: ivHeading, lineHeight: 1, marginTop: 4 }}><AnimatedNumber value={streak} memoryKey="analysis.streak" /></div>
+          <StreakStars streak={streak} />
+        </div>
       </div>
     </div>
   );
@@ -4647,15 +4566,13 @@ function ScreenDiscoveryAnalysis({
               (its node) rather than just the card's own outer edge — the
               two read as flush at a glance, not merely close. ── */}
               <div style={{ marginTop: 32 }}>
-                <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82, paddingLeft: 14 }}>
-                  Further insights
-                </div>
+                <SectionHeading>Further insights</SectionHeading>
                 {recentInsights.length === 0 ? (
-                  <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>No other insights yet — check back as more come into focus.</p>
+                  <div style={{ ...quietCard, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "14px 16px" }}>No other insights yet. They'll show up here as more come into focus.</div>
                 ) : (
-                  <div className="no-scrollbar" style={{ display: "flex", gap: 12, marginTop: 6, overflowX: "auto", overscrollBehaviorX: "contain", padding: "0 4px 6px", margin: "6px -4px 0" }}>
-                    {recentInsights.map((item, idx) => (
-                      <InsightCard key={item.key} index={idx} item={item} onOpen={() => setExamineTarget(item.target)} />
+                  <div style={quietCard}>
+                    {recentInsights.slice(0, 4).map((item, idx) => (
+                      <InsightRow key={item.key} item={item} divider={idx > 0} onOpen={() => setExamineTarget(item.target)} />
                     ))}
                   </div>
                 )}
@@ -8754,8 +8671,10 @@ function SettingsRow({ icon, label, value, trailing, onClick, destructive, cente
 // washed in the page's colour, a strip of washi tape, a round sticker for
 // the icon, the title with a line in hand saying what's inside, and the
 // gem arrow. Opens its page by growing out of the card (OpenFromContext).
-function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0 }: {
+function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, plain, divider }: {
   icon: React.ReactNode; title: string; note?: string; badge?: string; accent: CognitiveRegion; onClick?: () => void; tilt?: number;
+  // `plain`: a row inside a quietCard list rather than a card of its own.
+  plain?: boolean; divider?: boolean;
 }) {
   const reduce = useReducedMotion();
   const openFrom = React.useContext(OpenFromContext);
@@ -8779,16 +8698,20 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0 }: 
       ref={ref} role="button" tabIndex={0} aria-label={note ? `${title}. ${note}` : title}
       onClick={(e) => activate({ x: e.clientX, y: e.clientY })}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); } }}
-      initial={{ rotate: tilt }} whileHover={reduce ? undefined : { y: -2, rotate: 0 }} whileTap={{ scale: 0.98, rotate: 0 }} transition={SETTLE}
-      style={{
+      initial={{ rotate: plain ? 0 : tilt }} whileHover={reduce || plain ? undefined : { y: -2, rotate: 0 }} whileTap={plain ? { backgroundColor: `${c.color}14` } : { scale: 0.98, rotate: 0 }} transition={SETTLE}
+      style={plain ? {
+        position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "13px 14px 13px 16px", cursor: "pointer",
+        backgroundColor: "rgba(0,0,0,0)", WebkitTapHighlightColor: "transparent",
+      } : {
         position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "16px 14px 16px 16px", borderRadius: 16, cursor: "pointer",
         backgroundColor: "#FFFCF6", backgroundImage: `radial-gradient(120% 100% at 0% 0%, ${c.color}30, transparent 55%), linear-gradient(160deg, ${c.color}14, #FFFCF6 70%)`,
         boxShadow: `0 0 0 1px ${c.color}33, 0 12px 24px -18px ${c.ink}`, WebkitTapHighlightColor: "transparent",
       }}
     >
-      <span aria-hidden style={{ position: "absolute", top: -6, right: 34, width: 52, height: 15, transform: "rotate(4deg)", opacity: 0.8, pointerEvents: "none",
-        backgroundImage: `repeating-linear-gradient(-45deg, ${c.color}99 0 5px, ${c.color}55 5px 10px)` }} />
-      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: 16, overflow: "hidden", pointerEvents: "none" }}>
+      {divider && <span aria-hidden style={{ position: "absolute", top: 0, left: 66, right: 0, height: 1, backgroundColor: ivDivider }} />}
+      {!plain && <span aria-hidden style={{ position: "absolute", top: -6, right: 34, width: 52, height: 15, transform: "rotate(4deg)", opacity: 0.8, pointerEvents: "none",
+        backgroundImage: `repeating-linear-gradient(-45deg, ${c.color}99 0 5px, ${c.color}55 5px 10px)` }} />}
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: plain ? 0 : 16, overflow: "hidden", pointerEvents: "none" }}>
         {ripple && (
           <motion.span key={ripple.id} initial={{ scale: 0, opacity: 0.6 }} animate={{ scale: 1, opacity: 0 }} transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             style={{ position: "absolute", left: ripple.x - ripple.size / 2, top: ripple.y - ripple.size / 2, width: ripple.size, height: ripple.size, borderRadius: "50%",
@@ -8796,12 +8719,12 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0 }: 
         )}
       </span>
       <span aria-hidden style={{
-        position: "relative", width: 44, height: 44, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
-        backgroundImage: `radial-gradient(circle at 32% 28%, ${c.color}, ${c.ink})`, boxShadow: `0 6px 14px -6px ${c.ink}, 0 0 0 3px #FFFCF6, 0 0 0 4px ${c.color}55`,
+        position: "relative", width: plain ? 36 : 44, height: plain ? 36 : 44, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
+        backgroundImage: `radial-gradient(circle at 32% 28%, ${c.color}, ${c.ink})`, boxShadow: plain ? `0 4px 10px -5px ${c.ink}` : `0 6px 14px -6px ${c.ink}, 0 0 0 3px #FFFCF6, 0 0 0 4px ${c.color}55`,
       }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0, position: "relative" }}>
-        <span style={{ display: "block", ...display, fontSize: 19, color: ivHeading, lineHeight: 1.2, wordBreak: "keep-all" }}>{title}</span>
-        {note && <span style={{ display: "block", ...hand, fontSize: 18, fontWeight: 500, color: c.ink, lineHeight: 1.15, marginTop: 4, wordBreak: "keep-all" }}>{note}</span>}
+        <span style={{ display: "block", ...display, fontSize: plain ? 18 : 19, color: ivHeading, lineHeight: 1.2, wordBreak: "keep-all" }}>{title}</span>
+        {note && <span style={{ display: "block", ...(plain ? { ...sans, fontSize: 13, color: ivBody, lineHeight: 1.35, marginTop: 3 } : { ...hand, fontSize: 18, fontWeight: 500, color: c.ink, lineHeight: 1.15, marginTop: 4 }), wordBreak: "keep-all" }}>{note}</span>}
       </span>
       {badge && <span style={{ ...hand, fontSize: 19, fontWeight: 700, color: c.ink, flexShrink: 0, position: "relative" }}>{badge}</span>}
       <RowArrow accent={accent} fired={fired} />
