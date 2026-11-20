@@ -3607,32 +3607,42 @@ function OftenDots({ confidence, region, extra, night }: { confidence: number; r
   );
 }
 
-// Mind's one bold card: a patch of night sky. A fixed scatter of stars
-// (a few twinkle, on the same .twinkle CSS the sky screen uses) and a
-// soft band of light, with the card's content on top.
-const NIGHT_STARS = Array.from({ length: 34 }, (_, i) => {
+// The paper Mind's cards are written on: diary paper with a wash of two
+// colours, a strip of washi tape, and a few small star stickers scattered
+// in the margins (fixed positions, a third of them twinkling on the same
+// .twinkle CSS the sky uses). Both of Mind's cards use it, so the page reads
+// as one diary spread rather than a dark card next to light ones.
+const PAPER_STARS = Array.from({ length: 9 }, (_, i) => {
   const r = (n: number) => ((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
-  return { x: r(1) * 100, y: r(2) * 100, s: r(3) < 0.15 ? 2.2 : r(3) < 0.5 ? 1.4 : 1, o: 0.35 + r(4) * 0.6, tw: i % 3 === 0, d: 2.5 + r(5) * 3, dl: r(6) * 4 };
+  // Kept to the outer edges, where they won't sit under text.
+  const side = i % 3;
+  const x = side === 0 ? 2 + r(1) * 6 : side === 1 ? 92 + r(1) * 6 : 10 + r(1) * 80;
+  const y = side === 2 ? (r(2) < 0.5 ? 2 + r(3) * 4 : 94 + r(3) * 4) : 8 + r(2) * 84;
+  return { x, y, s: 7 + Math.round(r(4) * 5), tone: (["identity", "career", "relationships"] as CognitiveRegion[])[i % 3], tw: i % 3 === 0, d: 2.5 + r(5) * 3, dl: r(6) * 4 };
 });
 
-function NightCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function StarPaperCard({ children, a = "identity", b = "relationships", tapeLeft = false, style }: {
+  children: React.ReactNode; a?: CognitiveRegion; b?: CognitiveRegion; tapeLeft?: boolean; style?: React.CSSProperties;
+}) {
   const reduce = useReducedMotion();
+  const ca = REGION_CONFIG[a], cb = REGION_CONFIG[b];
   return (
     <div style={{
-      position: "relative", overflow: "hidden", borderRadius: shape.md, color: "#F4EFFF",
-      backgroundColor: "#1E1A3C",
-      backgroundImage: `radial-gradient(90% 60% at 85% 0%, ${REGION_CONFIG.identity.color}55, transparent 60%), radial-gradient(80% 60% at 0% 100%, ${REGION_CONFIG.relationships.color}33, transparent 60%), linear-gradient(170deg, #1E1A3C 0%, #2A2352 60%, #352A55 100%)`,
-      boxShadow: `0 18px 34px -20px #1E1A3C, inset 0 0 0 1px rgba(255,255,255,0.06)`,
+      position: "relative", borderRadius: shape.md, backgroundColor: "#FFFCF6",
+      backgroundImage: `radial-gradient(110% 70% at 100% 0%, ${ca.color}26, transparent 60%), radial-gradient(100% 70% at 0% 100%, ${cb.color}22, transparent 60%)`,
+      border: `1px solid ${ca.color}2e`, boxShadow: `0 14px 28px -20px ${ca.ink}`,
       ...style,
     }}>
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", left: "-20%", right: "-20%", top: "30%", height: "22%", transform: "rotate(-14deg)",
-          backgroundImage: "linear-gradient(180deg, transparent, rgba(255,255,255,0.06) 40%, rgba(200,190,255,0.08) 55%, transparent)", filter: "blur(6px)" }} />
-        {NIGHT_STARS.map((st, i) => (
+      <span aria-hidden style={{ position: "absolute", top: -7, ...(tapeLeft ? { left: 26 } : { right: 30 }), width: 58, height: 16, zIndex: 2,
+        transform: `rotate(${tapeLeft ? -4 : 4}deg)`, opacity: 0.85, pointerEvents: "none",
+        backgroundImage: `repeating-linear-gradient(45deg, ${ca.color}99 0 6px, ${ca.tint} 6px 12px)` }} />
+      <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: shape.md, pointerEvents: "none" }}>
+        {PAPER_STARS.map((st, i) => (
           <span key={i} className={st.tw && !reduce ? "twinkle" : undefined}
-            style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, width: st.s, height: st.s, borderRadius: "50%", backgroundColor: "#fff", opacity: st.o,
-              boxShadow: st.s > 2 ? "0 0 6px rgba(255,255,255,0.8)" : undefined,
-              ["--tw-dur" as string]: `${st.d}s`, ["--tw-delay" as string]: `-${st.dl}s` } as React.CSSProperties} />
+            style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, lineHeight: 0, color: REGION_CONFIG[st.tone].color, opacity: 0.55,
+              ["--tw-dur" as string]: `${st.d}s`, ["--tw-delay" as string]: `-${st.dl}s` } as React.CSSProperties}>
+            <Sparkle size={st.s} weight="fill" />
+          </span>
         ))}
       </div>
       <div style={{ position: "relative" }}>{children}</div>
@@ -3739,29 +3749,29 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
             return (
               <section style={{ marginTop: 10 }}>
                 <SectionHeading>{joined ? "How your thoughts fit together" : notebookBeliefs.length === 1 ? "The thought behind it" : "The thoughts behind it"}</SectionHeading>
-                <NightCard style={{ padding: notebookBeliefs.length > 0 ? "14px 14px 6px" : "14px 16px" }}>
-                  {joined && <ConnectionThread night a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
+                <StarPaperCard a={A ? resolveRegion(A) : "identity"} b={B ? resolveRegion(B) : "relationships"} style={{ padding: notebookBeliefs.length > 0 ? "16px 16px 6px" : "16px" }}>
+                  {joined && <ConnectionThread a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
                   {notebookBeliefs.length > 0 ? (
                     <div style={{ marginTop: joined ? 14 : 0 }}>
                       {notebookBeliefs.map((belief, i) => {
                         const region = resolveRegion(belief);
                         return (
-                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? "1px solid rgba(255,255,255,0.1)" : undefined }}>
+                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? `1px solid ${ivDivider}` : undefined }}>
                             <span style={{ width: 18, display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 5 }}>
                               <Node color={REGION_CONFIG[region].color} size={12} intensity={0.6 + (belief.confidence / 100) * 0.4} />
                             </span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: "#F4EFFF", wordBreak: "keep-all" }}>“{belief.statement}”</div>
-                              <div style={{ marginTop: 5 }}><OftenDots night confidence={belief.confidence} region={region} /></div>
+                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
+                              <div style={{ marginTop: 5 }}><OftenDots confidence={belief.confidence} region={region} /></div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div style={{ ...sans, fontSize: 14, color: "rgba(244,239,255,0.72)", lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
+                    <div style={{ ...sans, fontSize: 14, color: ivBody, lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
                   )}
-                </NightCard>
+                </StarPaperCard>
               </section>
             );
           })()}
@@ -3771,7 +3781,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
           {(onOpenBrainMap || store.isPro) && (
             <section style={{ marginTop: 30 }}>
               <SectionHeading>Look closer</SectionHeading>
-              <div style={quietCard}>
+              <StarPaperCard a="curiosity" b="career" tapeLeft style={{ overflow: "visible" }}>
                 {onOpenBrainMap && (
                   <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="See all your thoughts as stars"
                     note="Every thought that keeps coming back, in one sky" badge={`${store.beliefs.length}`} onClick={() => onOpenBrainMap()} />
@@ -3784,7 +3794,7 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
                       note="Your thoughts next to the person you said you want to be" onClick={() => onOpenArtifact?.("drift")} />
                   </>
                 )}
-              </div>
+              </StarPaperCard>
             </section>
           )}
         </div>
@@ -8750,7 +8760,7 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, pl
       initial={{ rotate: plain ? 0 : tilt }} whileHover={reduce || plain ? undefined : { y: -2, rotate: 0 }} whileTap={plain ? { backgroundColor: `${c.color}14` } : { scale: 0.98, rotate: 0 }} transition={SETTLE}
       style={plain ? {
         position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "14px 14px 14px 16px", cursor: "pointer",
-        backgroundColor: "rgba(0,0,0,0)", backgroundImage: `linear-gradient(90deg, ${c.color}24 0%, ${c.color}0d 45%, transparent 75%)`, WebkitTapHighlightColor: "transparent",
+        backgroundColor: "rgba(0,0,0,0)", WebkitTapHighlightColor: "transparent",
       } : {
         position: "relative", display: "flex", alignItems: "center", gap: 14, padding: "16px 14px 16px 16px", borderRadius: 16, cursor: "pointer",
         backgroundColor: "#FFFCF6", backgroundImage: `radial-gradient(120% 100% at 0% 0%, ${c.color}30, transparent 55%), linear-gradient(160deg, ${c.color}14, #FFFCF6 70%)`,
@@ -8773,7 +8783,7 @@ function DiaryLinkCard({ icon, title, note, badge, accent, onClick, tilt = 0, pl
       }}>{icon}</span>
       <span style={{ flex: 1, minWidth: 0, position: "relative" }}>
         <span style={{ display: "block", ...display, fontSize: plain ? 18 : 19, color: ivHeading, lineHeight: 1.2, wordBreak: "keep-all" }}>{title}</span>
-        {note && <span style={{ display: "block", ...(plain ? { ...sans, fontSize: 13, color: ivBody, lineHeight: 1.35, marginTop: 3 } : { ...hand, fontSize: 18, fontWeight: 500, color: c.ink, lineHeight: 1.15, marginTop: 4 }), wordBreak: "keep-all" }}>{note}</span>}
+        {note && <span style={{ display: "block", ...hand, fontSize: plain ? 17 : 18, fontWeight: 500, color: c.ink, lineHeight: 1.15, marginTop: plain ? 3 : 4, wordBreak: "keep-all" }}>{note}</span>}
       </span>
       {badge && <span style={{ ...hand, fontSize: 19, fontWeight: 700, color: c.ink, flexShrink: 0, position: "relative" }}>{badge}</span>}
       <RowArrow accent={accent} fired={fired} />

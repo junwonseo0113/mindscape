@@ -418,20 +418,28 @@ export default function StarGazeMap({
                 transition={reduce ? undefined : { duration: 3 + (hash(s.b.id) % 20) / 10, repeat: Infinity, ease: "easeInOut" }}>
                 <Node color={REGION_CONFIG[s.region].color} size={s.size} intensity={0.55 + s.vitality * 0.45} />
               </motion.span>
-              {showLabels && (
-                <span style={{
-                  position: "absolute", top: "100%", whiteSpace: "nowrap", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis",
-                  // Near an edge the label hangs inward instead of centering,
-                  // so it never runs off the screen.
-                  ...(s.x > w - 80 ? { right: 0, transform: "translateY(-6px)", textAlign: "right" as const }
-                    : s.x < 80 ? { left: 0, transform: "translateY(-6px)" }
-                    : { left: "50%", transform: "translate(-50%, -6px)" }),
-                  ...sans, fontSize: 11, color: INK, pointerEvents: "none", marginTop: 2,
-                  padding: "2px 7px", borderRadius: 999, backgroundColor: "rgba(10,9,32,0.55)", border: `1px solid ${REGION_CONFIG[s.region].color}40`,
-                }}>
+              {showLabels && (() => {
+                // Written on the sky in hand, in the star's own colour, like
+                // the constellation names, with a dark halo instead of a
+                // box so it stays readable over lines and other stars. A
+                // star with another star just below it puts its name above,
+                // so the two names don't land on each other.
+                const crowdedBelow = stars.some((t) => t !== s && Math.abs(t.x - s.x) < 100 && t.y > s.y && t.y - s.y < 52);
+                const edge = s.x > w - 70 ? "right" : s.x < 70 ? "left" : "center";
+                return (
+                  <span style={{
+                    position: "absolute", width: 116, pointerEvents: "none",
+                    ...(crowdedBelow ? { bottom: "100%", marginBottom: -4 } : { top: "100%", marginTop: -5 }),
+                    ...(edge === "right" ? { right: 0, textAlign: "right" as const } : edge === "left" ? { left: 0, textAlign: "left" as const } : { left: "50%", marginLeft: -58, textAlign: "center" as const }),
+                    ...hand, fontSize: 17, fontWeight: 600, lineHeight: 1, letterSpacing: "0.01em",
+                    color: REGION_CONFIG[s.region].color, filter: "brightness(1.25)",
+                    textShadow: "0 0 3px #0A0920, 0 0 8px #0A0920, 0 0 14px rgba(10,9,32,0.9)",
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                  }}>
                   {s.b.thoughtLabel || s.b.statement}
-                </span>
-              )}
+                  </span>
+                );
+              })()}
             </motion.button>
           );
         })}
