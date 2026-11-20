@@ -31,6 +31,8 @@ import {
 import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
 import { describeQuery, parseQuery, scoreDoc, type SearchDoc } from "./smartSearch";
 import { apiUrl } from "./apiBase";
+import { closenessAt, entryStep, lastWrittenDate, pathSeries, stepHeadline, weekChange, type Step } from "./aspirationPath";
+import { PathChart, PathLegend, VoyageCard } from "./Voyage";
 import { haptic, isNative, notifyNow, startNativeSpeech, syncReminders, type NativeSpeechSession } from "./native";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
@@ -2537,7 +2539,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
 // or "Your sky" to open the full night sky); "Speak your mind"; and the
 // quick mood check-in. Everything else — today's discovery, counts by
 // region, search — lives on its own tab (Analysis, the sky, Diary).
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: (mood?: string) => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, onSetAspiration, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: (mood?: string) => void; onOpenVoyage?: () => void; onSetAspiration?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   // Tapping a point explains it in place (HomeNodeCard); the Brain Map
   // itself is entered only through its own button — or from that card.
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
@@ -2589,10 +2591,18 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         </div>
       </div>
 
-      <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
-        <div style={{ ...display, fontSize: "clamp(26px, 7.5vw, 34px)", fontWeight: 400, lineHeight: 1.24, color: ivHeading, wordBreak: "keep-all" }}>
-          What thought crossed<br />your mind today?
+      <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
+        <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: ivHeading, wordBreak: "keep-all" }}>
+          What crossed your mind today?
         </div>
+      </div>
+
+      {/* The main feature: how close you are to who you want to be. */}
+      <div style={{ padding: "16px 18px 0", flexShrink: 0 }}>
+        <VoyageCard
+          closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+          aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
+        />
       </div>
 
       {(!MONETIZATION_ENABLED || store.isPro) ? (
@@ -4014,6 +4024,16 @@ function Emph({ text, keys = [], color = ivHeading }: { text: string; keys?: (st
 // A bold word in hand-written copy.
 const B = ({ children }: { children: React.ReactNode }) => <b style={{ fontWeight: 700, color: ivHeading }}>{children}</b>;
 
+// "This week" for the voyage: today, or the day of the latest entry when
+// nothing has been written in the last week (so a quiet spell still shows
+// the last real week instead of a flat line).
+function voyageAnchor(history: StoredHistoryEntry[]): Date {
+  const today = new Date();
+  const days = history.map((e) => parseDotDate(e.date)).filter((d): d is Date => !!d);
+  const last = days.length ? new Date(Math.max(...days.map((d) => d.getTime()))) : lastWrittenDate(history);
+  return last && today.getTime() - last.getTime() > 6 * 86_400_000 ? last : today;
+}
+
 // ── Quiet pieces for Mind and Analysis ─────────────────────────────────────
 // Each of those pages has one bold card at the top (today's discovery, the
 // two thoughts joined by a thread). Everything below it sits in this same
@@ -4625,6 +4645,18 @@ function ScreenDiscoveryAnalysis({
             <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: `10px ${PRIMARY_HEADER_SIDE}px calc(20px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
               {/* ── Today's Discovery — the dominant object on this screen,
               inside one large ivory SurfaceCard (see DiscoveryCard). ── */}
+              {/* The main measure first: the week toward who you want to be. */}
+              {store.aspiration && (
+                <div style={{ marginBottom: 26 }}>
+                  <SectionHeading aside={(() => { const c = weekChange(store.history, voyageAnchor(store.history)); return c === null ? undefined : c > 0 ? `${c} closer` : c < 0 ? `${-c} further` : "no change"; })()}>
+                    This week, toward who you want to be
+                  </SectionHeading>
+                  <div style={{ ...quietCard, padding: "16px 14px 12px" }}>
+                    <PathChart days={pathSeries(store.history, 7, voyageAnchor(store.history))} />
+                    <div style={{ marginTop: 8 }}><PathLegend /></div>
+                  </div>
+                </div>
+              )}
               <div data-tutorial="today-discovery">
                 {discovery ? (
                   <DiscoveryCard
@@ -5816,10 +5848,19 @@ function ScreenAiConsent({
   );
 }
 
-function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void }) {
+function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade, voyage, onSetAspiration }: {
+  error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void;
+  // The entry just written, as a step toward who you want to be (see
+  // aspirationPath.ts), and where the boat was before it.
+  voyage?: { step: Step; closeness: number | null; from: number | null; aspiration: string | null };
+  onSetAspiration?: () => void;
+}) {
+  const headline = voyage ? stepHeadline(voyage.step) : null;
+  const short = voyage && voyage.step.dir !== 0 ? (voyage.step.dir > 0 ? (voyage.step.size >= 2 ? "Closer." : "A little closer.") : (voyage.step.size >= 2 ? "Further away." : "A little further.")) : "Got it.";
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#17142F", overflow: "hidden" }}>
+      <NightDeskBackdrop />
+      <RevealGroup style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
         {error ? (
           <>
             <RevealItem>
@@ -5836,15 +5877,27 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
         ) : (
           <>
             <RevealItem>
-              <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-                Got it.
-              </div>
+              <div style={{ ...display, fontSize: 34, color: dkHeading, lineHeight: 1.15, wordBreak: "keep-all" }}>{short}</div>
             </RevealItem>
             <RevealItem>
-              <div style={{ ...sans, fontSize: 15, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-                Today's thoughts have been added to your record. Nothing is judged or organized — it's just quietly kept.
+              <div style={{ ...sans, fontSize: 15, color: dkBodyLight, marginTop: 10, lineHeight: 1.6, wordBreak: "keep-all" }}>
+                {headline ?? (voyage?.aspiration
+                  ? "Saved. This one didn't really touch who you want to be, and that's fine."
+                  : "Saved to your diary.")}
               </div>
             </RevealItem>
+            {voyage?.step.note && voyage.step.dir !== 0 && (
+              <RevealItem>
+                <div style={{ ...hand, fontSize: 22, fontWeight: 600, color: LAMP_TEXT, marginTop: 14, lineHeight: 1.2, wordBreak: "keep-all" }}>“{voyage.step.note}”</div>
+              </RevealItem>
+            )}
+            {voyage && (
+              <RevealItem>
+                <div style={{ marginTop: 22 }}>
+                  <VoyageCard theme="night" closeness={voyage.closeness} from={voyage.from} change={null} aspiration={voyage.aspiration} onSetAspiration={onSetAspiration} />
+                </div>
+              </RevealItem>
+            )}
             {showUpsell && (
               <RevealItem>
                 <Breathe amount={1.02}><motion.div
@@ -5861,7 +5914,7 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade }: { error?:
         )}
       </RevealGroup>
       <RevealGroup delay={0.4} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <RevealItem><PrimaryBtn onClick={onDone}>Go home</PrimaryBtn></RevealItem>
+        <RevealItem><PrimaryBtn ivory tone="career" onClick={onDone}>Go home</PrimaryBtn></RevealItem>
       </RevealGroup>
     </div>
   );
@@ -6069,21 +6122,42 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
   const lines = entry ? buildLanguageObservationLines(entry, priorObservations) : [];
   const emotionVarietyLine = entry ? buildEmotionVarietyLine(entry, priorEntries) : null;
   if (emotionVarietyLine) lines.push(emotionVarietyLine);
+  // The main measure leads: did this entry move toward who you want to be?
+  const step = entry ? entryStep(entry) : null;
+  const closeness = closenessAt(store.history);
+  const before = entry ? closenessAt(priorEntries) : null;
+  const headline = step ? stepHeadline(step) : null;
+  const short = step && step.dir !== 0 ? (step.dir > 0 ? (step.size >= 2 ? "Closer." : "A little closer.") : (step.size >= 2 ? "Further away." : "A little further.")) : "Got it.";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
+    <div style={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#17142F", overflow: "hidden" }}>
+      <NightDeskBackdrop />
       {/* This screen is the result of what the person just did, so its
-      parts arrive in reading order — acknowledgment, then what was heard,
-      then each observation — rather than all at once. */}
-      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+      parts arrive in reading order: the step toward who they want to be,
+      the voyage, then what was heard and each observation. */}
+      <RevealGroup style={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 28px" }}>
         <RevealItem>
-          <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            Got it.
+          <div style={{ ...display, fontSize: 34, color: dkHeading, lineHeight: 1.15, wordBreak: "keep-all" }}>{short}</div>
+        </RevealItem>
+        {headline && (
+          <RevealItem>
+            <div style={{ ...sans, fontSize: 15, color: dkBodyLight, marginTop: 8, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={headline} keys={["closer", "away"]} color="#FFFFFF" /></div>
+          </RevealItem>
+        )}
+        {step?.note && step.dir !== 0 && (
+          <RevealItem>
+            <div style={{ ...hand, fontSize: 22, fontWeight: 600, color: LAMP_TEXT, marginTop: 12, lineHeight: 1.2, wordBreak: "keep-all" }}>“{step.note}”</div>
+          </RevealItem>
+        )}
+        <RevealItem>
+          <div style={{ marginTop: 18 }}>
+            <VoyageCard theme="night" closeness={closeness} from={before} change={null} aspiration={store.aspiration} />
           </div>
         </RevealItem>
         {entry?.sessionSummary && (
           <RevealItem>
-            <div style={{ ...sans, fontSize: 15, color: dkBodyLight, marginTop: 16, lineHeight: 1.7, wordBreak: "keep-all" }}>
+            <div style={{ ...hand, fontSize: 19, fontWeight: 600, color: LAMP_TEXT, marginTop: 22 }}>What you said</div>
+            <div style={{ ...sans, fontSize: 14, color: dkBodyLight, marginTop: 4, lineHeight: 1.6, wordBreak: "keep-all" }}>
               {entry.sessionSummary}
             </div>
           </RevealItem>
@@ -6108,7 +6182,7 @@ function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?: () => 
       {/* The summary can run to five or six lines; the button waits until
       the last of them is well underway rather than racing them. */}
       <RevealGroup delay={0.55} style={{ padding: "0 28px 40px", flexShrink: 0 }}>
-        <RevealItem><PrimaryBtn onClick={onDone}>Got it</PrimaryBtn></RevealItem>
+        <RevealItem><PrimaryBtn ivory tone="career" onClick={onDone}>Got it</PrimaryBtn></RevealItem>
       </RevealGroup>
     </div>
   );
@@ -7021,34 +7095,56 @@ function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () => void
               </div>
               <SettingsRow icon={<ArrowsClockwise size={17} />} label="Set it again" onClick={onSetupAspiration} />
             </SettingsGroup>
-            <SettingsGroup
-              header="Where you stand"
-              footer={store.driftNotes.length === 0
-                ? "Not enough entries yet to compare. Log a few more thoughts and the gap between this and your actual patterns shows up here."
-                : "Each post on the road is a check-in. The road shows the way you've come, not a measured distance — that arrives with more entries."}
-            >
-              {/* A real aspiration has check-in notes but no number yet, so
-                  the road marks the notes as posts passed and stops short of
-                  claiming a distance. */}
-              <div style={{ padding: "14px 16px 4px" }}>
-                <GoalRoad
-                  progress={Math.min(0.6, 0.12 + store.driftNotes.length * 0.09)}
-                  milestones={store.driftNotes.map((_, i) => Math.min(0.58, 0.12 + (i + 1) * 0.09) - 0.04)}
-                  label={`The road toward "${store.aspiration}": ${store.driftNotes.length} ${store.driftNotes.length === 1 ? "check-in" : "check-ins"} along the way so far.`}
-                />
+            {/* Where you are now, and the steps that got you here. */}
+            <section style={{ marginTop: 26 }}>
+              <SectionHeading>Where you are</SectionHeading>
+              <VoyageCard closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))} aspiration={store.aspiration} />
+            </section>
+            <section style={{ marginTop: 26 }}>
+              <SectionHeading>The last two weeks</SectionHeading>
+              <div style={{ ...quietCard, padding: "16px 14px 12px" }}>
+                <PathChart days={pathSeries(store.history, 14, voyageAnchor(store.history))} />
+                <div style={{ marginTop: 8 }}><PathLegend /></div>
               </div>
-              {store.driftNotes.length === 0 ? (
-                <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing to compare yet.</div>
-              ) : (
-                [...store.driftNotes].reverse().map((d, i) => (
+            </section>
+            {(() => {
+              const steps = store.history.filter((e) => !isMoodCheckIn(e)).map((e) => ({ e, st: entryStep(e) })).filter(({ st }) => st.dir !== 0)
+                .sort((x, y) => (x.e.date < y.e.date ? 1 : x.e.date > y.e.date ? -1 : 0)).slice(0, 8);
+              if (steps.length === 0) return null;
+              return (
+                <section style={{ marginTop: 26 }}>
+                  <SectionHeading>Recent steps</SectionHeading>
+                  <div style={quietCard}>
+                    {steps.map(({ e, st }, i) => {
+                      const tone = st.dir > 0 ? REGION_CONFIG.security : REGION_CONFIG.relationships;
+                      return (
+                        <div key={e.id} style={{ position: "relative", display: "flex", gap: 12, padding: "13px 16px" }}>
+                          {i > 0 && divider}
+                          <span aria-label={st.dir > 0 ? "toward" : "away"} style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", backgroundColor: tone.color, marginTop: 2 }}>
+                            {st.dir > 0 ? <ArrowUpRight size={14} weight="bold" /> : <ArrowDownRight size={14} weight="bold" />}
+                          </span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ ...hand, fontSize: 17, fontWeight: 600, color: tone.ink }}>{st.dir > 0 ? "Toward" : "Away"} · {relativeDayLabel(e.date)}</div>
+                            <div style={{ ...sans, fontSize: 14, color: ivHeading, marginTop: 2, lineHeight: 1.5, wordBreak: "keep-all" }}><Emph text={st.note ?? e.text} /></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })()}
+            {store.driftNotes.length > 0 && (
+              <SettingsGroup header="Notes along the way" style={{ marginTop: 26 }}>
+                {[...store.driftNotes].reverse().map((d, i) => (
                   <div key={i} style={{ position: "relative", padding: "13px 16px" }}>
                     {i > 0 && divider}
                     <div style={{ ...mono, fontSize: 11, color: ivFaint }}>{d.date}</div>
                     <div style={{ ...sans, fontSize: 15, color: ivHeading, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}><Emph text={d.note} /></div>
                   </div>
-                ))
-              )}
-            </SettingsGroup>
+                ))}
+              </SettingsGroup>
+            )}
           </>
         ) : (
           <>
@@ -10273,6 +10369,7 @@ export default function App() {
   // ScreenJourneyMap (Profile) now — this is which one "Save"/back should
   // land on, set right before navigating in from either entry point.
   const [aspirationReturnTo, setAspirationReturnTo] = React.useState("drift");
+  const [driftReturnTo, setDriftReturnTo] = React.useState("analysis");
   // Distinct from rejectBelief above: reacting to a belief as "Today's
   // Discovery" never hides it from "Unconscious Patterns" — only the dedicated reject
   // link there does that.
@@ -10414,6 +10511,7 @@ export default function App() {
       <ScreenHome
         onNavSelect={goToTab}
         onStartThink={startThink}
+        onOpenVoyage={() => { setDriftReturnTo("home"); setScreen("drift"); }} onSetAspiration={() => { setAspirationReturnTo("home"); setScreen("aspirationSetup"); }}
         onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); if (captureJarClip()) transitionOverride.current = "zoom"; setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
@@ -10436,7 +10534,7 @@ export default function App() {
     ) : (
       <ScreenAnalysis
         onNavSelect={goToTab}
-        onOpenArtifact={(id) => setScreen(id)}
+        onOpenArtifact={(id) => { if (id === "drift") setDriftReturnTo("analysis"); setScreen(id); }}
         onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
         store={store}
       />
@@ -10557,6 +10655,13 @@ export default function App() {
         showUpsell={MONETIZATION_ENABLED && !store.isPro && !analysisError}
         onDone={() => setScreen("home")}
         onUpgrade={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
+        voyage={analysisError ? undefined : (() => {
+          const written = store.history.filter((e) => !isMoodCheckIn(e));
+          const latest = written[written.length - 1];
+          if (!latest) return undefined;
+          return { step: entryStep(latest), closeness: closenessAt(store.history), from: closenessAt(store.history.filter((e) => e.id !== latest.id)), aspiration: store.aspiration };
+        })()}
+        onSetAspiration={() => { setAspirationReturnTo("home"); setScreen("aspirationSetup"); }}
       />
     ); break;
     case "softPaywall": content = (
@@ -10579,7 +10684,7 @@ export default function App() {
     case "drift": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("drift"); setScreen("checkout"); }} />
     ) : (
-      <ScreenDrift onBack={() => setScreen("analysis")} store={store} onSetupAspiration={() => { setAspirationReturnTo("drift"); setScreen("aspirationSetup"); }} />
+      <ScreenDrift onBack={() => setScreen(driftReturnTo)} store={store} onSetupAspiration={() => { setAspirationReturnTo("drift"); setScreen("aspirationSetup"); }} />
     ); break;
     case "journeyMap": content = MONETIZATION_ENABLED && !store.isPro ? (
       <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("journeyMap"); setScreen("checkout"); }} />
@@ -10729,7 +10834,7 @@ export default function App() {
       />
     ); break;
     case "help": content = <ScreenHelp onBack={() => setScreen("profile")} onReplayTutorial={() => { setTutorialStep(0); setTutorialActive(true); setScreen("home"); }} />; break;
-    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={startThink} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); if (captureJarClip()) transitionOverride.current = "zoom"; setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
+    default: content = <ScreenHome onNavSelect={goToTab} onStartThink={startThink} onOpenVoyage={() => { setDriftReturnTo("home"); setScreen("drift"); }} onSetAspiration={() => { setAspirationReturnTo("home"); setScreen("aspirationSetup"); }} onOpenBrainMap={(region, beliefId) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(beliefId ?? null); setBrainMapReturnTo("home"); if (captureJarClip()) transitionOverride.current = "zoom"; setScreen("brainmap"); }} store={store} updateStore={updateStore} />;
   }
   content = <AiConsentContext.Provider value={aiAllowed}>{content}</AiConsentContext.Provider>;
   contentCache.current.set(screen, content);
