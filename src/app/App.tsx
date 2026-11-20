@@ -30,6 +30,9 @@ import {
 } from "./types";
 import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
 import { describeQuery, parseQuery, scoreDoc, type SearchDoc } from "./smartSearch";
+import { apiUrl } from "./apiBase";
+import { Capacitor } from "@capacitor/core";
+import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
 import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
@@ -4099,7 +4102,7 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
     if (!needsRefresh || fetchingRef.current) return;
     fetchingRef.current = true;
     const payload = store.beliefs.map((b) => ({ domain: b.domain, statement: b.statement, evidenceCount: b.evidenceCount }));
-    fetch("/api/infer-goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ beliefs: payload }) })
+    fetch(apiUrl("/api/infer-goals"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ beliefs: payload }) })
       .then(async (res) => { const data = await res.json(); if (!res.ok) throw new Error(data?.error || "Couldn't infer goals."); return data; })
       .then((data) => {
         const today = formatDateDots(new Date());
@@ -5367,7 +5370,9 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                 </motion.div>
               )}
             </AnimatePresence>
-            <div style={{ display: "flex", paddingTop: 10, flexShrink: 0 }}>
+            {/* Only offered where this device can turn speech into text
+                (the iOS app's web view can't, so it simply isn't shown). */}
+            {voiceSupportedRef.current && <div style={{ display: "flex", paddingTop: 10, flexShrink: 0 }}>
               <Breathe inline amount={1.05}>
                 <motion.button
                   type="button" onClick={() => { setTextMode(false); setMicError(null); }} whileTap={{ scale: 0.95, opacity: 0.8 }} transition={SETTLE}
@@ -5384,7 +5389,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                   Use voice instead
                 </motion.button>
               </Breathe>
-            </div>
+            </div>}
           </div>
         </>
       ) : (
@@ -5411,7 +5416,7 @@ function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void
                   </div>
                   {!voiceSupportedRef.current && (
                     <div style={{ ...sans, fontSize: 12, color: dkWarn, textAlign: "center", marginTop: 18, lineHeight: 1.6, wordBreak: "keep-all" }}>
-                      This browser doesn't support speech recognition. Please use "Write instead."
+                      Voice input isn't available on this device. Tap "Write instead."
                     </div>
                   )}
                   {micError && (
@@ -5643,7 +5648,7 @@ function ScreenProcessing({
     // just means the session-summary card skips that paragraph, never a
     // reason to fail the session. Not worth its own timeout — it's already
     // bounded by however long /api/analyze itself takes below.
-    const summaryPromise = fetch("/api/summarize-session", {
+    const summaryPromise = fetch(apiUrl("/api/summarize-session"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text }),
@@ -5655,7 +5660,7 @@ function ScreenProcessing({
       })
       .catch(() => undefined);
 
-    fetch("/api/analyze", {
+    fetch(apiUrl("/api/analyze"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods }),
@@ -8766,7 +8771,9 @@ function ScreenProfile({
 
         <SettingsGroup>
           {MONETIZATION_ENABLED && store.isPro && <SettingsRow icon={<CreditCard size={17} />} label="Manage subscription" value={planLabel ?? undefined} onClick={onOpenManageSubscription} />}
-          <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />
+          {/* Reminders use the web Notification API, which the iOS app's web
+              view doesn't have, so the setting is web-only for now. */}
+          {!Capacitor.isNativePlatform() && <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />}
           <SettingsRow icon={<LockSimple size={17} />} label="Data & Privacy" onClick={() => onOpenSettings?.("dataPrivacy")} />
           <SettingsRow icon={<Question size={17} />} label="Help" onClick={() => onOpenSettings?.("help")} />
         </SettingsGroup>
@@ -9947,6 +9954,13 @@ function useIsMobileViewport(): boolean {
 // ── App shell ──────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
+  // In the iOS app, the clock and battery switch to light text on the dark
+  // screens (writing, the sky, analysis in progress) and dark text elsewhere.
+  React.useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const dark = ["think", "processing", "brainmap"].includes(screen);
+    NativeStatusBar.setStyle({ style: dark ? StatusBarStyle.Dark : StatusBarStyle.Light }).catch(() => {});
+  }, [screen]);
   // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
   // transitionOverride forces the next screen change's transition kind;
   // zoomClipRef holds the Home jar's rectangle for the jar <-> Brain Map
@@ -10243,7 +10257,7 @@ export default function App() {
 
   async function requestReinterpretation(currentText: string, evidenceQuotes: string[], rejectedTexts: string[]) {
     if (!aiAllowed) throw new Error("AI analysis is turned off. You can turn it on in Profile → Data & Privacy.");
-    const res = await fetch("/api/reinterpret", {
+    const res = await fetch(apiUrl("/api/reinterpret"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ currentText, evidenceQuotes, rejectedTexts }),
