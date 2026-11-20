@@ -1618,6 +1618,55 @@ function OnboardingBrainDemo() {
   );
 }
 
+// The kicker, title and body of an onboarding page, written the way the
+// rest of the diary is: the kicker in hand with a pen stroke drawn under it,
+// the title set line by line, and its last line swiped with a highlighter
+// in that page's colour.
+const SLIDE_TONES: Record<string, CognitiveRegion> = { speak: "relationships", watch: "curiosity", pattern: "career" };
+
+function OnboardingSlideHeader({ kicker, title, body, region }: { kicker: string; title: string; body: string; region: CognitiveRegion }) {
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG[region];
+  const lines = title.split("\n");
+  const t = (delay: number, duration = 0.5) => ({ duration: reduce ? 0 : duration, delay: reduce ? 0 : delay, ease: [0.22, 1, 0.36, 1] as const });
+  return (
+    <div>
+      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
+        <div style={{ ...hand, fontSize: 23, fontWeight: 600, color: c.ink, lineHeight: 1.1 }}>{kicker}</div>
+        <svg width="100%" height="10" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden style={{ display: "block", marginTop: 2, overflow: "visible" }}>
+          <motion.path d="M1 6 C 20 2.5, 38 8.5, 56 5 S 86 3, 99 5.5" fill="none" stroke={c.color} strokeWidth={2.4} strokeLinecap="round"
+            vectorEffect="non-scaling-stroke" initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={t(0.15, 0.6)} />
+        </svg>
+      </div>
+      <div style={{ ...display, fontSize: 30, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.28, wordBreak: "keep-all" }}>
+        {lines.map((line, idx) => {
+          const last = idx === lines.length - 1;
+          return (
+            <motion.div key={idx} initial={reduce ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={t(0.25 + idx * 0.12)}>
+              <span style={{ position: "relative", display: "inline-block" }}>
+                {last && (
+                  <motion.span aria-hidden
+                    initial={{ scaleX: reduce ? 1 : 0 }} animate={{ scaleX: 1 }} transition={t(0.75, 0.55)}
+                    style={{
+                      position: "absolute", left: -4, right: -6, bottom: "0.08em", height: "0.48em", zIndex: 0,
+                      transformOrigin: "left center", borderRadius: "3px 8px 4px 9px", transform: "rotate(-0.8deg)",
+                      background: `linear-gradient(100deg, ${c.color}66, ${c.color}40 70%, ${c.color}55)`,
+                    }} />
+                )}
+                <span style={{ position: "relative", zIndex: 1 }}>{line}</span>
+              </span>
+            </motion.div>
+          );
+        })}
+      </div>
+      <motion.div initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={t(0.5 + lines.length * 0.12)}
+        style={{ ...hand, fontSize: 21, fontWeight: 500, color: OPENING_MUTED, marginTop: 14, lineHeight: 1.3, wordBreak: "keep-all" }}>
+        {body}
+      </motion.div>
+    </div>
+  );
+}
+
 const ONBOARDING_SLIDES = [
   {
     icon: "welcome" as const,
@@ -1629,7 +1678,7 @@ const ONBOARDING_SLIDES = [
     icon: "speak" as const,
     kicker: "Don't organize it",
     title: "Just say whatever\ncomes to mind.",
-    body: "No tidy sentences, no prompts required — try it below.",
+    body: "No tidy sentences needed. Try it below.",
   },
   {
     icon: "watch" as const,
@@ -1691,20 +1740,18 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
               alignItems: isWelcome ? "center" : "stretch", textAlign: isWelcome ? "center" : "left",
             }}
           >
-            {slide!.kicker && (
-              <div style={{ ...sans, fontSize: 12, fontWeight: 600, color: "rgba(42,38,33,.52)", letterSpacing: "0.06em" }}>{slide!.kicker}</div>
+            {slide!.kicker ? (
+              <OnboardingSlideHeader kicker={slide!.kicker} title={slide!.title} body={slide!.body} region={SLIDE_TONES[slide!.icon] ?? "identity"} />
+            ) : (
+              <>
+                <div style={{ ...display, fontSize: 34, color: OPENING_TEXT, marginTop: 4, lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
+                  {slide!.title}
+                </div>
+                <div style={{ ...sans, fontSize: 15.5, color: OPENING_MUTED, marginTop: 16, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: 280 }}>
+                  {slide!.body}
+                </div>
+              </>
             )}
-            <div
-              style={{
-                ...display, fontSize: isWelcome ? 34 : 28, color: OPENING_TEXT, marginTop: isWelcome ? 4 : 14,
-                lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all",
-              }}
-            >
-              {slide!.title}
-            </div>
-            <div style={{ ...sans, fontSize: isWelcome ? 15.5 : 15, color: OPENING_MUTED, marginTop: isWelcome ? 16 : 18, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: isWelcome ? 280 : undefined }}>
-              {slide!.body}
-            </div>
             {isInteractive && (
               <div style={{ marginTop: 22 }}>
                 <OnboardingBrainDemo />
