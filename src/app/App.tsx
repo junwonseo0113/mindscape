@@ -29,6 +29,7 @@ import {
   emptyStore,
 } from "./types";
 import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
+import { describeQuery, parseQuery, scoreDoc, type SearchDoc } from "./smartSearch";
 import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
@@ -8038,6 +8039,18 @@ function JournalEntryRow({ entry, beliefs, onOpen }: { entry: StoredHistoryEntry
   );
 }
 
+// What smart search reads for one journal entry.
+function entryDoc(entry: StoredHistoryEntry, beliefs: StoredBelief[]): SearchDoc {
+  return {
+    dates: [entry.date],
+    fields: [
+      { text: entry.text },
+      { text: (entry.analysis?.observation.emotions ?? []).map((e) => e.label).join(" "), weight: 0.85 },
+      ...beliefs.map((b) => ({ text: `${b.statement} ${b.thoughtLabel ?? ""} ${REGION_CONFIG[resolveRegion(b)].label}`, weight: 0.85 })),
+    ],
+  };
+}
+
 function JournalView({ store, query, onOpenEntry }: { store: Store; query: string; onOpenEntry?: (index: number) => void }) {
   // Newest first, and `detailIndex` is the position ScreenHistoryDetail
   // expects (it reverses store.history the same way).
@@ -8054,7 +8067,10 @@ function JournalView({ store, query, onOpenEntry }: { store: Store; query: strin
     store.beliefs.forEach((b) => (b.supportingEntryIds ?? []).forEach((id) => m.set(id, [...(m.get(id) ?? []), b])));
     return m;
   }, [store.beliefs]);
-  const visible = query ? items.filter(({ entry }) => entry.text.toLowerCase().includes(query)) : items;
+  // Smart search (see smartSearch.ts): an entry is found by its own words,
+  // the thoughts it backs, the feeling it carried, and its date.
+  const parsed = React.useMemo(() => (query.trim() ? parseQuery(query) : null), [query]);
+  const visible = parsed ? items.filter(({ entry }) => scoreDoc(entryDoc(entry, beliefsByEntry.get(entry.id) ?? []), parsed) > 0) : items;
   const months: { label: string; items: typeof items }[] = [];
   visible.forEach((it) => {
     const label = journalMonthLabel(it.entry.date);
@@ -8065,7 +8081,7 @@ function JournalView({ store, query, onOpenEntry }: { store: Store; query: strin
     return <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>Nothing written yet. Your first entry goes here.</div>;
   }
   if (visible.length === 0) {
-    return <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>No entries mention that.</div>;
+    return <div style={{ marginTop: 20, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "0 6px" }}>Nothing found. Try other words, or a time like <B>yesterday</B> or <B>last week</B>.</div>;
   }
   return (
     <>
@@ -8112,19 +8128,27 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
   const [openDeeper, setOpenDeeper] = React.useState<number | null>(null);
   const changeSummaries = React.useMemo(() => summarizeChanges(store.history), [store.history]);
 
-  const query = search.trim().toLowerCase();
+  const query = search.trim();
+  const parsedSearch = React.useMemo(() => (query ? parseQuery(query) : null), [query]);
+  // Smart search (see smartSearch.ts): a star is found by its wording, its
+  // name, its area of life, what was actually written behind it, and the
+  // days those entries were written.
   const matchesSearch = React.useCallback(
     (star: CatalogueStar) => {
-      if (!query) return true;
-      if (star.belief.statement.toLowerCase().includes(query)) return true;
-      if (star.belief.domain.toLowerCase().includes(query)) return true;
-      if (REGION_CONFIG[star.region].label.toLowerCase().includes(query)) return true;
-      return (star.belief.supportingEntryIds ?? []).some((id) => {
-        const e = store.history.find((x) => x.id === id);
-        return e ? e.text.toLowerCase().includes(query) : false;
-      });
+      if (!parsedSearch) return true;
+      const entries = (star.belief.supportingEntryIds ?? []).map((id) => store.history.find((x) => x.id === id)).filter((e): e is StoredHistoryEntry => !!e);
+      const doc: SearchDoc = {
+        dates: [...entries.map((e) => e.date), ...(star.belief.evidenceQuotes ?? []).map((q) => q.date)],
+        fields: [
+          { text: `${star.belief.statement} ${star.belief.thoughtLabel ?? ""}` },
+          { text: `${star.belief.domain} ${REGION_CONFIG[star.region].label}`, weight: 0.9 },
+          ...entries.map((e) => ({ text: e.text, weight: 0.75 })),
+          ...(star.belief.evidenceQuotes ?? []).map((q) => ({ text: q.quote, weight: 0.75 })),
+        ],
+      };
+      return scoreDoc(doc, parsedSearch) > 0;
     },
-    [query, store.history]
+    [parsedSearch, store.history]
   );
 
   const recurrentThreshold = React.useMemo(() => {
@@ -8396,16 +8420,21 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         {sheet === "search" && (
           <HistorySheet title={view === "entries" ? "Search your entries" : "Search the catalogue"} onClose={() => setSheet(null)}>
             <input
-              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={view === "entries" ? "A word you remember writing…" : "Search beliefs, categories, or thoughts…"}
+              autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={view === "entries" ? "e.g. what I wrote yesterday about work" : "e.g. the one about money"}
               aria-label={view === "entries" ? "Search your entries" : "Search the star catalogue"}
               style={{ ...sans, fontSize: 15, color: "#2A2621", backgroundColor: "rgba(42,38,33,0.06)", border: "1.5px solid rgba(42,38,33,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
-            <div style={{ ...sans, fontSize: 12, color: "rgba(42,38,33,0.5)", marginTop: 14, lineHeight: 1.5 }}>
-              {query
-                ? (view === "entries"
-                  ? `${store.history.filter((e) => e.text.toLowerCase().includes(query)).length} of ${store.history.length} entries mention "${search.trim()}".`
-                  : `${catalogue.filter(matchesSearch).length} of ${catalogue.length} stars match "${search.trim()}".`)
-                : view === "entries" ? "Only entries that mention it stay on the page." : "Matching stars stay bright on the catalogue; the rest dim."}
+            <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.6)", marginTop: 14, lineHeight: 1.5 }}>
+              {parsedSearch ? (
+                <>
+                  {describeQuery(parsedSearch) && <div style={{ marginBottom: 4 }}>Looking for <B>{describeQuery(parsedSearch)}</B></div>}
+                  {view === "entries"
+                    ? <><B>{store.history.filter((e) => scoreDoc(entryDoc(e, store.beliefs.filter((b) => (b.supportingEntryIds ?? []).includes(e.id))), parsedSearch) > 0).length}</B> of {store.history.length} entries</>
+                    : <><B>{catalogue.filter(matchesSearch).length}</B> of {catalogue.length} thoughts</>}
+                </>
+              ) : (
+                <>You don't need the exact words. Try a <B>time</B> ("yesterday", "last week") or <B>what it was about</B>.</>
+              )}
             </div>
           </HistorySheet>
         )}
