@@ -1,3 +1,4 @@
+import { apiUrl } from "../apiBase";
 import { supabase } from "../supabaseClient";
 import type { IdealSelfSnapshot, Profile } from "./model";
 
@@ -10,7 +11,7 @@ export async function idealSelfRequest<T>(body:Record<string,unknown>):Promise<T
   const token=session?.data.session?.access_token;
   if(!token) throw new IdealSelfRequestError("unauthorized","Sign in with your account to save an Ideal Self profile.",401);
   let response:Response;
-  try {response=await fetch("/api/ideal-self",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body),cache:"no-store"});}
+  try {response=await fetch(apiUrl("/api/ideal-self"),{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify(body),cache:"no-store"});}
   catch {throw new IdealSelfRequestError("offline","Could not connect. Your draft is still here; try again when connected.",0);}
   let data:any;
   try {data=await response.json();} catch {throw new IdealSelfRequestError("unavailable","Ideal Self is unavailable. Your draft is still here.",response.status);}

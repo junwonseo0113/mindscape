@@ -27,6 +27,7 @@ import { REGION_CONFIG, resolveRegion, recencyFromDate, type NeuralBeliefNode, t
 import { COGNITIVE_REGIONS, type CognitiveRegion } from "./neuralBrainLayout";
 import type { StoredEvidenceQuote } from "./types";
 import { Node } from "./orb";
+import { haptic } from "./native";
 import { display, hand, mono, sans, serif } from "./typefaces";
 
 const INK = "#F3EFFA";
@@ -390,7 +391,7 @@ export default function StarGazeMap({
               key={s.b.id} type="button"
               aria-label={`${REGION_CONFIG[s.region].label} star: ${s.b.statement}. ${s.b.confidence}% confidence.`}
               aria-pressed={isSel}
-              onClick={() => { setTappedOnce(true); setSelectedId(isSel ? null : s.b.id); }}
+              onClick={() => { haptic("tap"); setTappedOnce(true); setSelectedId(isSel ? null : s.b.id); }}
               initial={{ opacity: 0, scale: reduce ? 1 : 0.3 }} animate={{ opacity: starOpacity(s), scale: isSel ? 1.25 : 1 }}
               transition={{ opacity: { duration: 0.35, delay: reduce ? 0 : 0.1 + i * 0.07 }, scale: { type: "spring", stiffness: 260, damping: 22, delay: reduce ? 0 : 0.1 + i * 0.07 } }}
               whileTap={{ scale: 0.9 }}

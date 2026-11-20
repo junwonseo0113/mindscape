@@ -3,8 +3,32 @@
 // functions in this folder, not a route.
 import type { HandlerResult } from '../src/server/aiHandlers'
 
+// The iOS app (Capacitor) serves its pages from capacitor://localhost, a
+// different origin from this API, so the browser engine asks first
+// (OPTIONS) and needs these headers back. Only the app's own origins are
+// allowed; the website itself is same-origin and doesn't need them.
+const APP_ORIGINS = new Set(['capacitor://localhost', 'ionic://localhost', 'http://localhost', 'https://localhost'])
+
+// Returns true when the request was a preflight and has been answered.
+export function applyCors(req: any, res: any): boolean {
+  const origin = req.headers?.origin
+  if (origin && APP_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Max-Age', '86400')
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(204).end()
+    return true
+  }
+  return false
+}
+
 export function withApiRoute(handler: (apiKey: string, body: any) => Promise<HandlerResult>) {
   return async (req: any, res: any) => {
+    if (applyCors(req, res)) return
     if (req.method !== 'POST') {
       res.status(405).end('Method not allowed')
       return
