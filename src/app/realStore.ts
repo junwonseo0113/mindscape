@@ -157,9 +157,48 @@ export function appendUnanalyzedEntry(prev: Store, rawText: string): Store {
   };
   return {
     ...prev,
-    history: [...prev.history, historyEntry].slice(-50),
+    history: capHistory([...prev.history, historyEntry]),
     entryCount: prev.entryCount + 1,
   };
+}
+
+// ── Mood check-ins ───────────────────────────────────────────────────────────
+// A check-in is one tap, not a thought, so it lives in history (the journal,
+// heatmap and "Your feelings" all read it there) but is kept out of every
+// count of real writing.
+export const isMoodCheckIn = (e: StoredHistoryEntry) => e.kind === "mood" || /^Checked in feeling /.test(e.text);
+
+// History keeps the last 50 written entries and, separately, the last 60
+// check-ins. One shared cap of 50 meant a week of frequent taps could push
+// someone's real entries (the evidence behind their beliefs) out of the
+// store.
+export const HISTORY_CAP = 50;
+export const MOOD_CAP = 60;
+export function capHistory(history: StoredHistoryEntry[]): StoredHistoryEntry[] {
+  let written = 0, moods = 0;
+  const keep = new Array<boolean>(history.length);
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (isMoodCheckIn(history[i])) keep[i] = ++moods <= MOOD_CAP;
+    else keep[i] = ++written <= HISTORY_CAP;
+  }
+  return history.filter((_, i) => keep[i]);
+}
+
+// The feelings someone tapped in the last 12 hours, oldest first, for the
+// next /api/analyze call: "felt anxious about two hours before writing this"
+// is context the model can use to read the entry, never evidence on its own.
+export type RecentMood = { label: string; intensity: number; minutesAgo: number };
+export function recentMoodContext(history: StoredHistoryEntry[], now = Date.now()): RecentMood[] {
+  return history
+    .filter((e) => isMoodCheckIn(e) && e.at)
+    .flatMap((e) => {
+      const t = Date.parse(e.at!);
+      const emo = e.analysis?.observation.emotions[0];
+      if (!emo || Number.isNaN(t)) return [];
+      const minutesAgo = Math.round((now - t) / 60000);
+      return minutesAgo >= 0 && minutesAgo <= 12 * 60 ? [{ label: emo.label, intensity: emo.intensity, minutesAgo }] : [];
+    })
+    .slice(-3);
 }
 
 // Home's one-tap "How are you feeling?" check-in — no /api/analyze call at
@@ -183,6 +222,8 @@ export function appendMoodCheckIn(prev: Store, label: string, intensity: number)
     id: entryId,
     date: formatDateDots(new Date()),
     text,
+    kind: "mood",
+    at: new Date().toISOString(),
     analysis: {
       observation: { situation: "", automaticThought: "", emotions: [{ label, intensity }], actionUrge: "" },
       interpretation: { possibleCognitivePatterns: [], valueDirection: { relatedValues: [], towardOrAway: "unclear", explanation: "" } },
@@ -202,7 +243,7 @@ export function appendMoodCheckIn(prev: Store, label: string, intensity: number)
   // distribution all read that directly, not entryCount.
   return {
     ...prev,
-    history: [...prev.history, historyEntry].slice(-50),
+    history: capHistory([...prev.history, historyEntry]),
   };
 }
 
@@ -444,7 +485,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     ? { thoughtLabel: thoughtLabelSuggestion, reframe: distancedReframeSuggestion }
     : null;
   const historyEntry: StoredHistoryEntry = { id: entryId, date: today, text: rawText, analysis, languageObservation, sessionSummary, actDefusion };
-  const history: StoredHistoryEntry[] = [...prev.history, historyEntry].slice(-50);
+  const history: StoredHistoryEntry[] = capHistory([...prev.history, historyEntry]);
 
   // ── Assumptions: unchanged mechanism — the model still returns the full
   // updated list directly (repeat trigger -> count+1, new trigger -> new

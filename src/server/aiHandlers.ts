@@ -101,7 +101,7 @@ Write one line reading "===JSON===", then output only the final JSON below it. N
 }
 
 export async function handleAnalyze(apiKey: string, body: any): Promise<HandlerResult> {
-  const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name } = body ?? {}
+  const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods } = body ?? {}
   if (!text || typeof text !== 'string' || !text.trim()) {
     return { status: 400, json: { error: 'There is no text to analyze.' } }
   }
@@ -125,6 +125,21 @@ Existing connections (relationships between patterns): ${JSON.stringify(priorCon
     ? `\nWhat this person has said, in their own words, they want to become: "${aspiration.trim()}"\n`
     : ''
 
+  // Home's one-tap check-ins from the last few hours. Everything here comes
+  // from the client, so it is reduced to a known label, a 0-100 number and
+  // an age before it goes anywhere near the prompt.
+  const moodList = (Array.isArray(recentMoods) ? recentMoods : [])
+    .filter((m: any) => m && typeof m.label === 'string' && /^[A-Za-z ]{1,20}$/.test(m.label) && Number.isFinite(m.intensity) && Number.isFinite(m.minutesAgo))
+    .slice(-3)
+    .map((m: any) => {
+      const mins = Math.max(0, Math.min(720, Math.round(m.minutesAgo)))
+      const ago = mins < 5 ? 'just now' : mins < 60 ? `${mins} minutes before writing` : `about ${Math.round(mins / 60)} hour${Math.round(mins / 60) === 1 ? '' : 's'} before writing`
+      return `${m.label} (${Math.max(0, Math.min(100, Math.round(m.intensity)))}/100, ${ago})`
+    })
+  const moodBlock = moodList.length > 0
+    ? `\nHow this person said they felt in quick one-tap check-ins shortly before writing: ${moodList.join('; ')}. Use this only as background when you read the emotions in this entry. It is not evidence for or against any pattern, and if the entry itself shows a different feeling, go by the entry.\n`
+    : ''
+
   const addressTerm = typeof name === 'string' && name.trim() ? name.trim() : 'you'
 
   const prompt = `You are a self-reflection tool that draws on CBT (cognitive behavioral therapy) and ACT (acceptance and commitment therapy) concepts to help people observe their own thought patterns. This is not therapy or diagnosis — never give advice or draw conclusions.
@@ -145,7 +160,7 @@ Relationships, Work/Career, Health, Growth/Learning, Autonomy, Security, Leisure
 [Reference: long-term pattern categories — only for already-confirmed patterns, per the principle above, and only when it's genuinely useful]
 Deprivation/Abandonment, Mistrust/Hurt, Sensitivity to failure, Subjugation/Compliance, Unrelenting standards, Isolation/Disconnection
 
-${historyBlock}${aspirationBlock}
+${historyBlock}${aspirationBlock}${moodBlock}
 Below is something this person just said freely, without trying to organize it.
 
 [First, think this through — this part is never shown to the user, so take your time and actually reason]

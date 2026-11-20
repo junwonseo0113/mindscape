@@ -196,6 +196,14 @@ export type StoredHistoryEntry = {
   id: string;
   date: string;
   text: string;
+  // "mood" marks Home's one-tap "How are you right now?" check-in, so every
+  // count of real writing (Thoughts logged, the streak, the history cap)
+  // can leave it out. Entries saved before this field existed are still
+  // recognised by their text (see isMoodCheckIn in realStore.ts).
+  kind?: "mood";
+  // When the entry was made, to the minute. Only check-ins set it, so the
+  // next written entry can tell the AI which feeling came just before it.
+  at?: string;
   // Only demo entries carry a recorded duration today.
   duration?: string;
   // The raw entry and the AI's read on it are stored side by side but kept

@@ -29,7 +29,7 @@ import {
   emptyStore,
 } from "./types";
 import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeInsightLabel, shortMonthDay, weekdayFromDotDate } from "./dateUtils";
-import { appendMoodCheckIn, appendUnanalyzedEntry, mergeAnalysisIntoStore } from "./realStore";
+import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
@@ -2258,17 +2258,28 @@ function MoodFace({ mood, size = 72 }: { mood: MoodKey; size?: number }) {
   );
 }
 
-function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Store) => Store) => void }) {
+function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (prev: Store) => Store) => void; onSayWhy?: (mood: string) => void }) {
   const [justLogged, setJustLogged] = React.useState<string | null>(null);
+  // The last feeling logged, kept a little longer than the face so "Say
+  // why" stays around long enough to be read and tapped.
+  const [askWhy, setAskWhy] = React.useState<string | null>(null);
   const clearTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const askTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const logMood = (label: string, intensity: number) => {
     if (justLogged) return;
     updateStore?.((prev) => appendMoodCheckIn(prev, label, intensity));
     setJustLogged(label);
+    setAskWhy(label);
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    if (askTimerRef.current) clearTimeout(askTimerRef.current);
     clearTimerRef.current = setTimeout(() => setJustLogged(null), 2200);
+    askTimerRef.current = setTimeout(() => setAskWhy(null), 9000);
   };
-  React.useEffect(() => () => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); }, []);
+  React.useEffect(() => () => {
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    if (askTimerRef.current) clearTimeout(askTimerRef.current);
+  }, []);
+  const tone = askWhy && askWhy in MOOD_TONES ? REGION_CONFIG[MOOD_TONES[askWhy as MoodKey]] : null;
   return (
     <div style={{ width: "100%", padding: "0 2px", position: "relative" }}>
       {/* The feeling you just logged, as a face that pops up above the row. */}
@@ -2289,13 +2300,31 @@ function QuickMoodCheckIn({ updateStore }: { updateStore?: (updater: (prev: Stor
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivBody, marginBottom: 4, height: 24, position: "relative" }}>
+      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivBody, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
-          <motion.span key={justLogged ?? "idle"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} style={{ display: "inline-block" }}>
-            {justLogged ? `Logged: ${justLogged}` : "How are you right now?"}
+          <motion.span key={askWhy ?? "idle"} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }} style={{ display: "inline-block", whiteSpace: "nowrap" }}>
+            {askWhy ? `Logged: ${askWhy}` : "How are you right now?"}
           </motion.span>
+        </AnimatePresence>
+        {/* A tap on its own only records the word. Writing a line about
+        it is what lets the app see which thoughts come with which feeling. */}
+        <AnimatePresence>
+          {askWhy && onSayWhy && tone && (
+            <motion.button
+              key="why" type="button" onClick={() => onSayWhy(askWhy)}
+              initial={{ opacity: 0, x: 10, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+              whileTap={{ scale: 0.94 }} transition={{ type: "spring", stiffness: 380, damping: 22, delay: 0.35 }}
+              style={{
+                ...sans, fontSize: 12, fontWeight: 700, color: "#fff", border: 0, cursor: "pointer", flexShrink: 0,
+                display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: shape.full,
+                background: `linear-gradient(135deg, ${tone.color}, ${tone.ink})`, boxShadow: `0 6px 14px -8px ${tone.ink}`, WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              <PenNib size={12} weight="fill" /> Say why
+            </motion.button>
+          )}
         </AnimatePresence>
       </div>
       <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, WebkitOverflowScrolling: "touch" }}>
@@ -2393,7 +2422,7 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
 // or "Your sky" to open the full night sky); "Speak your mind"; and the
 // quick mood check-in. Everything else — today's discovery, counts by
 // region, search — lives on its own tab (Analysis, the sky, Diary).
-function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: () => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
+function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateStore }: { onNavSelect?: (id: string) => void; onStartThink?: (mood?: string) => void; onOpenBrainMap?: (region?: CognitiveRegion, beliefId?: string) => void; store: Store; updateStore?: (updater: (prev: Store) => Store) => void }) {
   // Tapping a point explains it in place (HomeNodeCard); the Brain Map
   // itself is entered only through its own button — or from that card.
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
@@ -2546,7 +2575,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
         <div data-tutorial="think-card">
           <Breathe amount={1.025}>
           <motion.div
-            role="button" tabIndex={0} onClick={onStartThink} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
+            role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
             style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow }}
           >
             <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2560,7 +2589,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, store, updateSt
           </motion.div>
           </Breathe>
         </div>
-        <QuickMoodCheckIn updateStore={updateStore} />
+        <QuickMoodCheckIn updateStore={updateStore} onSayWhy={(mood) => onStartThink?.(mood)} />
       </div>
 
       <div style={{ flexShrink: 0 }}>
@@ -3975,7 +4004,8 @@ function GoalDirectionsPanel({ store, updateStore }: { store: Store; updateStore
 type WeekActivity = { weekStart: string; entries: number; words: number; verbs: number };
 
 function buildWeekActivity(history: StoredHistoryEntry[], maxWeeks = 8): WeekActivity[] {
-  const dated = history.flatMap((e) => { const d = parseDotDate(e.date); return d ? [{ e, monday: mondayOfWeek(d) }] : []; });
+  // Written entries only: a mood tap is not a thought logged.
+  const dated = history.filter((e) => !isMoodCheckIn(e)).flatMap((e) => { const d = parseDotDate(e.date); return d ? [{ e, monday: mondayOfWeek(d) }] : []; });
   if (dated.length === 0) return [];
   const buckets = new Map<string, WeekActivity>();
   dated.forEach(({ e, monday }) => {
@@ -4050,6 +4080,87 @@ function StreakStars({ streak }: { streak: number }) {
           </motion.span>
         );
       })}
+    </div>
+  );
+}
+
+// ── Analysis · Moods and thoughts ────────────────────────────────────────────
+// Where Home's one-tap check-ins come back. A check-in is only a word, so on
+// its own it says nothing about thinking; what it can show is which of
+// someone's recurring thoughts turn up in what they wrote on the same day
+// they tapped a feeling. A pair needs two separate days before it's shown,
+// so one coincidence never reads as a pattern.
+type MoodThoughtLink = { mood: string; belief: StoredBelief; days: number };
+
+function moodThoughtLinks(store: Store): MoodThoughtLink[] {
+  const moodsByDay = new Map<string, Set<string>>();
+  store.history.forEach((e) => {
+    const label = isMoodCheckIn(e) ? e.analysis?.observation.emotions[0]?.label : undefined;
+    if (!label) return;
+    moodsByDay.set(e.date, (moodsByDay.get(e.date) ?? new Set()).add(label));
+  });
+  const entryDay = new Map(store.history.filter((e) => !isMoodCheckIn(e)).map((e) => [e.id, e.date]));
+  const links: MoodThoughtLink[] = [];
+  store.beliefs.filter((b) => b.userReaction !== "rejected").forEach((belief) => {
+    const daysByMood = new Map<string, Set<string>>();
+    (belief.supportingEntryIds ?? []).forEach((id) => {
+      const day = entryDay.get(id);
+      if (!day) return;
+      moodsByDay.get(day)?.forEach((mood) => daysByMood.set(mood, (daysByMood.get(mood) ?? new Set()).add(day)));
+    });
+    daysByMood.forEach((days, mood) => { if (days.size >= 2) links.push({ mood, belief, days: days.size }); });
+  });
+  return links.sort((a, b) => b.days - a.days || b.belief.confidence - a.belief.confidence).slice(0, 3);
+}
+
+function MoodThoughtsPanel({ store }: { store: Store }) {
+  const checkIns = React.useMemo(() => store.history.filter(isMoodCheckIn), [store.history]);
+  const links = React.useMemo(() => moodThoughtLinks(store), [store]);
+  if (checkIns.length === 0) return null;
+  const counts = new Map<string, number>();
+  checkIns.forEach((e) => { const l = e.analysis?.observation.emotions[0]?.label; if (l) counts.set(l, (counts.get(l) ?? 0) + 1); });
+  const tally = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const toneOf = (mood: string) => REGION_CONFIG[MOOD_TONES[mood as MoodKey] ?? "identity"];
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 2px 8px" }}>
+        <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: ivHeading, opacity: 0.82 }}>Moods and thoughts</div>
+        <div style={{ ...hand, fontSize: 17, color: ivBody }}>{checkIns.length} check-in{checkIns.length === 1 ? "" : "s"}</div>
+      </div>
+      <div style={{ borderRadius: shape.md, padding: "14px 16px", backgroundColor: "#FFFDF8", border: "1px solid rgba(42,38,33,0.08)", boxShadow: "0 10px 22px -18px rgba(42,38,33,0.5)" }}>
+        {/* How often each feeling was tapped, as chips in that feeling's colour. */}
+        <div role="list" aria-label="How often you checked in with each feeling" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {tally.map(([mood, n]) => {
+            const t = toneOf(mood);
+            return (
+              <span key={mood} role="listitem" style={{ ...sans, fontSize: 12, fontWeight: 700, color: t.ink, backgroundColor: `${t.color}26`, border: `1px solid ${t.color}55`, borderRadius: shape.full, padding: "4px 10px" }}>
+                {mood} <span style={{ fontWeight: 500, opacity: 0.8 }}>×{n}</span>
+              </span>
+            );
+          })}
+        </div>
+        {links.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
+            {links.map((l) => {
+              const t = toneOf(l.mood);
+              return (
+                <div key={`${l.mood}-${l.belief.id}`} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span aria-hidden style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: t.color, flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: t.ink, lineHeight: 1.15 }}>On days you felt {l.mood.toLowerCase()}</div>
+                    <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.35, marginTop: 2, wordBreak: "keep-all" }}>“{l.belief.statement}”</div>
+                    <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>came up in what you wrote, on {l.days} different days</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>
+            When you check in and also write something on the same day, this will show which of your thoughts tend to come with which feeling.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -4464,6 +4575,10 @@ function ScreenDiscoveryAnalysis({
                 <RecentWeeksPanel history={store.history} />
               </div>
 
+              <div style={{ marginTop: 28 }}>
+                <MoodThoughtsPanel store={store} />
+              </div>
+
               {/* Structural room for Premium's longitudinal-intelligence
               layer (see the brief's "Today's Discovery → Further Insights →
               Premium deeper interpretation" hierarchy) — intentionally not
@@ -4813,7 +4928,7 @@ function NeuronOrb({ recording, onClick }: { recording: boolean; onClick: () => 
   );
 }
 
-function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBack?: () => void }) {
+function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void; onBack?: () => void; mood?: string | null }) {
   const [recording, setRecording] = React.useState(false);
   const [seconds, setSeconds] = React.useState(0);
   // Text-first: voice self-reports lower self-disclosure than text at the
@@ -4822,7 +4937,9 @@ function ScreenThink({ onDone, onBack }: { onDone?: (text: string) => void; onBa
   // way around.
   const [textMode, setTextMode] = React.useState(true);
   const [text, setText] = React.useState("");
-  const [promptHint, setPromptHint] = React.useState(() => pickThinkPrompt());
+  // Coming from Home's "Say why" after a check-in, the first prompt is about
+  // that feeling; "Another prompt" goes back to the usual ones.
+  const [promptHint, setPromptHint] = React.useState(() => (mood ? `You said you feel ${mood.toLowerCase()}. What's behind it?` : pickThinkPrompt()));
   const [transcript, setTranscript] = React.useState("");
   const [interim, setInterim] = React.useState("");
   const [micError, setMicError] = React.useState<string | null>(null);
@@ -5246,6 +5363,7 @@ function ScreenProcessing({
   priorConnections,
   aspiration,
   name,
+  recentMoods,
   onDone,
   onError,
   onCancel,
@@ -5259,6 +5377,9 @@ function ScreenProcessing({
   // Distanced self-talk (Kross & Ayduk) needs a name or "you" to reframe
   // toward — undefined for guests, who get the 2nd-person fallback server-side.
   name?: string;
+  // Check-ins from the last few hours (see recentMoodContext), sent as
+  // background for reading this entry's feelings.
+  recentMoods?: RecentMood[];
   // sessionSummary is undefined whenever /api/summarize-session didn't
   // return one (no key, network error, bad response) — a missing summary
   // never blocks or fails the main analysis, per Feature 3's own spec.
@@ -5316,7 +5437,7 @@ function ScreenProcessing({
     fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name }),
+      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods }),
       signal: analyzeAbort.signal,
     })
       .then(async (res) => {
@@ -7255,7 +7376,9 @@ function findEntryDomain(entryId: string, beliefs: StoredBelief[]): { domain: st
 // active streak) with at least one entry — real data only, no rounding up.
 function computeStreak(history: StoredHistoryEntry[]): number {
   const days = new Set<string>();
+  // Days with something written. A mood tap alone doesn't keep a streak going.
   history.forEach((e) => {
+    if (isMoodCheckIn(e)) return;
     const d = parseDotDate(e.date);
     if (d) days.add(d.toDateString());
   });
@@ -7600,7 +7723,6 @@ function journalMonthLabel(dateStr: string): string {
   const d = parseDotDate(dateStr);
   return d ? d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : dateStr;
 }
-const isMoodCheckIn = (e: StoredHistoryEntry) => /^Checked in feeling /.test(e.text);
 
 function JournalEntryRow({ entry, beliefs, onOpen }: { entry: StoredHistoryEntry; beliefs: StoredBelief[]; onOpen: () => void }) {
   const d = parseDotDate(entry.date);
@@ -9588,7 +9710,12 @@ export default function App() {
   // First "Speak your mind" (or the first one after the consent wording
   // changes) goes through the consent screen; after that, straight in —
   // declining is remembered too, so nobody is re-asked on every entry.
-  const startThink = () => {
+  // The feeling from Home's check-in when "Say why" opened this entry, so the
+  // writing screen can ask about it. Anything other than a string (a click
+  // event, when this is passed straight to onClick) means a plain start.
+  const [thinkMood, setThinkMood] = React.useState<string | null>(null);
+  const startThink = (mood?: unknown) => {
+    setThinkMood(typeof mood === "string" ? mood : null);
     if (needsAiConsentDecision(realStore)) {
       setAiConsentReturnTo("think");
       setScreen("aiConsent");
@@ -9961,6 +10088,7 @@ export default function App() {
     ); break;
     case "think": content = (
       <ScreenThink
+        mood={thinkMood}
         onBack={() => setScreen("home")}
         onDone={(text) => {
           setThinkText(text);
@@ -10003,6 +10131,7 @@ export default function App() {
         }))}
         aspiration={store.aspiration}
         name={store.account?.name}
+        recentMoods={recentMoodContext(store.history)}
         onDone={(result, sessionSummary) => {
           if (result) {
             const accumulate = !MONETIZATION_ENABLED || store.isPro;
