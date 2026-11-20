@@ -721,6 +721,8 @@ function getDailyQuote(now = new Date()) {
 function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
   const quote = React.useMemo(() => getDailyQuote(), []);
   const reducedMotion = useReducedMotion();
+  // A different ink each day, following the quote.
+  const quoteTone = REGION_CONFIG[(["identity", "relationships", "curiosity", "career", "security", "creativity"] as CognitiveRegion[])[DAILY_QUOTES.indexOf(quote) % 6]];
 
   React.useEffect(() => {
     const t = setTimeout(() => onDone?.(), reducedMotion ? 2600 : 3600);
@@ -756,14 +758,20 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
       }}
     >
       <OpeningBackdrop variant="quote" />
-      <motion.div
-        initial={reducedMotion ? false : { opacity: 0, y: 7 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
-        style={{ ...display, fontStyle: "italic", fontSize: 17, color: ivBody, zIndex: 1 }}
-      >
-        Today's quote
-      </motion.div>
+      <div style={{ zIndex: 1, display: "inline-flex", flexDirection: "column", alignSelf: "flex-start" }}>
+        <motion.div
+          initial={reducedMotion ? false : { opacity: 0, y: 7 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reducedMotion ? 0 : .65, delay: reducedMotion ? 0 : .15 }}
+          style={{ ...hand, fontSize: 23, fontWeight: 600, color: quoteTone.ink, lineHeight: 1.1 }}
+        >
+          Today's quote
+        </motion.div>
+        <svg width="100%" height="10" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden style={{ display: "block", marginTop: 2, overflow: "visible" }}>
+          <motion.path d="M1 6 C 20 2.5, 38 8.5, 56 5 S 86 3, 99 5.5" fill="none" stroke={quoteTone.color} strokeWidth={2.4} strokeLinecap="round"
+            vectorEffect="non-scaling-stroke" initial={{ pathLength: reducedMotion ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: reducedMotion ? 0 : 0.6, delay: reducedMotion ? 0 : 0.3 }} />
+        </svg>
+      </div>
 
       <div style={{ flex: 1, display: "flex", alignItems: "center", zIndex: 1 }}>
         <motion.div
@@ -773,11 +781,24 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
           style={{ width: "100%", transform: "translateY(-2%)" }}
         >
           <div style={{ ...display, fontSize: 28, lineHeight: 1.42, letterSpacing: "-.015em", color: ivHeading, wordBreak: "keep-all" }}>
-            “{quote.text}”
+            {/* A highlighter over every line of the quote: an inline span
+            whose background is cloned onto each wrapped line, grown from
+            0 to full width. */}
+            <motion.span
+              initial={{ backgroundSize: reducedMotion ? "100% 100%" : "0% 100%" }}
+              animate={{ backgroundSize: "100% 100%" }}
+              transition={{ duration: reducedMotion ? 0 : 1.1, delay: reducedMotion ? 0 : 1.0, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                backgroundImage: `linear-gradient(transparent 58%, ${quoteTone.color}4d 58%, ${quoteTone.color}33 92%, transparent 92%)`,
+                backgroundRepeat: "no-repeat", WebkitBoxDecorationBreak: "clone", boxDecorationBreak: "clone", padding: "0 2px",
+              }}
+            >
+              “{quote.text}”
+            </motion.span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 24 }}>
-            <span style={{ width: 28, height: 1, backgroundColor: "rgba(42,38,33,.35)" }} />
-            <span style={{ ...sans, fontSize: 12, letterSpacing: ".035em", color: "rgba(42,38,33,.62)" }}>{quote.author}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 22 }}>
+            <svg width="30" height="8" viewBox="0 0 30 8" aria-hidden><path d="M1 4.5 C 8 1.5, 14 7, 21 3.5 S 27 3, 29 4" fill="none" stroke={quoteTone.color} strokeWidth="2" strokeLinecap="round" /></svg>
+            <span style={{ ...hand, fontSize: 22, fontWeight: 600, color: quoteTone.ink }}>{quote.author}</span>
           </div>
         </motion.div>
       </div>
@@ -786,7 +807,7 @@ function ScreenQuoteOfTheDay({ onDone }: { onDone?: () => void }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: .42 }}
         transition={{ duration: reducedMotion ? 0 : .6, delay: reducedMotion ? 0 : 1.25 }}
-        style={{ ...sans, fontSize: 11, letterSpacing: ".04em", textAlign: "center", zIndex: 1 }}
+        style={{ ...hand, fontSize: 19, fontWeight: 500, textAlign: "center", zIndex: 1 }}
       >
         Tap anywhere to continue
       </motion.div>
@@ -966,10 +987,8 @@ function ScreenAuth({ onEmailStart, onGuest }: { onEmailStart?: () => void; onGu
       <OpeningBackdrop variant="auth" />
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "0 28px" }}>
         <div style={{ marginBottom: 28 }}><PatternConstellation /></div>
-        <div style={{ ...display, fontSize: 17, fontStyle: "italic", color: OPENING_MUTED, textAlign: "center" }}>Mindscape</div>
-        <div style={{ ...display, fontSize: 24, color: OPENING_TEXT, textAlign: "center", marginTop: 14, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          Not a journaling app —<br />a tool for understanding how you think
-        </div>
+        <DiaryHeading align="center" size={28} kicker="Mindscape" region="identity"
+          title={"Not just a diary.\nA way to see how you think."} />
       </div>
       <div style={{ position: "relative", zIndex: 1, padding: "0 28px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn ivory onClick={onEmailStart} icon={<EnvelopeSimple size={19} weight="fill" />}>Continue with email</PrimaryBtn>
@@ -1618,27 +1637,31 @@ function OnboardingBrainDemo() {
   );
 }
 
-// The kicker, title and body of an onboarding page, written the way the
-// rest of the diary is: the kicker in hand with a pen stroke drawn under it,
-// the title set line by line, and its last line swiped with a highlighter
-// in that page's colour.
+// The diary's heading style for every intro page: a kicker in hand with a
+// pen stroke drawn under it, the title set line by line with its last line
+// swiped by a highlighter in that page's colour, and the body in hand.
 const SLIDE_TONES: Record<string, CognitiveRegion> = { speak: "relationships", watch: "curiosity", pattern: "career" };
 
-function OnboardingSlideHeader({ kicker, title, body, region }: { kicker: string; title: string; body: string; region: CognitiveRegion }) {
+function DiaryHeading({ kicker, title, body, region, align = "left", size = 30, delay = 0 }: {
+  kicker?: string; title: string; body?: React.ReactNode; region: CognitiveRegion; align?: "left" | "center"; size?: number; delay?: number;
+}) {
   const reduce = useReducedMotion();
   const c = REGION_CONFIG[region];
   const lines = title.split("\n");
-  const t = (delay: number, duration = 0.5) => ({ duration: reduce ? 0 : duration, delay: reduce ? 0 : delay, ease: [0.22, 1, 0.36, 1] as const });
+  const center = align === "center";
+  const t = (at: number, duration = 0.5) => ({ duration: reduce ? 0 : duration, delay: reduce ? 0 : delay + at, ease: [0.22, 1, 0.36, 1] as const });
   return (
-    <div>
-      <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
-        <div style={{ ...hand, fontSize: 23, fontWeight: 600, color: c.ink, lineHeight: 1.1 }}>{kicker}</div>
-        <svg width="100%" height="10" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden style={{ display: "block", marginTop: 2, overflow: "visible" }}>
-          <motion.path d="M1 6 C 20 2.5, 38 8.5, 56 5 S 86 3, 99 5.5" fill="none" stroke={c.color} strokeWidth={2.4} strokeLinecap="round"
-            vectorEffect="non-scaling-stroke" initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={t(0.15, 0.6)} />
-        </svg>
-      </div>
-      <div style={{ ...display, fontSize: 30, color: OPENING_TEXT, marginTop: 14, lineHeight: 1.28, wordBreak: "keep-all" }}>
+    <div style={{ textAlign: align, display: "flex", flexDirection: "column", alignItems: center ? "center" : "flex-start" }}>
+      {kicker && (
+        <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "stretch", marginBottom: 14 }}>
+          <div style={{ ...hand, fontSize: 23, fontWeight: 600, color: c.ink, lineHeight: 1.1 }}>{kicker}</div>
+          <svg width="100%" height="10" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden style={{ display: "block", marginTop: 2, overflow: "visible" }}>
+            <motion.path d="M1 6 C 20 2.5, 38 8.5, 56 5 S 86 3, 99 5.5" fill="none" stroke={c.color} strokeWidth={2.4} strokeLinecap="round"
+              vectorEffect="non-scaling-stroke" initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={t(0.15, 0.6)} />
+          </svg>
+        </div>
+      )}
+      <div style={{ ...display, fontSize: size, color: OPENING_TEXT, lineHeight: 1.28, wordBreak: "keep-all" }}>
         {lines.map((line, idx) => {
           const last = idx === lines.length - 1;
           return (
@@ -1659,10 +1682,12 @@ function OnboardingSlideHeader({ kicker, title, body, region }: { kicker: string
           );
         })}
       </div>
-      <motion.div initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={t(0.5 + lines.length * 0.12)}
-        style={{ ...hand, fontSize: 21, fontWeight: 500, color: OPENING_MUTED, marginTop: 14, lineHeight: 1.3, wordBreak: "keep-all" }}>
-        {body}
-      </motion.div>
+      {body && (
+        <motion.div initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={t(0.5 + lines.length * 0.12)}
+          style={{ ...hand, fontSize: 21, fontWeight: 500, color: OPENING_MUTED, marginTop: 14, lineHeight: 1.3, wordBreak: "keep-all", maxWidth: center ? 320 : undefined }}>
+          {body}
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -1741,16 +1766,9 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
             }}
           >
             {slide!.kicker ? (
-              <OnboardingSlideHeader kicker={slide!.kicker} title={slide!.title} body={slide!.body} region={SLIDE_TONES[slide!.icon] ?? "identity"} />
+              <DiaryHeading kicker={slide!.kicker} title={slide!.title} body={slide!.body} region={SLIDE_TONES[slide!.icon] ?? "identity"} />
             ) : (
-              <>
-                <div style={{ ...display, fontSize: 34, color: OPENING_TEXT, marginTop: 4, lineHeight: 1.32, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
-                  {slide!.title}
-                </div>
-                <div style={{ ...sans, fontSize: 15.5, color: OPENING_MUTED, marginTop: 16, lineHeight: 1.65, wordBreak: "keep-all", maxWidth: 280 }}>
-                  {slide!.body}
-                </div>
-              </>
+              <DiaryHeading align="center" size={36} kicker="Page one" title={slide!.title} body={slide!.body} region="identity" />
             )}
             {isInteractive && (
               <div style={{ marginTop: 22 }}>
@@ -1773,13 +1791,8 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: REGION_CONFIG.relationships.ink }}>The last page</div>
-            <div style={{ ...display, fontSize: 30, color: OPENING_TEXT, marginTop: 8, lineHeight: 1.2, wordBreak: "keep-all" }}>
-              What kind of person<br />do you want to become?
-            </div>
-            <div style={{ ...hand, fontSize: 19, color: OPENING_MUTED, marginTop: 10, lineHeight: 1.3, wordBreak: "keep-all" }}>
-              Optional. Write it down, and we'll keep showing you how far your thoughts are from it.
-            </div>
+            <DiaryHeading kicker="The last page" title={"What kind of person\ndo you want to become?"} region="security"
+              body="Optional. Write it down, and we'll keep showing you how far your thoughts are from it." />
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 22, paddingBottom: 18 }}>
             <FutureSelfLetter autoFocus value={aspiration} onChange={setAspiration} sealed={sealing} />
