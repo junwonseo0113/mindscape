@@ -9,8 +9,8 @@
 // past overhead and their colours reflected on the water, as if sailing
 // through a sea of stars.
 //
-// Everything the old map did is still here: search, region filter with
-// counts, Reset, tap a star for its detail (statement, confidence, the
+// Everything the old map did is still here: region filter with
+// counts, "Show all", tap a star for its detail (statement, confidence, the
 // beliefs it's joined to and why, what you actually said), and opening
 // straight onto a region or one belief from Home and Mind.
 //
@@ -22,7 +22,7 @@
 // buttons, so they're reachable by keyboard and screen reader.
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, MagnifyingGlass, X } from "@phosphor-icons/react";
+import { ArrowLeft, X } from "@phosphor-icons/react";
 import { REGION_CONFIG, resolveRegion, recencyFromDate, type NeuralBeliefNode, type NeuralBeliefConnection } from "./brainRegions";
 import { COGNITIVE_REGIONS, type CognitiveRegion } from "./neuralBrainLayout";
 import type { StoredEvidenceQuote } from "./types";
@@ -194,9 +194,8 @@ export default function StarGazeMap({
 }) {
   const reduce = useReducedMotion();
   const [skyRef, { w, h }] = useSize<HTMLDivElement>();
-  const [query, setQuery] = useState("");
-  const [searchFocus, setSearchFocus] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  // Whether a star has been tapped yet, so the "Tap a star" hint can go.
+  const [tappedOnce, setTappedOnce] = useState(false);
   const [activeRegion, setActiveRegion] = useState<CognitiveRegion | null>(initialActiveRegion);
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedBeliefId);
   const stars = useMemo(() => placeStars(beliefs, w, h), [beliefs, w, h]);
@@ -207,10 +206,7 @@ export default function StarGazeMap({
     return m;
   }, [beliefs]);
   const visibleConnections = connections.filter((c) => byId.has(c.a) && byId.has(c.b));
-  const q = query.trim().toLowerCase();
-  const matches = (s: PlacedStar) =>
-    (!activeRegion || s.region === activeRegion) &&
-    (!q || s.b.statement.toLowerCase().includes(q) || s.b.domain.toLowerCase().includes(q) || REGION_CONFIG[s.region].label.toLowerCase().includes(q));
+  const matches = (s: PlacedStar) => !activeRegion || s.region === activeRegion;
   const selected = selectedId ? byId.get(selectedId) ?? null : null;
   const linkedIds = useMemo(() => {
     if (!selectedId) return new Set<string>();
@@ -220,7 +216,7 @@ export default function StarGazeMap({
     if (selected) return s.b.id === selected.b.id || linkedIds.has(s.b.id) ? 1 : 0.28;
     return matches(s) ? 1 : 0.25;
   };
-  const reset = () => { setQuery(""); setSearchOpen(false); setActiveRegion(null); setSelectedId(null); };
+  const reset = () => { setActiveRegion(null); setSelectedId(null); };
 
   // Constellation figures: each region's stars joined in order around
   // their center — the shape, not a claim about connection.
@@ -288,41 +284,12 @@ export default function StarGazeMap({
           <motion.button type="button" aria-label="Go back" onClick={onBack} whileTap={{ scale: 0.9 }} style={skyIconBtn}>
             <ArrowLeft size={18} weight="bold" />
           </motion.button>
-          <div style={{ flex: 1, minWidth: 0, height: "100%", position: "relative" }}>
-            <AnimatePresence initial={false} mode="popLayout">
-              {searchOpen ? (
-                <motion.div key="search" initial={{ opacity: 0, scaleX: 0.6 }} animate={{ opacity: 1, scaleX: 1 }} exit={{ opacity: 0, scaleX: 0.6 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  className={reduce ? undefined : "lens-current"}
-                  style={{
-                    position: "absolute", inset: "2px 0", padding: 1.5, borderRadius: 999, transformOrigin: "right center",
-                    backgroundImage: `linear-gradient(90deg, ${REGION_CONFIG.identity.color}, ${REGION_CONFIG.relationships.color}, ${REGION_CONFIG.career.color}, ${REGION_CONFIG.curiosity.color}, ${REGION_CONFIG.identity.color})`,
-                    boxShadow: `0 0 20px -6px ${REGION_CONFIG.relationships.color}aa`,
-                  }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, height: "100%", borderRadius: 999, padding: "0 12px", backgroundColor: "rgba(12,12,40,0.88)" }}>
-                    <MagnifyingGlass size={15} weight="bold" color={REGION_CONFIG.curiosity.color} aria-hidden />
-                    <input
-                      autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a thought" aria-label="Search beliefs"
-                      onFocus={() => setSearchFocus(true)} onBlur={() => setSearchFocus(false)}
-                      className="sky-search"
-                      style={{ flex: 1, minWidth: 0, border: 0, outline: "none", background: "transparent", color: INK, ...hand, fontSize: 19, lineHeight: 1, caretColor: REGION_CONFIG.relationships.color }}
-                    />
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div key="title" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}
-                  style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                  <div style={{ ...display, fontSize: 21, color: INK, lineHeight: 1 }}>Your sky</div>
-                  <div style={{ ...hand, fontSize: 15, color: INK_FAINT, lineHeight: 1, marginTop: 3 }}>{stars.length} {stars.length === 1 ? "star" : "stars"}</div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ ...display, fontSize: 21, color: INK, lineHeight: 1 }}>Your sky</div>
+            <div style={{ ...hand, fontSize: 15, color: INK_FAINT, lineHeight: 1, marginTop: 3 }}>{stars.length} {stars.length === 1 ? "star" : "stars"} · {visibleConnections.length} {visibleConnections.length === 1 ? "line" : "lines"}</div>
           </div>
-          <motion.button type="button" aria-label={searchOpen ? "Close search" : "Search"} whileTap={{ scale: 0.9 }}
-            onClick={() => { if (searchOpen) { setQuery(""); setSearchOpen(false); } else setSearchOpen(true); }}
-            style={{ ...skyIconBtn, ...(searchOpen ? {} : { color: REGION_CONFIG.curiosity.color }) }}>
-            {searchOpen ? <X size={17} weight="bold" /> : <MagnifyingGlass size={18} weight="bold" />}
-          </motion.button>
+          {/* Keeps the title centred opposite the back button. */}
+          <span aria-hidden style={{ width: 40, flexShrink: 0 }} />
         </div>
         <div className="no-scrollbar" style={{ display: "flex", gap: 6, overflowX: "auto", marginTop: 8, paddingBottom: 2 }}>
           {/* Each area of life as a small glowing tag in its own colour: its
@@ -356,7 +323,7 @@ export default function StarGazeMap({
               </motion.button>
             );
           })}
-          {(query || activeRegion || selectedId) && (
+          {(activeRegion || selectedId) && (
             <motion.button type="button" onClick={reset} whileTap={{ scale: 0.94 }} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
               style={{ ...glass, flexShrink: 0, color: INK, ...hand, fontSize: 18, fontWeight: 600, lineHeight: 1, padding: "6px 13px", borderRadius: 999, cursor: "pointer" }}>
               Show all
@@ -423,7 +390,7 @@ export default function StarGazeMap({
               key={s.b.id} type="button"
               aria-label={`${REGION_CONFIG[s.region].label} star: ${s.b.statement}. ${s.b.confidence}% confidence.`}
               aria-pressed={isSel}
-              onClick={() => setSelectedId(isSel ? null : s.b.id)}
+              onClick={() => { setTappedOnce(true); setSelectedId(isSel ? null : s.b.id); }}
               initial={{ opacity: 0, scale: reduce ? 1 : 0.3 }} animate={{ opacity: starOpacity(s), scale: isSel ? 1.25 : 1 }}
               transition={{ opacity: { duration: 0.35, delay: reduce ? 0 : 0.1 + i * 0.07 }, scale: { type: "spring", stiffness: 260, damping: 22, delay: reduce ? 0 : 0.1 + i * 0.07 } }}
               whileTap={{ scale: 0.9 }}
@@ -510,10 +477,19 @@ export default function StarGazeMap({
           <div style={{ position: "absolute", left: 6, right: 4, top: 52, height: 14, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(255,210,140,0.35), transparent)", filter: "blur(2px)" }} />
         </div>
 
-        {/* Footer, on the dark water. */}
-        <div style={{ position: "absolute", left: 16, right: 16, bottom: 12, ...sans, fontSize: 12, color: INK_FAINT, pointerEvents: "none" }}>
-          {beliefs.length} {beliefs.length === 1 ? "star" : "stars"} · {visibleConnections.length} {visibleConnections.length === 1 ? "connection" : "connections"} · tap a star
-        </div>
+        {/* A small floating hint over the water, until the first star is tapped. */}
+        <AnimatePresence>
+          {!tappedOnce && stars.length > 0 && (
+            <motion.div key="hint" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ delay: reduce ? 0 : 1.2, duration: 0.4 }}
+              style={{ position: "absolute", left: 0, right: 0, bottom: 14, width: "fit-content", margin: "0 auto", pointerEvents: "none", display: "flex", alignItems: "center", gap: 7,
+                padding: "6px 14px 6px 10px", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.16)",
+                backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", ...hand, fontSize: 18, fontWeight: 600, color: INK, whiteSpace: "nowrap" }}>
+              <motion.span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#FFE7A8", boxShadow: "0 0 8px #FFE7A8" }}
+                animate={reduce ? undefined : { scale: [1, 1.5, 1], opacity: [1, 0.6, 1] }} transition={{ duration: 1.6, repeat: Infinity }} />
+              Tap a star to open it
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {stars.length === 0 && w > 0 && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center", ...display, fontStyle: "italic", fontSize: 17, color: INK_SOFT }}>
