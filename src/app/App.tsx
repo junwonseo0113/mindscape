@@ -306,6 +306,31 @@ const primaryTitleStyle: React.CSSProperties = { ...display, fontSize: 34, lineH
 // leaves less room than expected.
 const primaryTitleSubtitleStyle: React.CSSProperties = { ...hand, fontSize: 19, fontWeight: 500, color: HEADER_TEXT_SECONDARY, marginTop: 2, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" };
 
+// The title of a main tab (Mind, Analysis, Diary), written the way the
+// cards below it are: the word swiped with a highlighter in the tab's
+// colour, a small star sticker beside it, and the subtitle in hand.
+function PageTitle({ title, subtitle, tone }: { title: string; subtitle?: React.ReactNode; tone: CognitiveRegion }) {
+  const reduce = useReducedMotion();
+  const c = REGION_CONFIG[tone];
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+        <span style={{ position: "relative", display: "inline-block" }}>
+          <motion.span aria-hidden
+            initial={{ scaleX: reduce ? 1 : 0 }} animate={{ scaleX: 1 }} transition={{ duration: reduce ? 0 : 0.55, delay: reduce ? 0 : 0.15, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: "absolute", left: -4, right: -6, bottom: "0.06em", height: "0.42em", transformOrigin: "left center", borderRadius: "3px 8px 4px 9px",
+              transform: "rotate(-1deg)", background: `linear-gradient(100deg, ${c.color}66, ${c.color}3a 75%, ${c.color}55)` }} />
+          <span style={{ position: "relative", ...primaryTitleStyle }}>{title}</span>
+        </span>
+        <span aria-hidden className={reduce ? undefined : "twinkle"} style={{ lineHeight: 0, color: c.color, marginTop: 2, ["--tw-dur" as string]: "3.2s" } as React.CSSProperties}>
+          <Sparkle size={13} weight="fill" />
+        </span>
+      </div>
+      {subtitle && <div style={{ ...primaryTitleSubtitleStyle, color: c.ink, marginTop: 4 }}>{subtitle}</div>}
+    </>
+  );
+}
+
 // ── Status bar ────────────────────────────────────────────────────────────────
 function StatusBar({ modernist }: { modernist?: boolean }) {
   const color = modernist ? mdHeading : dkHeading;
@@ -3702,26 +3727,11 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={primaryTitleStyle}>Mind</div>
-            <div style={primaryTitleSubtitleStyle}>
-              What's going on underneath, in plain words.
-            </div>
+            <PageTitle tone="identity" title="Mind" subtitle="What's going on underneath." />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
-            <motion.div
-              role="button" tabIndex={0} aria-label="Search your history" onClick={() => onNavSelect?.("history")}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("history"); } }}
-              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-            >
-              <MagnifyingGlass size={19} color={ivHeading} />
-            </motion.div>
-            <motion.div
-              role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-            >
-              <User size={19} color={ivHeading} />
-            </motion.div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <HistoryControlButton tone="identity" icon={<MagnifyingGlass size={18} />} label="Search your history" onClick={() => onNavSelect?.("history")} />
+            <HistoryControlButton tone="identity" icon={<User size={18} />} label="Open profile" onClick={() => onNavSelect?.("profile")} />
           </div>
         </div>
 
@@ -4562,10 +4572,7 @@ function ScreenDiscoveryAnalysis({
             primaryTitleSubtitleStyle) so "Analysis" carries the same
             visual presence "Mind" and "History" do. */}
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0, padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 6px`, boxSizing: "border-box" }}>
-              <div style={primaryTitleStyle}>Analysis</div>
-              <div style={primaryTitleSubtitleStyle}>
-                AI interprets your mind, revealing what's really going on.
-              </div>
+              <PageTitle tone="career" title="Analysis" subtitle="What your recent thoughts add up to." />
             </div>
 
             {/* One scrolling composition beneath the header — Today's
@@ -7550,7 +7557,8 @@ function buildCatalogueStars(store: Store): CatalogueStar[] {
 // share one header grammar. A sheet that's open, or a search/filter/date
 // that's still applied, shows as Material 3's tonal icon-button state — a
 // soft filled circle — instead of a caption under the icon.
-function HistoryControlButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void }) {
+function HistoryControlButton({ icon, label, active, onClick, tone = "relationships" }: { icon: React.ReactNode; label: string; active?: boolean; onClick?: () => void; tone?: CognitiveRegion }) {
+  const c = REGION_CONFIG[tone];
   return (
     <Breathe inline amount={1.08}>
       <motion.button
@@ -7558,11 +7566,12 @@ function HistoryControlButton({ icon, label, active, onClick }: { icon: React.Re
         whileTap={{ scale: 0.9 }} transition={SETTLE}
         whileFocus={{ boxShadow: "0 0 0 3px rgba(42,38,33,.14)" }}
         style={{
-          display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: shape.full, border: 0,
-          backgroundColor: active ? "rgba(42,38,33,0.08)" : "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent",
+          display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: shape.full, border: 0, color: c.ink,
+          backgroundColor: active ? `${c.color}33` : "#FFFCF6", boxShadow: `inset 0 0 0 1px ${c.color}${active ? "88" : "44"}, 0 6px 12px -8px ${c.ink}`,
+          cursor: "pointer", WebkitTapHighlightColor: "transparent",
         }}
       >
-        <span style={{ display: "flex", opacity: active ? 1 : 0.72 }}>{icon}</span>
+        <span style={{ display: "flex" }}>{icon}</span>
       </motion.button>
     </Breathe>
   );
@@ -8036,17 +8045,14 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
         control row, same technique Mind uses next to its two. ── */}
         <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={primaryTitleStyle}>Diary</div>
-            <div style={primaryTitleSubtitleStyle}>
-              {view === "entries" ? "Every entry, in the order you lived it." : "Catalogued over time."}
-            </div>
+            <PageTitle tone="relationships" title="Diary" subtitle={view === "entries" ? "Every entry, in the order you lived it." : "Your thoughts, sorted by area of life."} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginRight: -8 }}>
-            <HistoryControlButton icon={<MagnifyingGlass size={19} color={ivHeading} />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <HistoryControlButton icon={<MagnifyingGlass size={18} />} label="Search" active={sheet === "search" || !!query} onClick={() => setSheet(sheet === "search" ? null : "search")} />
             {view === "patterns" && (
               <>
-                <HistoryControlButton icon={<CalendarBlank size={19} color={ivHeading} />} label="Rewind to a date" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
-                <HistoryControlButton icon={<Funnel size={19} color={ivHeading} weight={filterMode ? "fill" : "regular"} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
+                <HistoryControlButton icon={<CalendarBlank size={18} />} label="Rewind to a date" active={sheet === "calendar" || !!asOfDate} onClick={() => setSheet(sheet === "calendar" ? null : "calendar")} />
+                <HistoryControlButton icon={<Funnel size={18} weight={filterMode ? "fill" : "regular"} />} label="Filter" active={sheet === "filter" || !!filterMode} onClick={() => setSheet(sheet === "filter" ? null : "filter")} />
               </>
             )}
           </div>
