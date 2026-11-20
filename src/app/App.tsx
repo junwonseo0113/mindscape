@@ -36,7 +36,7 @@ import { PathChart, PathLegend, VoyageCard } from "./Voyage";
 import { haptic, isNative, notifyNow, startNativeSpeech, syncReminders, type NativeSpeechSession } from "./native";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
-import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentMoodContext, type RecentMood } from "./realStore";
+import { appendMoodCheckIn, appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentEntryMemory, recentMoodContext, type EntryMemory, type RecentMood } from "./realStore";
 import { detectCrisisSignal } from "./crisisDetection";
 import { isCloudSyncConfigured } from "./supabaseClient";
 import { useScreenTransitionKind, screenVariants, canSwipeBack, type TransitionCustom, type TransitionKind } from "./screenTransitions";
@@ -55,7 +55,7 @@ import {
   DownloadSimple, Eye, Feather, FileText, Flask, Footprints, Funnel, Graph, HandWaving, House, Lightbulb, Lightning, LockSimple, MagnifyingGlass, Microphone, PaintBrush, Path, Question, Quotes, ShareNetwork,
   ShieldCheck, Smiley, Sparkle, User, UsersThree, Waveform, X,
 } from "@phosphor-icons/react";
-import { cloudDeleteAccount, cloudSignIn, cloudSignOut, cloudSignUp } from "./cloudSync";
+import { cloudDeleteAccount, cloudResetPassword, cloudSignIn, cloudSignOut, cloudSignUp, flushCloudSync } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
 import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
 import { useAppData } from "./dataProvider";
@@ -1374,10 +1374,22 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [resetInfo, setResetInfo] = React.useState("");
+  // "Forgot password?" (accounts in the cloud only): emails a reset link.
+  const forgot = async () => {
+    setError(""); setResetInfo("");
+    if (!EMAIL_RE.test(email.trim())) { setError("Type your email above first, then tap \"Forgot password?\" again."); return; }
+    try {
+      await cloudResetPassword(email.trim());
+      setResetInfo(`We sent a link to ${email.trim()} to set a new password.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't send the reset email.");
+    }
+  };
 
   const submit = async () => {
     if (loading) return;
-    setError("");
+    setError(""); setResetInfo("");
     if (!email.trim() || !password) { setError("Please enter both an email and a password."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
     setLoading(true);
@@ -1427,7 +1439,19 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                 style={{ ...sans, fontSize: 13, color: mdWarn, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{error}</motion.div>
             )}
+            {resetInfo && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                style={{ ...sans, fontSize: 13, color: REGION_CONFIG.security.ink, marginTop: -4, marginBottom: 14, lineHeight: 1.5, wordBreak: "keep-all", overflow: "hidden" }}>{resetInfo}</motion.div>
+            )}
           </AnimatePresence>
+          {isCloudSyncConfigured && (
+            <div style={{ textAlign: "right", marginTop: -6, marginBottom: 14 }}>
+              <motion.span role="button" tabIndex={0} onClick={forgot} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); forgot(); } }}
+                whileTap={{ opacity: 0.6 }} style={{ ...hand, fontSize: 18, fontWeight: 600, color: REGION_CONFIG.identity.ink, cursor: "pointer" }}>
+                Forgot password?
+              </motion.span>
+            </div>
+          )}
           <PrimaryBtn ivory onClick={submit} loading={loading} icon={<PenNib size={18} weight="fill" />}>Log in</PrimaryBtn>
         </DiaryPage>
         <div style={{ textAlign: "center", marginTop: 18 }}>
@@ -1457,7 +1481,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
     setInfo("");
     if (!name.trim()) { setError("Please enter your name."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
 
     if (isCloudSyncConfigured) {
@@ -1502,7 +1526,7 @@ function ScreenSignup({ onBack, onGoLogin, onSignup }: { onBack?: () => void; on
           {/* An error marks only the field it's about. */}
           <DiaryField label="What should we call you?" autoComplete="name" value={name} onChange={setName} icon={<UserCircle size={20} />} error={/your name/.test(error)} valid={name.trim().length > 0} />
           <DiaryField label="Email" type="email" autoComplete="email" value={email} onChange={setEmail} icon={<EnvelopeSimple size={20} />} error={!!error && !/your name|Password must/.test(error)} valid={EMAIL_RE.test(email.trim())} />
-          <DiaryField label="Password (6+ characters)" type="password" autoComplete="new-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={/Password must/.test(error)} valid={password.length >= 6} />
+          <DiaryField label="Password (8+ characters)" type="password" autoComplete="new-password" value={password} onChange={setPassword} icon={<Key size={20} />} error={/Password must/.test(error)} valid={password.length >= 8} />
           <AnimatePresence>
             {error && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
@@ -5639,6 +5663,7 @@ function ScreenProcessing({
   aspiration,
   name,
   recentMoods,
+  recentEntries,
   onDone,
   onError,
   onCancel,
@@ -5655,6 +5680,9 @@ function ScreenProcessing({
   // Check-ins from the last few hours (see recentMoodContext), sent as
   // background for reading this entry's feelings.
   recentMoods?: RecentMood[];
+  // The last few entries as short gists (recentEntryMemory), so the
+  // analysis can tell "this again" from "this is new".
+  recentEntries?: EntryMemory[];
   // sessionSummary is undefined whenever /api/summarize-session didn't
   // return one (no key, network error, bad response) — a missing summary
   // never blocks or fails the main analysis, per Feature 3's own spec.
@@ -5712,7 +5740,7 @@ function ScreenProcessing({
     fetch(apiUrl("/api/analyze"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods }),
+      body: JSON.stringify({ text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods, recentEntries }),
       signal: analyzeAbort.signal,
     })
       .then(async (res) => {
@@ -6365,7 +6393,7 @@ function FunctionalLoopDiagram({ belief, history }: { belief: StoredBelief; hist
 // One belief's full card — its own component (rather than inlined in the
 // map below) so each can hold its own "which pattern tag is expanded" state
 // without the cards interfering with each other.
-function BeliefCard({ belief, history, connections, onReject, first }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; first?: boolean }) {
+function BeliefCard({ belief, history, connections, onReject, first, pull }: { belief: StoredBelief; history: StoredHistoryEntry[]; connections: StoredConnection[]; onReject?: (id: string) => void; first?: boolean; pull?: BeliefPull }) {
   const [openPattern, setOpenPattern] = React.useState<string | null>(null);
   const [showLoop, setShowLoop] = React.useState(false);
   // The card is three lines — badge row, statement, meter — until asked
@@ -6414,6 +6442,20 @@ function BeliefCard({ belief, history, connections, onReject, first }: { belief:
       )}
       <div style={{ marginTop: 10 }}>
         <OftenDots confidence={belief.confidence} region={region} extra={`· in ${belief.evidenceCount} ${belief.evidenceCount === 1 ? "entry" : "entries"}`} />
+        {pull && pull.kind !== "none" && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 8, ...sans, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 999,
+            color: pull.kind === "away" ? REGION_CONFIG.relationships.ink : REGION_CONFIG.security.ink,
+            backgroundColor: pull.kind === "away" ? `${REGION_CONFIG.relationships.color}1f` : `${REGION_CONFIG.security.color}1f` }}>
+            {pull.kind === "away" ? <ArrowDownRight size={12} weight="bold" /> : <ArrowUpRight size={12} weight="bold" />}
+            {(() => {
+              const n = pull.kind === "away" ? pull.away : pull.toward, total = pull.away + pull.toward;
+              const verb = pull.kind === "away" ? <b>away</b> : <b>closer</b>;
+              return n === total
+                ? <>Each time it came up, you moved {verb}</>
+                : <>In {n} of {total} entries with it, you moved {verb}</>;
+            })()}
+          </div>
+        )}
       </div>
       <motion.button
         type="button" aria-expanded={showDetails} onClick={() => setShowDetails((v) => !v)} whileTap={{ opacity: 0.6 }}
@@ -6773,11 +6815,26 @@ function ContradictionSection({ beliefs, connections }: { beliefs: StoredBelief[
 // a belief ("Safety comes first") and an assumption ("When uncertain →
 // waiting is safer") are the same kind of thing at different specificity — one
 // screen now, sectioned, instead of two nearly-redundant ones.
+// How a recurring thought relates to the main measure: across the entries
+// that back it, did you mostly move toward who you want to be, or away?
+type BeliefPull = { toward: number; away: number; kind: "toward" | "away" | "none" };
+function beliefPull(belief: StoredBelief, history: StoredHistoryEntry[]): BeliefPull {
+  let toward = 0, away = 0;
+  (belief.supportingEntryIds ?? []).forEach((id) => {
+    const e = history.find((x) => x.id === id);
+    if (!e) return;
+    const st = entryStep(e);
+    if (st.dir > 0) toward += 1; else if (st.dir < 0) away += 1;
+  });
+  return { toward, away, kind: away > toward ? "away" : toward > away ? "toward" : "none" };
+}
+
 function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => void; store: Store; onRejectBelief?: (beliefId: string) => void }) {
   const hasBeliefs = store.beliefs.length > 0;
   const hasAssumptions = store.assumptions.length > 0;
   const visibleBeliefs = store.beliefs.filter((b) => b.userReaction !== "rejected");
   const divider = <span aria-hidden style={{ position: "absolute", top: 0, left: 16, right: 0, height: 1, backgroundColor: ivDivider }} />;
+  const [showMore, setShowMore] = React.useState(false);
   return (
     // Same full-bleed pattern the rest of Premium's deeper layers use —
     // top:-30 on the root, one merged scroll region (Back/title scroll away
@@ -6794,38 +6851,63 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           </div>
         </div>
 
-        {/* How to read this page, as a picture: beliefs run underneath,
-            interpretations are the moments they surface. Replaces the long
-            "difference between a belief and an interpretation" card. */}
+        {/* What matters most comes first. With an aspiration set, that's the
+            thoughts pulling you away from it, then where you contradict
+            yourself, then what's helping. Every other recurring thought
+            follows, and the finer-grained patterns fold under "More". */}
+        {(() => {
+          const withPull = visibleBeliefs.map((b) => ({ b, pull: beliefPull(b, store.history) }));
+          const goal = !!store.aspiration;
+          const away = goal ? withPull.filter((x) => x.pull.kind === "away").sort((x, y) => y.pull.away - x.pull.away || y.b.confidence - x.b.confidence) : [];
+          const toward = goal ? withPull.filter((x) => x.pull.kind === "toward").sort((x, y) => y.pull.toward - x.pull.toward) : [];
+          const shown = new Set([...away, ...toward].map((x) => x.b.id));
+          const rest = withPull.filter((x) => !shown.has(x.b.id)).sort((x, y) => y.b.confidence - x.b.confidence);
+          const card = (x: { b: StoredBelief; pull: BeliefPull }, i: number) => (
+            <BeliefCard key={x.b.id} belief={x.b} history={store.history} connections={store.connections} onReject={onRejectBelief} first={i === 0} pull={goal ? x.pull : undefined} />
+          );
+          return (
+            <>
+              {away.length > 0 && (
+                <SettingsGroup header="What pulls you away from who you want to be" style={{ marginTop: 24 }}
+                  footer={<>These came up in entries where you <B>moved away</B> from "{store.aspiration}".</>}>
+                  {away.map(card)}
+                </SettingsGroup>
+              )}
+              <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
+              {toward.length > 0 && (
+                <SettingsGroup header="What helps you get there" footer={<>These came up when you <B>moved closer</B>.</>}>
+                  {toward.map(card)}
+                </SettingsGroup>
+              )}
+              <SettingsGroup
+                header={away.length || toward.length ? "Other thoughts that keep coming back" : "Thoughts that keep coming back"}
+                style={{ marginTop: away.length ? 0 : 24 }}
+                footer={<>More dots means it <B>comes up more often</B>. A thought shows up here after <B>3 entries</B>.</>}
+              >
+                {visibleBeliefs.length === 0 ? (
+                  <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
+                ) : rest.length === 0 ? (
+                  <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>All of them are above.</div>
+                ) : rest.map(card)}
+              </SettingsGroup>
+            </>
+          );
+        })()}
+
+        {/* The finer-grained patterns: still all here, one tap away. */}
         {hasBeliefs && (
-          <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginTop: 20 }}>
-            <BeliefRootsIllustration />
-            <div style={{ padding: "0 4px 4px" }}>
-              <IllustrationKey items={[
-                { tone: REGION_CONFIG.identity.color, text: <><b style={{ fontWeight: 600 }}>A belief</b> runs underneath — "Safety comes first."</> },
-                { tone: REGION_CONFIG.security.color, text: <><b style={{ fontWeight: 600 }}>An interpretation</b> is a moment it shows — "When I start something new, I tell myself I'm not ready."</> },
-              ]} />
-            </div>
-          </div>
-        )}
-
-        <SettingsGroup
-          header="Thoughts that keep coming back"
-          style={{ marginTop: 24 }}
-          footer={<>More dots means it <B>comes up more often</B>. A thought shows up here after <B>3 entries</B>.</>}
-        >
-          {visibleBeliefs.length === 0 ? (
-            <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>No unconscious beliefs discovered yet.</div>
-          ) : (
-            visibleBeliefs.map((b, i) => (
-              <BeliefCard key={b.id} belief={b} history={store.history} connections={store.connections} onReject={onRejectBelief} first={i === 0} />
-            ))
-          )}
-        </SettingsGroup>
-
-        <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
-        <ContradictionSection beliefs={visibleBeliefs} connections={store.connections} />
-
+          <div style={{ marginBottom: 22 }}>
+            <motion.button type="button" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} whileTap={{ scale: 0.98 }}
+              style={{ ...quietCard, width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", border: 0, cursor: "pointer", textAlign: "left" }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", ...display, fontSize: 18, color: ivHeading }}>More patterns</span>
+                <span style={{ display: "block", ...sans, fontSize: 13, color: ivBody, marginTop: 2 }}>How they cluster, how you read moments, shared roots</span>
+              </span>
+              <motion.span animate={{ rotate: showMore ? 180 : 0 }} style={{ lineHeight: 0, color: ivBody }}><CaretDown size={16} weight="bold" /></motion.span>
+            </motion.button>
+            <Collapse open={showMore}>
+              <div style={{ paddingTop: 22 }}>
+                <BeliefNetworkSection beliefs={visibleBeliefs} connections={store.connections} />
         <SettingsGroup header="How you tend to read moments" footer={<><B>When this happens</B>, you tend to <B>read it this way</B>.</>}>
           {!hasAssumptions ? (
             <div style={{ ...sans, fontSize: 13, color: ivBody, padding: "13px 16px" }}>Nothing like this has shown up yet.</div>
@@ -6858,9 +6940,9 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
           )}
         </SettingsGroup>
 
-        {store.connections.length > 0 && (
+        {store.connections.some((c) => c.type !== "contradiction") && (
           <SettingsGroup header="Same root, different thoughts" footer={<>They look different but <B>grow from the same place</B>.</>}>
-            {store.connections.map((c, i) => {
+            {store.connections.filter((c) => c.type !== "contradiction").map((c, i) => {
               const from = visibleBeliefs.find((b) => b.id === c.a);
               const to = visibleBeliefs.find((b) => b.id === c.b);
               if (!from || !to) return null;
@@ -6880,6 +6962,24 @@ function ScreenBeliefMap({ onBack, store, onRejectBelief }: { onBack?: () => voi
         )}
 
 
+
+        {hasBeliefs && (
+          <div style={{ backgroundColor: ivSurfaceSolid, borderRadius: shape.md, boxShadow: ivCardShadow, padding: 12, marginBottom: 22 }}>
+            <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivHeading, opacity: 0.82, padding: "0 4px 6px" }}>How to read this page</div>
+            <BeliefRootsIllustration />
+            <div style={{ padding: "0 4px 4px" }}>
+              <IllustrationKey items={[
+                { tone: REGION_CONFIG.identity.color, text: <><b style={{ fontWeight: 600 }}>A belief</b> runs underneath — "Safety comes first."</> },
+                { tone: REGION_CONFIG.security.color, text: <><b style={{ fontWeight: 600 }}>An interpretation</b> is a moment it shows — "When I start something new, I tell myself I'm not ready."</> },
+              ]} />
+            </div>
+          </div>
+        )}
+
+              </div>
+            </Collapse>
+          </div>
+        )}
 
         <div style={{ ...sans, fontSize: 12, color: ivFaint, lineHeight: 1.5, padding: "0 6px", wordBreak: "keep-all" }}>{DISCLAIMER_NOTICE}</div>
       </div>
@@ -8782,7 +8882,8 @@ function ScreenProfile({
   };
   const logOut = onNavSelect
     ? () => {
-        if (isCloudSyncConfigured) cloudSignOut();
+        // Finish uploading anything not yet saved to the cloud, then sign out.
+        if (isCloudSyncConfigured) flushCloudSync().finally(() => cloudSignOut());
         onNavSelect("auth");
       }
     : undefined;
@@ -10600,6 +10701,7 @@ export default function App() {
         aspiration={store.aspiration}
         name={store.account?.name}
         recentMoods={recentMoodContext(store.history)}
+        recentEntries={recentEntryMemory(store.history)}
         onDone={(result, sessionSummary) => {
           if (result) {
             const accumulate = !MONETIZATION_ENABLED || store.isPro;

@@ -101,7 +101,7 @@ Write one line reading "===JSON===", then output only the final JSON below it. N
 }
 
 export async function handleAnalyze(apiKey: string, body: any): Promise<HandlerResult> {
-  const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods } = body ?? {}
+  const { text, matchableBeliefs, matchablePending, priorAssumptions, priorConnections, aspiration, name, recentMoods, recentEntries } = body ?? {}
   if (!text || typeof text !== 'string' || !text.trim()) {
     return { status: 400, json: { error: 'There is no text to analyze.' } }
   }
@@ -140,6 +140,17 @@ Existing connections (relationships between patterns): ${JSON.stringify(priorCon
     ? `\nHow this person said they felt in quick one-tap check-ins shortly before writing: ${moodList.join('; ')}. Use this only as background when you read the emotions in this entry. It is not evidence for or against any pattern, and if the entry itself shows a different feeling, go by the entry.\n`
     : ''
 
+  // What they wrote most recently, as short gists (client-supplied, so
+  // trimmed and capped). For continuity only: it lets the model say "this
+  // came up again" or notice a change, never count as new evidence.
+  const memoryList = (Array.isArray(recentEntries) ? recentEntries : [])
+    .filter((m: any) => m && typeof m.gist === 'string' && m.gist.trim() && typeof m.date === 'string')
+    .slice(-5)
+    .map((m: any) => `- ${String(m.date).slice(0, 10)}${m.step === 'toward' || m.step === 'away' ? ` (moved ${m.step})` : ''}: ${m.gist.replace(/\s+/g, ' ').trim().slice(0, 220)}`)
+  const memoryBlock = memoryList.length > 0
+    ? `\nWhat this person wrote in their last few entries, oldest first (context only — use it to notice "this again" or a change, but it is NOT evidence for this entry, and don't quote it back as if it were said today):\n${memoryList.join('\n')}\n`
+    : ''
+
   const addressTerm = typeof name === 'string' && name.trim() ? name.trim() : 'you'
 
   const prompt = `You are a self-reflection tool that draws on CBT (cognitive behavioral therapy) and ACT (acceptance and commitment therapy) concepts to help people observe their own thought patterns. This is not therapy or diagnosis — never give advice or draw conclusions.
@@ -160,7 +171,7 @@ Relationships, Work/Career, Health, Growth/Learning, Autonomy, Security, Leisure
 [Reference: long-term pattern categories — only for already-confirmed patterns, per the principle above, and only when it's genuinely useful]
 Deprivation/Abandonment, Mistrust/Hurt, Sensitivity to failure, Subjugation/Compliance, Unrelenting standards, Isolation/Disconnection
 
-${historyBlock}${aspirationBlock}${moodBlock}
+${historyBlock}${aspirationBlock}${memoryBlock}${moodBlock}
 Below is something this person just said freely, without trying to organize it.
 
 [First, think this through — this part is never shown to the user, so take your time and actually reason]
