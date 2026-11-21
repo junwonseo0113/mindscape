@@ -57,7 +57,8 @@ import {
 } from "@phosphor-icons/react";
 import { cloudDeleteAccount, cloudResetPassword, cloudSignIn, cloudSignOut, cloudSignUp, flushCloudSync } from "./cloudSync";
 import { AI_CONSENT_COPY, AI_CONSENT_VERSION, AiConsentContext, hasAiConsent, isKoreanLocale, needsAiConsentDecision } from "./aiConsent";
-import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from "./localPassword";
+import { hashLocalPassword, verifyLocalPassword, needsRehash } from "./localPassword";
+import { lockRemaining, recordFailure, recordSuccess, waitMessage } from "./loginThrottle";
 import { useAppData } from "./dataProvider";
 import { COGNITIVE_PATTERN_DESCRIPTIONS, COGNITIVE_PATTERN_REFLECTIONS, DISCLAIMER_NOTICE, GENERIC_PATTERN_REFLECTION, findBeliefClusters, findContradictionPairs, isLikelyRuminating, matchableCandidates } from "./analysisFramework";
 import { eligiblePassages, resolveLiterarySelection, sanitizeLiterarySelections, buildWhyThisFoundYou, type LiteraryTarget } from "./literaryPassages";
@@ -1376,9 +1377,14 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
   const [loading, setLoading] = React.useState(false);
   const [resetInfo, setResetInfo] = React.useState("");
   // "Forgot password?" (accounts in the cloud only): emails a reset link.
+  // One reset email a minute, so the button can't be used to flood an inbox.
+  const lastResetRef = React.useRef(0);
   const forgot = async () => {
     setError(""); setResetInfo("");
     if (!EMAIL_RE.test(email.trim())) { setError("Type your email above first, then tap \"Forgot password?\" again."); return; }
+    const since = Date.now() - lastResetRef.current;
+    if (since < 60_000) { setError(`A reset email was just sent. You can ask again in ${Math.ceil((60_000 - since) / 1000)} seconds.`); return; }
+    lastResetRef.current = Date.now();
     try {
       await cloudResetPassword(email.trim());
       setResetInfo(`We sent a link to ${email.trim()} to set a new password.`);
@@ -1392,16 +1398,25 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
     setError(""); setResetInfo("");
     if (!email.trim() || !password) { setError("Please enter both an email and a password."); return; }
     if (!EMAIL_RE.test(email.trim())) { setError("That doesn't look like a valid email."); return; }
+    // Slow down password guessing (loginThrottle.ts).
+    const wait = lockRemaining();
+    if (wait > 0) { setError(waitMessage(wait)); return; }
+    const wrongPassword = (message: string) => {
+      const locked = recordFailure();
+      setError(locked > 0 ? waitMessage(locked) : message);
+    };
     setLoading(true);
 
     if (isCloudSyncConfigured) {
       try {
         await cloudSignIn(email.trim(), password);
+        recordSuccess();
         setLoading(false);
         onLogin?.();
       } catch (err) {
         setLoading(false);
-        setError(err instanceof Error ? err.message : "Couldn't log in.");
+        const msg = err instanceof Error ? err.message : "Couldn't log in.";
+        if (/incorrect/i.test(msg)) wrongPassword(msg); else setError(msg);
       }
       return;
     }
@@ -1417,10 +1432,13 @@ function ScreenLogin({ account, onBack, onGoSignup, onLogin }: { account: Stored
     const ok = account.email.toLowerCase() === email.trim().toLowerCase() && (await verifyLocalPassword(password, account.password));
     setLoading(false);
     if (!ok) {
-      setError("Email or password is incorrect.");
+      wrongPassword("Email or password is incorrect.");
       return;
     }
-    onLogin?.(isHashedPassword(account.password) ? undefined : await hashLocalPassword(password));
+    recordSuccess();
+    // Plaintext legacy values and hashes made with fewer iterations are
+    // replaced with a fresh, current-strength hash.
+    onLogin?.(needsRehash(account.password) ? await hashLocalPassword(password) : undefined);
   };
 
   return (

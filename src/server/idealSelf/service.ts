@@ -46,7 +46,9 @@ export async function readInputs(context:AuthContext):Promise<Inputs> {
   return buildInputs(context.userId,{...emptyStore(),history:Array.isArray(raw.history)?raw.history:[],beliefs:Array.isArray(raw.beliefs)?raw.beliefs:[],hypotheses:Array.isArray(raw.hypotheses)?raw.hypotheses:[]});
 }
 export const inputsHash=(inputs:Inputs)=>createHash("sha256").update(canonicalInputs(inputs)).digest("hex");
-async function records(context:AuthContext,table:string):Promise<any[]> {
+// Only these two tables, never a name built from input.
+type RecordTable="ideal_self_suggestions"|"ideal_self_comparisons";
+async function records(context:AuthContext,table:RecordTable):Promise<any[]> {
   const {data,error}=await context.db.from(table).select("*").eq("user_id",context.userId).order("created_at",{ascending:false}).limit(100);
   if(error) databaseError(error);
   return (data??[]).map(row=>{requireOwner(context.userId,row);return table==="ideal_self_comparisons"?{...row,criterionKey:row.criterion_key,criterionQuote:row.criterion_quote}:row;});

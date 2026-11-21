@@ -6,7 +6,13 @@
 // form is "pbkdf2$<iterations>$<salt b64>$<hash b64>". Cloud accounts never
 // come through here; Supabase Auth hashes those server-side.
 const PREFIX = "pbkdf2";
-const ITERATIONS = 210_000; // OWASP 2023 guidance for PBKDF2-HMAC-SHA256
+// OWASP's current guidance for PBKDF2-HMAC-SHA256 is 600,000 iterations
+// (210,000 is its figure for SHA-512). Hashes made with fewer are upgraded
+// the next time that password is entered correctly (needsRehash).
+export const ITERATIONS = 600_000;
+// A stored hash claiming more than this is treated as tampered with rather
+// than run, so an edited value can't freeze the app for minutes.
+const MAX_ITERATIONS = 5_000_000;
 
 function toB64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
@@ -31,13 +37,24 @@ export function isHashedPassword(stored: string): boolean {
   return stored.startsWith(`${PREFIX}$`);
 }
 
+// True for plaintext legacy values and for hashes with fewer iterations
+// than ITERATIONS: after a successful login, store a fresh hash.
+export function needsRehash(stored: string): boolean {
+  if (!isHashedPassword(stored)) return true;
+  const iter = Number(stored.split("$")[1]);
+  return !Number.isFinite(iter) || iter < ITERATIONS;
+}
+
 // Accepts legacy plaintext values too (stores saved before this existed), so
 // nobody is locked out — the caller re-hashes on a successful legacy login.
 export async function verifyLocalPassword(password: string, stored: string): Promise<boolean> {
   if (!isHashedPassword(stored)) return stored !== "" && stored === password;
   const [, iter, saltB64, hashB64] = stored.split("$");
-  const expected = fromB64(hashB64);
-  const actual = await derive(password, fromB64(saltB64), Number(iter));
+  const iterations = Number(iter);
+  if (!Number.isInteger(iterations) || iterations < 1 || iterations > MAX_ITERATIONS || !saltB64 || !hashB64) return false;
+  let expected: Uint8Array, salt: Uint8Array;
+  try { expected = fromB64(hashB64); salt = fromB64(saltB64); } catch { return false; }
+  const actual = await derive(password, salt, iterations);
   if (actual.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ expected[i];
