@@ -214,26 +214,6 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 32px), transparent 100%);
 }
 
-/* ── Modernist screens' real :focus-visible/:hover states ─────────────────────
-   Inline `style` props (used everywhere else in this app) can't express
-   pseudo-classes at all, so this is the one place actual CSS is load-
-   bearing rather than decorative — scoped to `.theme-stargazing`, which the
-   app shell only applies to the frame while a Modernist-token screen
-   (Auth/Profile/Belief Map/Settings/etc.) is showing, so vintage and dark-
-   theme screens keep the browser default they already override
-   per-component instead. Uses mdAccent (#ecd2a8), the same accent color
-   those screens already render elsewhere — no new color introduced. */
-.theme-stargazing :focus-visible {
-  outline: 2px solid #ecd2a8;
-  outline-offset: 2px;
-}
-.theme-stargazing [role="button"] {
-  transition: background-color 0.12s ease-out;
-}
-.theme-stargazing ::selection {
-  background: rgba(236, 210, 168, 0.25);
-}
-
 /* A scrollable region that stays scrollable but never shows the scrollbar
    track itself — inline styles can't reach ::-webkit-scrollbar, hence a
    real class. Used where a visible scrollbar reads as "web app chrome"
@@ -372,12 +352,42 @@ body {
     @apply bg-background text-foreground font-sans;
   }
 }
-/* Shared night controls. Solid surfaces retain readable text and clear focus. */
-.theme-stargazing { color: #fff0d8; color-scheme: dark; }
-.theme-stargazing input,.theme-stargazing textarea,.theme-stargazing select { color-scheme: dark; }
-.theme-stargazing input::placeholder,.theme-stargazing textarea::placeholder { color: #aebed1; opacity: 1; }
-.theme-stargazing button,.theme-stargazing [role="button"] { touch-action: manipulation; }
-.theme-stargazing button:focus-visible,.theme-stargazing [role="button"]:focus-visible { outline: 2px solid #ecd2a8; outline-offset: 3px; }
-@media(prefers-reduced-motion:reduce) { .theme-stargazing *, .theme-stargazing *::before, .theme-stargazing *::after { animation-duration: .01ms!important; animation-iteration-count: 1!important; transition-duration: .01ms!important; } }
 
-/* The sky's search field: a soft starlight placeholder on the dark lens. */
+/* ── iPhone ───────────────────────────────────────────────────────────────────
+   The app runs as an iPhone app inside a web view, so it should feel like
+   one: no grey flash when a card is tapped, no "copy / look up" bubble or
+   text selection when a button is long-pressed, and no image preview when
+   a picture is long-pressed. Writing and reading stay selectable: only
+   controls and images opt out. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button, [role="button"], [role="switch"], [role="tab"], a, label, img, svg {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+img {
+  -webkit-user-drag: none;
+}
+
+/* A visible focus ring for keyboard and VoiceOver users on every screen
+   (the per-screen version of this was scoped to a class nothing renders
+   any more). Mouse and finger taps don't trigger :focus-visible on
+   controls; text fields always match it, and their caret already shows
+   focus, so they're left out. */
+:focus-visible:not(input):not(textarea):not([contenteditable]) {
+  outline: 2px solid #8a7647;
+  outline-offset: 2px;
+}
+
+/* "Reduce Motion" in iOS settings: the app's own motion already follows it
+   (MotionConfig reducedMotion="user"); this covers CSS animations without
+   their own reduced-motion rule. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -298,8 +298,6 @@ export const DEMO_STORE: Store = {
   // Demo Mode exists to showcase the full feature set, including everything
   // gated behind Pro (belief map, hypotheses, distance from your goal) —
   // never itself gated.
-  isPro: true,
-  proPlan: "yearly",
   // Curated, not live-computed (same reasoning as aspirationExamples above)
   // — goalsBeliefSnapshot matches beliefs.length so HomeGoalsWidget sees
   // "already computed for this belief set" and never fires a real API call

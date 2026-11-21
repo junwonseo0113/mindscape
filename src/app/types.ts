@@ -377,24 +377,6 @@ export type Store = {
   // PendingBeliefCandidate. Internal bookkeeping only; no screen renders
   // this directly.
   pendingBeliefCandidates?: PendingBeliefCandidate[];
-  // Free tier only records entries (see appendUnanalyzedEntry in
-  // realStore.ts) — no AI analysis call, so no beliefs/hypotheses/
-  // connections/drift ever get created. Pro unlocks the analysis call
-  // itself, not just its display, so a free store's beliefs/hypotheses
-  // arrays stay genuinely empty rather than hidden-but-populated. Mocked
-  // locally (no real billing) — see ScreenCheckout's onSubscribed in App.tsx.
-  isPro: boolean;
-  // Which plan a mock Pro upgrade was made under — cosmetic only (drives
-  // Profile's "Yearly plan" text and ScreenManageSubscription) until real
-  // billing exists. Always undefined while isPro is false.
-  proPlan?: "monthly" | "yearly";
-  // One-time soft-paywall interstitial (ScreenSoftPaywall in App.tsx) —
-  // fires once, right after the free tier's 3rd recorded entry, then never
-  // again regardless of how many more free entries follow. Set the instant
-  // it's shown (not just "would have shown"), so dismissing it with "Not
-  // now" still permanently retires it — this is a single nudge, not a
-  // recurring nag.
-  hasSeenUpgradePrompt?: boolean;
   goals: StoredGoal[];
   // beliefs.length at the moment `goals` was last computed — recompute only
   // once the belief set has actually grown/shrunk since then, not on every
@@ -433,7 +415,6 @@ export function emptyStore(): Store {
     settings: defaultSettings(),
     account: null,
     entryCount: 0,
-    isPro: false,
     goals: [],
     lensSessions: [],
   };

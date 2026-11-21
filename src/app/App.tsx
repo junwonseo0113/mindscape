@@ -1,6 +1,9 @@
 import React from "react";
 import { motion, AnimatePresence, MotionConfig, useReducedMotion, useTransform, useDragControls } from "motion/react";
-import { animate, stagger } from "animejs";
+// anime.js drives only two one-off moments (the onboarding brain demo and
+// the processing constellation), so it loads on demand instead of sitting
+// in the startup bundle. preloadIdle() warms it shortly after launch.
+const loadAnime = () => import("./anime");
 // Every full-bleed screen photo this file used to import (home-hero/mind-
 // scene/mind-notebook(-yellowknife)/analysis-dusk-coast/unconscious-
 // patterns-bg/drift-arctic-dusk) is gone — see the ivory redesign pass.
@@ -12,7 +15,7 @@ import { animate, stagger } from "animejs";
 // survives: the existing Literary Reflection author portrait, explicitly
 // preserved as-is.
 import { REGION_CONFIG, resolveRegion, recencyFromDate } from "./brainRegions";
-import authorAnaisNinImg from "../assets/author-anais-nin.png";
+import authorAnaisNinImg from "../assets/author-anais-nin.webp";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import {
   LanguageObservation,
@@ -32,6 +35,7 @@ import { formatDateDots, mondayOfWeek, parseDotDate, relativeDayLabel, relativeI
 import { describeQuery, parseQuery, scoreDoc, type SearchDoc } from "./smartSearch";
 import { apiUrl } from "./apiBase";
 import { closenessAt, entryStep, lastWrittenDate, pathSeries, stepHeadline, weekChange, type Step } from "./aspirationPath";
+import { diaryAsMarkdown, saveTextFile } from "./diaryExport";
 import { PathChart, PathLegend, VoyageCard } from "./Voyage";
 import { haptic, isNative, notifyNow, startNativeSpeech, syncReminders, type NativeSpeechSession } from "./native";
 import { Capacitor } from "@capacitor/core";
@@ -89,20 +93,8 @@ const NeuralBeliefGraph3D = skipWhilePeeking(React.lazy(load3D));
 const BrainNodeMapScreen = skipWhilePeeking(React.lazy(loadBrainMap));
 // Only the sky is preloaded now: Home's orbs are plain HTML (HomeOrbField),
 // so three.js is fetched only when a screen that still uses it opens.
-function preload3D() { void loadBrainMap(); }
+function preload3D() { void loadBrainMap(); void loadAnime(); }
 
-// ── Launch config ────────────────────────────────────────────────────────────
-// Off for the initial launch: gathering real usage/feedback matters more
-// right now than revenue, so every screen behaves as if every account were
-// Pro — full analysis, Brain Map, hypotheses, drift, all of it, for free.
-// The entire Pro/paywall/checkout/subscription-management system underneath
-// this flag is fully built and untouched (see ScreenPaywall, ScreenCheckout,
-// ScreenManageSubscription, PRO_PLANS below, and appendUnanalyzedEntry in
-// realStore.ts) — flipping this back to true is the only change needed to
-// re-enable it later. Every gate below reads MONETIZATION_ENABLED, never
-// store.isPro directly, specifically so this one flag is a real kill switch
-// and not just one of several places that would need to change together.
-const MONETIZATION_ENABLED = false;
 
 const DAILY_REMINDER_LAST_FIRED_KEY = "mijeong.lastDailyReminderFiredDate";
 const WEEKLY_SUMMARY_LAST_FIRED_KEY = "mijeong.lastWeeklySummaryFiredDate";
@@ -395,10 +387,8 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
     { id: "history", label: "Diary" },
     // Profile used to live here, but Home's top-right icon already opens it
     // (see ScreenHome) — that's still true, and the slot that briefly held a
-    // standalone Premium tab is gone too: Premium is no longer a separate
-    // destination (see the "Premium as a layer, not a tab" pass) — its
-    // features now live inside Mind/Analysis/History, gated by
-    // store.isPro (toggled from Profile), and the bar goes back to exactly
+    // standalone Premium tab is gone too: its features now live inside
+    // Mind/Analysis/History for everyone, and the bar is exactly
     // Home/Mind/Analysis/History.
   ];
   const activeColor = vintage ? ivHeading : modernist ? mdAccentText : dark ? dkAccentLight : "#6B6EF6";
@@ -461,7 +451,7 @@ function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: str
             data-tutorial={`nav-${item.id}`}
             role="button"
             tabIndex={0}
-            onClick={() => onSelect?.(item.id)}
+            onClick={() => { if (!isActive) haptic("tap"); onSelect?.(item.id); }}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect?.(item.id); }}
             whileTap={{ scale: 0.9, opacity: 0.8 }}
             transition={SETTLE}
@@ -1634,36 +1624,41 @@ function OnboardingBrainDemo() {
   React.useEffect(() => {
     if (!activated || !svgRef.current) return;
     const dots = svgRef.current.querySelectorAll<SVGCircleElement>(".bg-dot");
-    // Reduced motion: jump straight to the lit state and back with no
-    // propagating wave (delay 0) and no eased travel (duration 0) — the
-    // same "duration: reducedMotion ? 0 : …" convention this file already
-    // uses in ScreenQuoteOfTheDay/OpeningStars, just applied to an
-    // imperative anime.js call instead of a declarative transition prop.
-    animate(dots, {
-      opacity: [
-        { to: 0.85, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
-        { to: 0.28, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
-      ],
-      scale: [
-        { to: 1.7, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
-        { to: 1, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
-      ],
-      // Always a function (not a reducedMotion ? 0 : fn ternary) — a union
-      // between a plain number and a per-target function there confuses
-      // anime.js's TweenParamValue overload resolution. `el: any` (rather
-      // than `SVGCircleElement`) is deliberate too: anime's own
-      // FunctionValue type expects `(target?: Target, …)` where Target is
-      // a broad union, so narrowing the param type makes this function not
-      // assignable to it under contravariant checking — immediately cast
-      // below instead, since every real target here is in fact one.
-      delay: (el: any) => {
-        if (reducedMotion) return 0;
-        const circle = el as SVGCircleElement;
-        const dx = Number(circle.dataset.x) - BRAIN_DEMO_ACTIVATION_POINT.x;
-        const dy = Number(circle.dataset.y) - BRAIN_DEMO_ACTIVATION_POINT.y;
-        return Math.hypot(dx, dy) * 9; // ms per viewBox unit of distance — the wave's propagation speed
-      },
+    let cancelled = false;
+    void loadAnime().then(({ animate }) => {
+      if (cancelled) return;
+      // Reduced motion: jump straight to the lit state and back with no
+      // propagating wave (delay 0) and no eased travel (duration 0) — the
+      // same "duration: reducedMotion ? 0 : …" convention this file already
+      // uses in ScreenQuoteOfTheDay/OpeningStars, just applied to an
+      // imperative anime.js call instead of a declarative transition prop.
+      animate(dots, {
+        opacity: [
+          { to: 0.85, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
+          { to: 0.28, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
+        ],
+        scale: [
+          { to: 1.7, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
+          { to: 1, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
+        ],
+        // Always a function (not a reducedMotion ? 0 : fn ternary) — a union
+        // between a plain number and a per-target function there confuses
+        // anime.js's TweenParamValue overload resolution. `el: any` (rather
+        // than `SVGCircleElement`) is deliberate too: anime's own
+        // FunctionValue type expects `(target?: Target, …)` where Target is
+        // a broad union, so narrowing the param type makes this function not
+        // assignable to it under contravariant checking — immediately cast
+        // below instead, since every real target here is in fact one.
+        delay: (el: any) => {
+          if (reducedMotion) return 0;
+          const circle = el as SVGCircleElement;
+          const dx = Number(circle.dataset.x) - BRAIN_DEMO_ACTIVATION_POINT.x;
+          const dy = Number(circle.dataset.y) - BRAIN_DEMO_ACTIVATION_POINT.y;
+          return Math.hypot(dx, dy) * 9; // ms per viewBox unit of distance — the wave's propagation speed
+        },
+      });
     });
+    return () => { cancelled = true; };
   }, [activated, reducedMotion]);
 
   return (
@@ -1817,32 +1812,52 @@ const ONBOARDING_SLIDES = [
   },
 ];
 
-// The onboarding sequence's last beat is a real question, not another
-// slide: what kind of person do you want to become. It's optional (typing
-// nothing just means "skip"), but asking it here — right when someone
-// commits to using the app — is what actually seeds Identity Drift instead
-// of leaving it undiscoverable inside Profile settings.
+// The aspiration is the point of the app (how far am I from who I want to
+// be?), so it's asked right after the welcome page, before any explanation
+// of how the app works. It used to be the last page, where it read as an
+// optional extra and was easy to skip. Guided journals that last open the
+// same way: "what matters most to you right now?" first, everything else
+// built on the answer. The welcome page stays first because its "not
+// therapy" notice has to land before anyone types a word. Still optional:
+// leaving it blank just skips ahead.
+const ASPIRATION_STEP = 1;
+
 function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: string | null; onDone?: (aspiration: string | null) => void }) {
   const totalSteps = ONBOARDING_SLIDES.length + 1;
   const [i, setI] = React.useState(0);
   const [aspiration, setAspiration] = React.useState(initialAspiration ?? "");
   const [sealing, setSealing] = React.useState(false);
-  const isAspirationStep = i === ONBOARDING_SLIDES.length;
+  const isAspirationStep = i === ASPIRATION_STEP;
   const isLast = i === totalSteps - 1;
-  const slide = !isAspirationStep ? ONBOARDING_SLIDES[i] : null;
+  const slide = isAspirationStep ? null : ONBOARDING_SLIDES[i < ASPIRATION_STEP ? i : i - 1];
 
   const isWelcome = slide?.kicker == null;
   // The one slide that shows instead of just telling — see
   // OnboardingBrainDemo above for why this is worth a special case rather
   // than threading a demo prop through the generic slide template used by
   // the other three.
-  const isInteractive = i === 1;
+  const isInteractive = slide?.icon === "speak";
+  const backdrop = isAspirationStep ? "aspire"
+    : ({ welcome: "welcome", speak: "speak", watch: "notice", pattern: "map" } as const)[slide!.icon];
+
+  const next = () => {
+    if (isLast) return onDone?.(aspiration.trim() || null);
+    if (!isAspirationStep || !aspiration.trim()) return setI((v) => v + 1);
+    if (sealing) return;
+    // Seal the letter, then turn the page once the seal has landed.
+    setSealing(true);
+    haptic("success");
+    setTimeout(() => { setSealing(false); setI((v) => v + 1); }, SEAL_MS);
+  };
+  const label = isLast ? "Start"
+    : isAspirationStep ? (aspiration.trim() ? "Seal it" : "Skip for now")
+    : i === 0 ? "Get Started" : "Next";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: OPENING_BG, overflow: "hidden", position: "relative", color: OPENING_TEXT }}>
       {/* The backdrop's palette shifts with each step (remounted per step
           so the blooms pick up the new colors). */}
-      <OpeningBackdrop key={i} variant={(["welcome", "speak", "notice", "map", "aspire"] as const)[Math.min(i, 4)]} />
+      <OpeningBackdrop key={i} variant={backdrop} />
       <div style={{ display: "flex", gap: 6, position: "relative", zIndex: 1, padding: "20px 28px 0", flexShrink: 0 }}>
         {Array.from({ length: totalSteps }).map((_, idx) => (
           <div key={idx} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: idx <= i ? "rgba(42,38,33,.7)" : "rgba(42,38,33,.12)" }} />
@@ -1889,8 +1904,8 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
       ) : (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
-            <DiaryHeading kicker="The last page" title={"What kind of person\ndo you want to become?"} region="security"
-              body="Optional. Write it down, and we'll keep showing you how far your thoughts are from it." />
+            <DiaryHeading kicker="Before anything else" title={"What kind of person\ndo you want to become?"} region="security"
+              body="Everything you write from here gets measured against this. Optional, and you can change it anytime in Profile." />
           </div>
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 22, paddingBottom: 18 }}>
             <FutureSelfLetter autoFocus value={aspiration} onChange={setAspiration} sealed={sealing} />
@@ -1898,17 +1913,8 @@ function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: s
         </div>
       )}
       <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory tone={isAspirationStep ? "security" : slide?.kicker ? SLIDE_TONES[slide.icon] ?? "identity" : "identity"} onClick={() => {
-          if (!isLast) return setI((v) => v + 1);
-          const value = aspiration.trim();
-          if (!value) return onDone?.(null);
-          if (sealing) return;
-          // Seal the letter, then move on once the seal has landed.
-          setSealing(true);
-          haptic("success");
-          setTimeout(() => onDone?.(value), SEAL_MS);
-        }}>
-          {isLast ? (aspiration.trim() ? "Seal it and start" : "Skip and start") : i === 0 ? "Get Started" : "Next"}
+        <PrimaryBtn ivory tone={isAspirationStep ? "security" : slide?.kicker ? SLIDE_TONES[slide.icon] ?? "identity" : "identity"} onClick={next}>
+          {label}
         </PrimaryBtn>
       </div>
     </div>
@@ -1938,16 +1944,7 @@ type TutorialStep = {
   navTo?: "analysis" | "discoveryAnalysis" | "history";
 };
 
-// A function of isPro, not a static list — free tier lands on ScreenPaywall
-// instead of the real ScreenDiscoveryAnalysis for the "discoveryAnalysis"
-// step, so that one step needs different copy pointing at the paywall's
-// feature list instead of the (Pro-only) real discovery card. Same target
-// key ("today-discovery") exists on both — see the paywall's own
-// data-tutorial. Everything else is identical either way; recomputed via
-// useMemo in the App shell whenever isPro changes so a mid-tour upgrade
-// doesn't leave stale copy in place.
-function buildTutorialSteps(isPro: boolean): TutorialStep[] {
-  return [
+const TUTORIAL_STEPS: TutorialStep[] = [
     {
       screen: "home",
       target: "brain-card",
@@ -1980,19 +1977,12 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
       body: "This is where we walk through today's one discovery — the evidence behind it, how it's evolved, and what to do with it. Want to tap in and take a look?",
       navTo: "discoveryAnalysis",
     },
-    isPro
-      ? {
-          screen: "discoveryAnalysis",
-          target: "today-discovery",
-          title: "Today's discovery",
-          body: "This is where we show you beliefs that keep repeating without you noticing. Not a diagnosis — just an observation, as-is.",
-        }
-      : {
-          screen: "discoveryAnalysis",
-          target: "today-discovery",
-          title: "This is what Pro unlocks",
-          body: "Recording is always free. Once you're subscribed, this is where your recorded thoughts turn into beliefs, connections, and hypotheses like these.",
-        },
+    {
+      screen: "discoveryAnalysis",
+      target: "today-discovery",
+      title: "Today's discovery",
+      body: "This is where we show you beliefs that keep repeating without you noticing. Not a diagnosis — just an observation, as-is.",
+    },
     {
       screen: "discoveryAnalysis",
       target: "nav-history",
@@ -2006,8 +1996,7 @@ function buildTutorialSteps(isPro: boolean): TutorialStep[] {
       title: "Your past thoughts gather here",
       body: "You can open any of them back up whenever you're curious.",
     },
-  ];
-}
+];
 
 // Re-measures on step/screen change and on resize, plus one short retry —
 // the target it's looking for may not have mounted yet the instant a new
@@ -2417,12 +2406,6 @@ function MoodFace({ mood, size = 72 }: { mood: MoodKey; size?: number }) {
   );
 }
 
-const homeCardSurface: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.08)",
-  borderRadius: shape.lg,
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)",
-};
-
 function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (prev: Store) => Store) => void; onSayWhy?: (mood: string) => void }) {
   const [justLogged, setJustLogged] = React.useState<string | null>(null);
   // The last feeling logged, kept a little longer than the face so "Say
@@ -2446,7 +2429,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
   }, []);
   const tone = askWhy && askWhy in MOOD_TONES ? REGION_CONFIG[MOOD_TONES[askWhy as MoodKey]] : null;
   return (
-    <div style={{ ...homeCardSurface, width: "100%", padding: "10px 14px", position: "relative" }}>
+    <div style={{ width: "100%", padding: "0 2px", position: "relative" }}>
       {/* The feeling you just logged, as a face that pops up above the row. */}
       <AnimatePresence>
         {justLogged && (justLogged in MOOD_TONES) && (
@@ -2465,7 +2448,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: dkHeading, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivBody, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
@@ -2502,11 +2485,11 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
               whileTap={{ scale: 0.95, opacity: 0.82 }}
               // The chosen pill fills and gives one small pulse; the others
               // settle back without any motion of their own.
-              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: dkHeading } : { scale: 1, backgroundColor: "rgba(255,255,255,0.10)" }}
+              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: ivHeading } : { scale: 1, backgroundColor: ivSurfaceSolid }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
+              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
             >
-              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? dkBg : dkHeading, transition: "color 0.2s" }}>{m.label}</span>
+              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? "#fff" : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
             </motion.button>
             </Breathe>
           );
@@ -2549,30 +2532,30 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
       transition={SETTLE}
       style={{
         position: "absolute", left: 20, right: 20, top: "44%", zIndex: 3,
-        backgroundColor: "#191735", border: `1px solid ${dkDivider}`, borderRadius: shape.lg, padding: "14px 16px 12px",
-        boxShadow: "0 14px 36px rgba(0,0,0,0.35)",
+        backgroundColor: ivSurfaceHigh, border: `1px solid ${ivBorder}`, borderRadius: shape.lg, padding: "14px 16px 12px",
+        boxShadow: "0 14px 36px rgba(120,105,80,0.18)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Node color={color} size={12} intensity={Math.min(1, 0.45 + (belief.confidence / 100) * 0.4)} />
         <RegionBadge region={region} />
-        <span style={{ ...sans, fontSize: 12, color: dkBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
+        <span style={{ ...sans, fontSize: 12, color: ivBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
         <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
-          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: dkBody, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
+          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivFaint, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
         </Breathe>
       </div>
       {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: dkBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: ivBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
       )}
-      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: dkHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-        <MeterFill value={belief.confidence} color={color} track="rgba(255,255,255,0.12)" style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 11, color: dkBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
+        <MeterFill value={belief.confidence} color={color} track="rgba(42,38,33,0.08)" style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 11, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
         <Breathe inline amount={1.05}>
           <motion.button type="button" onClick={onOpenInMap} whileTap={{ scale: 0.96, opacity: 0.8 }} transition={SETTLE}
-            style={{ ...sans, fontSize: 12, fontWeight: 700, color: dkHeading, border: `1px solid ${dkDivider}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+            style={{ ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, border: `1px solid ${ivBorder}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             See it in your sky →
           </motion.button>
         </Breathe>
@@ -2597,161 +2580,149 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
   return (
     <div
       style={{
-        position: "absolute", top: -30, left: 0, right: 0, bottom: 0,
-        backgroundColor: "#060A1C",
-        backgroundImage: "radial-gradient(ellipse at 48% 32%, rgba(150,170,255,0.17), transparent 56%), linear-gradient(180deg, #060A1C 0%, #0E1538 36%, #221B4A 64%, #4A2F5E 84%, #7A4C66 100%)",
-        display: "flex", flexDirection: "column", overflow: "hidden",
+        position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden",
+        // Inside, a plain column: header, headline, the node field taking
+        // whatever height is left, its caption bar, the bottom stack, nav.
+        // Percent-of-screen placement used to let the caption and the
+        // stack collide on a short phone; in a column only the field
+        // gives way.
+        display: "flex", flexDirection: "column",
+        // Every other screen just fills its slot (height: 100%) below the
+        // App shell's fixed status-bar clearance. Home is the one screen
+        // whose composition is meant to run edge-to-edge under the
+        // transparent status bar overlay (see the App shell), so instead
+        // of asking the shared frame to change shape for it — the actual
+        // cause of an earlier bug where switching screens made the whole
+        // frame visibly jump — Home extends itself 30px above its given
+        // slot instead. Header, node field, mind summary, Speak-your-mind
+        // card, and nav all sit on the one ivory canvas by percentage, all
+        // visible at once with no overflow:auto anywhere (unchanged from
+        // before — only the backdrop and every surface's styling changed).
       }}
     >
-      <div className="no-scrollbar" style={{ position: "relative", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {/* top is a fixed px, not a %, specifically so it stays clear of
-        the real device status bar / the desktop preview's transparent
-        "9:41" overlay (see the App shell) regardless of screen height. */}
-        <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-          {/* Today's date, written the way a diary heads a page. */}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: dkBody }}>
-            <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
-            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
-            <motion.div
-              role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
-              whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
-            >
-              <User size={20} color={dkHeading} />
-            </motion.div>
-            </Breathe>
-          </div>
-        </div>
-
-        <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
-          <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: dkHeading, wordBreak: "keep-all" }}>
-            What crossed your mind today?
-          </div>
-        </div>
-
-        {(!MONETIZATION_ENABLED || store.isPro) ? (
-          <>
-            {/* Your beliefs as orbs (HomeOrbField: plain HTML, the same 2D orb
-            the sky and every list use — it replaced a three.js canvas that
-            froze Home for ~0.5s on every mount).
-            Tapping an orb opens HomeNodeCard for that belief right here;
-            tapping empty space just dismisses the card. The field never
-            opens the Brain Map by itself any more — that's the explicit
-            button in the corner (or the card's own link). */}
-            <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
-              <HomeOrbField
-                beliefs={store.beliefs}
-                selectedId={selectedNodeId}
-                onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
-                onBackgroundTap={() => setSelectedNodeId(null)}
-              />
-              {/* With zero beliefs the canvas has nothing to draw, so a
-                  single resting dot marks where the first belief will
-                  appear (pointerEvents: none — nothing here to open yet). */}
-              {/* The one way into the full sky from Home: a small link on the
-                  field's own corner, with the count it opens onto. */}
-              {store.beliefs.length > 0 && (
-                <div style={{ position: "absolute", right: 12, bottom: 6, zIndex: 2 }}>
-                  <Breathe inline amount={1.05}>
-                    <motion.button
-                      type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
-                      whileTap={{ scale: 0.95 }} transition={SETTLE}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
-                        backgroundColor: "rgba(14,21,56,0.85)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
-                    >
-                      <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
-                      <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: dkHeading, lineHeight: 1 }}>Your sky</span>
-                      <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: dkBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
-                    </motion.button>
-                  </Breathe>
-                </div>
-              )}
-              {store.beliefs.length === 0 && (
-                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
-                  <motion.div
-                    animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                    style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
-                  />
-                  <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: dkBody, textAlign: "center" }}>Your first thought will appear here.</div>
-                </div>
-              )}
-            </div>
-            <AnimatePresence>
-              {selectedBelief && (
-                <HomeNodeCard
-                  key={selectedBelief.id}
-                  belief={selectedBelief}
-                  onClose={() => setSelectedNodeId(null)}
-                  onOpenInMap={() => { setSelectedNodeId(null); onOpenBrainMap?.(undefined, selectedBelief.id); }}
-                />
-              )}
-            </AnimatePresence>
-
-          </>
-        ) : (
-          // Locked teaser instead of quietly rendering an always-empty
-          // field — a free store's beliefs/connections never populate
-          // (see appendUnanalyzedEntry in realStore.ts), so without this
-          // a free user would just see an empty field forever with no
-          // explanation why. Routes through onOpenBrainMap/"brainmap"
-          // rather than a separate handler — that route already renders
-          // ScreenPaywall for a non-Pro store.
+      {/* top is a fixed px, not a %, specifically so it stays clear of
+      the real device status bar / the desktop preview's transparent
+      "9:41" overlay (see the App shell) regardless of screen height. */}
+      <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        {/* Today's date, written the way a diary heads a page. */}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: ivBody }}>
+          <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <Breathe inline amount={1.08} style={{ lineHeight: 0 }}>
           <motion.div
-            data-tutorial="brain-card"
-            role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
-            style={{
-              flex: 1, minHeight: 160, margin: "20px 18% 8px",
-              backgroundColor: "rgba(255,255,255,0.08)", border: `1px solid ${dkDivider}`, cursor: "pointer", borderRadius: 24,
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
-            }}
+            role="button" tabIndex={0} aria-label="Open profile" onClick={() => onNavSelect?.("profile")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
+            whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
           >
-            <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <LockSimple size={20} color={dkHeading} />
-            </span>
-            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>See your Brain Map</div>
-            <div style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
-              Upgrade to Pro to see your unconscious beliefs light up and connect.
-            </div>
+            <User size={20} color={ivHeading} />
           </motion.div>
-        )}
-
-
-        {/* The main feature: how close you are to who you want to be. */}
-        <div style={{ padding: "8px 18px 0", flexShrink: 0 }}>
-          <VoyageCard theme="night"
-            closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
-            aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
-          />
-        </div>
-
-        <div style={{ padding: "14px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          <div data-tutorial="think-card">
-            <Breathe amount={1.025}>
-            <motion.div
-              role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
-              style={{ ...homeCardSurface, display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer" }}
-            >
-              <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.13)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <WaveformIcon color="#fff" />
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                <span style={{ ...display, fontSize: 20, color: dkHeading }}>Speak your mind</span>
-                <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: dkBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
-              </div>
-              <ArrowRight size={16} color={dkHeading} weight="bold" style={{ flexShrink: 0 }} />
-            </motion.div>
-            </Breathe>
-          </div>
-          <QuickMoodCheckIn updateStore={updateStore} onSayWhy={(mood) => onStartThink?.(mood)} />
+          </Breathe>
         </div>
       </div>
 
+      <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
+        <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: ivHeading, wordBreak: "keep-all" }}>
+          What crossed your mind today?
+        </div>
+      </div>
+
+      {/* The main feature: how close you are to who you want to be. */}
+      <div style={{ padding: "16px 18px 0", flexShrink: 0 }}>
+        <VoyageCard
+          closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+          aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
+        />
+      </div>
+
+        <>
+          {/* Your beliefs as orbs (HomeOrbField: plain HTML, the same 2D orb
+          the sky and every list use — it replaced a three.js canvas that
+          froze Home for ~0.5s on every mount).
+          Tapping an orb opens HomeNodeCard for that belief right here;
+          tapping empty space just dismisses the card. The field never
+          opens the Brain Map by itself any more — that's the explicit
+          button in the corner (or the card's own link). */}
+          <div data-tutorial="brain-card" data-shared="brain-jar" style={{ position: "relative", flex: 1, minHeight: 120, margin: "4px 4% 0" }}>
+            <HomeOrbField
+              beliefs={store.beliefs}
+              selectedId={selectedNodeId}
+              onSelectNode={(id) => setSelectedNodeId((cur) => (cur === id ? null : id))}
+              onBackgroundTap={() => setSelectedNodeId(null)}
+            />
+            {/* With zero beliefs the canvas has nothing to draw, so a
+                single resting dot marks where the first belief will
+                appear (pointerEvents: none — nothing here to open yet). */}
+            {/* The one way into the full sky from Home: a small link on the
+                field's own corner, with the count it opens onto. */}
+            {store.beliefs.length > 0 && (
+              <div style={{ position: "absolute", right: 12, bottom: 6, zIndex: 2 }}>
+                <Breathe inline amount={1.05}>
+                  <motion.button
+                    type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
+                    whileTap={{ scale: 0.95 }} transition={SETTLE}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
+                      backgroundColor: "rgba(255,252,246,0.85)", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
+                  >
+                    <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
+                    <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: ivHeading, lineHeight: 1 }}>Your sky</span>
+                    <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: ivBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
+                  </motion.button>
+                </Breathe>
+              </div>
+            )}
+            {store.beliefs.length === 0 && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, pointerEvents: "none" }}>
+                <motion.div
+                  animate={{ scale: [1, 1.04, 1], opacity: [0.5, 0.75, 0.5] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
+                />
+                <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: ivFaint, textAlign: "center" }}>Your first thought will appear here.</div>
+              </div>
+            )}
+          </div>
+          <AnimatePresence>
+            {selectedBelief && (
+              <HomeNodeCard
+                key={selectedBelief.id}
+                belief={selectedBelief}
+                onClose={() => setSelectedNodeId(null)}
+                onOpenInMap={() => { setSelectedNodeId(null); onOpenBrainMap?.(undefined, selectedBelief.id); }}
+              />
+            )}
+          </AnimatePresence>
+
+        </>
+
+
+      {/* The bottom stack sits in the column above the nav, so on a short
+          phone it's the node field above that gives way, never the three
+          things a person came here to do. */}
+      <div style={{ padding: "14px 20px 10px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+        <div data-tutorial="think-card">
+          <Breathe amount={1.025}>
+          <motion.div
+            role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
+            style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: ivSurfaceSolid, borderRadius: shape.lg, padding: "14px 18px", cursor: "pointer", boxShadow: ivCardShadow }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: ivHeading, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <WaveformIcon color="#fff" />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={{ ...display, fontSize: 20, color: ivHeading }}>Speak your mind</span>
+              <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
+            </div>
+            <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
+          </motion.div>
+          </Breathe>
+        </div>
+        <QuickMoodCheckIn updateStore={updateStore} onSayWhy={(mood) => onStartThink?.(mood)} />
+      </div>
+
       <div style={{ flexShrink: 0 }}>
-        <BottomNav active="home" onSelect={onNavSelect} dark />
+        <BottomNav active="home" onSelect={onNavSelect} vintage />
       </div>
     </div>
   );
@@ -3833,27 +3804,20 @@ function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: 
             );
           })()}
 
-          {/* Places to go from here, as one list. "Look closer" pages are
-              Premium (store.isPro, toggled from Profile). */}
-          {(onOpenBrainMap || store.isPro) && (
-            <section style={{ marginTop: 30 }}>
-              <SectionHeading>Go deeper</SectionHeading>
-              <StarPaperCard a="curiosity" b="career" tapeLeft style={{ overflow: "visible" }}>
-                {onOpenBrainMap && (
-                  <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="Your sky"
-                    badge={`${store.beliefs.length} ${store.beliefs.length === 1 ? "star" : "stars"}`} onClick={() => onOpenBrainMap()} />
-                )}
-                {store.isPro && (
-                  <>
-                    <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Hidden patterns"
-                      badge={store.beliefs.length > 0 ? undefined : "None yet"} onClick={() => onOpenArtifact?.("beliefs")} />
-                    <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="Who you want to be"
-                      onClick={() => onOpenArtifact?.("drift")} />
-                  </>
-                )}
-              </StarPaperCard>
-            </section>
-          )}
+          {/* Places to go from here, as one list. */}
+          <section style={{ marginTop: 30 }}>
+            <SectionHeading>Go deeper</SectionHeading>
+            <StarPaperCard a="curiosity" b="career" tapeLeft style={{ overflow: "visible" }}>
+              {onOpenBrainMap && (
+                <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="Your sky"
+                  badge={`${store.beliefs.length} ${store.beliefs.length === 1 ? "star" : "stars"}`} onClick={() => onOpenBrainMap()} />
+              )}
+              <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Hidden patterns"
+                badge={store.beliefs.length > 0 ? undefined : "None yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+              <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="Who you want to be"
+                onClick={() => onOpenArtifact?.("drift")} />
+            </StarPaperCard>
+          </section>
         </div>
 
         <BottomNav active="analysis" onSelect={onNavSelect} vintage />
@@ -4619,14 +4583,12 @@ function ScreenDiscoveryAnalysis({
               renders nothing until there are enough beliefs. ── */}
               <GoalDirectionsPanel store={store} updateStore={updateStore} />
 
-              {/* ── For where you are now — Premium's literary match. ── */}
-              {store.isPro && (
-                <LiteraryReflectionPanel
-                  store={store}
-                  updateStore={updateStore}
-                  target={b ? { kind: "belief", id: b.id } : hIndex !== null && store.hypotheses[hIndex] ? { kind: "hypothesis", id: store.hypotheses[hIndex].id } : null}
-                />
-              )}
+              {/* ── For where you are now — a literary match. ── */}
+              <LiteraryReflectionPanel
+                store={store}
+                updateStore={updateStore}
+                target={b ? { kind: "belief", id: b.id } : hIndex !== null && store.hypotheses[hIndex] ? { kind: "hypothesis", id: store.hypotheses[hIndex].id } : null}
+              />
 
               {/* ── Reflection — does this reading fit? (The "Dig deeper"
               button that used to follow it is gone.) ── */}
@@ -4886,10 +4848,9 @@ function LiteraryReflectionPanel({ store, updateStore, target }: { store: Store;
 // LiteraryReflectionPanel, and the five EditorialSection-wrapped
 // longitudinal charts (EmotionDistribution/ValueDirectionShifts/
 // CognitivePatternFrequency/RecordingHeatmap/SelfTalkTrend) below them.
-// Premium is no longer a separate destination — every one of those pieces
-// is still here, reused verbatim, just redistributed to where it
-// conceptually belongs and gated by store.isPro (Profile's "Premium Mode"
-// toggle) instead of by its own tab:
+// The old Premium tab is gone — every one of those pieces is still here,
+// reused verbatim, just redistributed to where it conceptually belongs
+// and shown to everyone:
 //   - Unconscious Patterns / Distance from Your Aspiration (ArtifactTile
 //     entry points into ScreenBeliefMap/ScreenDrift, unchanged) now live
 //     in Mind's notebook — see ScreenAnalysis's "Go deeper" section.
@@ -5611,11 +5572,17 @@ function ProcessingConstellation({ step, reducedMotion }: { step: number; reduce
       seedRef.current.style.opacity = "1";
       return;
     }
-    const controls = animate(seedRef.current, {
-      scale: [{ to: 1.25, duration: 900, ease: "inOutSine" }, { to: 1, duration: 900, ease: "inOutSine" }],
-      loop: true,
+    const seed = seedRef.current;
+    let cancelled = false;
+    let controls: { pause: () => unknown } | undefined;
+    void loadAnime().then(({ animate }) => {
+      if (cancelled) return;
+      controls = animate(seed, {
+        scale: [{ to: 1.25, duration: 900, ease: "inOutSine" }, { to: 1, duration: 900, ease: "inOutSine" }],
+        loop: true,
+      });
     });
-    return () => { controls.pause(); };
+    return () => { cancelled = true; controls?.pause(); };
   }, [reducedMotion]);
 
   // Step 1 "Connecting it to past conversations": satellites and their
@@ -5631,20 +5598,25 @@ function ProcessingConstellation({ step, reducedMotion }: { step: number; reduce
       satellites.forEach((s) => { s.style.opacity = "1"; });
       return;
     }
-    animate(links, {
-      opacity: [0, 1],
-      strokeDashoffset: [1, 0],
-      duration: 500,
-      delay: stagger(90),
-      ease: "outQuad",
+    let cancelled = false;
+    void loadAnime().then(({ animate, stagger }) => {
+      if (cancelled) return;
+      animate(links, {
+        opacity: [0, 1],
+        strokeDashoffset: [1, 0],
+        duration: 500,
+        delay: stagger(90),
+        ease: "outQuad",
+      });
+      animate(satellites, {
+        opacity: [0, 1],
+        scale: [0.4, 1],
+        duration: 400,
+        delay: stagger(90, { start: 120 }),
+        ease: "outBack",
+      });
     });
-    animate(satellites, {
-      opacity: [0, 1],
-      scale: [0.4, 1],
-      duration: 400,
-      delay: stagger(90, { start: 120 }),
-      ease: "outBack",
-    });
+    return () => { cancelled = true; };
   }, [step, reducedMotion]);
 
   // Step 2 "Double-checking the pattern": everything that's now connected
@@ -5653,10 +5625,15 @@ function ProcessingConstellation({ step, reducedMotion }: { step: number; reduce
   React.useEffect(() => {
     if (step !== 2 || !svgRef.current || reducedMotion) return;
     const all = svgRef.current.querySelectorAll<SVGElement>(".seed, .satellite");
-    animate(all, {
-      opacity: [{ to: 1, duration: 260 }, { to: 0.75, duration: 500 }, { to: 1, duration: 500 }],
-      ease: "inOutSine",
+    let cancelled = false;
+    void loadAnime().then(({ animate }) => {
+      if (cancelled) return;
+      animate(all, {
+        opacity: [{ to: 1, duration: 260 }, { to: 0.75, duration: 500 }, { to: 1, duration: 500 }],
+        ease: "inOutSine",
+      });
     });
+    return () => { cancelled = true; };
   }, [step, reducedMotion]);
 
   return (
@@ -5803,12 +5780,9 @@ function ScreenProcessing({
 }
 
 // ── Screen 7 · Think complete ─────────────────────────────────────────────────
-// Reached two ways now: a Pro entry where the model itself found nothing new
-// to report, or any free-tier entry (recording is the entire free feature —
+// Reached when the model found nothing new to report, when analysis
+// failed, or when an entry was saved without analysis (no AI consent —
 // see appendUnanalyzedEntry in realStore.ts and the "think" case's onDone).
-// showUpsell distinguishes the two only by adding one extra line and a CTA;
-// the core "Got it" acknowledgment is identical either way, since a free
-// entry isn't a lesser version of a Pro one, just an unanalyzed one.
 // ── Screen 5.0 · AI-analysis consent ──────────────────────────────────────────
 // Two independent checkboxes, each with the disclosures PIPA requires at the
 // moment of asking (items / purpose / retention, plus recipient / country /
@@ -5885,8 +5859,8 @@ function ScreenAiConsent({
   );
 }
 
-function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade, voyage, onSetAspiration }: {
-  error?: string; showUpsell?: boolean; onDone?: () => void; onUpgrade?: () => void;
+function ScreenThinkComplete({ error, onDone, voyage, onSetAspiration }: {
+  error?: string; onDone?: () => void;
   // The entry just written, as a step toward who you want to be (see
   // aspirationPath.ts), and where the boat was before it.
   voyage?: { step: Step; closeness: number | null; from: number | null; aspiration: string | null };
@@ -5935,18 +5909,6 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade, voyage, onS
                 </div>
               </RevealItem>
             )}
-            {showUpsell && (
-              <RevealItem>
-                <Breathe amount={1.02}><motion.div
-                  role="button" tabIndex={0} onClick={onUpgrade} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onUpgrade)?.(); } }}
-                  whileTap={{ scale: 0.98, opacity: 0.9 }} transition={SETTLE}
-                  style={{ marginTop: 20, padding: 16, borderRadius: 14, backgroundColor: dkAccentSoft, borderLeft: `2px solid ${dkAccent}`, cursor: "pointer" }}
-                >
-                  <div style={{ ...sans, fontSize: 13, fontWeight: 700, color: dkAccentLight }}>Curious what pattern this is part of?</div>
-                  <div style={{ ...sans, fontSize: 13, color: dkBodyLight, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>Upgrade to Pro to turn your record into unconscious beliefs, connections, and hypotheses.</div>
-                </motion.div></Breathe>
-              </RevealItem>
-            )}
           </>
         )}
       </RevealGroup>
@@ -5957,44 +5919,13 @@ function ScreenThinkComplete({ error, showUpsell, onDone, onUpgrade, voyage, onS
   );
 }
 
-// ── Screen 6.6 · Soft paywall (one-time nudge) ────────────────────────────────
-// Fires exactly once, replacing the usual "Got it" beat right after the free
-// tier's 3rd recorded entry (see UPSELL_PROMPT_AT_ENTRY_COUNT and the
-// "think" case's onDone in the App shell) — a deliberate, one-time ask
-// rather than the quiet recurring footnote ScreenThinkComplete's showUpsell
-// already adds to every free entry. Never repeats after this: the App shell
-// marks hasSeenUpgradePrompt true the instant this screen is shown, whether
-// the person taps through to plans or dismisses with "Not now."
-function ScreenSoftPaywall({ onSeePlans, onDismiss }: { onSeePlans?: () => void; onDismiss?: () => void }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: dkBg }}>
-      <RevealGroup style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-        <RevealItem>
-          <div style={{ ...display, fontSize: 22, color: dkHeading, lineHeight: 1.5, wordBreak: "keep-all" }}>
-            You've recorded three thoughts now.
-          </div>
-        </RevealItem>
-        <RevealItem>
-          <div style={{ ...sans, fontSize: 15, color: dkBody, marginTop: 12, lineHeight: 1.65, wordBreak: "keep-all" }}>
-            That's usually enough for the first patterns to start showing. Want Pro to show you what's underneath them?
-          </div>
-        </RevealItem>
-      </RevealGroup>
-      <RevealGroup delay={0.4} style={{ padding: "0 28px 40px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-        <RevealItem><PrimaryBtn onClick={onSeePlans}>See Pro plans</PrimaryBtn></RevealItem>
-        <RevealItem><GhostBtn onClick={onDismiss}>Not now</GhostBtn></RevealItem>
-      </RevealGroup>
-    </div>
-  );
-}
-
 // ── Screen 6.7 · Crisis support ───────────────────────────────────────────────
 // The one deliberate exception to "observe, don't judge" — see
 // crisisDetection.ts for why this exists and why it's keyword-based rather
-// than a model call. Reached instead of processing/thinkComplete/the soft
-// paywall/anything else the "think" case's onDone would otherwise route to
-// — checked first, before the isPro branch, so a crisis-flagged entry never
-// reaches /api/analyze or the belief/hypothesis pipeline regardless of tier.
+// than a model call. Reached instead of processing/thinkComplete/anything
+// else the "think" case's onDone would otherwise route to — checked first,
+// so a crisis-flagged entry never reaches /api/analyze or the
+// belief/hypothesis pipeline.
 // The entry itself is still saved (see appendUnanalyzedEntry in the App
 // shell's onDone) — this is about response routing, not about withholding
 // or hiding what someone wrote. Real tel:/sms: links, not styled buttons
@@ -7321,7 +7252,7 @@ function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?
       <div style={{ flex: 1, minHeight: 0, padding: "18px 22px 18px", display: "flex", flexDirection: "column", position: "relative", zIndex: 1 }}>
         <FutureSelfLetter autoFocus value={value} onChange={setValue} sealed={sealing} />
       </div>
-      <div style={{ padding: "0 22px 32px", flexShrink: 0, position: "relative", zIndex: 1 }}>
+      <div style={{ padding: "0 22px max(32px, calc(12px + env(safe-area-inset-bottom)))", flexShrink: 0, position: "relative", zIndex: 1 }}>
         <PrimaryBtn ivory tone="security" disabled={!value.trim()} onClick={save}>{initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
       </div>
     </div>
@@ -7809,7 +7740,7 @@ function ScreenInvestigate({ investigate, onBack }: { investigate: NonNullable<S
       </div>
       <div style={{ height: "100%" }}>{body}</div>
       {step > 0 && step < steps - 1 && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 22px 24px" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 22px max(24px, calc(12px + env(safe-area-inset-bottom)))" }}>
           <PrimaryBtn onClick={() => setStep(step + 1)} modernist>Next</PrimaryBtn>
         </div>
       )}
@@ -8523,11 +8454,9 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             );
           })}
 
-          {/* ── How you've changed — Premium's longitudinal layer (see
+          {/* ── How you've changed — the longitudinal layer (see
           ChangeEmotions and its siblings). Each closed row already says
-          its takeaway; opening one shows the picture behind it. Only when
-          Premium Mode is on (store.isPro, toggled from Profile). ── */}
-          {store.isPro && (
+          its takeaway; opening one shows the picture behind it. ── */}
             <SettingsGroup header="How you've changed" footer="Tap a row for the details." style={{ marginTop: 28, marginBottom: 0 }}>
               {[
                 { key: "emotions" as const, title: "Your feelings", Icon: Smiley, body: <ChangeEmotions history={store.history} /> },
@@ -8548,7 +8477,6 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
                 );
               })}
             </SettingsGroup>
-          )}
           </>
           )}
         </div>
@@ -8658,7 +8586,7 @@ function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id:
             <input
               autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={view === "entries" ? "e.g. what I wrote yesterday about work" : "e.g. the one about money"}
               aria-label={view === "entries" ? "Search your entries" : "Search the star catalogue"}
-              style={{ ...sans, fontSize: 15, color: "#2A2621", backgroundColor: "rgba(42,38,33,0.06)", border: "1.5px solid rgba(42,38,33,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
+              style={{ ...sans, fontSize: 16, color: "#2A2621", backgroundColor: "rgba(42,38,33,0.06)", border: "1.5px solid rgba(42,38,33,0.14)", borderRadius: 12, padding: "10px 14px", outline: "none", width: "100%", boxSizing: "border-box" }}
             />
             <div style={{ ...sans, fontSize: 13, color: "rgba(42,38,33,0.6)", marginTop: 14, lineHeight: 1.5 }}>
               {parsedSearch ? (
@@ -8855,8 +8783,6 @@ function ScreenProfile({
   onOpenSettings,
   isDemoMode,
   onToggleDemoMode,
-  onOpenPaywall,
-  onOpenManageSubscription,
   onOpenJourneyMap,
 }: {
   // Profile is reached from Home's top-right icon, so "back" means Home.
@@ -8869,14 +8795,11 @@ function ScreenProfile({
   onOpenSettings?: (screen: "notifications" | "dataPrivacy" | "help") => void;
   isDemoMode: boolean;
   onToggleDemoMode: (v: boolean) => void;
-  onOpenPaywall?: () => void;
-  onOpenManageSubscription?: () => void;
   onOpenJourneyMap?: () => void;
 }) {
   const name = store.account?.name || "Anonymous observer";
   const initial = name.charAt(0);
   const firstEntryDate = [...store.history].sort((a, b) => a.date.localeCompare(b.date))[0]?.date;
-  const planLabel = store.proPlan === "monthly" ? "Monthly plan" : store.proPlan === "yearly" ? "Yearly plan" : null;
   const streakDays = computeStreak(store.history);
   const stats = [
     { value: store.entryCount, key: "profile.entries", label: "Thoughts logged" },
@@ -8921,34 +8844,10 @@ function ScreenProfile({
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ ...sans, fontSize: 17, fontWeight: 800, color: ivHeading }}>{name}</span>
-              {MONETIZATION_ENABLED && store.isPro && (
-                <span style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: ivHeading, backgroundColor: "rgba(42,38,33,0.06)", padding: "2px 8px", borderRadius: 999 }}>PRO</span>
-              )}
             </div>
-            {planLabel ? (
-              <span style={{ ...mono, fontSize: 12, color: ivFaint }}>{planLabel}</span>
-            ) : (
-              firstEntryDate && <span style={{ ...mono, fontSize: 12, color: ivFaint }}>With you since {firstEntryDate}</span>
-            )}
+            {firstEntryDate && <span style={{ ...mono, fontSize: 12, color: ivFaint }}>With you since {firstEntryDate}</span>}
           </div>
         </div>
-
-        {MONETIZATION_ENABLED && !store.isPro && (
-          <Breathe amount={1.02}><motion.div
-            role="button" tabIndex={0} onClick={onOpenPaywall} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onOpenPaywall)?.(); } }} whileTap={{ opacity: 0.6 }}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 12,
-              backgroundColor: ivSurfaceSolid, borderRadius: 20, padding: "16px 18px", boxShadow: ivCardShadow, marginBottom: 14,
-              borderLeft: `2px solid ${ivHeading}`,
-            }}
-          >
-            <div>
-              <div style={{ ...sans, fontSize: 15, fontWeight: 800, color: ivHeading }}>Upgrade to Pro</div>
-              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 2 }}>Unlock your Brain Map, hypotheses, and more</div>
-            </div>
-            <CaretRight size={16} color={ivHeading} weight="bold" />
-          </motion.div></Breathe>
-        )}
 
         <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 22 }}>
           {stats.map((s) => (
@@ -8978,31 +8877,16 @@ function ScreenProfile({
 
         {/* Design/dev affordance: instantly switches the whole app between
             curated demo content and a real, on-device, initially-empty
-            store — see src/app/dataProvider.ts. Not something a real end
-            user would normally touch, but there's no separate build
-            target to hide it behind. Premium Mode sits in the same group,
-            same Switch, right below it — a distinct concept that just
-            happens to be the other quiet on/off switch this screen has to
-            offer, not a related pair. It doesn't gate anything in the
-            demo-vs-real data source itself, only whether Mind/Analysis/
-            History additionally surface their deeper layers (see
-            store.isPro downstream in ScreenAnalysis/ScreenDiscoveryAnalysis/
-            ScreenHistory) — no payment involved, updateStore alone persists
-            it exactly the way every other real-store field already persists
-            (localStorage + Supabase when signed in; ephemeral, same as any
-            other demo interaction, while Demo Mode is on). Deliberately
-            plain — no gold/crown/diamond styling; Premium here is just
-            another quiet toggle, same as Demo Mode right above it. */}
+            store — see src/app/dataProvider.ts. Kept visible because App
+            Store review uses it (APP-STORE.md) to see the app with data. */}
         <SettingsGroup
           header="Modes"
-          footer="Demo Mode fills every screen with example data; turn it off to see only your own entries — a new account starts empty. Premium Mode weaves a deeper layer into Mind, Analysis, and your Diary: unconscious patterns, distance from your aspiration, and how things have changed over time."
+          footer="Demo Mode fills every screen with example data; turn it off to see only your own entries — a new account starts empty."
         >
           <SettingsRow icon={<Flask size={17} />} label="Demo Mode" trailing={<Switch label="Demo Mode" value={isDemoMode} onChange={onToggleDemoMode} />} />
-          <SettingsRow icon={<Sparkle size={17} />} label="Premium Mode" trailing={<Switch label="Premium Mode" value={store.isPro} onChange={(v) => updateStore((prev) => ({ ...prev, isPro: v }))} />} />
         </SettingsGroup>
 
         <SettingsGroup>
-          {MONETIZATION_ENABLED && store.isPro && <SettingsRow icon={<CreditCard size={17} />} label="Manage subscription" value={planLabel ?? undefined} onClick={onOpenManageSubscription} />}
           <SettingsRow icon={<BellSimple size={17} />} label="Notifications" onClick={() => onOpenSettings?.("notifications")} />
           <SettingsRow icon={<LockSimple size={17} />} label="Data & Privacy" onClick={() => onOpenSettings?.("dataPrivacy")} />
           <SettingsRow icon={<Question size={17} />} label="Help" onClick={() => onOpenSettings?.("help")} />
@@ -9265,7 +9149,7 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
                 <input
                   id="daily-reminder-time" type="time" value={settings.dailyReminderTime}
                   onChange={(e) => onChange?.({ ...settings, dailyReminderTime: e.target.value })}
-                  style={{ ...sans, fontSize: 15, color: ivHeading, border: 0, borderRadius: shape.xs, padding: "5px 9px", backgroundColor: "rgba(42,38,33,0.07)" }}
+                  style={{ ...sans, fontSize: 16, color: ivHeading, border: 0, borderRadius: shape.xs, padding: "5px 9px", backgroundColor: "rgba(42,38,33,0.07)" }}
                 />
               }
             />
@@ -9280,16 +9164,17 @@ function ScreenNotificationSettings({ settings, onBack, onChange }: { settings: 
   );
 }
 
+// Two exits, two jobs: the JSON is the complete backup (everything the app
+// knows, restorable), the Markdown is the diary itself in your own words
+// with dates, readable in any notes app. See diaryExport.ts.
 function downloadStoreAsJson(store: Store) {
-  const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `mindscape-export-${formatDateDots(new Date()).replace(/\./g, "-")}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  const stamp = formatDateDots(new Date()).replace(/\./g, "-");
+  void saveTextFile(`mindscape-export-${stamp}.json`, JSON.stringify(store, null, 2), "application/json");
+}
+
+function downloadDiaryAsText(store: Store) {
+  const today = formatDateDots(new Date());
+  void saveTextFile(`mindscape-diary-${today.replace(/\./g, "-")}.md`, diaryAsMarkdown(store, today), "text/markdown");
 }
 
 // ── Explainer illustrations ──────────────────────────────────────────────────
@@ -9634,11 +9519,14 @@ function ScreenDataPrivacy({
         )}
 
         <SettingsGroup
-          footer={isCloudSyncConfigured
-            ? "Saves everything above to a JSON file on this device — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
-            : "Saves everything above to a JSON file on this device. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives."}
+          header="Take it with you"
+          footer={(isCloudSyncConfigured
+            ? "Your diary is yours. \"My diary as text\" is every entry in your own words, with its date and your aspiration on top, readable in any notes app. \"Full backup\" saves everything above as a JSON file — worth doing if you're browsing as a guest, since there's no account to fall back on if this device's storage is ever cleared."
+            : "Your diary is yours. \"My diary as text\" is every entry in your own words, with its date and your aspiration on top, readable in any notes app. \"Full backup\" saves everything above as a JSON file. There's no account or backup behind this app — if this device's storage is ever cleared, this download is the only copy that survives.")
+            + " Both stay free, always."}
         >
-          <SettingsRow icon={<DownloadSimple size={17} />} label="Download my data" onClick={() => downloadStoreAsJson(s)} chevron={false} />
+          <SettingsRow icon={<FileText size={17} />} label="My diary as text" onClick={() => downloadDiaryAsText(s)} chevron={false} />
+          <SettingsRow icon={<DownloadSimple size={17} />} label="Full backup (JSON)" onClick={() => downloadStoreAsJson(s)} chevron={false} />
         </SettingsGroup>
 
         <SettingsGroup
@@ -9773,8 +9661,7 @@ function ScreenHelp({ onBack, onReplayTutorial }: { onBack?: () => void; onRepla
 // ── Screen 14.4/14.5 · Legal documents ────────────────────────────────────────
 // Both drafted to accurately describe how the app actually behaves today
 // (local-storage-only, what gets sent to Claude/Anthropic and when,
-// on-device crisis-language checking, the current MONETIZATION_ENABLED
-// state) rather than generic boilerplate — but they're still a draft, not
+// on-device crisis-language checking, no paid plans) rather than generic boilerplate — but they're still a draft, not
 // legal advice, and say so prominently. Swap in this file's content once
 // an actual lawyer has reviewed it for your jurisdiction; nothing else
 // about how these render needs to change.
@@ -9866,8 +9753,8 @@ const PRIVACY_POLICY_SECTIONS: LegalSection[] = [
   {
     heading: "6. Your rights & deleting your data",
     body: (isCloudSyncConfigured
-      ? "Profile → Data & Privacy lets you download everything (JSON), erase all your data (\"Delete all my data\"), or permanently delete your account with its name, email, and all synced data (\"Delete my account\", shown while signed in). "
-      : "Profile → Data & Privacy lets you download everything (JSON) or erase it permanently (\"Delete all my data\"). ") +
+      ? "Profile → Data & Privacy lets you download your diary as readable text or everything as a full backup (JSON), erase all your data (\"Delete all my data\"), or permanently delete your account with its name, email, and all synced data (\"Delete my account\", shown while signed in). "
+      : "Profile → Data & Privacy lets you download your diary as readable text or everything as a full backup (JSON), or erase it permanently (\"Delete all my data\"). ") +
       "You can also email us to access, correct, delete, or export your data, or to withdraw consent. Depending on where you live (e.g. Korea, the EU/UK, California), you may have additional rights and can complain to your data protection authority.",
   },
   {
@@ -9925,245 +9812,6 @@ const TERMS_OF_SERVICE_SECTIONS: LegalSection[] = [
   },
 ];
 
-// ── Screen 15 · Paywall ───────────────────────────────────────────────────────
-// Free tier only records entries (see appendUnanalyzedEntry in realStore.ts)
-// — every screen that reads AI-derived data (Mind/Analysis tab, Brain Map,
-// AI's Hypotheses, Distance from Your Goal) renders this instead when
-// !store.isPro, rather than showing an empty/broken version of itself. No
-// real billing here — onContinue hands the picked plan to ScreenCheckout,
-// which is the one place that actually flips store.isPro (see
-// upgradeToPro in the App shell) — but both screens are written as a real
-// paywall/checkout would be, so swapping in a payment SDK later only
-// touches ScreenCheckout's submit handler.
-const PRO_FEATURES = [
-  { title: "Unconscious Patterns", detail: "See the core beliefs quietly running underneath your words and actions." },
-  { title: "Brain Map", detail: "Watch your beliefs light up and connect to each other as a living map." },
-  { title: "AI's Hypotheses", detail: "Get higher-level theories that cross multiple beliefs, and refine them together." },
-  { title: "Distance from Your Goal", detail: "See the real gap between who you want to become and your actual patterns." },
-];
-
-type ProPlan = "monthly" | "yearly";
-
-// Which free-tier entry triggers ScreenSoftPaywall — see the "think" case's
-// onDone in the App shell and hasSeenUpgradePrompt in types.ts. 3 gives the
-// free experience a little room to prove itself (a single entry has nothing
-// to show a pattern in) before asking, without waiting so long the ask
-// feels disconnected from what just happened.
-const UPSELL_PROMPT_AT_ENTRY_COUNT = 3;
-
-// Priced like the mental-wellness/self-reflection apps this one sits
-// alongside (Reflectly, Stoic, etc. cluster around $7-13/mo or $40-70/yr) —
-// yearly is the default selection below and priced to read as the
-// obviously better deal (58% cheaper per month than paying monthly), which
-// is what "BEST VALUE" is doing the actual math for, not just asserting.
-const PRO_PLANS: { id: ProPlan; label: string; price: string; period: string; billedNote: string; badge?: string }[] = [
-  { id: "yearly", label: "Yearly", price: "$49.99", period: "/year", billedNote: "$4.17/mo, billed annually", badge: "BEST VALUE" },
-  { id: "monthly", label: "Monthly", price: "$9.99", period: "/month", billedNote: "Billed monthly" },
-];
-
-function ScreenPaywall({
-  onBack,
-  onContinue,
-  activeTab,
-  onNavSelect,
-}: {
-  onBack?: () => void;
-  onContinue?: (plan: ProPlan) => void;
-  // Set only when this screen is standing in for a real tab ("analysis" or
-  // "discoveryAnalysis" — the gated screens whose real version has its own
-  // BottomNav; see those cases in the App shell). Keeps this a full-
-  // screen modal everywhere else it's used (from Profile, from the post-
-  // recording upsell), matching those entry points' own real screens, none
-  // of which have a tab bar either.
-  activeTab?: string;
-  onNavSelect?: (id: string) => void;
-}) {
-  const [selected, setSelected] = React.useState<ProPlan>("yearly");
-  const plan = PRO_PLANS.find((p) => p.id === selected)!;
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <BackButton onClick={onBack} />
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 22px 24px" }}>
-        <div style={{ ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", color: mdAccent, textTransform: "uppercase" }}>Upgrade to Pro</div>
-        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10, lineHeight: 1.4, wordBreak: "keep-all" }}>
-          Recording is free.<br />Understanding the pattern isn't yet.
-        </div>
-        <div style={{ ...sans, fontSize: 13, color: mdBody, marginTop: 10, lineHeight: 1.6, wordBreak: "keep-all" }}>
-          Every thought you speak is already being kept, free. Pro turns that record into the unconscious beliefs, connections, and hypotheses behind it.
-        </div>
-
-        {/* Also the interactive tutorial's "today-discovery" spotlight target
-            when a free-tier tour reaches the Analysis tab — see
-            buildTutorialSteps in the App shell, which swaps in Pro-aware
-            copy pointing here instead of at the (Pro-only) real discovery
-            card. */}
-        <div data-tutorial="today-discovery" style={{ marginTop: 26, display: "flex", flexDirection: "column", gap: 12 }}>
-          {PRO_FEATURES.map((f) => (
-            <div key={f.title} style={{ display: "flex", gap: 12, padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
-              <span style={{ width: 22, height: 22, borderRadius: "50%", backgroundColor: mdAccentSoft, color: mdAccentText, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>✓</span>
-              <div>
-                <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: mdHeading }}>{f.title}</div>
-                <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 4, lineHeight: 1.55, wordBreak: "keep-all" }}>{f.detail}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 10 }}>
-          {PRO_PLANS.map((p) => {
-            const active = p.id === selected;
-            return (
-              <div
-                key={p.id} role="button" tabIndex={0} onClick={() => setSelected(p.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (() => setSelected(p.id))?.(); } }}
-                style={{
-                  position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
-                  padding: "16px 18px", borderRadius: 14, backgroundColor: active ? mdAccentSoft : mdCard,
-                  boxShadow: mdCardShadow, border: `1.5px solid ${active ? mdAccent : "transparent"}`,
-                }}
-              >
-                {p.badge && (
-                  <span style={{ position: "absolute", top: -9, left: 16, ...sans, fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", color: "#fff", backgroundColor: mdAccent, padding: "3px 9px", borderRadius: 999 }}>
-                    {p.badge}
-                  </span>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${active ? mdAccent : mdDivider}`, backgroundColor: active ? mdAccent : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {active && <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: "#fff" }} />}
-                  </span>
-                  <div>
-                    <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: mdHeading }}>{p.label}</div>
-                    <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{p.billedNote}</div>
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: mdHeading }}>{p.price}</div>
-                  <div style={{ ...sans, fontSize: 11, color: mdFaint }}>{p.period}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      <div style={{ padding: "0 22px 20px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={() => onContinue?.(selected)} modernist>Continue — {plan.price}{plan.period}</PrimaryBtn>
-        <div style={{ ...sans, fontSize: 11, color: mdFaint, textAlign: "center", marginTop: 10 }}>Cancel anytime. No commitment.</div>
-      </div>
-      {activeTab && <BottomNav active={activeTab} onSelect={onNavSelect} modernist />}
-    </div>
-  );
-}
-
-// ── Screen 15.5 · Checkout ────────────────────────────────────────────────────
-// The one place that actually calls onSubscribed (which flips store.isPro —
-// see upgradeToPro in the App shell). Card fields are formatted/validated
-// like a real checkout (grouped digits, MM/YY, length checks) but nothing
-// here is sent anywhere or charged — see the disclosure line above the
-// submit button. Swapping in Stripe/RevenueCat later means replacing this
-// screen's submit handler with a real charge call and firing onSubscribed
-// only from its success callback; nothing else in the app would change.
-function formatCardNumber(v: string): string {
-  return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})(?=.)/g, "$1 ");
-}
-function formatExpiry(v: string): string {
-  const digits = v.replace(/\D/g, "").slice(0, 4);
-  return digits.length <= 2 ? digits : `${digits.slice(0, 2)}/${digits.slice(2)}`;
-}
-
-function ScreenCheckout({ plan, onBack, onSubscribed }: { plan: ProPlan; onBack?: () => void; onSubscribed?: () => void }) {
-  const planInfo = PRO_PLANS.find((p) => p.id === plan)!;
-  const [cardNumber, setCardNumber] = React.useState("");
-  const [expiry, setExpiry] = React.useState("");
-  const [cvc, setCvc] = React.useState("");
-  const [name, setName] = React.useState("");
-  const [processing, setProcessing] = React.useState(false);
-
-  const canSubmit = cardNumber.replace(/\s/g, "").length === 16 && /^\d{2}\/\d{2}$/.test(expiry) && cvc.length >= 3 && name.trim().length > 0;
-
-  const submit = () => {
-    if (!canSubmit || processing) return;
-    setProcessing(true);
-    setTimeout(() => { setProcessing(false); onSubscribed?.(); }, 900);
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <BackButton onClick={onBack} />
-        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>Payment</div>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow, marginBottom: 22 }}>
-          <div>
-            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
-            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{planInfo.billedNote}</div>
-          </div>
-          <div style={{ ...mono, fontSize: 17, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 12, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
-        </div>
-
-        <TextField label="Card number" value={cardNumber} onChange={(v) => setCardNumber(formatCardNumber(v))} placeholder="4242 4242 4242 4242" />
-        <div style={{ display: "flex", gap: 12 }}>
-          <div style={{ flex: 1 }}><TextField label="Expiry" value={expiry} onChange={(v) => setExpiry(formatExpiry(v))} placeholder="MM/YY" /></div>
-          <div style={{ flex: 1 }}><TextField label="CVC" value={cvc} onChange={(v) => setCvc(v.replace(/\D/g, "").slice(0, 4))} placeholder="123" /></div>
-        </div>
-        <TextField label="Name on card" value={name} onChange={setName} placeholder="Jane Doe" />
-
-        <div style={{ ...sans, fontSize: 11, color: mdFaint, marginTop: 4, lineHeight: 1.5, wordBreak: "keep-all" }}>
-          This is a demo checkout — no real card is charged.
-        </div>
-      </div>
-      <div style={{ padding: "0 22px 32px", flexShrink: 0 }}>
-        <PrimaryBtn onClick={submit} disabled={!canSubmit || processing} modernist>{processing ? "Processing…" : `Subscribe — ${planInfo.price}${planInfo.period}`}</PrimaryBtn>
-      </div>
-    </div>
-  );
-}
-
-// ── Screen 15.7 · Manage subscription ─────────────────────────────────────────
-// Profile's settings-list entry point once isPro is true — same armed-
-// confirmation pattern ScreenDataPrivacy uses for "Delete all my data,"
-// since canceling is the same kind of one-way, worth-a-pause action.
-// Canceling drops back to free immediately (no real billing period to
-// honor) rather than pretending to schedule an end-of-period cancellation.
-function ScreenManageSubscription({ store, onBack, onCancel }: { store: Store; onBack?: () => void; onCancel?: () => void }) {
-  const [armed, setArmed] = React.useState(false);
-  const planInfo = PRO_PLANS.find((p) => p.id === store.proPlan) ?? PRO_PLANS[0];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: mdBg }}>
-      <div style={{ padding: "16px 22px 12px", flexShrink: 0 }}>
-        <BackButton onClick={onBack} />
-        <div style={{ ...display, fontSize: 28, color: mdHeading, marginTop: 10 }}>Manage Subscription</div>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 22px 24px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderRadius: 14, backgroundColor: mdCard, boxShadow: mdCardShadow }}>
-          <div>
-            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: mdHeading }}>Mindscape Pro — {planInfo.label}</div>
-            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 3 }}>{planInfo.billedNote}</div>
-          </div>
-          <div style={{ ...mono, fontSize: 15, fontWeight: 700, color: mdHeading }}>{planInfo.price}<span style={{ fontSize: 11, fontWeight: 500, color: mdBody }}>{planInfo.period}</span></div>
-        </div>
-
-        <div style={{ marginTop: 28 }}>
-          <motion.button
-            type="button" aria-pressed={armed}
-            onClick={() => (armed ? onCancel?.() : setArmed(true))}
-            whileTap={{ scale: 0.985 }} whileFocus={{ boxShadow: "0 0 0 3px rgba(164,74,74,.13)" }}
-            style={{ ...sans, width: "100%", textAlign: "left", padding: "14px 16px", borderRadius: 12, border: `1px solid ${armed ? mdWarn : mdDivider}`, backgroundColor: armed ? mdWarnSoft : "transparent", cursor: "pointer", fontSize: 15, fontWeight: 600, color: mdWarn, WebkitTapHighlightColor: "transparent" }}
-          >
-            {armed ? "Are you sure? Tap again to cancel" : "Cancel subscription"}
-          </motion.button>
-          {armed && (
-            <div style={{ ...sans, fontSize: 12, color: mdBody, marginTop: 8, lineHeight: 1.5, wordBreak: "keep-all" }}>
-              You'll immediately lose access to your Brain Map, hypotheses, and analysis. Your recorded entries stay right where they are.
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // On a real phone, the fixed 393×852 "device mockup" frame below (rounded
 // corners, drop shadow, centered on a desktop backdrop) is exactly wrong —
 // it reads as a small floating box with wasted padding around it instead of
@@ -10184,13 +9832,22 @@ function useIsMobileViewport(): boolean {
 }
 
 // ── App shell ──────────────────────────────────────────────────────────────
+// The app is ivory everywhere except the night desk: writing an entry and
+// what follows it, plus crisis support. This one list drives the frame's
+// fallback colour, the notch strip, the preview status bar, and the iOS
+// clock colour, so a new screen is light by default instead of silently
+// picking up a dark strip because someone forgot to add it to a second list.
+// (The night sky, "brainmap", draws its own full-screen chrome; only the
+// iOS clock needs telling about it.)
+const DARK_SCREENS = new Set(["think", "processing", "sessionSummary", "thinkComplete", "crisisSupport"]);
+
 export default function App() {
   const [screen, setScreen] = React.useState("splash");
   // In the iOS app, the clock and battery switch to light text on the dark
-  // screens (writing, the sky, analysis in progress) and dark text elsewhere.
+  // screens (DARK_SCREENS, plus the night sky) and dark text elsewhere.
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const dark = ["home", "think", "processing", "brainmap"].includes(screen);
+    const dark = DARK_SCREENS.has(screen) || screen === "brainmap";
     NativeStatusBar.setStyle({ style: dark ? StatusBarStyle.Dark : StatusBarStyle.Light }).catch(() => {});
   }, [screen]);
   // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
@@ -10258,7 +9915,6 @@ export default function App() {
   const [historyEntryIndex, setHistoryEntryIndex] = React.useState(0);
   const [thinkText, setThinkText] = React.useState("");
   const [analysisError, setAnalysisError] = React.useState("");
-  const [pendingUpsell, setPendingUpsell] = React.useState(false);
   // Set right before navigating to "brainmap" whenever the trip started
   // from a region-filtered entry point rather than the Brain Map card's own
   // expand button — null just opens the map unfiltered, same as always.
@@ -10343,21 +9999,18 @@ export default function App() {
     syncReminders({
       daily: store.settings.dailyReminder,
       time: store.settings.dailyReminderTime,
-      weekly: store.settings.weeklySummary && (!MONETIZATION_ENABLED || store.isPro),
+      weekly: store.settings.weeklySummary,
     });
-  }, [store.settings.dailyReminder, store.settings.dailyReminderTime, store.settings.weeklySummary, store.isPro]);
+  }, [store.settings.dailyReminder, store.settings.dailyReminderTime, store.settings.weeklySummary]);
 
   // Weekly-summary Notification — same plain-Notification-API, tab-must-
   // be-open mechanism as the daily reminder above, just checked on an
   // hourly cadence (a "has 7 days passed" question doesn't need minute
-  // granularity) and gated to Pro: a recap of what accumulated over the
-  // week is exactly the kind of cross-entry insight the free tier doesn't
-  // get (see mergeAnalysisIntoStore's `accumulate` param). Skips firing
+  // granularity). Skips firing
   // entirely when there's nothing to report (computeWeeklySummary returns
   // null for zero entries this week) rather than sending an empty recap.
   React.useEffect(() => {
     if (!store.settings.weeklySummary) return;
-    if (!(!MONETIZATION_ENABLED || store.isPro)) return;
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "default") Notification.requestPermission();
 
@@ -10380,7 +10033,7 @@ export default function App() {
     check();
     const interval = setInterval(check, 3600000);
     return () => clearInterval(interval);
-  }, [store.settings.weeklySummary, store.isPro, store.history]);
+  }, [store.settings.weeklySummary, store.history]);
 
   // New-hypothesis alert — unlike the two notifications above, this one is
   // event-driven (fires the instant an entry actually surfaces something
@@ -10396,19 +10049,12 @@ export default function App() {
 
   const goToTab = (id: string) => setScreen(id);
 
-  // Interactive tour state — see TutorialOverlay/buildTutorialSteps above.
-  // Recomputed off store.isPro so a mid-tour upgrade (unlikely, but
-  // possible if someone subscribes from the tour's own paywall step) shows
-  // the Pro-flavored "today-discovery" copy from that point on instead of
-  // the free one. frameRef lets the overlay measure real targets relative
+  // Interactive tour state — see TutorialOverlay/TUTORIAL_STEPS above.
+  // frameRef lets the overlay measure real targets relative
   // to the phone frame; the effect below is the single place that decides
   // "we've arrived at a nav step's destination," whether that arrival came
   // from the real nav-bar tap passing through the spotlight or from the
   // tooltip's own button calling the identical setScreen.
-  const TUTORIAL_STEPS = React.useMemo(
-    () => buildTutorialSteps(!MONETIZATION_ENABLED || store.isPro),
-    [store.isPro]
-  );
   const [tutorialActive, setTutorialActive] = React.useState(false);
   const [tutorialStep, setTutorialStep] = React.useState(0);
   const frameRef = React.useRef<HTMLDivElement>(null);
@@ -10456,25 +10102,6 @@ export default function App() {
       beliefs: prev.beliefs.map((b) => (b.id === beliefId ? { ...b, userReaction: "rejected" as const } : b)),
     }));
   };
-  // Mocked upgrade — no real billing wired up yet, just flips the flag that
-  // gates analysis/belief-map/hypotheses/drift (see the "isPro" case guards
-  // in the screen switch below), called only from ScreenCheckout's
-  // onSubscribed once its (also mocked) card form validates. Real payment
-  // processing (App Store/Play Store IAP or a web checkout) would replace
-  // that one call site with a purchase-success callback; nothing else in
-  // the app would need to change.
-  const upgradeToPro = (plan: ProPlan) => {
-    updateStore((prev) => ({ ...prev, isPro: true, proPlan: plan }));
-  };
-  const cancelPro = () => {
-    updateStore((prev) => ({ ...prev, isPro: false, proPlan: undefined }));
-  };
-  // Where checkout (and the paywall itself, when reached as its own "paywall"
-  // route rather than inline-gated) returns to on cancel/back or a
-  // successful subscribe. Set right before navigating into that flow —
-  // see each onContinue/onOpenPaywall/onUpgrade call site below.
-  const [paywallReturnTo, setPaywallReturnTo] = React.useState("home");
-  const [checkoutPlan, setCheckoutPlan] = React.useState<ProPlan>("yearly");
   // aspirationSetup is reachable from both ScreenDrift ("Mind" tab) and
   // ScreenJourneyMap (Profile) now — this is which one "Save"/back should
   // land on, set right before navigating in from either entry point.
@@ -10627,21 +10254,12 @@ export default function App() {
         updateStore={updateStore}
       />
     ); break;
-    case "brainmap": content = (!MONETIZATION_ENABLED || store.isPro) ? (
+    case "brainmap": content = (
       <React.Suspense fallback={<div style={{ flex: 1, backgroundColor: "#ffffff" }} />}>
         <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={leaveBrainMap} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
       </React.Suspense>
-    ) : (
-      <ScreenPaywall onBack={() => setScreen(brainMapReturnTo)} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("brainmap"); setScreen("checkout"); }} />
     ); break;
-    case "analysis": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall
-        onBack={() => setScreen("home")}
-        onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("analysis"); setScreen("checkout"); }}
-        activeTab="analysis"
-        onNavSelect={goToTab}
-      />
-    ) : (
+    case "analysis": content = (
       <ScreenAnalysis
         onNavSelect={goToTab}
         onOpenArtifact={(id) => { if (id === "drift") setDriftReturnTo("analysis"); setScreen(id); }}
@@ -10649,14 +10267,7 @@ export default function App() {
         store={store}
       />
     ); break;
-    case "discoveryAnalysis": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall
-        onBack={() => setScreen("home")}
-        onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("discoveryAnalysis"); setScreen("checkout"); }}
-        activeTab="discoveryAnalysis"
-        onNavSelect={goToTab}
-      />
-    ) : (
+    case "discoveryAnalysis": content = (
       <ScreenDiscoveryAnalysis
         onNavSelect={goToTab}
         store={store}
@@ -10680,7 +10291,7 @@ export default function App() {
         onDone={(text) => {
           setThinkText(text);
           setAnalysisError("");
-          // Checked before anything else, regardless of tier — a crisis-
+          // Checked before anything else — a crisis-
           // flagged entry never reaches /api/analyze or the belief/
           // hypothesis pipeline. The entry is still saved (see
           // appendUnanalyzedEntry below) — this is about where it routes
@@ -10697,9 +10308,6 @@ export default function App() {
             updateStore((prev) => appendUnanalyzedEntry(prev, text));
             setScreen("thinkComplete");
           } else {
-            // Every tier gets a one-entry analysis. Premium controls whether
-            // that entry is allowed to accumulate into the longitudinal
-            // belief/hypothesis/connection network once the result returns.
             setScreen("processing");
           }
         }}
@@ -10722,17 +10330,14 @@ export default function App() {
         recentEntries={recentEntryMemory(store.history)}
         onDone={(result, sessionSummary) => {
           if (result) {
-            const accumulate = !MONETIZATION_ENABLED || store.isPro;
-            const isUpsellMoment = !accumulate && store.entryCount + 1 === UPSELL_PROMPT_AT_ENTRY_COUNT && !store.hasSeenUpgradePrompt;
-            const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary, accumulate);
+            const merged = mergeAnalysisIntoStore(store, result, thinkText, sessionSummary);
             haptic("success");
             const foundNewPattern = merged.beliefs.length > store.beliefs.length || merged.hypotheses.length > store.hypotheses.length;
             if (store.settings.newHypothesisAlert && foundNewPattern && isNative) notifyNow("A new pattern showed up", "Take a look at what your recent thoughts have in common.");
             if (store.settings.newHypothesisAlert && typeof Notification !== "undefined" && Notification.permission === "granted") {
               if (foundNewPattern) new Notification("A new pattern showed up", { body: "Take a look at what your recent thoughts have in common." });
             }
-            updateStore(() => (isUpsellMoment ? { ...merged, hasSeenUpgradePrompt: true } : merged));
-            setPendingUpsell(isUpsellMoment);
+            updateStore(() => merged);
             setScreen("sessionSummary");
           } else {
             setScreen("thinkComplete");
@@ -10742,11 +10347,7 @@ export default function App() {
         onCancel={() => setScreen("home")}
       />
     ); break;
-    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => {
-      if (!MONETIZATION_ENABLED || store.isPro) setScreen("discoveryAnalysis");
-      else if (pendingUpsell) setScreen("softPaywall");
-      else setScreen("home");
-    }} />; break;
+    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("discoveryAnalysis")} />; break;
     case "aiConsent": content = (
       <ScreenAiConsent
         current={realStore.aiConsent ?? null}
@@ -10763,9 +10364,7 @@ export default function App() {
     case "thinkComplete": content = (
       <ScreenThinkComplete
         error={analysisError}
-        showUpsell={MONETIZATION_ENABLED && !store.isPro && !analysisError}
         onDone={() => setScreen("home")}
-        onUpgrade={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
         voyage={analysisError ? undefined : (() => {
           const written = store.history.filter((e) => !isMoodCheckIn(e));
           const latest = written[written.length - 1];
@@ -10775,36 +10374,20 @@ export default function App() {
         onSetAspiration={() => { setAspirationReturnTo("home"); setScreen("aspirationSetup"); }}
       />
     ); break;
-    case "softPaywall": content = (
-      <ScreenSoftPaywall
-        onSeePlans={() => { setPaywallReturnTo("home"); setScreen("paywall"); }}
-        onDismiss={() => setScreen("home")}
-      />
-    ); break;
     case "crisisSupport": content = <ScreenCrisisSupport onContinue={() => setScreen("home")} />; break;
-    case "beliefs": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("beliefs"); setScreen("checkout"); }} />
-    ) : (
+    case "beliefs": content = (
       <ScreenBeliefMap onBack={() => setScreen("analysis")} store={store} onRejectBelief={rejectBelief} />
     ); break;
-    case "assumptions": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("assumptions"); setScreen("checkout"); }} />
-    ) : (
+    case "assumptions": content = (
       <ScreenBeliefMap onBack={() => setScreen("home")} store={store} />
     ); break;
-    case "drift": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("drift"); setScreen("checkout"); }} />
-    ) : (
+    case "drift": content = (
       <ScreenDrift onBack={() => setScreen(driftReturnTo)} store={store} onSetupAspiration={() => { setAspirationReturnTo("drift"); setScreen("aspirationSetup"); }} />
     ); break;
-    case "journeyMap": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("journeyMap"); setScreen("checkout"); }} />
-    ) : (
+    case "journeyMap": content = (
       <ScreenJourneyMap onBack={() => setScreen("profile")} store={store} onSetupAspiration={() => { setAspirationReturnTo("journeyMap"); setScreen("aspirationSetup"); }} />
     ); break;
-    case "aspirationSetup": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("aspirationSetup"); setScreen("checkout"); }} />
-    ) : (
+    case "aspirationSetup": content = (
       <ScreenAspirationSetup
         initialValue={store.aspiration}
         onBack={() => setScreen(aspirationReturnTo)}
@@ -10814,14 +10397,10 @@ export default function App() {
         }}
       />
     ); break;
-    case "hypotheses": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypotheses"); setScreen("checkout"); }} />
-    ) : (
+    case "hypotheses": content = (
       <ScreenHypotheses onBack={() => setScreen("home")} store={store} onOpen={(i) => { setHypothesisIndex(i); setScreen("hypothesisDetail"); }} />
     ); break;
-    case "hypothesisDetail": content = MONETIZATION_ENABLED && !store.isPro ? (
-      <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("hypothesisDetail"); setScreen("checkout"); }} />
-    ) : (
+    case "hypothesisDetail": content = (
       <ScreenHypothesisDetail
         index={hypothesisIndex}
         store={store}
@@ -10836,10 +10415,6 @@ export default function App() {
       />
     ); break;
     case "investigate": {
-      if (MONETIZATION_ENABLED && !store.isPro) {
-        content = <ScreenPaywall onBack={() => setScreen("home")} onContinue={(plan) => { setCheckoutPlan(plan); setPaywallReturnTo("investigate"); setScreen("checkout"); }} />;
-        break;
-      }
       const investigatedHypothesis = store.hypotheses[hypothesisIndex] ?? store.hypotheses[0];
       content = investigatedHypothesis?.investigate ? (
         <ScreenInvestigate investigate={investigatedHypothesis.investigate} onBack={() => setScreen(investigateReturnTo)} />
@@ -10865,29 +10440,7 @@ export default function App() {
         isDemoMode={isDemoMode}
         onToggleDemoMode={setIsDemoMode}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
-        onOpenPaywall={() => { setPaywallReturnTo("profile"); setScreen("paywall"); }}
-        onOpenManageSubscription={() => setScreen("manageSubscription")}
         onOpenJourneyMap={() => setScreen("journeyMap")}
-      />
-    ); break;
-    case "paywall": content = (
-      <ScreenPaywall
-        onBack={() => setScreen(paywallReturnTo)}
-        onContinue={(plan) => { setCheckoutPlan(plan); setScreen("checkout"); }}
-      />
-    ); break;
-    case "checkout": content = (
-      <ScreenCheckout
-        plan={checkoutPlan}
-        onBack={() => setScreen(paywallReturnTo)}
-        onSubscribed={() => { upgradeToPro(checkoutPlan); setScreen(paywallReturnTo); }}
-      />
-    ); break;
-    case "manageSubscription": content = (
-      <ScreenManageSubscription
-        store={store}
-        onBack={() => setScreen("profile")}
-        onCancel={() => { cancelPro(); setScreen("profile"); }}
       />
     ); break;
     case "notifications": content = (
@@ -10983,33 +10536,11 @@ export default function App() {
   // one. Safe-area padding (below) takes over its job of clearing the
   // notch on mobile instead.
   const showStatusBar = !["quote", "splash"].includes(screen) && !isMobileViewport;
-  // Screens ported from the Modernist (light/red) design import — every
-  // other screen keeps the dark theme, see the dk*/md* token comments.
-  //
-  // This flag also picks the color of the frame's own fallback layer and
-  // the fake status bar's text (see below) — so it needs to match each
-  // screen's OWN background, not just its design lineage, or the fallback
-  // shows as a wrong-colored strip whenever a screen's status-bar-clearance
-  // padding is visible (every screen not using the "top:-30 bleed" trick).
-  // quote/splash/auth/login/signup/onboarding now render on the ivory
-  // canvas too (OPENING_BG/TEXT/MUTED alias the iv* tokens — see above),
-  // so they need the light fallback/status-bar text just like every other
-  // ivory screen, not the old dark-on-dark treatment this list used to
-  // carve them out for.
-  // assumptions/paywall/checkout/manageSubscription/privacyPolicy/
-  // termsOfService all render mdBg (ScreenBeliefMap/ScreenPaywall/
-  // ScreenCheckout/ScreenManageSubscription/ScreenLegalDocument) but were
-  // missing from this list entirely, defaulting them to the dark fallback.
-  // brainmap is left as-is: it breaks out of this
-  // shared frame/status-bar system entirely (its own fixed-position,
-  // full-viewport UI with no shared chrome), so this flag never reaches it.
-  const isModernistScreen = [
-    "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
-    "beliefs", "assumptions", "drift", "journeyMap", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
-    "paywall", "checkout", "manageSubscription", "privacyPolicy", "termsOfService",
-    "quote", "splash", "auth", "login", "signup", "onboarding",
-    "notifications", "dataPrivacy", "help",
-  ].includes(screen);
+  // Light frame fallback, notch strip and preview status-bar text for every
+  // screen except the dark ones (see DARK_SCREENS above). It has to match
+  // each screen's own background, or the notch padding shows a wrong-colored
+  // strip and crossfades flash the wrong color.
+  const isModernistScreen = !DARK_SCREENS.has(screen);
 
   // Think is the app's one self-disclosure moment — the disinhibition-theory
   // note this roadmap draws from asks for the whole frame to read as a

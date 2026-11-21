@@ -56,7 +56,6 @@ export function mergeStores(local: Store, cloud: Store): Store {
     aspiration: laterAspiration.aspiration,
     aspirationSetDate: laterAspiration.aspirationSetDate,
     entryCount: Math.max(local.entryCount, cloud.entryCount),
-    isPro: local.isPro || cloud.isPro,
   };
   return sanitizeStore(merged);
 }

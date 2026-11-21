@@ -76,9 +76,6 @@ export function sanitizeStore(parsed: any): Store {
         : null,
       entryCount: typeof parsed.entryCount === "number" ? parsed.entryCount : 0,
       pendingBeliefCandidates: Array.isArray(parsed.pendingBeliefCandidates) ? parsed.pendingBeliefCandidates : [],
-      isPro: typeof parsed.isPro === "boolean" ? parsed.isPro : false,
-      proPlan: parsed.proPlan === "monthly" || parsed.proPlan === "yearly" ? parsed.proPlan : undefined,
-      hasSeenUpgradePrompt: typeof parsed.hasSeenUpgradePrompt === "boolean" ? parsed.hasSeenUpgradePrompt : false,
       goals: Array.isArray(parsed.goals)
         ? parsed.goals.filter((g: any) => g && typeof g.id === "string" && typeof g.statement === "string")
         : [],
@@ -352,18 +349,7 @@ export function appendLensSession(
 // calls. Identity/id assignment happens here instead: exact (domain,
 // statement) match reuses the prior id (so a bubble/node keeps its identity
 // as it strengthens); anything unmatched is a genuinely new node.
-//
-// `accumulate` is the free/Pro line: every tier now gets a real
-// /api/analyze call and sees this entry's own observation/interpretation
-// (the "one-time" read on what was just said) — but only when accumulate
-// is true does this entry get to feed the belief/hypothesis/connection/
-// assumption/drift network (the "accumulated" pattern-finding that
-// actually requires seeing many entries together). Free tier passes
-// accumulate=false: it still parses observation/interpretation into
-// `analysis` below (so History can show it, same as Pro), it just never
-// touches beliefs/pendingBeliefCandidates/assumptions/connections/
-// hypotheses/driftNotes, which all stay exactly prev.x.
-export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string, sessionSummary?: string, accumulate: boolean = true): Store {
+export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string, sessionSummary?: string): Store {
   const today = formatDateDots(new Date());
   const entryId = `entry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -413,7 +399,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   let pendingBeliefCandidates = prev.pendingBeliefCandidates ?? [];
   let hypothesisNote: EntryAnalysis["hypothesis"] | null = null;
 
-  if (accumulate && candidateBelief) {
+  if (candidateBelief) {
     // Case 1: matches an already-visible (and not-rejected) belief.
     const matchedBelief = matchedKind === "belief" && matchedId
       ? beliefs.find((b) => b.id === matchedId && b.userReaction !== "rejected")
@@ -567,30 +553,24 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   // updated list directly (repeat trigger -> count+1, new trigger -> new
   // entry), matched by (trigger, interpretation) content since the model
   // has no reliable way to keep its own ids consistent across calls.
-  // Skipped entirely when !accumulate — an automatic-interpretation trend
-  // is exactly the kind of "seen across many entries" pattern the free
-  // tier doesn't get.
   const assumptionKey = (a: { trigger: string; interpretation: string }) => `${a.trigger}::${a.interpretation}`;
   const prevAssumptionByKey = new Map(prev.assumptions.map((a) => [assumptionKey(a), a]));
-  const rawAssumptions: any[] = accumulate && Array.isArray(result?.assumptions) ? result.assumptions : prev.assumptions;
-  const assumptions: StoredAssumption[] = accumulate
-    ? rawAssumptions.map((a, i) => {
-        const prevMatch = prevAssumptionByKey.get(assumptionKey(a));
-        return {
-          id: prevMatch?.id ?? `assumption-${Date.now()}-${i}`,
-          trigger: a.trigger,
-          interpretation: a.interpretation,
-          count: typeof a.count === "number" ? a.count : prevMatch?.count ?? 1,
-        };
-      })
-    : prev.assumptions;
+  const rawAssumptions: any[] = Array.isArray(result?.assumptions) ? result.assumptions : prev.assumptions;
+  const assumptions: StoredAssumption[] = rawAssumptions.map((a, i) => {
+    const prevMatch = prevAssumptionByKey.get(assumptionKey(a));
+    return {
+      id: prevMatch?.id ?? `assumption-${Date.now()}-${i}`,
+      trigger: a.trigger,
+      interpretation: a.interpretation,
+      count: typeof a.count === "number" ? a.count : prevMatch?.count ?? 1,
+    };
+  });
 
   // ── Connections: only ever link currently-visible beliefs (rejected or
   // still-pending patterns can't participate), same matching-by-statement
-  // approach as before. Skipped when !accumulate (beliefs never change on
-  // that path anyway, so there's nothing new to connect).
+  // approach as before.
   const idByStatement = new Map(beliefs.map((b) => [b.statement, b.id]));
-  const rawConnections: any[] = accumulate && Array.isArray(result?.connections) ? result.connections : [];
+  const rawConnections: any[] = Array.isArray(result?.connections) ? result.connections : [];
   const newConnections: StoredConnection[] = rawConnections
     .map((c) => ({
       a: idByStatement.get(c.aStatement) ?? "",
@@ -616,7 +596,7 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
   // reactable hypothesis instead of a demo one, same shape so both screens
   // can render either without a special case.
   let hypotheses = prev.hypotheses;
-  if (accumulate && typeof result?.metaInsight === "string" && result.metaInsight.trim()) {
+  if (typeof result?.metaInsight === "string" && result.metaInsight.trim()) {
     const alreadyHave = prev.hypotheses.some((h) => h.title === result.metaInsight.trim());
     if (!alreadyHave) {
       const relatedStatements: string[] = Array.isArray(result?.metaInsightBeliefStatements) ? result.metaInsightBeliefStatements : [];
@@ -644,15 +624,14 @@ export function mergeAnalysisIntoStore(prev: Store, result: any, rawText: string
     }
   }
 
-  // Drift (distance from the stated aspiration) is itself an accumulated,
-  // longitudinal read — skipped when !accumulate for the same reason as
-  // assumptions/connections/hypotheses above.
-  const driftNotes: StoredDriftNote[] = accumulate && typeof result?.driftNote === "string" && result.driftNote.trim()
+  // Drift (distance from the stated aspiration) is an accumulated,
+  // longitudinal read: the newest note joins the last 20.
+  const driftNotes: StoredDriftNote[] = typeof result?.driftNote === "string" && result.driftNote.trim()
     ? [...prev.driftNotes, { date: today, note: result.driftNote.trim() }].slice(-20)
     : prev.driftNotes;
 
   // Spread-then-override, not a hand-enumerated field list — the latter
-  // used to silently drop isPro/proPlan/hasSeenUpgradePrompt (and would
+  // used to silently drop newer Store fields (and would
   // have done the same to `goals`) every time this ran, since a hand-
   // enumerated object literal isn't checked against Store's full field
   // list even with tsconfig in place (it only catches a MISSING required

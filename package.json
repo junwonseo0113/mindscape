@@ -9,7 +9,6 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test:ideal-self": "vitest run --config vitest.ideal-self.config.ts",
     "build:ios": "node scripts/check-ios-env.mjs && vite build --mode ios && cap sync ios",
     "ios:open": "cap open ios",
     "ios:assets": "capacitor-assets generate --ios"

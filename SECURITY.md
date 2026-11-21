@@ -14,9 +14,10 @@ What was checked, what was fixed, and the settings to turn on outside the code.
 - Row Level Security is on for every table. The server reaches the database as
   the signed-in user (their JWT plus the anon key), never as the service role,
   so a bug in server code still can't reach another user's rows.
-- Hardened: the one helper that took a table name as a variable
-  (`records()` in `src/server/idealSelf/service.ts`) now accepts only its two
-  fixed table names (a TypeScript union).
+- The one helper that took a table name as a variable (`records()` in the
+  Ideal Self server code) was removed with that feature on 2026-11-20. Its
+  database tables and `save_ideal_self_profile` still exist in Supabase from
+  `supabase/migrations/20261102_ideal_self.sql`; nothing in the app calls them.
 - No HTML injection points: no `dangerouslySetInnerHTML`, `innerHTML`, or
   `eval`. Links only come from constants.
 
