@@ -50,6 +50,38 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bself[- ]harm(?:ing)?\b/i,
   /\bcut(?:ting)? myself\b/i,
   /\boverdos(?:e|ing) on\b/i,
+
+  // ── Korean ──
+  // Korean has no word boundaries in the \b sense and spacing is loose
+  // ("죽고 싶어", "죽고싶다", "죽고만 싶다"), so these match stems with
+  // optional spaces. Same bias as above: over-trigger rather than miss.
+  // Suicidal ideation / intent
+  /죽\s*고\s*(?:만\s*)?싶/,
+  /죽어\s*(?:버리|버릴|버렸)/,
+  /자살/,
+  /극단적\s*(?:인\s*)?선택/,
+  /목숨\s*(?:을|도)?\s*끊/,
+  /스스로\s*(?:목숨|생을)/,
+  /(?:삶|생|인생|목숨)\s*(?:을|를)?\s*(?:끝내|끝낼|마감|포기)/,
+  /모든\s*(?:걸|것을)\s*끝내/,
+  /(?:사라지|없어지|없어져\s*버리)\s*고\s*싶/,
+  /살\s*고\s*싶\s*지\s*(?:않|않아|않다)/,
+  /살기\s*(?:가\s*)?싫/,
+  /(?:살|살아갈|살아야\s*할|살아\s*있을)\s*이유\s*(?:가|도)?\s*없/,
+  /사는\s*(?:게|것이|것도)\s*(?:의미\s*(?:가\s*)?없|무슨\s*의미)/,
+  /살아서\s*뭐\s*(?:해|하)/,
+  /태어나지\s*(?:말았어야|않았으면|말았으면)/,
+  /(?:차라리\s*)?죽는\s*(?:게|것이|편이)\s*(?:나아|낫)/,
+  /(?:나|내가|제가)\s*없(?:으면|는\s*게|어지면)\s*(?:다들|모두|다\s*편|더\s*나|낫)/,
+  /유서/,
+  /(?:뛰어\s*내리|투신)/,
+  /목\s*(?:을\s*)?매/,
+  // Self-harm
+  /자해/,
+  /손목\s*(?:을)?\s*(?:긋|그어|그었)/,
+  /(?:나|자신|내\s*몸)\s*(?:을|를|에)?\s*(?:해치|다치게|상처\s*(?:를|내))/,
+  /(?:약|수면제)\s*(?:을|를)?\s*(?:한꺼번에|왕창|모아|잔뜩)/,
+  /과다\s*복용/,
 ];
 
 // The one thing this function is allowed to answer — never a severity score,
