@@ -318,7 +318,6 @@ function DiaryWritingScene({ writing }: { writing: boolean }) {
 
 export function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) => void; onBack?: () => void; mood?: string | null }) {
   const [recording, setRecording] = React.useState(false);
-  const [seconds, setSeconds] = React.useState(0);
   // Text-first: voice self-reports lower self-disclosure than text at the
   // same response length (perceived anonymity drops with voice) — text is
   // the default, voice is the opt-in via the toggle below, not the other
@@ -369,12 +368,6 @@ export function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) 
     if (guidanceDelayRef.current) { clearTimeout(guidanceDelayRef.current); guidanceDelayRef.current = null; }
   };
 
-  React.useEffect(() => {
-    if (!recording) return;
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [recording]);
-
   React.useEffect(() => () => { manualStopRef.current = true; recognitionRef.current?.stop?.(); nativeSpeechRef.current?.stop(); }, []);
 
   // Guidance only applies while input is actually expected — typing (text
@@ -406,7 +399,6 @@ export function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) 
   const startRecording = () => {
     setTranscript("");
     setInterim("");
-    setSeconds(0);
     setMicError(null);
     finalTranscriptRef.current = "";
     haptic("press");
@@ -647,10 +639,6 @@ export function ScreenThink({ onDone, onBack, mood }: { onDone?: (text: string) 
                   style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}
                 >
                   <div style={{ width: "100%", marginBottom: 18 }}><DiaryWritingScene writing /></div>
-                  {/* No mm:ss countup here on purpose — a visible timer reads as
-                      "this is being measured," which raises self-censorship the
-                      same way a visible recording light does. `seconds` is still
-                      tracked internally (silence/auto-stop timing), just not shown. */}
                   <div style={{ ...display, fontSize: 24, color: dkHeading, textAlign: "center" }}>Listening…</div>
                   <div style={{ ...hand, fontSize: 21, fontWeight: 600, color: LAMP_TEXT, textAlign: "center", marginTop: 12, lineHeight: 1.25, wordBreak: "keep-all" }}>
                     Say whatever comes to mind.

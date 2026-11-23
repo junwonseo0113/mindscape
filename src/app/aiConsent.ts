@@ -16,7 +16,7 @@ import type { Store } from "./types";
 // Bump when the consent wording or the list of recipients materially
 // changes — a stored consent for an older version is treated as undecided,
 // so people are asked again instead of being bound to text they never saw.
-export const AI_CONSENT_VERSION = "2026-11-06";
+export const AI_CONSENT_VERSION = "2026-11-20";
 
 export type AiConsent = {
   sensitive: boolean;
@@ -80,7 +80,7 @@ export const AI_CONSENT_COPY: Record<"en" | "ko", ConsentCopy> = {
         ["Recipient", "Anthropic, PBC (AI analysis) · Vercel, Inc. (relays the request)"],
         ["Country", "United States"],
         ["When / how", "Each time you request an analysis, over an encrypted (TLS) connection"],
-        ["Items", "The entry text, related prior insights, and your first name"],
+        ["Items", "Entry text, related prior insights, and your first name. If you request a weekly reflection, excerpts from multiple entries in the selected week are sent together."],
         ["Purpose / retention", "AI analysis only, never used for model training; deleted by Anthropic within 30 days (longer only if flagged for a Usage Policy violation)"],
       ],
     },
@@ -106,7 +106,7 @@ export const AI_CONSENT_COPY: Record<"en" | "ko", ConsentCopy> = {
         ["이전받는 자", "Anthropic, PBC (AI 분석) · Vercel, Inc. (요청 중계)"],
         ["이전 국가", "미국"],
         ["이전 일시·방법", "분석을 요청할 때마다 암호화 통신(TLS)으로 전송"],
-        ["이전 항목", "기록 내용, 관련 기존 분석 결과, 이름"],
+        ["이전 항목", "기록 내용, 관련 기존 분석 결과, 이름. 주간 돌아보기를 요청하면 해당 주의 여러 기록에서 발췌한 내용이 함께 전송됩니다."],
         ["이용 목적·보유 기간", "AI 분석에만 사용하며 모델 학습에 쓰지 않음. Anthropic이 최대 30일 보관 후 삭제(이용정책 위반으로 분류된 경우 더 오래 보관될 수 있음)"],
       ],
     },

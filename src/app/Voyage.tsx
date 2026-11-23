@@ -119,7 +119,10 @@ export function VoyageCard({ closeness, change, aspiration, from, theme = "paper
         {/* The star: who you want to be. */}
         <g transform={`translate(${P2.x} ${P2.y})`}>
           <circle r="16" fill={GOLD} opacity="0.18" />
-          <motion.circle r="9" fill={GOLD} opacity="0.35" animate={reduce ? undefined : { r: [9, 13, 9], opacity: [0.35, 0.1, 0.35] }} transition={{ duration: 2.6, repeat: Infinity }} />
+          {/* Pulse with scale, not the r attribute: keyframing r made Motion write
+          r="undefined" on some frames (a console error on every Home visit). */}
+          <motion.circle r="9" fill={GOLD} opacity="0.35" style={{ transformBox: "fill-box", transformOrigin: "center" }}
+            animate={reduce ? undefined : { scale: [1, 13 / 9, 1], opacity: [0.35, 0.1, 0.35] }} transition={{ duration: 2.6, repeat: Infinity }} />
           <path d="M0 -9 L2.4 -2.4 L9 0 L2.4 2.4 L0 9 L-2.4 2.4 L-9 0 L-2.4 -2.4 Z" fill={GOLD} />
         </g>
         {/* Your boat. */}

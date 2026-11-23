@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mindscape Diary · Widget preview</title>
+<style>
+:root { color-scheme: light; --ink:#292621; --plum:#5c4a8a; --paper:#faf5eb; --x:78%; --y:20%; --glow:#f5c299; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; background:#eae6df; color:var(--ink); font:15px system-ui,sans-serif; }
+main { max-width:760px; margin:auto; padding:clamp(28px,7vw,68px) 20px; }
+h1 { margin:0; font:400 clamp(34px,7vw,54px)/1.05 Georgia,serif; }
+p { color:#625a55; line-height:1.5; }
+fieldset { border:0; padding:0; margin:22px 0 28px; }
+legend { padding:0; margin-bottom:8px; font-weight:600; }
+.options { display:flex; gap:6px; flex-wrap:wrap; }
+.options label { cursor:pointer; }
+.options input { position:absolute; opacity:0; }
+.options span { display:block; border:1px solid #bcb4ae; border-radius:24px; padding:9px 13px; }
+.options input:checked + span { background:var(--plum); color:white; border-color:var(--plum); }
+.options input:focus-visible + span { outline:2px solid var(--ink); outline-offset:3px; }
+.widgets { display:flex; align-items:flex-start; flex-wrap:wrap; gap:22px; }
+figure { margin:0; width:158px; max-width:100%; }
+figure.medium { width:338px; }
+figcaption { margin:9px 2px 0; font-size:13px; color:#625a55; }
+.widget { position:relative; isolation:isolate; height:158px; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; padding:15px; background:var(--paper); border-radius:22px; box-shadow:0 10px 24px #41302320; }
+.widget::before { content:""; position:absolute; z-index:-1; width:144px; height:144px; top:var(--y); left:var(--x); transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle,#ffffff00 0%,transparent 70%); background-image:radial-gradient(circle,var(--glow),transparent 70%); opacity:.65; transition:top .9s ease-in-out,left .9s ease-in-out; }
+.widget::after { content:""; z-index:-1; position:absolute; inset:auto 16px 14px; height:23px; background:repeating-linear-gradient(to bottom,#5c4a8a1a 0 1px,transparent 1px 10px); }
+.brand { color:var(--plum); font-size:12px; font-weight:650; display:flex; gap:6px; align-items:center; }
+.prompt { margin:0; color:var(--ink); font:400 20px/1.13 Georgia,serif; }
+.medium .prompt { font-size:24px; }
+.actions { display:flex; justify-content:space-between; gap:6px; }
+.action { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:650; white-space:nowrap; border-radius:99px; padding:6px 8px; color:var(--paper); background:var(--plum); }
+.diary { color:var(--plum); background:var(--paper); box-shadow:inset 0 0 0 1px #5c4a8a40; }
+.journey-header { margin:34px 0 0; font:400 30px/1.15 Georgia,serif; }
+.journey-panel { --sea:#386b75; --gold:#b5701f; background:linear-gradient(140deg,#fff8e8,#fffcf6 45%,#dfebeb); }
+.journey-panel::before,.journey-panel::after { display:none; }
+.journey-panel .brand,.weekly { color:var(--sea); }
+.score { font:400 36px/1 Georgia,serif; }
+.score small { font:12px system-ui,sans-serif; color:var(--sea); }
+.weekly { font-size:11px; }
+.course { width:100%; height:40px; overflow:visible; }
+.sailed { transition:stroke-dasharray .85s ease-in-out; }
+.boat { transition:transform .85s ease-in-out; }
+.slider-label { display:grid; grid-template-columns:auto minmax(90px,240px) auto; align-items:center; justify-content:start; gap:10px; margin:18px 0; font-weight:600; }
+.slider-label input { width:100%; accent-color:#386b75; }
+.note { font-size:13px; margin-top:24px; }
+@media (prefers-reduced-motion:reduce) { *, *::before { transition:none !important; } }
+</style>
+</head>
+<body>
+<main>
+<h1>Mindscape Diary</h1>
+<p>See how the Home Screen widget changes throughout the day.</p>
+<fieldset><legend>Time of day</legend><div class="options">
+<label><input type="radio" name="moment" value="morning" checked><span>Morning</span></label>
+<label><input type="radio" name="moment" value="afternoon"><span>Afternoon</span></label>
+<label><input type="radio" name="moment" value="evening"><span>Evening</span></label>
+<label><input type="radio" name="moment" value="night"><span>Night</span></label>
+</div></fieldset>
+<div class="widgets">
+<figure><div class="widget"><div class="brand"><span aria-hidden="true">✎</span> Mindscape</div><div class="prompt">What’s on your mind?</div><div class="actions"><span class="action"><span aria-hidden="true">✎</span> Write an entry</span></div></div><figcaption>Small</figcaption></figure>
+<figure class="medium"><div class="widget"><div class="brand"><span aria-hidden="true">✎</span> Mindscape</div><div class="prompt">What’s on your mind?</div><div class="actions"><span class="action"><span aria-hidden="true">✎</span> Write an entry</span><span class="action diary">Diary</span></div></div><figcaption>Medium</figcaption></figure>
+</div>
+<h2 class="journey-header">Mindscape Journey</h2>
+<p>Move the score to see the boat sail toward the aspiration.</p>
+<label class="slider-label">Example score <input id="journey-demo" type="range" min="0" max="100" value="72"><output for="journey-demo">72</output></label>
+<div class="widgets" id="journey-widgets"></div>
+<template id="journey-widget">
+<figure><div class="widget journey-panel">
+<div class="brand"><span aria-hidden="true">✦</span> Your Journey</div>
+<div class="score"><span>72</span><small>/100</small></div>
+<div class="weekly">8 closer this week</div>
+<svg class="course" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true">
+<path class="course-line" d="M7 29 Q135 42 286 16" fill="none" stroke="#386b75" stroke-opacity=".6" stroke-dasharray="2 4"/>
+<path class="sailed" d="M7 29 Q135 42 286 16" pathLength="100" fill="none" stroke="#b5701f" stroke-width="2" stroke-linecap="round"/>
+<path d="m286 8 2.5 5.5 5.5 2.5-5.5 2.5-2.5 5.5-2.5-5.5-5.5-2.5 5.5-2.5z" fill="#b5701f"/>
+<g class="boat" fill="#263840"><path d="m-9 -4h18l-4 4h-10z M0-18v12h8z M-2-14v8h-7z"/></g>
+</svg></div><figcaption></figcaption></figure>
+</template>
+<p class="note">Browser simulation. The native iPhone widget uses system fonts and symbols and updates on its own schedule.</p>
+</main>
+<script>
+const moments = {
+  morning: { x: 78, y: 20, glow: "#f5c299", prompt: "What’s on your mind?" },
+  afternoon: { x: 94, y: 32, glow: "#edc585", prompt: "What has stayed with you?" },
+  evening: { x: 82, y: 69, glow: "#dbb0c7", prompt: "What did today leave you with?" },
+  night: { x: 62, y: 54, glow: "#b3ade0", prompt: "What’s still on your mind?" }
+};
+const animations = new WeakMap();
+document.querySelector(".options").addEventListener("change", ({ target }) => {
+  const moment = moments[target.value];
+  if (!moment) return;
+  const css = document.documentElement.style;
+  css.setProperty("--x", moment.x + "%");
+  css.setProperty("--y", moment.y + "%");
+  css.setProperty("--glow", moment.glow);
+  for (const node of document.querySelectorAll(".prompt")) {
+    animations.get(node)?.cancel();
+    node.textContent = moment.prompt;
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      animations.set(node, node.animate([{ opacity: 0.12 }, { opacity: 1 }], { duration: 500, easing: "ease-in-out" }));
+    }
+  }
+});
+const tray = document.querySelector("#journey-widgets");
+for (const size of ["Small", "Medium"]) {
+  const card = document.querySelector("#journey-widget").content.cloneNode(true);
+  card.querySelector("figure").classList.toggle("medium", size === "Medium");
+  card.querySelector("figcaption").textContent = size;
+  tray.append(card);
+}
+const slider = document.querySelector("#journey-demo");
+function updateJourney() {
+  const score = Number(slider.value);
+  document.querySelector("output").textContent = score;
+  for (const widget of tray.querySelectorAll(".widget")) {
+    widget.querySelector(".score span").textContent = score;
+    widget.querySelector(".sailed").style.strokeDasharray = score + " 100";
+    const route = widget.querySelector(".course-line");
+    const point = route.getPointAtLength(route.getTotalLength() * score / 100);
+    widget.querySelector(".boat").style.transform = `translate(${point.x}px, ${point.y}px)`;
+  }
+}
+slider.addEventListener("input", updateJourney);
+updateJourney();
+</script>
+</body>
+</html>

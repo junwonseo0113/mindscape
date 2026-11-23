@@ -53,7 +53,7 @@ export function rateLimited(req: any, now = Date.now()): boolean {
   return recent.length > RATE_LIMIT
 }
 
-export function withApiRoute(handler: (apiKey: string, body: any) => Promise<HandlerResult>) {
+export function withApiRoute(handler: (apiKey: string, body: any, authorization?: string) => Promise<HandlerResult>) {
   return async (req: any, res: any) => {
     if (applyCors(req, res)) return
     if (req.method !== 'POST') {
@@ -81,7 +81,7 @@ export function withApiRoute(handler: (apiKey: string, body: any) => Promise<Han
       // Vercel parses a JSON request body into req.body automatically for
       // Node.js functions; req.body is already an object, never a string,
       // when Content-Type is application/json.
-      const { status, json } = await handler(apiKey, req.body ?? {})
+      const { status, json } = await handler(apiKey, req.body ?? {}, req.headers?.authorization)
       res.status(status).json(json)
     } catch (err: any) {
       res.status(500).json({ error: err?.message ?? 'An unknown error occurred.' })

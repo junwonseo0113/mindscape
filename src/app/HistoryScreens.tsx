@@ -1,4 +1,6 @@
 import React from "react";
+import { weeklyReflectionsEnabled, type MindscapePlan } from "./mindscapePlan";
+import { WeeklyReflectionPanel } from "./WeeklyReflectionPanel";
 import { motion, AnimatePresence, useDragControls } from "motion/react";
 import { REGION_CONFIG, resolveRegion, recencyFromDate } from "./brainRegions";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
@@ -490,7 +492,7 @@ function JournalView({ store, query, onOpenEntry }: { store: Store; query: strin
   );
 }
 
-export function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void }) {
+export function ScreenHistory({ onNavSelect, store, onOpenEntry, updateStore, onOpenAiConsent, cloudUserId, plan }: { onNavSelect?: (id: string) => void; store: Store; onOpenEntry?: (index: number) => void; updateStore?: (updater: (previous: Store) => Store) => void; onOpenAiConsent?: () => void; cloudUserId?: string | null; plan?: MindscapePlan }) {
   // Two pages in one tab: the journal (entries, by day) and the patterns
   // catalogue (beliefs, by family). The journal is first because it's the
   // thing the person actually wrote.
@@ -641,9 +643,15 @@ export function ScreenHistory({ onNavSelect, store, onOpenEntry }: { onNavSelect
         three times over was most of what made this screen feel busy — and
         come back the moment a star lands in them, or when the filter
         sheet asks for that family by name. ── */}
-        <div className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
+        <div data-tutorial="history-list" className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
           {view === "entries" ? (
-            <JournalView store={store} query={query} onOpenEntry={onOpenEntry} />
+            <>
+              {!search.trim() && updateStore && onOpenAiConsent && plan &&
+                (plan.demo || weeklyReflectionsEnabled || !!store.weeklyReflections?.length || !!store.weeklyReflection) && (
+                <WeeklyReflectionPanel key={plan.demo ? "demo" : cloudUserId ?? "guest"} store={store} cloudUserId={cloudUserId} plan={plan} updateStore={updateStore} onOpenEntry={onOpenEntry} onOpenAiConsent={onOpenAiConsent} />
+              )}
+              <JournalView store={store} query={query} onOpenEntry={onOpenEntry} />
+            </>
           ) : (
           <>
           {catalogue.length === 0 && (

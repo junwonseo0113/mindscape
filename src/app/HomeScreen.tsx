@@ -81,7 +81,7 @@ export function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVo
       </div>
 
       {/* The main feature: how close you are to who you want to be. */}
-      <div style={{ padding: "16px 18px 0", flexShrink: 0 }}>
+      <div data-tutorial="voyage-card" style={{ padding: "16px 18px 0", flexShrink: 0 }}>
         <VoyageCard
           closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
           aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}

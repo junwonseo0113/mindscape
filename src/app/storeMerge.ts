@@ -1,3 +1,4 @@
+import { mergeWeeklyReflections } from "./weeklyReflection";
 // ── Merging two copies of the same person's diary ───────────────────────────
 // When someone signs in, this device's copy and the cloud copy can both
 // have things the other doesn't: entries written as a guest or offline
@@ -44,6 +45,9 @@ export function mergeStores(local: Store, cloud: Store): Store {
     account: local.account ?? cloud.account,
     aiConsent: local.aiConsent ?? cloud.aiConsent,
     // Shared content, joined.
+    weeklyReflection: (cloud.weeklyReflection?.weekStart ?? "") > (local.weeklyReflection?.weekStart ?? "")
+      ? cloud.weeklyReflection : local.weeklyReflection ?? cloud.weeklyReflection,
+    weeklyReflections: mergeWeeklyReflections(local.weeklyReflections, cloud.weeklyReflections),
     history: capHistory(unionBy(local.history, cloud.history, (e) => e.id, richerEntry).sort(byDate)),
     beliefs: unionBy(local.beliefs, cloud.beliefs, (b) => b.id, newerBelief),
     hypotheses: unionBy(local.hypotheses, cloud.hypotheses, (h) => h.id),

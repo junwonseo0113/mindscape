@@ -3,12 +3,38 @@
 // real reminders (local notifications, which fire even when the app is
 // closed), and speech-to-text through iOS's own recogniser. On the web
 // every function here is a quiet no-op, so callers never branch.
-import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { SpeechRecognition } from "@capgo/capacitor-speech-recognition";
 
 export const isNative = Capacitor.isNativePlatform();
+
+export type WidgetAction = "write" | "diary" | "journey";
+
+type JourneySnapshot = { hasAspiration: boolean; score: number | null; weekChange: number | null };
+
+const MindscapeWidget = registerPlugin<{
+  syncJourney(snapshot: JourneySnapshot): Promise<void>;
+  addListener(event: "openWidget", handler: (event: { action: unknown }) => void): Promise<PluginListenerHandle>;
+}>("MindscapeWidget");
+
+export function watchWidgetActions(onAction: (action: WidgetAction) => void) {
+  if (Capacitor.getPlatform() !== "ios") return;
+  let disposed = false;
+  const subscription = MindscapeWidget.addListener("openWidget", ({ action }) => {
+    if (!disposed && (action === "write" || action === "diary" || action === "journey")) onAction(action);
+  });
+  void subscription.catch(() => {});
+  return () => {
+    disposed = true;
+    void subscription.then((listener) => listener.remove()).catch(() => {});
+  };
+}
+
+export function syncJourneyWidget(snapshot: JourneySnapshot) {
+  if (Capacitor.getPlatform() === "ios") void MindscapeWidget.syncJourney(snapshot).catch(() => {});
+}
 
 // ── Haptics ──
 export type HapticKind = "tap" | "press" | "success";

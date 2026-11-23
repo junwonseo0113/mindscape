@@ -38,6 +38,8 @@ import { formatDateDots } from "./dateUtils";
 import { MIN_SUPPORTING_ENTRIES_FOR_BELIEF, deriveStatus, initialConfidenceOnPromotion, nextConfidence } from "./analysisFramework";
 import { computeLanguageObservation } from "./cognitiveLexicon";
 
+import { mergeWeeklyReflections, sanitizeWeeklyReflection } from "./weeklyReflection";
+
 const STORE_KEY = "mijeong.store.v6";
 
 // Shared by loadStore (localStorage) and dataProvider's cloud-pull path
@@ -56,6 +58,8 @@ export function sanitizeStore(parsed: any): Store {
       assumptions: Array.isArray(parsed.assumptions) ? parsed.assumptions : [],
       connections: Array.isArray(parsed.connections) ? parsed.connections : [],
       history: Array.isArray(parsed.history) ? parsed.history : [],
+      weeklyReflection: sanitizeWeeklyReflection(parsed.weeklyReflection),
+      weeklyReflections: mergeWeeklyReflections(parsed.weeklyReflections),
       hypotheses: Array.isArray(parsed.hypotheses) ? parsed.hypotheses : [],
       aspiration: typeof parsed.aspiration === "string" ? parsed.aspiration : null,
       aspirationSetDate: typeof parsed.aspirationSetDate === "string" ? parsed.aspirationSetDate : null,

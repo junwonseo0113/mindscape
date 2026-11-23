@@ -1,4 +1,6 @@
 import React from "react";
+import { PlanSection } from "./PlanSection";
+import { weeklyReflectionsEnabled, type MindscapePlan } from "./mindscapePlan";
 import { motion, useReducedMotion } from "motion/react";
 import { REGION_CONFIG } from "./brainRegions";
 import { Store, StoredSettings } from "./types";
@@ -26,6 +28,8 @@ export function ScreenProfile({
   isDemoMode,
   onToggleDemoMode,
   onOpenJourneyMap,
+  plan,
+  onOpenDiary,
 }: {
   // Profile is reached from Home's top-right icon, so "back" means Home.
   // Having a real back control also gives the edge swipe-back something
@@ -38,6 +42,8 @@ export function ScreenProfile({
   isDemoMode: boolean;
   onToggleDemoMode: (v: boolean) => void;
   onOpenJourneyMap?: () => void;
+  plan?: MindscapePlan;
+  onOpenDiary?: () => void;
 }) {
   const name = store.account?.name || "Anonymous observer";
   const initial = name.charAt(0);
@@ -90,6 +96,9 @@ export function ScreenProfile({
             {firstEntryDate && <span style={{ ...mono, fontSize: 12, color: ivFaint }}>With you since {firstEntryDate}</span>}
           </div>
         </div>
+
+        {/* Plus only means something while weekly reflections are switched on. */}
+        {plan && (plan.demo || weeklyReflectionsEnabled) && <PlanSection plan={plan} onOpenDiary={onOpenDiary} />}
 
         <div data-tutorial="profile-stats" style={{ display: "flex", gap: 12, marginBottom: 22 }}>
           {stats.map((s) => (

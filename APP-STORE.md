@@ -53,8 +53,7 @@ npm run ios:open       # opens ios/App in Xcode
 Run `npm run build:ios` again after every web change.
 
 ### 4. Sign it
-In Xcode: select the **App** target → **Signing & Capabilities** → tick
-"Automatically manage signing" → choose your **Team**.
+In Xcode, enable automatic signing for **App** and **MindscapeWidget** and select the same team for both. Keep their version and build numbers in sync when preparing an archive. Enable the App Groups capability for both targets and select the same group, `group.com.junwonseo.mindscape`, so the Journey widget can read the score.
 
 ### 5. Try it
 Pick an iPhone simulator (or your phone) and press ▶. Check: the opening
@@ -63,6 +62,11 @@ Profile → Data & Privacy. On a **real iPhone** also check what the simulator
 can't: speaking an entry ("Use voice instead"; allow microphone and speech),
 haptic taps, and a reminder (Profile → Notifications, set a time a minute
 ahead, lock the phone).
+
+To check the widget, install and open Mindscape, then touch and hold the iPhone
+Home Screen and choose **Edit → Add Widget**. **Mindscape Diary** opens writing, and its medium size also links to Diary. **Mindscape Journey** shows the most recent aspiration score and weekly change when available. Tap it to open Your Journey or set an aspiration.
+Check both taps with Mindscape in the background and after closing the app.
+Finish sign-in or onboarding if the app asks before it opens the requested screen.
 
 ### 6. Create the app in App Store Connect
 <https://appstoreconnect.apple.com> → Apps → **+** → New App: iOS, name

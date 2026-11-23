@@ -63,6 +63,12 @@ function useTutorialTargetRect(target: string, frameRef: React.RefObject<HTMLDiv
 export const TUTORIAL_STEPS: TutorialStep[] = [
     {
       screen: "home",
+      target: "voyage-card",
+      title: "Your path starts here",
+      body: "Your letter sets the direction shown here. As you write, Mindscape can help you notice which moments brought you closer. You can set or change your direction anytime.",
+    },
+    {
+      screen: "home",
       target: "brain-card",
       title: "This brain is going to become you",
       body: "Every time you speak, a new point appears — and the more a pattern repeats, the more brightly that spot glows.",
@@ -144,7 +150,20 @@ export function TutorialOverlay({
   React.useEffect(() => {
     if (showStep) titleRef.current?.focus();
   }, [showStep, step.target]);
-  if (!showStep) return null;
+  const skip = (
+      <motion.span
+        role="button" tabIndex={0} onClick={onSkip} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSkip)?.(); } }} whileTap={{ opacity: 0.6 }}
+        style={{
+          position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
+          backgroundColor: "rgba(24,20,18,0.85)", padding: "6px 12px", borderRadius: 999, cursor: "pointer",
+          pointerEvents: "auto",
+        }}
+      >
+        Skip {stepIndex + 1}/{totalSteps}
+      </motion.span>
+  );
+  if (screen !== step.screen) return null;
+  if (!rect) return <div style={{ position: "absolute", inset: 0, zIndex: 300, pointerEvents: "none" }}>{skip}</div>;
 
   const pad = 6;
   const spot = { top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 };
@@ -195,17 +214,7 @@ export function TutorialOverlay({
         }}
       />
 
-      {/* Skip, always reachable. */}
-      <motion.span
-        role="button" tabIndex={0} onClick={onSkip} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onSkip)?.(); } }} whileTap={{ opacity: 0.6 }}
-        style={{
-          position: "absolute", top: 16, right: 16, ...sans, fontSize: 12, fontWeight: 600, color: "#fff",
-          backgroundColor: "rgba(24,20,18,0.85)", padding: "6px 12px", borderRadius: 999, cursor: "pointer",
-          pointerEvents: "auto",
-        }}
-      >
-        Skip {stepIndex + 1}/{totalSteps}
-      </motion.span>
+      {skip}
 
       {/* Tooltip — below/above/pinned depending on where the spotlight sits
       and how much room is actually available (see tooltipPosition above). */}

@@ -4,8 +4,8 @@ import { CognitiveRegion } from "./neuralBrainLayout";
 import { emptyStore } from "./types";
 import { formatDateDots, parseDotDate } from "./dateUtils";
 import { apiUrl } from "./apiBase";
-import { closenessAt, entryStep } from "./aspirationPath";
-import { haptic, isNative, notifyNow, syncReminders } from "./native";
+import { closenessAt, entryStep, weekChange } from "./aspirationPath";
+import { haptic, isNative, notifyNow, syncReminders, syncJourneyWidget, watchWidgetActions, type WidgetAction } from "./native";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar as NativeStatusBar, Style as StatusBarStyle } from "@capacitor/status-bar";
 import { appendUnanalyzedEntry, isMoodCheckIn, mergeAnalysisIntoStore, recentEntryMemory, recentMoodContext } from "./realStore";
@@ -19,10 +19,12 @@ import { useAppData } from "./dataProvider";
 import { matchableCandidates } from "./analysisFramework";
 import { loadBrainMap, PeekContext, BrainNodeMapScreen } from "./screenPeeking";
 import { loadAnime } from "./animeLoader";
-import { computeWeeklySummary } from "./entryTiming";
+import { computeWeeklySummary, voyageAnchor } from "./entryTiming";
 import { TUTORIAL_STEPS, TutorialOverlay } from "./tutorial";
 import { evidenceForHypothesis } from "./hypothesisEvidence";
 import { ScreenQuoteOfTheDay, ScreenSplash } from "./OpeningScreens";
+import { PlanIntroduction } from "./PlanSection";
+import { PLUS_INTRO_KEY, readPlanPreference, savePlanPreference, useMindscapePlan, weeklyReflectionsEnabled } from "./mindscapePlan";
 import { ScreenHome } from "./HomeScreen";
 import { dkBg, mdBg } from "./screenTheme";
 import { OpenFromContext, StatusBar } from "./screenUI";
@@ -199,6 +201,17 @@ export default function App() {
   // Consent is a real legal record, so it always lives on the real store —
   // even while browsing Demo Mode, typing into "Speak your mind" sends the
   // person's own words to the AI.
+  const plan = useMindscapePlan(cloudUserId, isDemoMode);
+  const widgetAspiration = !!realStore.aspiration?.trim();
+  const widgetHistory = realStore.history;
+  React.useEffect(() => {
+    if (!isNative) return;
+    syncJourneyWidget({
+      hasAspiration: widgetAspiration,
+      score: widgetAspiration ? closenessAt(widgetHistory) : null,
+      weekChange: widgetAspiration ? weekChange(widgetHistory, voyageAnchor(widgetHistory)) : null,
+    });
+  }, [widgetAspiration, widgetHistory]);
   const aiAllowed = hasAiConsent(realStore);
   const [aiConsentReturnTo, setAiConsentReturnTo] = React.useState("think");
   // First "Speak your mind" (or the first one after the consent wording
@@ -208,15 +221,16 @@ export default function App() {
   // writing screen can ask about it. Anything other than a string (a click
   // event, when this is passed straight to onClick) means a plain start.
   const [thinkMood, setThinkMood] = React.useState<string | null>(null);
-  const startThink = (mood?: unknown) => {
+  const needsConsent = needsAiConsentDecision(realStore);
+  const startThink = React.useCallback((mood?: unknown) => {
     setThinkMood(typeof mood === "string" ? mood : null);
-    if (needsAiConsentDecision(realStore)) {
+    if (needsConsent) {
       setAiConsentReturnTo("think");
       setScreen("aiConsent");
     } else {
       setScreen("think");
     }
-  };
+  }, [needsConsent]);
 
   // A refresh or tab-close mid-analysis silently throws away the in-flight
   // /api/analyze call (and, for a Pro entry, the thought itself — it isn't
@@ -319,6 +333,15 @@ export default function App() {
   // tooltip's own button calling the identical setScreen.
   const [tutorialActive, setTutorialActive] = React.useState(false);
   const [tutorialStep, setTutorialStep] = React.useState(0);
+  const [widgetAction, setWidgetAction] = React.useState<WidgetAction | null>(null);
+  React.useEffect(() => watchWidgetActions(setWidgetAction), []);
+
+  const [hasSeenPlusIntro, setHasSeenPlusIntro] = React.useState(() => readPlanPreference(PLUS_INTRO_KEY) === "1");
+  const showPlusIntro = screen === "home" && hasSeenTutorial && !tutorialActive && !widgetAction && !hasSeenPlusIntro && !isDemoMode && weeklyReflectionsEnabled;
+  const dismissPlusIntro = () => {
+    savePlanPreference(PLUS_INTRO_KEY, "1");
+    setHasSeenPlusIntro(true);
+  };
   const frameRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!tutorialActive) return;
@@ -368,6 +391,22 @@ export default function App() {
   // ScreenJourneyMap (Profile) now — this is which one "Save"/back should
   // land on, set right before navigating in from either entry point.
   const [aspirationReturnTo, setAspirationReturnTo] = React.useState("drift");
+  React.useEffect(() => {
+    if (!widgetAction) return;
+    if (screen === "think" && widgetAction === "write") {
+      setWidgetAction(null);
+      return;
+    }
+    if (!hasSeenTutorial || tutorialActive || !["home", "analysis", "discoveryAnalysis", "history", "profile"].includes(screen)) return;
+    setWidgetAction(null);
+    if (widgetAction === "write") startThink();
+    else if (widgetAction === "diary") setScreen("history");
+    else if (store.aspiration) setScreen("journeyMap");
+    else {
+      setAspirationReturnTo("home");
+      setScreen("aspirationSetup");
+    }
+  }, [widgetAction, screen, hasSeenTutorial, tutorialActive, startThink, store.aspiration]);
   const [driftReturnTo, setDriftReturnTo] = React.useState("analysis");
   // Distinct from rejectBelief above: reacting to a belief as "Today's
   // Discovery" never hides it from "Unconscious Patterns" — only the dedicated reject
@@ -494,16 +533,12 @@ export default function App() {
     case "onboarding": content = (
       <ScreenOnboarding
         initialAspiration={realStore.aspiration}
-        onDone={(aspiration) => {
-          if (aspiration && aspiration !== realStore.aspiration) {
-            updateRealStore((prev) => ({ ...prev, aspiration, aspirationSetDate: formatDateDots(new Date()) }));
-          }
-          // Starting the tour itself is handled by the "arrived at Home"
-          // effect above, not here — this used to be the only trigger,
-          // which meant a returning user logging into an existing account
-          // (skipping onboarding entirely) never saw it.
-          setScreen("home");
+        onSaveAspiration={(aspiration) => {
+          updateRealStore((prev) => prev.aspiration === aspiration
+            ? prev
+            : { ...prev, aspiration, aspirationSetDate: formatDateDots(new Date()) });
         }}
+        onDone={() => setScreen("home")}
       />
     ); break;
     case "home": content = (
@@ -689,6 +724,10 @@ export default function App() {
       <ScreenHistory
         onNavSelect={goToTab}
         store={store}
+        updateStore={updateStore}
+        cloudUserId={cloudUserId}
+        plan={plan}
+        onOpenAiConsent={() => { setAiConsentReturnTo("history"); setScreen("aiConsent"); }}
         onOpenEntry={(i) => { setHistoryEntryIndex(i); setScreen("historyDetail"); }}
       />
     ); break;
@@ -703,6 +742,8 @@ export default function App() {
         onToggleDemoMode={setIsDemoMode}
         onOpenSettings={(s) => setScreen(s === "notifications" ? "notifications" : s === "dataPrivacy" ? "dataPrivacy" : "help")}
         onOpenJourneyMap={() => setScreen("journeyMap")}
+        plan={plan}
+        onOpenDiary={() => goToTab("history")}
       />
     ); break;
     case "notifications": content = (
@@ -905,6 +946,9 @@ export default function App() {
           style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.12)", pointerEvents: "none", zIndex: 40 }}
         />
 
+        {showPlusIntro && (
+          <PlanIntroduction onDismiss={dismissPlusIntro} onViewPlans={() => { dismissPlusIntro(); goToTab("profile"); }} />
+        )}
         {tutorialActive && TUTORIAL_STEPS[tutorialStep] && (
           <TutorialOverlay
             step={TUTORIAL_STEPS[tutorialStep]}

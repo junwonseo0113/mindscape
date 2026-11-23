@@ -2,31 +2,16 @@ import React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { REGION_CONFIG } from "./brainRegions";
 import { CognitiveRegion } from "./neuralBrainLayout";
-import { haptic } from "./native";
 import { SETTLE } from "./motionPrimitives";
 import { sans } from "./typefaces";
-import { Eye, Graph, HandWaving, Microphone, Sparkle } from "@phosphor-icons/react";
+import { Sparkle } from "@phosphor-icons/react";
 import { mdAccent, mdAccentText } from "./screenTheme";
 import { loadAnime } from "./animeLoader";
-import { DiaryHeading, DiaryNotePaper, SEAL_MS, FutureSelfLetter } from "./diaryPaper";
+import { DiaryHeading, DiaryNotePaper, useLetterSeal, FutureSelfLetter } from "./diaryPaper";
 import { OPENING_BG, OPENING_TEXT, OpeningBackdrop } from "./OpeningScreens";
 import { PrimaryBtn } from "./screenUI";
 
 // ── Screen 3 · Onboarding (3 short beats) ────────────────────────────────────
-// Simple stroke-based glyphs, same style as WaveformIcon/the bottom-nav
-// icons (24x24 viewBox, no fill, rounded strokes) — one per onboarding
-// slide, Apple-onboarding-style (Health/Fitness+: a big glyph, a headline,
-// one line of body copy, nothing busier than that).
-function OnboardingIcon({ kind, size = 56 }: { kind: "welcome" | "speak" | "watch" | "pattern"; size?: number }) {
-  // Phosphor's duotone weight: a tinted fill under the line, which reads
-  // as an illustration at this size rather than a toolbar icon.
-  const color = mdAccent;
-  if (kind === "welcome") return <HandWaving size={size} color={color} weight="duotone" />;
-  if (kind === "speak") return <Microphone size={size} color={color} weight="duotone" />;
-  if (kind === "watch") return <Eye size={size} color={color} weight="duotone" />;
-  return <Graph size={size} color={color} weight="duotone" />;
-}
-
 // Two loose hand-placed clusters (not the real generateBrainCloud — this is
 // a decorative ~20-point stand-in, not the actual tissue) roughly tracing
 // two hemispheres, same visual language as the real Brain Map without the
@@ -84,6 +69,7 @@ function OnboardingBrainDemo() {
     if (!activated || !svgRef.current) return;
     const dots = svgRef.current.querySelectorAll<SVGCircleElement>(".bg-dot");
     let cancelled = false;
+    let animation: { cancel: () => unknown } | undefined;
     void loadAnime().then(({ animate }) => {
       if (cancelled) return;
       // Reduced motion: jump straight to the lit state and back with no
@@ -91,7 +77,7 @@ function OnboardingBrainDemo() {
       // same "duration: reducedMotion ? 0 : …" convention this file already
       // uses in ScreenQuoteOfTheDay/OpeningStars, just applied to an
       // imperative anime.js call instead of a declarative transition prop.
-      animate(dots, {
+      animation = animate(dots, {
         opacity: [
           { to: 0.85, duration: reducedMotion ? 0 : 260, ease: "outQuad" },
           { to: 0.28, duration: reducedMotion ? 0 : 650, ease: "inOutQuad" },
@@ -116,8 +102,8 @@ function OnboardingBrainDemo() {
           return Math.hypot(dx, dy) * 9; // ms per viewBox unit of distance — the wave's propagation speed
         },
       });
-    });
-    return () => { cancelled = true; };
+    }).catch(() => { /* The demo still shows its new thought without the ripple. */ });
+    return () => { cancelled = true; animation?.cancel(); };
   }, [activated, reducedMotion]);
 
   return (
@@ -231,11 +217,11 @@ const ONBOARDING_SLIDES = [
 // leaving it blank just skips ahead.
 const ASPIRATION_STEP = 1;
 
-export function ScreenOnboarding({ initialAspiration, onDone }: { initialAspiration?: string | null; onDone?: (aspiration: string | null) => void }) {
+export function ScreenOnboarding({ initialAspiration, onSaveAspiration, onDone }: { initialAspiration?: string | null; onSaveAspiration?: (aspiration: string) => void; onDone?: () => void }) {
   const totalSteps = ONBOARDING_SLIDES.length + 1;
   const [i, setI] = React.useState(0);
   const [aspiration, setAspiration] = React.useState(initialAspiration ?? "");
-  const [sealing, setSealing] = React.useState(false);
+  const { sealing, seal } = useLetterSeal();
   const isAspirationStep = i === ASPIRATION_STEP;
   const isLast = i === totalSteps - 1;
   const slide = isAspirationStep ? null : ONBOARDING_SLIDES[i < ASPIRATION_STEP ? i : i - 1];
@@ -250,15 +236,15 @@ export function ScreenOnboarding({ initialAspiration, onDone }: { initialAspirat
     : ({ welcome: "welcome", speak: "speak", watch: "notice", pattern: "map" } as const)[slide!.icon];
 
   const next = () => {
-    if (isLast) return onDone?.(aspiration.trim() || null);
-    if (!isAspirationStep || !aspiration.trim()) return setI((v) => v + 1);
-    if (sealing) return;
-    // Seal the letter, then turn the page once the seal has landed.
-    setSealing(true);
-    haptic("success");
-    setTimeout(() => { setSealing(false); setI((v) => v + 1); }, SEAL_MS);
+    if (isLast) return onDone?.();
+    const value = aspiration.trim();
+    if (!isAspirationStep || !value) return setI((v) => v + 1);
+    seal(() => {
+      onSaveAspiration?.(value);
+      setI((v) => v + 1);
+    });
   };
-  const label = isLast ? "Start"
+  const label = sealing ? "Sealing…" : isLast ? "Start"
     : isAspirationStep ? (aspiration.trim() ? "Seal it" : "Skip for now")
     : i === 0 ? "Get Started" : "Next";
 
@@ -311,18 +297,18 @@ export function ScreenOnboarding({ initialAspiration, onDone }: { initialAspirat
           </motion.div>
         </AnimatePresence>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1 }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 28px", position: "relative", zIndex: 1, overflowY: "auto" }}>
           <div style={{ flexShrink: 0, paddingTop: 8 }}>
             <DiaryHeading kicker="Before anything else" title={"What kind of person\ndo you want to become?"} region="security"
               body="Everything you write from here gets measured against this. Optional, and you can change it anytime in Profile." />
           </div>
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", marginTop: 22, paddingBottom: 18 }}>
+          <div style={{ flex: 1, minHeight: 175, display: "flex", flexDirection: "column", marginTop: 22, paddingBottom: 18 }}>
             <FutureSelfLetter autoFocus value={aspiration} onChange={setAspiration} sealed={sealing} />
           </div>
         </div>
       )}
-      <div style={{ padding: "0 28px 40px", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory tone={isAspirationStep ? "security" : slide?.kicker ? SLIDE_TONES[slide.icon] ?? "identity" : "identity"} onClick={next}>
+      <div style={{ padding: "0 28px max(30px, calc(12px + env(safe-area-inset-bottom)))", flexShrink: 0, position: "relative", zIndex: 1 }}>
+        <PrimaryBtn ivory tone={isAspirationStep ? "security" : slide?.kicker ? SLIDE_TONES[slide.icon] ?? "identity" : "identity"} disabled={sealing} onClick={next}>
           {label}
         </PrimaryBtn>
       </div>

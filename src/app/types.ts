@@ -361,6 +361,8 @@ export type StoredLiterarySelection = {
 };
 
 export type Store = {
+  weeklyReflection?: import("./weeklyReflection").WeeklyReflection;
+  weeklyReflections?: import("./weeklyReflection").WeeklyReflection[];
   beliefs: StoredBelief[];
   assumptions: StoredAssumption[];
   connections: StoredConnection[];

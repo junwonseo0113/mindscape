@@ -4,6 +4,7 @@ import { REGION_CONFIG } from "./brainRegions";
 import { display, hand } from "./typefaces";
 import type { CognitiveRegion } from "./neuralBrainLayout";
 import { OPENING_TEXT, OPENING_MUTED } from "./OpeningScreens";
+import { haptic } from "./native";
 import { PenNib } from "@phosphor-icons/react";
 
 // ── DiaryNotePaper ───────────────────────────────────────────────────────────
@@ -16,8 +17,8 @@ import { PenNib } from "@phosphor-icons/react";
 // The ink drops and the drift stop under reduced motion.
 const DIARY_INKS = [REGION_CONFIG.identity.color, REGION_CONFIG.relationships.color, REGION_CONFIG.career.color, REGION_CONFIG.curiosity.color, REGION_CONFIG.security.color, REGION_CONFIG.creativity.color];
 
-export function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, fontSize = 25, lineHeight = 36, minHeight, fill, onEnter, style, header, children }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel: string; autoFocus?: boolean;
+export function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFocus, readOnly, fontSize = 25, lineHeight = 36, minHeight, fill, onEnter, style, header, children }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; ariaLabel: string; autoFocus?: boolean; readOnly?: boolean;
   fontSize?: number; lineHeight?: number; minHeight?: number; fill?: boolean; onEnter?: () => void; style?: React.CSSProperties;
   // header: written on the first ruled line, above where you type (a
   // salutation, say). children: overlays on the paper (a seal, a stamp).
@@ -75,7 +76,7 @@ export function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFo
           }}>{header}</div>
         )}
         <textarea
-          autoFocus={autoFocus} value={value} placeholder={placeholder} aria-label={ariaLabel}
+          autoFocus={autoFocus} readOnly={readOnly} value={value} placeholder={placeholder} aria-label={ariaLabel}
           onChange={(e) => handle(e.target.value)}
           onKeyDown={onEnter ? (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnter(); } } : undefined}
           rows={fill ? undefined : 2}
@@ -115,17 +116,38 @@ export function DiaryNotePaper({ value, onChange, placeholder, ariaLabel, autoFo
 // on the same line. When it's saved, a wax seal in the app's colours
 // presses down onto the corner of the page, the way you'd close a letter
 // meant to be opened later; the screen moves on once it has landed.
-export const SEAL_MS = 900;
+const SEAL_MS = 1050;
+
+export function useLetterSeal() {
+  const [sealing, setSealing] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (timer.current !== null) clearTimeout(timer.current); }, []);
+
+  function seal(onComplete: () => void) {
+    if (timer.current !== null) return;
+    if (document.activeElement instanceof HTMLTextAreaElement) document.activeElement.blur();
+    setSealing(true);
+    haptic("success");
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setSealing(false);
+      onComplete();
+    }, SEAL_MS);
+  }
+
+  return { sealing, seal };
+}
 
 function WaxSeal() {
   const reduce = useReducedMotion();
   const c = REGION_CONFIG.relationships;
+  const gradientId = React.useId();
   return (
-    <motion.div aria-hidden
+    <motion.div aria-hidden data-letter-seal
       initial={reduce ? { opacity: 0 } : { scale: 2.4, opacity: 0, rotate: -40, y: -30 }}
       animate={{ scale: 1, opacity: 1, rotate: -12, y: 0 }}
       transition={reduce ? { duration: 0.2 } : { type: "spring", stiffness: 320, damping: 17 }}
-      style={{ position: "absolute", right: 16, bottom: 40, width: 72, height: 72, zIndex: 3 }}
+      style={{ position: "absolute", right: 16, bottom: 26, width: 72, height: 72, zIndex: 3, pointerEvents: "none" }}
     >
       {!reduce && (
         <motion.span initial={{ scale: 0.6, opacity: 0.55 }} animate={{ scale: 1.9, opacity: 0 }} transition={{ duration: 0.7, delay: 0.12, ease: "easeOut" }}
@@ -133,12 +155,12 @@ function WaxSeal() {
       )}
       <svg viewBox="0 0 72 72" width="72" height="72" style={{ display: "block", filter: `drop-shadow(0 4px 6px ${c.ink}55)` }}>
         <defs>
-          <radialGradient id="wax" cx="38%" cy="32%" r="70%">
+          <radialGradient id={gradientId} cx="38%" cy="32%" r="70%">
             <stop offset="0" stopColor="#F59BB4" /><stop offset="0.45" stopColor={c.color} /><stop offset="1" stopColor={c.ink} />
           </radialGradient>
         </defs>
         {/* Melted, uneven rim */}
-        <path d="M36 3c6 0 9 3 14 4s10 5 12 10 4 9 5 14-1 9 0 14-4 10-8 13-8 6-13 7-9 4-14 3-9-3-14-5-9-6-11-11-5-9-5-14 2-10 2-15 5-9 9-12 10-5 14-6 4-2 9-2z" fill="url(#wax)" />
+        <path d="M36 3c6 0 9 3 14 4s10 5 12 10 4 9 5 14-1 9 0 14-4 10-8 13-8 6-13 7-9 4-14 3-9-3-14-5-9-6-11-11-5-9-5-14 2-10 2-15 5-9 9-12 10-5 14-6 4-2 9-2z" fill={`url(#${gradientId})`} />
         <circle cx="36" cy="36" r="21" fill="none" stroke="#FFFFFF" strokeOpacity="0.35" strokeWidth="1.2" />
         <circle cx="36" cy="36" r="17.5" fill="none" stroke={c.ink} strokeOpacity="0.35" strokeWidth="1" />
         <text x="36" y="45" textAnchor="middle" style={{ ...display, fontStyle: "italic", fontSize: 26 }} fill="#FFFFFF" fillOpacity="0.88">M</text>
@@ -151,7 +173,7 @@ export function FutureSelfLetter({ value, onChange, sealed, autoFocus, fontSize 
   const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   return (
     <DiaryNotePaper
-      fill autoFocus={autoFocus} value={value} onChange={onChange} fontSize={fontSize} lineHeight={lineHeight}
+      fill autoFocus={autoFocus} readOnly={sealed} value={value} onChange={onChange} fontSize={fontSize} lineHeight={lineHeight}
       ariaLabel="What kind of person do you want to become? Write it as a note to your future self"
       placeholder="I want to be someone who chooses challenge over safety…"
       header={<><span>Dear future me,</span><span style={{ fontSize: Math.round(fontSize * 0.72), color: REGION_CONFIG.identity.ink, opacity: 0.75 }}>{date}</span></>}

@@ -15,7 +15,7 @@ import { PRIMARY_HEADER_TOP, PRIMARY_HEADER_SIDE, PrimaryBtn, BackButton } from 
 import { SettingsGroup, SettingsRow } from "./settingsUI";
 import { Emph, B, quietCard, SectionHeading } from "./insightText";
 import { voyageAnchor } from "./entryTiming";
-import { SEAL_MS, FutureSelfLetter } from "./diaryPaper";
+import { useLetterSeal, FutureSelfLetter } from "./diaryPaper";
 import { OpeningBackdrop } from "./OpeningScreens";
 import { JourneyCharacter } from "./journeyShared";
 
@@ -295,12 +295,11 @@ export function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () 
 // ── Screen 10.5 · Aspiration setup ────────────────────────────────────────────
 export function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initialValue?: string | null; onBack?: () => void; onSave?: (value: string) => void }) {
   const [value, setValue] = React.useState(initialValue ?? "");
-  const [sealing, setSealing] = React.useState(false);
+  const { sealing, seal } = useLetterSeal();
   const save = () => {
     const v = value.trim();
     if (!v || sealing) return;
-    setSealing(true);
-    setTimeout(() => onSave?.(v), SEAL_MS);
+    seal(() => onSave?.(v));
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", ...ivBackground, position: "relative", overflow: "hidden" }}>
@@ -316,7 +315,7 @@ export function ScreenAspirationSetup({ initialValue, onBack, onSave }: { initia
         <FutureSelfLetter autoFocus value={value} onChange={setValue} sealed={sealing} />
       </div>
       <div style={{ padding: "0 22px max(32px, calc(12px + env(safe-area-inset-bottom)))", flexShrink: 0, position: "relative", zIndex: 1 }}>
-        <PrimaryBtn ivory tone="security" disabled={!value.trim()} onClick={save}>{initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
+        <PrimaryBtn ivory tone="security" disabled={sealing || !value.trim()} onClick={save}>{sealing ? "Sealing…" : initialValue ? "Seal the new version" : "Seal it"}</PrimaryBtn>
       </div>
     </div>
   );

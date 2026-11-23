@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { handleWeeklyReflection } from './src/server/weeklyReflection'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -19,7 +20,7 @@ import {
 // of here: this file is just the local-dev adapter for it.
 function apiRoute(
   env: Record<string, string>,
-  handler: (apiKey: string, body: any) => Promise<HandlerResult>
+  handler: (apiKey: string, body: any, authorization?: string) => Promise<HandlerResult>
 ) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     if (req.method !== 'POST') {
@@ -41,7 +42,7 @@ function apiRoute(
     req.on('end', async () => {
       try {
         const body = JSON.parse(raw || '{}')
-        const { status, json } = await handler(apiKey, body)
+        const { status, json } = await handler(apiKey, body, req.headers.authorization)
         res.statusCode = status
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify(json))
@@ -58,6 +59,7 @@ function analyzeApiPlugin(env: Record<string, string>): Plugin {
   return {
     name: 'analyze-api',
     configureServer(server) {
+      server.middlewares.use('/api/weekly-reflection', apiRoute(env, (key, body, authorization) => handleWeeklyReflection(key, body, env.WEEKLY_REFLECTION_PREVIEW, authorization, env)))
       server.middlewares.use('/api/reinterpret', apiRoute(env, handleReinterpret))
       server.middlewares.use('/api/analyze', apiRoute(env, handleAnalyze))
       server.middlewares.use('/api/summarize-session', apiRoute(env, handleSummarizeSession))
