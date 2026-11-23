@@ -11,6 +11,11 @@ import { supabase } from "./supabaseClient";
 import type { Store } from "./types";
 import { MAX_REFLECTION_ENTRY_LENGTH, mergeWeeklyReflections, reflectionSource, sanitizeWeeklyReflection, type WeeklyReflection } from "./weeklyReflection";
 
+const SIGN_IN_MESSAGE = "Sign in with an account to try a weekly reflection.";
+const FREE_USED_MESSAGE = "You’ve used your free reflection. Mindscape Plus adds a new reflection every week.";
+// Errors whose message is written for the person, not a developer.
+class ShownError extends Error {}
+
 type Props = {
   store: Store;
   cloudUserId?: string | null;
@@ -32,7 +37,10 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
   const saved = plan.demo
     ? DEMO_WEEKLY_REFLECTIONS.slice(0, plus ? undefined : 1)
     : mergeWeeklyReflections(store.weeklyReflections, [store.weeklyReflection]);
-  const source = !plan.demo && weeklyReflectionsEnabled && !checkingPlan && (plus || !saved.length)
+  // Reflections need an account: the server counts the free one per
+  // account, so a device-only guest can't create one.
+  const signedIn = !!cloudUserId && !!supabase;
+  const source = !plan.demo && weeklyReflectionsEnabled && signedIn && !checkingPlan && (plus || !saved.length)
     ? reflectionSource(store.history, new Date(), saved.map((reflection) => reflection.weekStart))
     : null;
 
@@ -48,22 +56,21 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
     setError("");
     const timeout = window.setTimeout(() => controller.abort("timeout"), 30000);
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (plus) {
-        const session = (await supabase?.auth.getSession())?.data.session;
-        if (!session || session.user.id !== cloudUserId) throw new Error("Sign in to use Mindscape Plus.");
-        headers.Authorization = `Bearer ${session.access_token}`;
-      }
+      const session = (await supabase?.auth.getSession())?.data.session;
+      if (!session || session.user.id !== cloudUserId) throw new ShownError(SIGN_IN_MESSAGE);
       const response = await fetch(apiUrl("/api/weekly-reflection"), {
         method: "POST",
-        headers,
-        body: JSON.stringify({ mode: plus ? "plus" : "preview", entries: source.entries.map((entry) => entry.text.trim().slice(0, MAX_REFLECTION_ENTRY_LENGTH)) }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ entries: source.entries.map((entry) => entry.text.trim().slice(0, MAX_REFLECTION_ENTRY_LENGTH)) }),
         signal: controller.signal,
       });
-      if (response.status === 403 && plus) {
-        throw new Error("Your Plus access couldn’t be verified.");
+      if (!response.ok) {
+        const { code } = await response.json().catch(() => ({ code: undefined }));
+        if (code === "sign_in_required") throw new ShownError(SIGN_IN_MESSAGE);
+        if (code === "free_used") throw new ShownError(FREE_USED_MESSAGE);
+        if (response.status === 403 && plus) throw new ShownError("Your Plus access couldn’t be verified.");
+        throw new Error("Reflection request failed");
       }
-      if (!response.ok) throw new Error("Reflection request failed");
       const { summary, evidence } = await response.json();
       const reflection = sanitizeWeeklyReflection({
         weekStart: source.weekStart,
@@ -84,8 +91,7 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
       });
     } catch (failure) {
       if (!controller.signal.aborted || controller.signal.reason === "timeout") {
-        setError(failure instanceof Error && failure.message === "Your Plus access couldn’t be verified."
-          ? failure.message : "Couldn’t create your reflection. Try again in a moment.");
+        setError(failure instanceof ShownError ? failure.message : "Couldn’t create your reflection. Try again in a moment.");
       }
     } finally {
       window.clearTimeout(timeout);
@@ -126,9 +132,10 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
     ? (plus ? "Demo Mode · Two example weeks, each linked to its diary entries." : "Demo Mode · One example reflection. Switch to Plus in Profile to see the archive.")
     : checkingPlan ? "Checking your plan…"
     : !weeklyReflectionsEnabled ? "New reflections are currently unavailable."
+    : !signedIn ? SIGN_IN_MESSAGE
     : source ? `Use short diary excerpts to find what repeats across ${formatWeek(source.weekStart)}.`
     : plus ? "Analyze two diary entries in a week to create that week’s reflection."
-    : saved.length ? "You’ve used your free reflection. Mindscape Plus adds a new reflection every week."
+    : saved.length ? FREE_USED_MESSAGE
     : "Analyze two diary entries in the same week to try your free reflection.";
 
   return (

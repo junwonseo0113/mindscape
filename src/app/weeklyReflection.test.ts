@@ -9,6 +9,14 @@ const entry = (id: string, date: string, extra: Partial<StoredHistoryEntry> = {}
 
 afterEach(() => vi.unstubAllGlobals());
 
+const ENV = { VITE_SUPABASE_URL: "https://example.test", VITE_SUPABASE_ANON_KEY: "anon" };
+const BODY = { entries: ["First entry.", "Second entry."] };
+const PLUS = { id: "u1", app_metadata: { mindscape_plan: "plus" } };
+const FREE = { id: "u1", app_metadata: {} };
+const user = (u: object) => ({ ok: true, status: 200, json: async () => ({ id: "u1", ...u }) });
+const rows = (r: unknown[]) => ({ ok: true, status: 200, json: async () => r });
+const claude = (text: string) => ({ ok: true, status: 200, json: async () => ({ content: [{ type: "text", text }] }) });
+
 describe("weekly reflections", () => {
   it("keeps entries within one week and excludes mood, local-only and future entries", () => {
     const entries = [
@@ -31,16 +39,15 @@ describe("weekly reflections", () => {
   });
 
   it("rejects invalid citations and makes no AI request when the preview is disabled", async () => {
-    const fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: [{ type: "text", text: '{"summary":"You paused to reflect.","evidence":[0,2]}' }] }),
-    });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(user(PLUS))
+      .mockResolvedValueOnce(claude('{"summary":"You paused to reflect.","evidence":[0,2]}'));
     vi.stubGlobal("fetch", fetch);
     const body = { entries: ["An afternoon walk.", "I walked after work."] };
-    expect((await handleWeeklyReflection("test-key", body, "false")).status).toBe(404);
+    expect((await handleWeeklyReflection("test-key", body, "false", "Bearer token", ENV)).status).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
-    expect((await handleWeeklyReflection("test-key", body, "true")).status).toBe(502);
-    expect(fetch).toHaveBeenCalledOnce();
+    expect((await handleWeeklyReflection("test-key", body, "true", "Bearer token", ENV)).status).toBe(502);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("skips completed weeks when choosing the next Plus reflection", () => {
@@ -50,36 +57,78 @@ describe("weekly reflections", () => {
     expect(reflectionSource(entries, today, ["2026.11.16", "2026.11.09"])).toBeNull();
   });
 
-  it("rejects an unverified Plus request even when the body claims Plus", async () => {
-    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ app_metadata: {}, user_metadata: { mindscape_plan: "plus" } }) });
+  it("requires a signed-in account and makes no AI request without one", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
     vi.stubGlobal("fetch", fetch);
-    const body = { mode: "plus", app_metadata: { mindscape_plan: "plus" }, entries: ["First entry.", "Second entry."] };
-    const env = { VITE_SUPABASE_URL: "https://example.test", VITE_SUPABASE_ANON_KEY: "anon" };
-    expect((await handleWeeklyReflection("test-key", body, "true", undefined, env)).status).toBe(403);
+    expect((await handleWeeklyReflection("test-key", BODY, "true", undefined, ENV)).status).toBe(401);
     expect(fetch).not.toHaveBeenCalled();
-    expect((await handleWeeklyReflection("test-key", body, "true", "Bearer token", env)).status).toBe(403);
+    expect((await handleWeeklyReflection("test-key", BODY, "true", "Bearer expired", ENV)).status).toBe(401);
     expect(fetch).toHaveBeenCalledOnce();
     expect(fetch.mock.calls[0][0]).toBe("https://example.test/auth/v1/user");
   });
 
-  it("generates a Plus reflection after verifying administrator-granted access", async () => {
+  it("ignores a Plus claim in the body and in user-editable metadata", async () => {
     const fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ app_metadata: { mindscape_plan: "plus" } }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ content: [{ type: "text", text: '{"summary":"A shared theme.","evidence":[0,1]}' }] }) });
+      .mockResolvedValueOnce(user({ app_metadata: {}, user_metadata: { mindscape_plan: "plus" } }))
+      .mockResolvedValueOnce(rows([{ user_id: "u1" }]));
     vi.stubGlobal("fetch", fetch);
-    const env = { VITE_SUPABASE_URL: "https://example.test", VITE_SUPABASE_ANON_KEY: "anon" };
-    const body = { mode: "plus", entries: ["First entry.", "Second entry."] };
-    expect((await handleWeeklyReflection("test-key", body, "true", "Bearer token", env)).status).toBe(200);
+    const body = { mode: "plus", app_metadata: { mindscape_plan: "plus" }, entries: BODY.entries };
+    const result = await handleWeeklyReflection("test-key", body, "true", "Bearer token", ENV);
+    expect(result.status).toBe(403);
+    expect(result.json.code).toBe("free_used");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("generates a Plus reflection after verifying administrator-granted access", async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(user(PLUS)).mockResolvedValueOnce(claude('{"summary":"A shared theme.","evidence":[0,1]}'));
+    vi.stubGlobal("fetch", fetch);
+    const result = await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV);
+    expect(result).toEqual({ status: 200, json: { summary: "A shared theme.", evidence: [0, 1], plan: "plus" } });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives a free account one reflection and records it only after success", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(user(FREE)).mockResolvedValueOnce(rows([]))
+      .mockResolvedValueOnce(claude("not json"))
+      .mockResolvedValueOnce(user(FREE)).mockResolvedValueOnce(rows([]))
+      .mockResolvedValueOnce(claude('{"summary":"A shared theme.","evidence":[0,1]}'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => true })
+      .mockResolvedValueOnce(user(FREE)).mockResolvedValueOnce(rows([{ user_id: "u1" }]));
+    vi.stubGlobal("fetch", fetch);
+    // A failed generation doesn't spend the free reflection: no claim call.
+    expect((await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV)).status).toBe(502);
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("claim_free_reflection"))).toBe(false);
+    const ok = await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV);
+    expect(ok).toEqual({ status: 200, json: { summary: "A shared theme.", evidence: [0, 1], plan: "free" } });
+    expect(fetch.mock.calls[6][0]).toBe("https://example.test/rest/v1/rpc/claim_free_reflection");
+    expect(fetch.mock.calls[6][1].headers.Authorization).toBe("Bearer token");
+    // Once used, the next request stops before any AI call.
+    expect((await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV)).json.code).toBe("free_used");
+    expect(fetch).toHaveBeenCalledTimes(9);
+  });
+
+  it("withholds the reflection when a parallel request already claimed the free use", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(user(FREE)).mockResolvedValueOnce(rows([]))
+      .mockResolvedValueOnce(claude('{"summary":"A shared theme.","evidence":[0,1]}'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => false }));
+    const result = await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV);
+    expect(result.status).toBe(403);
+    expect(result.json).not.toHaveProperty("summary");
+  });
+
+  it("fails closed for free accounts when the usage table is missing", async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(user(FREE)).mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetch);
+    expect((await handleWeeklyReflection("test-key", BODY, "true", "Bearer token", ENV)).status).toBe(503);
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("returns a reflection with validated evidence indices", async () => {
     const summary = "You mentioned walking to make room for your thoughts on two days.";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ content: [{ type: "text", text: JSON.stringify({ summary, evidence: [1, 0] }) }] }),
-    }));
-    const result = await handleWeeklyReflection("test-key", { entries: ["An afternoon walk.", "I walked after work."] }, "true");
-    expect(result).toEqual({ status: 200, json: { summary, evidence: [1, 0] } });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(user(PLUS)).mockResolvedValueOnce(claude(JSON.stringify({ summary, evidence: [1, 0] }))));
+    const result = await handleWeeklyReflection("test-key", { entries: ["An afternoon walk.", "I walked after work."] }, "true", "Bearer token", ENV);
+    expect(result).toEqual({ status: 200, json: { summary, evidence: [1, 0], plan: "plus" } });
   });
 });

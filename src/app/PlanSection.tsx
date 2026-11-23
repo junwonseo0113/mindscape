@@ -5,7 +5,7 @@ import { GhostBtn, PrimaryBtn } from "./screenUI";
 import { display, sans } from "./typefaces";
 
 const plans: { id: Plan; name: string; detail: string }[] = [
-  { id: "free", name: "Free", detail: "Your diary, search and export, plus one AI weekly reflection to try." },
+  { id: "free", name: "Free", detail: "Your diary, search and export, plus one AI weekly reflection to try with an account." },
   { id: "plus", name: "Mindscape Plus", detail: "Create a new AI reflection each week and revisit past reflections with links to the entries behind them." },
 ];
 
@@ -54,7 +54,7 @@ export function PlanIntroduction({ onDismiss, onViewPlans }: { onDismiss: () => 
       style={{ width: "min(calc(100% - 36px), 340px)", boxSizing: "border-box", background: ivSurfaceSolid, color: ivHeading, padding: 22, border: `1px solid ${ivBorder}`, borderRadius: 18 }}>
       <h2 id="plus-intro-title" style={{ ...display, fontSize: 28, fontWeight: 400, margin: 0 }}>Meet Mindscape Plus</h2>
       <p id="plus-intro-description" style={{ ...sans, fontSize: 14, color: ivBody, lineHeight: 1.6, margin: "8px 0 16px" }}>
-        A weekly reflection connects entries and points you back to the moments behind it. Free includes one reflection to try. Plus adds a new reflection each week.
+        A weekly reflection connects entries and points you back to the moments behind it. Free includes one reflection to try with an account. Plus adds a new reflection each week.
       </p>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <PrimaryBtn ivory onClick={onViewPlans}>View plans</PrimaryBtn>
