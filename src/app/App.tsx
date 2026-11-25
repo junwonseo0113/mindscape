@@ -2418,9 +2418,9 @@ function MoodFace({ mood, size = 72 }: { mood: MoodKey; size?: number }) {
 }
 
 const homeCardSurface: React.CSSProperties = {
-  backgroundColor: "rgba(255,255,255,0.08)",
+  backgroundColor: ivSurface,
   borderRadius: shape.lg,
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)",
+  boxShadow: ivCardShadow,
 };
 
 function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (prev: Store) => Store) => void; onSayWhy?: (mood: string) => void }) {
@@ -2465,7 +2465,7 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
           </motion.div>
         )}
       </AnimatePresence>
-      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: dkHeading, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ ...hand, fontSize: 20, fontWeight: 600, color: ivHeading, marginBottom: 4, height: 26, position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         {/* The label swaps with a small lift so "Logged" reads as a
         response to the tap, not a flicker of text. */}
         <AnimatePresence initial={false} mode="popLayout">
@@ -2502,11 +2502,11 @@ function QuickMoodCheckIn({ updateStore, onSayWhy }: { updateStore?: (updater: (
               whileTap={{ scale: 0.95, opacity: 0.82 }}
               // The chosen pill fills and gives one small pulse; the others
               // settle back without any motion of their own.
-              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: dkHeading } : { scale: 1, backgroundColor: "rgba(255,255,255,0.10)" }}
+              animate={chosen ? { scale: [1, 1.08, 1], backgroundColor: ivHeading } : { scale: 1, backgroundColor: ivSurfaceSolid }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
+              style={{ flexShrink: 0, border: 0, padding: "7px 12px", borderRadius: shape.full, cursor: "pointer", boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
             >
-              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? dkBg : dkHeading, transition: "color 0.2s" }}>{m.label}</span>
+              <span style={{ ...sans, fontSize: 12, fontWeight: 700, color: chosen ? ivSurfaceSolid : ivHeading, transition: "color 0.2s" }}>{m.label}</span>
             </motion.button>
             </Breathe>
           );
@@ -2549,30 +2549,30 @@ function HomeNodeCard({ belief, onClose, onOpenInMap }: { belief: StoredBelief; 
       transition={SETTLE}
       style={{
         position: "absolute", left: 20, right: 20, top: "44%", zIndex: 3,
-        backgroundColor: "#191735", border: `1px solid ${dkDivider}`, borderRadius: shape.lg, padding: "14px 16px 12px",
-        boxShadow: "0 14px 36px rgba(0,0,0,0.35)",
+        backgroundColor: ivSurfaceSolid, border: `1px solid ${ivDivider}`, borderRadius: shape.lg, padding: "14px 16px 12px",
+        boxShadow: ivCardShadow,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Node color={color} size={12} intensity={Math.min(1, 0.45 + (belief.confidence / 100) * 0.4)} />
         <RegionBadge region={region} />
-        <span style={{ ...sans, fontSize: 12, color: dkBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
+        <span style={{ ...sans, fontSize: 12, color: ivBody, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{belief.domain}</span>
         <Breathe inline amount={1.1} style={{ lineHeight: 0 }}>
-          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: dkBody, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
+          <motion.button type="button" aria-label="Close" onClick={onClose} whileTap={{ opacity: 0.6 }} style={{ border: 0, background: "transparent", padding: 4, margin: -4, cursor: "pointer", color: ivBody, lineHeight: 0, WebkitTapHighlightColor: "transparent" }}><X size={14} weight="bold" /></motion.button>
         </Breathe>
       </div>
       {belief.thoughtLabel && (
-        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: dkBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
+        <div style={{ ...sans, fontSize: 11, fontStyle: "italic", color: ivBody, marginTop: 8 }}>The "{belief.thoughtLabel}" thought</div>
       )}
-      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: dkHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
+      <div style={{ ...display, fontSize: 20, lineHeight: 1.4, color: ivHeading, marginTop: belief.thoughtLabel ? 3 : 8, wordBreak: "keep-all" }}>{belief.statement}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-        <MeterFill value={belief.confidence} color={color} track="rgba(255,255,255,0.12)" style={{ flex: 1 }} />
-        <span style={{ ...mono, fontSize: 11, color: dkBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
+        <MeterFill value={belief.confidence} color={color} track={ivDivider} style={{ flex: 1 }} />
+        <span style={{ ...mono, fontSize: 11, color: ivBody, flexShrink: 0 }}><AnimatedNumber value={belief.confidence} />% · {belief.evidenceCount} entr{belief.evidenceCount === 1 ? "y" : "ies"}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
         <Breathe inline amount={1.05}>
           <motion.button type="button" onClick={onOpenInMap} whileTap={{ scale: 0.96, opacity: 0.8 }} transition={SETTLE}
-            style={{ ...sans, fontSize: 12, fontWeight: 700, color: dkHeading, border: `1px solid ${dkDivider}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+            style={{ ...sans, fontSize: 12, fontWeight: 700, color: ivHeading, border: `1px solid ${ivDivider}`, background: "transparent", borderRadius: 999, padding: "6px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             See it in your sky →
           </motion.button>
         </Breathe>
@@ -2598,8 +2598,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
     <div
       style={{
         position: "absolute", top: -30, left: 0, right: 0, bottom: 0,
-        backgroundColor: "#060A1C",
-        backgroundImage: "radial-gradient(ellipse at 48% 32%, rgba(150,170,255,0.17), transparent 56%), linear-gradient(180deg, #060A1C 0%, #0E1538 36%, #221B4A 64%, #4A2F5E 84%, #7A4C66 100%)",
+        ...ivBackground,
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}
     >
@@ -2609,8 +2608,8 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
         "9:41" overlay (see the App shell) regardless of screen height. */}
         <div style={{ padding: "34px 24px 0", flexShrink: 0, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           {/* Today's date, written the way a diary heads a page. */}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: dkBody }}>
-            <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.color} aria-hidden />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, ...hand, fontSize: 21, fontWeight: 500, color: ivBody }}>
+            <PenNib size={14} weight="fill" color={REGION_CONFIG.identity.ink} aria-hidden />
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -2620,14 +2619,14 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNavSelect?.("profile"); } }}
               whileTap={{ opacity: 0.6 }} style={{ cursor: "pointer" }}
             >
-              <User size={20} color={dkHeading} />
+              <User size={20} color={ivHeading} />
             </motion.div>
             </Breathe>
           </div>
         </div>
 
         <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
-          <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: dkHeading, wordBreak: "keep-all" }}>
+          <div style={{ ...display, fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 400, lineHeight: 1.2, color: ivHeading, wordBreak: "keep-all" }}>
             What crossed your mind today?
           </div>
         </div>
@@ -2660,11 +2659,11 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
                       type="button" aria-label="Open your sky" onClick={() => onOpenBrainMap?.()}
                       whileTap={{ scale: 0.95 }} transition={SETTLE}
                       style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, borderRadius: shape.full, padding: "6px 12px 6px 10px", cursor: "pointer",
-                        backgroundColor: "rgba(14,21,56,0.85)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.14)", WebkitTapHighlightColor: "transparent" }}
+                        backgroundColor: ivSurfaceSolid, boxShadow: ivCardShadow, WebkitTapHighlightColor: "transparent" }}
                     >
-                      <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.color} />
-                      <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: dkHeading, lineHeight: 1 }}>Your sky</span>
-                      <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: dkBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
+                      <Sparkle size={13} weight="fill" color={REGION_CONFIG.identity.ink} />
+                      <span style={{ ...hand, fontSize: 19, fontWeight: 600, color: ivHeading, lineHeight: 1 }}>Your sky</span>
+                      <span style={{ ...hand, fontSize: 17, fontWeight: 500, color: ivBody, lineHeight: 1 }}>· <AnimatedNumber value={store.beliefs.length} memoryKey="home.beliefs" /> {store.beliefs.length === 1 ? "star" : "stars"}</span>
                     </motion.button>
                   </Breathe>
                 </div>
@@ -2676,7 +2675,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
                     transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                     style={{ width: 14, height: 14, borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, #C9B48A 0%, #A68F5E 70%, #8A7647 100%)", boxShadow: "0 0 18px rgba(166,143,94,0.35)" }}
                   />
-                  <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: dkBody, textAlign: "center" }}>Your first thought will appear here.</div>
+                  <div style={{ ...display, fontStyle: "italic", fontSize: 15, color: ivBody, textAlign: "center" }}>Your first thought will appear here.</div>
                 </div>
               )}
             </div>
@@ -2705,15 +2704,15 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
             role="button" tabIndex={0} onClick={() => onOpenBrainMap?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpenBrainMap?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }}
             style={{
               flex: 1, minHeight: 160, margin: "20px 18% 8px",
-              backgroundColor: "rgba(255,255,255,0.08)", border: `1px solid ${dkDivider}`, cursor: "pointer", borderRadius: 24,
+              backgroundColor: ivSurface, border: `1px solid ${ivDivider}`, cursor: "pointer", borderRadius: 24,
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center",
             }}
           >
-            <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <LockSimple size={20} color={dkHeading} />
+            <span style={{ width: 48, height: 48, borderRadius: "50%", backgroundColor: ivSurface, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <LockSimple size={20} color={ivHeading} />
             </span>
-            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: dkHeading }}>See your Brain Map</div>
-            <div style={{ ...sans, fontSize: 13, color: dkBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
+            <div style={{ ...sans, fontSize: 15, fontWeight: 700, color: ivHeading }}>See your Brain Map</div>
+            <div style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.5, wordBreak: "keep-all", maxWidth: 240 }}>
               Upgrade to Pro to see your unconscious beliefs light up and connect.
             </div>
           </motion.div>
@@ -2722,7 +2721,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
 
         {/* The main feature: how close you are to who you want to be. */}
         <div style={{ padding: "8px 18px 0", flexShrink: 0 }}>
-          <VoyageCard theme="night"
+          <VoyageCard
             closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
             aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
           />
@@ -2735,14 +2734,14 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
               role="button" tabIndex={0} onClick={() => onStartThink?.()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (onStartThink)?.(); } }} whileTap={{ scale: 0.98, opacity: 0.92 }} transition={SETTLE}
               style={{ ...homeCardSurface, display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer" }}
             >
-              <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.13)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <WaveformIcon color="#fff" />
+              <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: REGION_CONFIG.identity.tint, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <WaveformIcon color={REGION_CONFIG.identity.ink} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
-                <span style={{ ...display, fontSize: 20, color: dkHeading }}>Speak your mind</span>
-                <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: dkBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
+                <span style={{ ...display, fontSize: 20, color: ivHeading }}>Speak your mind</span>
+                <span style={{ ...hand, fontSize: 18, fontWeight: 500, color: ivBody, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{daysAway !== null && daysAway >= 2 ? `It's been ${daysAway} days` : "It's okay if it's not organized"}</span>
               </div>
-              <ArrowRight size={16} color={dkHeading} weight="bold" style={{ flexShrink: 0 }} />
+              <ArrowRight size={16} color={ivHeading} weight="bold" style={{ flexShrink: 0 }} />
             </motion.div>
             </Breathe>
           </div>
@@ -2751,7 +2750,7 @@ function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVoyage, o
       </div>
 
       <div style={{ flexShrink: 0 }}>
-        <BottomNav active="home" onSelect={onNavSelect} dark />
+        <BottomNav active="home" onSelect={onNavSelect} vintage />
       </div>
     </div>
   );
@@ -10190,7 +10189,7 @@ export default function App() {
   // screens (writing, the sky, analysis in progress) and dark text elsewhere.
   React.useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const dark = ["home", "think", "processing", "brainmap"].includes(screen);
+    const dark = ["think", "processing", "brainmap"].includes(screen);
     NativeStatusBar.setStyle({ style: dark ? StatusBarStyle.Dark : StatusBarStyle.Light }).catch(() => {});
   }, [screen]);
   // ── Navigation-transition plumbing (see screenTransitions/navGestures) ──
@@ -11004,7 +11003,7 @@ export default function App() {
   // shared frame/status-bar system entirely (its own fixed-position,
   // full-viewport UI with no shared chrome), so this flag never reaches it.
   const isModernistScreen = [
-    "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
+    "home", "brainmap", "analysis", "discoveryAnalysis", "history", "profile",
     "beliefs", "assumptions", "drift", "journeyMap", "aspirationSetup", "hypotheses", "hypothesisDetail", "investigate",
     "paywall", "checkout", "manageSubscription", "privacyPolicy", "termsOfService",
     "quote", "splash", "auth", "login", "signup", "onboarding",
@@ -11043,9 +11042,9 @@ export default function App() {
           // Home, 30 elsewhere) made the whole frame visibly jump on every
           // screen change, since AnimatePresence crossfades the *content*
           // but this padding lives on the frame itself, outside that
-          // animation, so it was snapping instantly. Home still runs its
-          // photo edge-to-edge behind the transparent overlay — it just
-          // does that itself now (a negative margin on its own hero, see
+          // animation, so it was snapping instantly. Home still paints its
+          // background edge-to-edge behind the transparent overlay — it just
+          // does that itself now (a negative top offset on its root, see
           // ScreenHome) instead of asking the shared frame to change shape
           // under it.
           paddingTop: showStatusBar ? 30 : "env(safe-area-inset-top)",
@@ -11057,7 +11056,7 @@ export default function App() {
         <motion.div
           aria-hidden
           initial={false}
-          animate={{ backgroundColor: isModernistScreen ? mdBg : dkBg }}
+          animate={{ backgroundColor: screen === "home" ? ivBg2 : isModernistScreen ? mdBg : dkBg }}
           transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: "easeOut" }}
           style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
         />
@@ -11097,7 +11096,7 @@ export default function App() {
         the real screen content instead of a flex row that used to reserve
         its own strip of the frame's flat mdBg/dkBg fallback color behind
         it. That fallback color rarely matched whatever screen was actually
-        showing (Home's photo especially), which is what read as a visibly
+        showing, which is what read as a visibly
         cut-off band sitting on top of the screen. Non-interactive so it
         never blocks a tap at the very top of whatever's under it. */}
         {showStatusBar && (
