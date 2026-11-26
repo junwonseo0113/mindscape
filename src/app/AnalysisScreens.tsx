@@ -6,8 +6,8 @@ import { CognitiveRegion } from "./neuralBrainLayout";
 import { Store, StoredBelief, StoredEvidenceQuote, StoredGoal, StoredHistoryEntry } from "./types";
 import { formatDateDots, mondayOfWeek, parseDotDate, shortMonthDay } from "./dateUtils";
 import { apiUrl } from "./apiBase";
-import { pathSeries, weekChange } from "./aspirationPath";
-import { PathChart, PathLegend } from "./Voyage";
+import { awayStreak, closenessAt, CURRENT_STREAK, stepsSoFar, weekChange } from "./aspirationPath";
+import { VoyageCard } from "./Voyage";
 import { isMoodCheckIn } from "./realStore";
 import { AnimatedNumber, Breathe } from "./motionPrimitives";
 import { Node } from "./orb";
@@ -23,8 +23,8 @@ import { RegionBadge } from "./regionUI";
 import { type DiscoveryTarget, computeDiscovery, resolveDiscoveryTarget, type RecentInsightItem, buildRecentInsights } from "./discovery";
 import { PRIMARY_HEADER_TOP, PRIMARY_HEADER_SIDE, PageTitle, BottomNav } from "./screenUI";
 import { HistoryControlButton } from "./historyShared";
-import { type MoodKey, MOOD_TONES } from "./moodUI";
-import { voyageAnchor, computeStreak } from "./entryTiming";
+import { groupInsights, LEAN_LABEL, type InsightLean } from "./insightGroups";
+import { voyageAnchor } from "./entryTiming";
 import { evidenceForHypothesis } from "./hypothesisEvidence";
 
 // A reserved, clearly-labeled slot for an analysis module that doesn't
@@ -359,168 +359,6 @@ const PAPER_STARS = Array.from({ length: 9 }, (_, i) => {
   return { x, y, s: 7 + Math.round(r(4) * 5), tone: (["identity", "career", "relationships"] as CognitiveRegion[])[i % 3], tw: i % 3 === 0, d: 2.5 + r(5) * 3, dl: r(6) * 4 };
 });
 
-function StarPaperCard({ children, a = "identity", b = "relationships", tapeLeft = false, style }: {
-  children: React.ReactNode; a?: CognitiveRegion; b?: CognitiveRegion; tapeLeft?: boolean; style?: React.CSSProperties;
-}) {
-  const reduce = useReducedMotion();
-  const ca = REGION_CONFIG[a], cb = REGION_CONFIG[b];
-  return (
-    <div style={{
-      position: "relative", borderRadius: shape.md, backgroundColor: "#FFFCF6",
-      backgroundImage: `radial-gradient(110% 70% at 100% 0%, ${ca.color}26, transparent 60%), radial-gradient(100% 70% at 0% 100%, ${cb.color}22, transparent 60%)`,
-      border: `1px solid ${ca.color}2e`, boxShadow: `0 14px 28px -20px ${ca.ink}`,
-      ...style,
-    }}>
-      <span aria-hidden style={{ position: "absolute", top: -7, ...(tapeLeft ? { left: 26 } : { right: 30 }), width: 58, height: 16, zIndex: 2,
-        transform: `rotate(${tapeLeft ? -4 : 4}deg)`, opacity: 0.85, pointerEvents: "none",
-        backgroundImage: `repeating-linear-gradient(45deg, ${ca.color}99 0 6px, ${ca.tint} 6px 12px)` }} />
-      <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: shape.md, pointerEvents: "none" }}>
-        {PAPER_STARS.map((st, i) => (
-          <span key={i} className={st.tw && !reduce ? "twinkle" : undefined}
-            style={{ position: "absolute", left: `${st.x}%`, top: `${st.y}%`, lineHeight: 0, color: REGION_CONFIG[st.tone].color, opacity: 0.55,
-              ["--tw-dur" as string]: `${st.d}s`, ["--tw-delay" as string]: `-${st.dl}s` } as React.CSSProperties}>
-            <Sparkle size={st.s} weight="fill" />
-          </span>
-        ))}
-      </div>
-      <div style={{ position: "relative" }}>{children}</div>
-    </div>
-  );
-}
-
-export function ScreenAnalysis({ onNavSelect, onOpenArtifact, onOpenBrainMap, store }: { onNavSelect?: (id: string) => void; onOpenArtifact?: (id: string) => void; onOpenBrainMap?: (region?: CognitiveRegion) => void; store: Store }) {
-  const reduceMotion = useReducedMotion();
-  // Same "pin today's discovery, scope the network to it" logic
-  // ScreenDiscoveryAnalysis uses (see there for the fuller machinery this
-  // mirrors) — the thoughts and the thread shown here are the ones behind
-  // the pinned discovery.
-  const [pinnedDiscovery] = React.useState<DiscoveryTarget | null>(() => computeDiscovery(store));
-  const discovery = pinnedDiscovery ? resolveDiscoveryTarget(store, pinnedDiscovery) : null;
-  const hIndex = discovery?.kind === "hypothesis" ? discovery.index : null;
-  const h = hIndex !== null ? store.hypotheses[hIndex] : null;
-  const b = discovery?.kind === "belief" ? store.beliefs.find((x) => x.id === discovery.id) ?? null : null;
-
-  // Exactly the discovery itself —
-  // a hypothesis IS the relationship between several beliefs, so all of
-  // them are the discovery; a belief-kind discovery is just that one
-  // belief, not everything connected to it. Used by DiscoveryBeliefList
-  // below to call out which of the constellation's stars is the actual
-  // discovery vs. supporting context.
-  const discoveryBeliefIds = React.useMemo(() => {
-    if (h) return h.relatedBeliefIds;
-    if (b) return [b.id];
-    return [];
-  }, [h, b]);
-
-  // Discovery beliefs, resolved to full records — same source
-  // DiscoveryBeliefList used (discoveryBeliefIds -> store.beliefs).
-  const notebookBeliefs = React.useMemo(
-    () => discoveryBeliefIds.map((id) => store.beliefs.find((x) => x.id === id)).filter((x): x is StoredBelief => !!x),
-    [discoveryBeliefIds, store.beliefs]
-  );
-  // The connection note(s) between this discovery's own beliefs — same
-  // source DiscoveryBeliefList used for its "note" callout.
-  const notebookNotes = React.useMemo(
-    () => store.connections.filter((c) => discoveryBeliefIds.includes(c.a) && discoveryBeliefIds.includes(c.b) && c.note),
-    [discoveryBeliefIds, store.connections]
-  );
-
-  return (
-    <div style={{ position: "absolute", top: -30, left: 0, right: 0, bottom: 0, ...ivBackground, overflow: "hidden" }}>
-      {/* Mind now opens straight onto what used to be the "My Mind"
-      notebook you had to tap into from a separate landing scene — that
-      landing scene (the embedded constellation preview + the "My Mind"
-      entry card) is gone; this content IS the Mind tab now. Home already
-      owns "a glimpse of your mind" (its own node field, tap-to-open-the-
-      real-Brain-Map), so nothing here is lost, just no longer duplicated
-      behind an extra tap. Same header+scroll+BottomNav flex-column
-      structure History uses (see PRIMARY_HEADER_TOP/SIDE) rather than the
-      old fixed-viewport "single immersive scene" this replaces — this
-      content was always meant to scroll. */}
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 8px`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <PageTitle tone="identity" title="Mind" subtitle="What's going on underneath." />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <HistoryControlButton tone="identity" icon={<MagnifyingGlass size={18} />} label="Search your history" onClick={() => onNavSelect?.("history")} />
-            <HistoryControlButton tone="identity" icon={<User size={18} />} label="Open profile" onClick={() => onNavSelect?.("profile")} />
-          </div>
-        </div>
-
-        {/* ── The notebook content itself — reads the exact same discovery
-        data DiscoveryBeliefList/RegionBreakdown compute elsewhere (see
-        notebookBeliefs/notebookNotes above); neither
-        shared component was touched, and DiscoveryBeliefList is still used
-        verbatim by ScreenHypothesisDetail. Same PRIMARY_HEADER_SIDE grid as
-        the header above so sections line up under "Mind" instead of
-        starting at their own separate inset (same fix History's own
-        catalogue applies below its header). Keeps the "mind-neurons"
-        data-tutorial target (see buildTutorialSteps) pointed at this
-        section — always rendered regardless of whether there's a discovery
-        yet, unlike the belief list below it, so the tutorial step never
-        aims at something that may not exist. ── */}
-        <div data-tutorial="mind-neurons" className="no-scrollbar edge-fade" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 16px 28px" }}>
-          {/* The one bold card on this page: today's thoughts, joined by
-              their thread when there is one, each with how often it comes
-              up. Everything after it is a plain list of places to go. */}
-          {(() => {
-            const note = notebookNotes[0];
-            const A = note ? store.beliefs.find((x) => x.id === note.a) : undefined;
-            const B = note ? store.beliefs.find((x) => x.id === note.b) : undefined;
-            const joined = !!(note && A && B);
-            return (
-              <section style={{ marginTop: 10 }}>
-                <SectionHeading>{joined ? "How they connect" : notebookBeliefs.length === 1 ? "Today's thought" : "Today's thoughts"}</SectionHeading>
-                <StarPaperCard a={A ? resolveRegion(A) : "identity"} b={B ? resolveRegion(B) : "relationships"} style={{ padding: notebookBeliefs.length > 0 ? "16px 16px 6px" : "16px" }}>
-                  {joined && <ConnectionThread a={A!} b={B!} note={note.note} tension={note.type === "contradiction"} />}
-                  {notebookBeliefs.length > 0 ? (
-                    <div style={{ marginTop: joined ? 14 : 0 }}>
-                      {notebookBeliefs.map((belief, i) => {
-                        const region = resolveRegion(belief);
-                        return (
-                          <div key={belief.id} style={{ display: "flex", gap: 10, padding: "11px 2px", borderTop: i > 0 || joined ? `1px solid ${ivDivider}` : undefined }}>
-                            <span style={{ width: 18, display: "flex", justifyContent: "center", flexShrink: 0, paddingTop: 5 }}>
-                              <Node color={REGION_CONFIG[region].color} size={12} intensity={0.6 + (belief.confidence / 100) * 0.4} />
-                            </span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ ...display, fontSize: 18, lineHeight: 1.3, color: ivHeading, wordBreak: "keep-all" }}>“{belief.statement}”</div>
-                              <div style={{ marginTop: 5 }}><OftenDots confidence={belief.confidence} region={region} /></div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div style={{ ...sans, fontSize: 14, color: ivBody, lineHeight: 1.6, wordBreak: "keep-all" }}>Nothing yet. Write a few times, and the thoughts that keep coming back will show up here.</div>
-                  )}
-                </StarPaperCard>
-              </section>
-            );
-          })()}
-
-          {/* Places to go from here, as one list. */}
-          <section style={{ marginTop: 30 }}>
-            <SectionHeading>Go deeper</SectionHeading>
-            <StarPaperCard a="curiosity" b="career" tapeLeft style={{ overflow: "visible" }}>
-              {onOpenBrainMap && (
-                <DiaryLinkCard plain accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="Your sky"
-                  badge={`${store.beliefs.length} ${store.beliefs.length === 1 ? "star" : "stars"}`} onClick={() => onOpenBrainMap()} />
-              )}
-              <DiaryLinkCard plain divider={!!onOpenBrainMap} accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="Hidden patterns"
-                badge={store.beliefs.length > 0 ? undefined : "None yet"} onClick={() => onOpenArtifact?.("beliefs")} />
-              <DiaryLinkCard plain divider accent="career" icon={<Footprints size={17} weight="fill" />} title="Who you want to be"
-                onClick={() => onOpenArtifact?.("drift")} />
-            </StarPaperCard>
-          </section>
-        </div>
-
-        <BottomNav active="analysis" onSelect={onNavSelect} vintage />
-      </div>
-    </div>
-  );
-}
-
 // A small page-of-notes glyph — "N thoughts" — matching the supplied
 // concept reference's document icon (not a speech bubble).
 function ThoughtGlyph({ color }: { color: string }) {
@@ -686,6 +524,83 @@ function InsightRow({ item, onOpen, divider }: { item: RecentInsightItem; onOpen
       {item.thoughtCount > 0 && <span style={{ ...hand, fontSize: 17, color: c.ink, flexShrink: 0 }}>{item.thoughtCount} {item.thoughtCount === 1 ? "entry" : "entries"}</span>}
       <CaretRight size={14} color={ivBody} weight="bold" style={{ flexShrink: 0 }} />
     </motion.div>
+  );
+}
+
+// ── Insights web ──
+// Every further insight, sorted into three branches around you by where
+// the entries behind it pull (insightGroups.ts). Tap a branch to open its
+// insights underneath; tap one to examine it, as before.
+const LEAN_REGION: Record<InsightLean, CognitiveRegion> = { closer: "security", back: "relationships", unclear: "curiosity" };
+// Node positions in a 320 × 210 field: you in the middle, branches around.
+const WEB_CENTER = { x: 160, y: 92 };
+const WEB_NODES: Record<InsightLean, { x: number; y: number }> = { closer: { x: 78, y: 44 }, back: { x: 242, y: 44 }, unclear: { x: 160, y: 158 } };
+
+function InsightsWeb({ items, store, onOpen }: { items: RecentInsightItem[]; store: Store; onOpen: (item: RecentInsightItem) => void }) {
+  const reduce = useReducedMotion();
+  const groups = React.useMemo(() => groupInsights(items, store), [items, store]);
+  const [open, setOpen] = React.useState<InsightLean | null>(null);
+  const leans: InsightLean[] = ["closer", "back", "unclear"];
+  return (
+    <div>
+      <div style={{ ...quietCard, position: "relative", padding: 0, overflow: "hidden" }}>
+        <div style={{ position: "relative", width: "100%", aspectRatio: "320 / 210" }}>
+          <svg viewBox="0 0 320 210" aria-hidden style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            {leans.map((l, i) => {
+              const n = WEB_NODES[l], c = REGION_CONFIG[LEAN_REGION[l]];
+              const active = open === l;
+              return (
+                <motion.path key={l} d={`M${WEB_CENTER.x} ${WEB_CENTER.y} Q${(WEB_CENTER.x + n.x) / 2 + (i - 1) * 14} ${(WEB_CENTER.y + n.y) / 2 - 10} ${n.x} ${n.y}`}
+                  fill="none" stroke={c.color} strokeWidth={active ? 2.4 : 1.4} strokeOpacity={open && !active ? 0.25 : 0.7} strokeDasharray={groups[l].length ? undefined : "3 5"}
+                  initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.1 * i }} />
+              );
+            })}
+            {/* you, in the middle */}
+            <circle cx={WEB_CENTER.x} cy={WEB_CENTER.y} r="15" fill="#E2A847" opacity="0.18" />
+            <path transform={`translate(${WEB_CENTER.x} ${WEB_CENTER.y})`} d="M0 -9 L2.4 -2.4 L9 0 L2.4 2.4 L0 9 L-2.4 2.4 L-9 0 L-2.4 -2.4 Z" fill="#E2A847" />
+            <text x={WEB_CENTER.x + 22} y={WEB_CENTER.y + 4} textAnchor="start" fontSize="10" fill={ivBody} style={{ fontFamily: sans.fontFamily }}>you</text>
+          </svg>
+          {leans.map((l) => {
+            const n = WEB_NODES[l], c = REGION_CONFIG[LEAN_REGION[l]];
+            const count = groups[l].length, active = open === l;
+            return (
+              // Positioned by a plain wrapper: Motion owns the button's own
+              // transform (for the tap), which would undo a translate here.
+              <div key={l} style={{ position: "absolute", left: `${(n.x / 320) * 100}%`, top: `${(n.y / 210) * 100}%`, transform: "translate(-50%, -17px)" }}>
+                <motion.button type="button" aria-expanded={active} aria-controls="insights-branch"
+                  aria-label={`${LEAN_LABEL[l].title}: ${count} ${count === 1 ? "insight" : "insights"}`}
+                  onClick={() => setOpen(active ? null : l)} whileTap={{ scale: 0.95 }}
+                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, background: "none", border: 0, padding: 0, cursor: "pointer",
+                    WebkitTapHighlightColor: "transparent", opacity: open && !active ? 0.55 : 1 }}>
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", boxSizing: "border-box",
+                    backgroundColor: active ? c.color : "#FFFFFF", border: `3px solid ${c.color}`, boxShadow: `0 0 0 ${active ? 6 : 4}px ${c.color}2e, 0 6px 14px -6px ${c.color}`,
+                    ...sans, fontSize: 13, fontWeight: 700, color: active ? "#FFFFFF" : c.ink }}>{count}</span>
+                  <span style={{ ...hand, fontSize: 17, fontWeight: 600, color: active ? c.ink : ivHeading, lineHeight: 1, whiteSpace: "nowrap" }}>{LEAN_LABEL[l].title}</span>
+                </motion.button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <AnimatePresence mode="wait">
+        {open ? (
+          <motion.div key={open} id="insights-branch" initial={{ opacity: 0, y: reduce ? 0 : -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ marginTop: 10 }}>
+            <div style={{ ...sans, fontSize: 12, color: ivBody, lineHeight: 1.5, margin: "0 4px 8px" }}>{LEAN_LABEL[open].hint}</div>
+            {groups[open].length === 0 ? (
+              <div style={{ ...quietCard, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "14px 16px" }}>Nothing here yet. It fills in as you write.</div>
+            ) : (
+              <div style={quietCard}>
+                {groups[open].map((item, idx) => <InsightRow key={item.key} item={item} divider={idx > 0} onOpen={() => onOpen(item)} />)}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ ...sans, fontSize: 12, color: ivBody, margin: "8px 4px 0" }}>
+            {items.length ? "Tap a branch to see what's in it." : "No insights yet. They'll show up here as more come into focus."}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -867,106 +782,10 @@ function moodThoughtLinks(store: Store): MoodThoughtLink[] {
   return links.sort((a, b) => b.days - a.days || b.belief.confidence - a.belief.confidence).slice(0, 3);
 }
 
-function MoodThoughtsPanel({ store }: { store: Store }) {
-  const checkIns = React.useMemo(() => store.history.filter(isMoodCheckIn), [store.history]);
-  const links = React.useMemo(() => moodThoughtLinks(store), [store]);
-  if (checkIns.length === 0) return null;
-  const counts = new Map<string, number>();
-  checkIns.forEach((e) => { const l = e.analysis?.observation.emotions[0]?.label; if (l) counts.set(l, (counts.get(l) ?? 0) + 1); });
-  const tally = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  const toneOf = (mood: string) => REGION_CONFIG[MOOD_TONES[mood as MoodKey] ?? "identity"];
-  return (
-    <div>
-      <SectionHeading aside={`${checkIns.length} check-in${checkIns.length === 1 ? "" : "s"}`}>Moods and thoughts</SectionHeading>
-      <div style={{ ...quietCard, padding: "14px 16px" }}>
-        {/* How often each feeling was tapped, as chips in that feeling's colour. */}
-        <div role="list" aria-label="How often you checked in with each feeling" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {tally.map(([mood, n]) => {
-            const t = toneOf(mood);
-            return (
-              <span key={mood} role="listitem" style={{ ...sans, fontSize: 12, fontWeight: 700, color: t.ink, backgroundColor: `${t.color}26`, border: `1px solid ${t.color}55`, borderRadius: shape.full, padding: "4px 10px" }}>
-                {mood} <span style={{ fontWeight: 500, opacity: 0.8 }}>×{n}</span>
-              </span>
-            );
-          })}
-        </div>
-        {links.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 14 }}>
-            {links.map((l) => {
-              const t = toneOf(l.mood);
-              return (
-                <div key={`${l.mood}-${l.belief.id}`} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span aria-hidden style={{ width: 4, alignSelf: "stretch", borderRadius: 2, backgroundColor: t.color, flexShrink: 0 }} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: t.ink, lineHeight: 1.15 }}>On days you felt {l.mood.toLowerCase()}</div>
-                    <div style={{ ...display, fontSize: 17, color: ivHeading, lineHeight: 1.35, marginTop: 2, wordBreak: "keep-all" }}>“{l.belief.statement}”</div>
-                    <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 3 }}>came up in what you wrote, on {l.days} different days</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, margin: "12px 0 0" }}>
-            Check in <B>and</B> write on the same day to see which thoughts come with which feeling.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecentWeeksPanel({ history }: { history: StoredHistoryEntry[] }) {
-  const weeks = React.useMemo(() => buildWeekActivity(history), [history]);
-  if (weeks.length === 0) return null;
-  const latest = weeks[weeks.length - 1];
-  const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-  const streak = computeStreak(history);
-  const maxEntries = Math.max(...weeks.map((w) => w.entries), 1);
-  const sparkLabel = `Thoughts per week, ${shortMonthDay(weeks[0].weekStart)} to ${shortMonthDay(latest.weekStart)}: ${weeks.map((w) => w.entries).join(", ")}.`;
-  const I = REGION_CONFIG.identity;
-  return (
-    <div>
-      <SectionHeading aside={`Week of ${shortMonthDay(latest.weekStart)}`}>Recent weeks</SectionHeading>
-      <div style={{ ...quietCard, display: "flex" }}>
-        {/* This week's count, with a small bar per week behind it. */}
-        <div style={{ flex: 1.4, minWidth: 0, padding: "14px 16px" }}>
-          <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: I.ink }}>Written this week</div>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, marginTop: 4 }}>
-            <div>
-              <div style={{ ...display, fontSize: 34, color: ivHeading, lineHeight: 1 }}><AnimatedNumber value={latest.entries} memoryKey="analysis.weekEntries" /></div>
-              <div style={{ ...sans, fontSize: 12, color: ivBody, marginTop: 6 }}>{prev ? `${signedDelta(latest.entries - prev.entries)} vs the week before` : "First week"}</div>
-            </div>
-            <div role="img" aria-label={sparkLabel} style={{ display: "flex", alignItems: "flex-end", gap: 3, width: 84, height: 40, flexShrink: 0 }}>
-              {weeks.map((w, i) => {
-                const isLatest = i === weeks.length - 1;
-                return (
-                  <motion.div key={w.weekStart} title={`Week of ${shortMonthDay(w.weekStart)}: ${w.entries} ${w.entries === 1 ? "entry" : "entries"}`}
-                    initial={{ scaleY: 0 }} whileInView={{ scaleY: 1 }} viewport={{ once: true, amount: 0.6 }}
-                    transition={{ type: "spring", stiffness: 160, damping: 16, delay: 0.08 + i * 0.05 }}
-                    style={{
-                      flex: 1, transformOrigin: "bottom", height: `${Math.max((w.entries / maxEntries) * 100, 6)}%`, borderRadius: "3px 3px 1px 1px",
-                      backgroundColor: w.entries === 0 ? "rgba(42,38,33,0.08)" : isLatest ? I.color : `${I.color}55`,
-                    }} />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <span aria-hidden style={{ width: 1, margin: "14px 0", backgroundColor: ivDivider }} />
-        {/* Days in a row with something written. */}
-        <div style={{ flex: 1, minWidth: 0, padding: "14px 16px" }}>
-          <div style={{ ...hand, fontSize: 18, fontWeight: 600, color: REGION_CONFIG.career.ink }}>Days in a row</div>
-          <div style={{ ...display, fontSize: 34, color: ivHeading, lineHeight: 1, marginTop: 4 }}><AnimatedNumber value={streak} memoryKey="analysis.streak" /></div>
-          <StreakStars streak={streak} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ScreenDiscoveryAnalysis({
   onNavSelect,
+  onOpenArtifact,
+  onOpenBrainMap,
   store,
   updateStore,
   onAgreeHypothesis,
@@ -977,6 +796,8 @@ export function ScreenDiscoveryAnalysis({
   reinterpretingKey,
 }: {
   onNavSelect?: (id: string) => void;
+  onOpenArtifact?: (id: string) => void;
+  onOpenBrainMap?: (region?: CognitiveRegion) => void;
   store: Store;
   updateStore: (updater: (prev: Store) => Store) => void;
   onAgreeHypothesis?: (index: number) => void;
@@ -1220,7 +1041,7 @@ export function ScreenDiscoveryAnalysis({
               )}
             </div>
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
-              <BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage />
+              <BottomNav active="analysis" onSelect={onNavSelect} vintage />
             </div>
           </motion.div>
         ) : (
@@ -1241,7 +1062,7 @@ export function ScreenDiscoveryAnalysis({
             primaryTitleSubtitleStyle) so "Analysis" carries the same
             visual presence "Mind" and "History" do. */}
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0, padding: `${PRIMARY_HEADER_TOP}px ${PRIMARY_HEADER_SIDE}px 6px`, boxSizing: "border-box" }}>
-              <PageTitle tone="career" title="Analysis" subtitle="What your recent thoughts add up to." />
+              <PageTitle tone="identity" title="Mind" subtitle="How close you are, and what's underneath." />
             </div>
 
             {/* One scrolling composition beneath the header — Today's
@@ -1256,18 +1077,15 @@ export function ScreenDiscoveryAnalysis({
             <div className="no-scrollbar edge-fade" style={{ position: "relative", zIndex: 2, flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", padding: `10px ${PRIMARY_HEADER_SIDE}px calc(20px + env(safe-area-inset-bottom))`, boxSizing: "border-box" }}>
               {/* ── Today's Discovery — the dominant object on this screen,
               inside one large ivory SurfaceCard (see DiscoveryCard). ── */}
-              {/* The main measure first: the week toward who you want to be. */}
-              {store.aspiration && (
-                <div style={{ marginBottom: 26 }}>
-                  <SectionHeading aside={(() => { const c = weekChange(store.history, voyageAnchor(store.history)); return c === null ? undefined : c > 0 ? `${c} closer` : c < 0 ? `${-c} further` : "no change"; })()}>
-                    This week, toward who you want to be
-                  </SectionHeading>
-                  <div style={{ ...quietCard, padding: "16px 14px 12px" }}>
-                    <PathChart days={pathSeries(store.history, 7, voyageAnchor(store.history))} />
-                    <div style={{ marginTop: 8 }}><PathLegend /></div>
-                  </div>
-                </div>
-              )}
+              {/* The main measure first: the voyage toward who you want to be
+              (the same card as Home; tapping it opens the full journey). */}
+              <div style={{ marginBottom: 26 }}>
+                <VoyageCard
+                  closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+                  steps={stepsSoFar(store.history)} adrift={awayStreak(store.history) >= CURRENT_STREAK}
+                  aspiration={store.aspiration} onOpen={() => onOpenArtifact?.("drift")} onSetAspiration={() => onOpenArtifact?.("drift")}
+                />
+              </div>
               <div data-tutorial="today-discovery">
                 {discovery ? (
                   <DiscoveryCard
@@ -1285,37 +1103,23 @@ export function ScreenDiscoveryAnalysis({
                 )}
               </div>
 
-              {/* ── Further Insights — secondary to Today's Discovery, a
-              compact horizontal row of small ivory SurfaceCards (InsightCard)
-              instead of the old vertically-stacked feed, so the screen
-              reads as one deliberate composition rather than a long list of
-              equally-weighted results. Every insight stays reachable —
-              horizontally scrollable rather than capped, so nothing here is
-              hidden behind an extra tap (see recentInsights above). The
-              label itself is nudged right by InsightCard's own left padding
-              (14px) so it lines up with each card's actual content start
-              (its node) rather than just the card's own outer edge — the
-              two read as flush at a glance, not merely close. ── */}
+              {/* ── Insights: three branches around you (InsightsWeb). ── */}
               <div style={{ marginTop: 32 }}>
-                <SectionHeading>Further insights</SectionHeading>
-                {recentInsights.length === 0 ? (
-                  <div style={{ ...quietCard, ...sans, fontSize: 13, color: ivBody, lineHeight: 1.6, padding: "14px 16px" }}>No other insights yet. They'll show up here as more come into focus.</div>
-                ) : (
-                  <div style={quietCard}>
-                    {recentInsights.slice(0, 4).map((item, idx) => (
-                      <InsightRow key={item.key} item={item} divider={idx > 0} onOpen={() => setExamineTarget(item.target)} />
-                    ))}
-                  </div>
-                )}
+                <SectionHeading>Insights</SectionHeading>
+                <InsightsWeb items={recentInsights} store={store} onOpen={(item) => setExamineTarget(item.target)} />
+                {/* The two ways deeper, under the web they belong to (they
+                used to sit in a separate "Go deeper" list, beside a third
+                link that only repeated the voyage card). */}
+                <div style={{ ...quietCard, marginTop: 12 }}>
+                  <DiaryLinkCard plain accent="relationships" icon={<ShareNetwork size={17} weight="bold" />} title="All patterns, in detail"
+                    badge={store.beliefs.length > 0 ? undefined : "None yet"} onClick={() => onOpenArtifact?.("beliefs")} />
+                  {onOpenBrainMap && (
+                    <DiaryLinkCard plain divider accent="curiosity" icon={<Sparkle size={17} weight="fill" />} title="See them as your sky"
+                      badge={`${store.beliefs.length} ${store.beliefs.length === 1 ? "star" : "stars"}`} onClick={() => onOpenBrainMap()} />
+                  )}
+                </div>
               </div>
 
-              <div style={{ marginTop: 32 }}>
-                <RecentWeeksPanel history={store.history} />
-              </div>
-
-              <div style={{ marginTop: 28 }}>
-                <MoodThoughtsPanel store={store} />
-              </div>
 
               {/* Structural room for Premium's longitudinal-intelligence
               layer (see the brief's "Today's Discovery → Further Insights →
@@ -1324,7 +1128,7 @@ export function ScreenDiscoveryAnalysis({
               Weeks without touching the layout above it. */}
             </div>
             <div style={{ position: "relative", zIndex: 2, flexShrink: 0 }}>
-              <BottomNav active="discoveryAnalysis" onSelect={onNavSelect} vintage />
+              <BottomNav active="analysis" onSelect={onNavSelect} vintage />
             </div>
           </motion.div>
         )}

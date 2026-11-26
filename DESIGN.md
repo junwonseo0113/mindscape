@@ -1,34 +1,38 @@
-# Mindscape: a midnight observatory
+# Mindscape: ivory paper by day, a night desk for writing
 
-The application shares Home's ink-blue sky, warm cream typography, gold actions, and colored stars. No scenic background images are used. Existing routes and data behavior remain unchanged by the theme.
+Mindscape measures one thing above all: how far someone is from the person they said they want to be. Every screen should help them see that distance honestly.
 
-## Shared foundations
+## Two themes, and where each one lives
 
-`src/app/nightTheme.ts` is the palette source for the existing screen tokens. Background: #08131c; upper sky: #142943; solid reading surface: #102031; primary text: #fff0d8; body: #c2ceda; muted text: #aebed1; action: #ecd2a8. Borders use gold at low opacity. Warnings remain distinct from primary actions.
+**Ivory (the default).** Home, Mind, Diary, Profile, settings, onboarding and account screens all use the ivory paper theme from `src/app/screenTheme.ts`. Background `#F2EEE6`, solid surface `#FBF8F2`, headings deep charcoal `#2A2621`, body text muted taupe at 65% (4.5:1 on the background, the floor for sentences), faint text at 50% for large text and icons only.
 
-Instrument Serif carries screen titles and reflective statements. Inter carries controls, body copy, and navigation. JetBrains Mono is reserved for compact metadata. Solid panels protect long-form reading and evidence review.
+**Night desk (dark).** Only the writing flow and crisis support are dark: think, processing, sessionSummary, thinkComplete and crisisSupport (`DARK_SCREENS` in `App.tsx`), plus the full night-sky brain map. Writing at night should feel like a lamp on a desk.
 
-`StargazingNav.tsx` provides the same labeled, touch-friendly Home / Mind / Analysis / Journal navigation throughout the app. Every interactive control needs a visible keyboard focus state; essential interaction must not depend on hover.
+**Do not make Home dark.** A navy "midnight observatory" Home was tried and was a regression twice (Nov 2026). If you're merging branches, check Home's background before pushing.
 
-## Screen treatments
+## Type
 
-- Home: pointed stars, stable category hues, explicit approved interpretation preview, node detail dialog, record action, and pending review entry. Background stars are decorative and noninteractive.
-- Mind and Analysis: navy reading panels, cream serif statements, gold review actions, supporting evidence and contradictions retained.
-- Journal: night catalogue, pointed star markers, searchable and filterable entries, legible dark search/calendar/filter sheets.
-- Writing: quiet dark editor, clear primary action, warm recording feedback.
-- Full map: code-rendered night gradient, existing 3D brain controls and keyboard support, gold selection activation.
-- Onboarding, authentication, profile, settings, legal, and subscription screens: same palette and control states without competing ivory, red, or purple themes.
+Instrument Serif for screen titles and reflective statements. A handwritten face (`hand` in `typefaces.ts`) for warm labels on the voyage and summaries. Inter for controls, body copy and navigation. JetBrains Mono only for compact metadata such as dates.
+
+## Tabs
+
+Home, Mind and Diary. Mind is one screen with three parts and nothing that repeats: the voyage card, today's discovery and the Insights web. The web's two drill-downs, all patterns and your sky, sit right under it. Writing counts and feelings live in Diary's "How you've changed", not in Mind. Before adding something to Mind, check that no other part of Mind already leads to the same place. The Insights web puts you in the middle with three branches: Pulls you closer, Holds you back, Still unclear. Each insight goes on a branch by whether the diary entries behind it moved you toward your aspiration or away from it. Tap a branch to list its insights. It was once split into Mind and Analysis, but both led with the same discovery.
+
+## The voyage (the main feature)
+
+Show distance with the voyage card, not a line graph. A day-by-day closeness graph was tried and removed: it didn't read as distance, and mood dots crept onto it.
+
+`Voyage.tsx` draws the distance as a sea chart inked on paper: a course from where you started to a gold star (who you want to be), with your boat where your closeness puts it (`aspirationPath.ts`).
+
+- **Fog before a number.** Closeness needs at least three steps toward or away. Until then the card shows "Getting to know you" with "1 of 3" and a soft mist over the course. The star still shows through. One entry must never read as 0 or 100.
+- **Gentle drift.** When the latest three or more steps all went away, the card says "Currents pulled you off course" in muted ink. Don't show a red falling number in that case.
+- **Try next.** After a step away, the analysis may suggest one small, concrete action. Home shows it under the voyage until the next entry. It is never advice about feelings.
+- **Two portraits.** When an aspiration is set, the weekly reflection shows "Who you said" beside "This week showed", up to three traits each. The distance is shown in words as well as a number.
 
 ## Motion and accessibility
 
-Star shimmer and ambient light shifts remain gentle. Reduced-motion preferences disable decorative motion. Panel transitions are short. Text and control contrast must be checked on solid surfaces; primary gold controls use dark text.
+Motion stays gentle: boat bob, star pulse and drifting fog. Reduced-motion preferences turn decorative motion off. Every interactive control has a visible keyboard focus state, and nothing essential depends on hover. Check contrast on solid surfaces. Primary gold controls use dark text.
 
 ## Data honesty
 
-Screens read the existing store; no sample data is injected into normal user sessions. Playwright screenshots use isolated browser fixtures. Home admits only its existing explicit approval signals; theme work does not change the underlying approval or analysis pipeline.
-
-## Home composition
-
-Recording comes first, with separate text and voice actions using the same existing writing route. A pending interpretation and its actual linked source excerpt follow. The review action opens that exact interpretation in the existing analysis route. No pending data produces a factual empty review state, not a sample reflection.
-
-The constellation is an open region with an honest empty state. An opt-in Premium preview uses existing demo data, labels it as example content, and never writes it into the personal store. Real map nodes still require existing approval signals. Home uses expressive serif only for its wordmark and the one quoted reflective passage; controls, labels, headings, and node text use sans-serif. No decorative sparkle field, scenic image, outlined empty card, or button gradient remains.
+Screens read the existing store. No sample data appears in a normal user session. Demo content is labelled as an example and never written into the personal store. Belief map nodes still require their existing approval signals. Empty states say plainly that nothing is there yet.

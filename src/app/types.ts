@@ -194,6 +194,10 @@ export type AspirationStep = {
   size: 1 | 2 | 3;
   // One short sentence to the person, e.g. "You spoke up instead of waiting."
   note: string;
+  // Only on a step away: one small, concrete thing to try next time,
+  // e.g. "Reply to one message before noon." Shown on Home until the
+  // next entry.
+  tryNext?: string;
 };
 
 export type StoredHistoryEntry = {

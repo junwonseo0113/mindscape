@@ -185,7 +185,8 @@ export function sanitizeAspirationStep(raw: any): AspirationStep | null {
   const n = Math.round(Number(raw.size));
   const size = (n === 1 || n === 2 || n === 3 ? n : 1) as 1 | 2 | 3;
   const note = typeof raw.note === "string" ? raw.note.trim().slice(0, 200) : "";
-  return direction ? { direction, size, note } : null;
+  const tryNext = direction === "away" && typeof raw.tryNext === "string" ? raw.tryNext.trim().slice(0, 140) : "";
+  return direction ? { direction, size, note, ...(tryNext ? { tryNext } : {}) } : null;
 }
 
 // ── Mood check-ins ───────────────────────────────────────────────────────────

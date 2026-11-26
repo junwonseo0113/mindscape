@@ -2,17 +2,14 @@
 // Mindscape's main feature, drawn: a sea chart inked on diary paper, with
 // your boat somewhere on the course between where you started and a gold
 // star, the person you said you want to be. Where the boat sits is your
-// closeness (aspirationPath.ts). Two pieces live here:
-//   · VoyageCard: the chart with the number and the week's change (Home,
-//     and the night version after you write).
-//   · PathChart: closeness day by day for the last week, with each day's
-//     checked-in feelings as coloured dots under it (Analysis).
+// closeness (aspirationPath.ts). VoyageCard is used on Home, Mind and the
+// journey screen, and in a night version after you write. It replaced a
+// day-by-day line graph, which didn't read as distance.
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { REGION_CONFIG } from "./brainRegions";
-import type { CognitiveRegion } from "./neuralBrainLayout";
 import { display, hand, sans } from "./typefaces";
-import type { PathDay } from "./aspirationPath";
+import { MIN_STEPS } from "./aspirationPath";
 
 const INK = "#2A2621";
 const INK_SOFT = "rgba(42,38,33,0.62)";
@@ -42,9 +39,14 @@ function changeText(change: number | null) {
     : { text: `${-change} further than last week`, tone: AWAY.ink };
 }
 
-export function VoyageCard({ closeness, change, aspiration, from, theme = "paper", onOpen, onSetAspiration }: {
+export function VoyageCard({ closeness, change, aspiration, from, theme = "paper", onOpen, onSetAspiration, steps, adrift = false }: {
   closeness: number | null;
   change: number | null;
+  // Steps so far, while there are too few for a number (aspirationPath's
+  // MIN_STEPS): the card shows fog and "1 of 3" instead of a score.
+  steps?: number;
+  // Several steps away in a row: say so gently instead of a falling number.
+  adrift?: boolean;
   aspiration: string | null;
   // Where the boat was before the latest entry; it sails from there.
   from?: number | null;
@@ -59,14 +61,19 @@ export function VoyageCard({ closeness, change, aspiration, from, theme = "paper
   const t = closeness === null ? 0.04 : Math.max(0.04, Math.min(0.96, closeness / 100));
   const t0 = from === null || from === undefined ? t : Math.max(0.04, Math.min(0.96, from / 100));
   const samples = Array.from({ length: 9 }, (_, i) => at(t0 + ((t - t0) * i) / 8));
-  const ch = changeText(change);
   const hasGoal = !!aspiration;
+  const fog = hasGoal && closeness === null && steps !== undefined;
+  const ch = adrift && closeness !== null
+    ? { text: "Currents pulled you off course", tone: INK_SOFT }
+    : changeText(change);
   const action = hasGoal ? onOpen : onSetAspiration;
 
   return (
     <motion.div
       role={action ? "button" : undefined} tabIndex={action ? 0 : undefined}
-      aria-label={hasGoal ? `Your voyage to who you want to be: ${closeness ?? "no"} out of 100.` : "Write who you want to be"}
+      aria-label={!hasGoal ? "Write who you want to be"
+        : fog ? `Your voyage to who you want to be: getting to know you, ${steps} of ${MIN_STEPS} entries so far.`
+        : `Your voyage to who you want to be: ${closeness ?? "no"} out of 100.${adrift ? " Currents pulled you off course lately." : ""}`}
       onClick={action}
       onKeyDown={(e) => { if (action && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); action(); } }}
       whileTap={action ? { scale: 0.985 } : undefined}
@@ -97,7 +104,13 @@ export function VoyageCard({ closeness, change, aspiration, from, theme = "paper
         {hasGoal && closeness !== null && (
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ ...display, fontSize: 32, lineHeight: 0.9, color: ink }}>{closeness}<span style={{ fontSize: 15, color: soft }}>/100</span></div>
-            {ch && <div style={{ ...hand, fontSize: 16, fontWeight: 600, color: night ? (change! > 0 ? "#9BE3B8" : change! < 0 ? "#F7A9C4" : soft) : ch.tone, marginTop: 2 }}>{ch.text}</div>}
+            {ch && <div style={{ ...hand, fontSize: 16, fontWeight: 600, color: night ? (adrift ? soft : change! > 0 ? "#9BE3B8" : change! < 0 ? "#F7A9C4" : soft) : ch.tone, marginTop: 2 }}>{ch.text}</div>}
+          </div>
+        )}
+        {fog && (
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ ...display, fontSize: 22, lineHeight: 1, color: ink }}>{steps}<span style={{ fontSize: 14, color: soft }}> of {MIN_STEPS}</span></div>
+            <div style={{ ...hand, fontSize: 16, fontWeight: 600, color: soft, marginTop: 2 }}>Getting to know you</div>
           </div>
         )}
       </div>
@@ -113,6 +126,17 @@ export function VoyageCard({ closeness, change, aspiration, from, theme = "paper
         {hasGoal && closeness !== null && (
           <motion.path d={sailed(t)} fill="none" stroke={GOLD} strokeWidth="2.6" strokeLinecap="round"
             initial={{ pathLength: reduce ? 1 : t0 / t }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 1.4, delay: 0.3, ease: [0.22, 1, 0.36, 1] }} />
+        )}
+        {/* Fog over the course until there are enough entries for a number. */}
+        {fog && (
+          <g aria-hidden>
+            <defs><filter id="voyage-fog" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="7" /></filter></defs>
+            {[[120, 70, 70, 20], [200, 56, 80, 22], [262, 44, 54, 18]].map(([cx, cy, rx, ry], i) => (
+              <motion.ellipse key={i} cx={cx} cy={cy} rx={rx} ry={ry} fill={night ? "#3A3560" : "#FFFCF6"} filter="url(#voyage-fog)"
+                initial={{ opacity: 0.9 }} animate={reduce ? undefined : { opacity: [0.9, 0.7, 0.9], x: [0, 6, 0] }}
+                transition={{ duration: 7 + i * 2, repeat: Infinity, ease: "easeInOut" }} />
+            ))}
+          </g>
         )}
         {/* Where you started. */}
         <circle cx={P0.x} cy={P0.y} r="3.2" fill={night ? "#F3EFFA" : INK} opacity="0.6" />
@@ -146,89 +170,5 @@ export function VoyageCard({ closeness, change, aspiration, from, theme = "paper
         </div>
       )}
     </motion.div>
-  );
-}
-
-// ── PathChart ──
-// The week as a line: how close you were at the end of each day, with a
-// faint band at 50 (as many steps away as toward). Days you wrote get a
-// solid point; under each day, a dot per feeling you checked in.
-const MOOD_COLOR: Record<string, CognitiveRegion> = { Calm: "security", Happy: "career", Anxious: "curiosity", Sad: "identity", Frustrated: "creativity" };
-
-export function PathChart({ days }: { days: PathDay[] }) {
-  const reduce = useReducedMotion();
-  const [hover, setHover] = React.useState<number | null>(null);
-  const W = 320, H = 132, top = 14, bottom = 92, left = 14, right = W - 14;
-  const xs = days.map((_, i) => left + ((right - left) * i) / Math.max(1, days.length - 1));
-  const y = (v: number) => bottom - ((bottom - top) * v) / 100;
-  const pts = days.map((d, i) => (d.score === null ? null : { x: xs[i], y: y(d.score), d, i }));
-  const line = pts.filter((p): p is NonNullable<typeof p> => !!p);
-  const path = line.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-  const area = line.length > 1 ? `${path} L${line[line.length - 1].x} ${bottom} L${line[0].x} ${bottom} Z` : "";
-  const label = (d: PathDay) => new Date(+d.date.slice(0, 4), +d.date.slice(5, 7) - 1, +d.date.slice(8, 10)).toLocaleDateString("en-US", { weekday: "short" });
-  const h = hover !== null ? days[hover] : null;
-  return (
-    <div style={{ position: "relative" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" style={{ width: "100%", height: "auto", display: "block", overflow: "visible" }}
-        aria-label={`Closeness to who you want to be, last ${days.length} days: ${days.map((d) => `${label(d)} ${d.score ?? "none"}`).join(", ")}.`}
-        onPointerLeave={() => setHover(null)}>
-        <defs>
-          <linearGradient id="pc-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={GOLD} stopOpacity="0.35" /><stop offset="1" stopColor={GOLD} stopOpacity="0" /></linearGradient>
-        </defs>
-        {/* 100 / 50 / 0 guides */}
-        {[100, 50, 0].map((v) => (
-          <g key={v}>
-            <line x1={left} x2={right} y1={y(v)} y2={y(v)} stroke={INK} strokeOpacity={v === 50 ? 0.16 : 0.07} strokeDasharray={v === 50 ? "3 4" : undefined} />
-          </g>
-        ))}
-        <text x={right} y={y(100) - 4} textAnchor="end" fontSize="9" fill={INK_SOFT} style={{ fontFamily: sans.fontFamily }}>who you want to be</text>
-        {area && <motion.path d={area} fill="url(#pc-fill)" initial={{ opacity: reduce ? 1 : 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.5 }} />}
-        {line.length > 1 && (
-          <motion.path d={path} fill="none" stroke={GOLD} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
-            initial={{ pathLength: reduce ? 1 : 0 }} animate={{ pathLength: 1 }} transition={{ duration: reduce ? 0 : 1, ease: [0.22, 1, 0.36, 1] }} />
-        )}
-        {line.map((p) => (
-          <circle key={p.i} cx={p.x} cy={p.y} r={p.d.wrote ? 4.5 : 2.5} fill={p.d.wrote ? GOLD : "#FFFCF6"} stroke={p.d.wrote ? "#FFFCF6" : GOLD} strokeWidth="2" />
-        ))}
-        {/* Day labels and the feelings checked in that day. */}
-        {days.map((d, i) => (
-          <g key={d.date}>
-            {/* Two weeks of labels don't fit, so every other day (always the last). */}
-            {(days.length <= 7 || (days.length - 1 - i) % 2 === 0) && (
-              <text x={xs[i]} y={bottom + 16} textAnchor="middle" fontSize="10" fill={hover === i ? INK : INK_SOFT} style={{ fontFamily: sans.fontFamily }}>{label(d)}</text>
-            )}
-            {d.moods.slice(0, 3).map((m, k) => (
-              <circle key={k} cx={xs[i] + (k - (Math.min(3, d.moods.length) - 1) / 2) * 8} cy={bottom + 28} r="3.2"
-                fill={REGION_CONFIG[MOOD_COLOR[m] ?? "identity"].color} />
-            ))}
-            {/* Hit area for the day */}
-            <rect x={xs[i] - 20} y={top - 10} width={40} height={H - top} fill="transparent" onPointerEnter={() => setHover(i)} onPointerDown={() => setHover(i)} />
-          </g>
-        ))}
-        {hover !== null && <line x1={xs[hover]} x2={xs[hover]} y1={top} y2={bottom} stroke={INK} strokeOpacity="0.25" />}
-      </svg>
-      {h && (
-        <div style={{ position: "absolute", top: -6, left: `${(xs[hover!] / W) * 100}%`, transform: `translateX(${hover! > days.length / 2 ? "-100%" : "0"})`, pointerEvents: "none",
-          ...sans, fontSize: 12, color: INK, backgroundColor: "#FFFCF6", boxShadow: "0 6px 16px -8px rgba(42,38,33,0.5), 0 0 0 1px rgba(42,38,33,0.08)", borderRadius: 8, padding: "5px 8px", whiteSpace: "nowrap" }}>
-          <b>{label(h)}</b> · {h.score === null ? "no steps yet" : `${h.score}/100`}{h.wrote ? " · wrote" : ""}{h.moods.length ? ` · felt ${h.moods.join(", ").toLowerCase()}` : ""}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Small legend line under the chart, so the dots aren't a guess.
-export function PathLegend() {
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 12px", ...sans, fontSize: 11, color: INK_SOFT }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-        <svg width="20" height="10" aria-hidden><line x1="1" y1="5" x2="19" y2="5" stroke={GOLD} strokeWidth="2" /><circle cx="10" cy="5" r="3.5" fill={GOLD} stroke="#FFFCF6" strokeWidth="1.5" /></svg>
-        how close, each day
-      </span>
-      <span style={{ color: INK_SOFT }}>Feelings:</span>
-      {Object.entries(MOOD_COLOR).map(([m, r]) => (
-        <span key={m} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: REGION_CONFIG[r].color }} />{m.toLowerCase()}</span>
-      ))}
-    </div>
   );
 }

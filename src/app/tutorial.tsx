@@ -20,11 +20,11 @@ import { PrimaryBtn } from "./screenUI";
 // tour once `screen` actually reaches that step's target, so there's only
 // one place that decides "we've arrived," never two competing ones.
 type TutorialStep = {
-  screen: "home" | "analysis" | "discoveryAnalysis" | "history";
+  screen: "home" | "analysis" | "history";
   target: string;
   title: string;
   body: string;
-  navTo?: "analysis" | "discoveryAnalysis" | "history";
+  navTo?: "analysis" | "history";
 };
 
 // A lazy screen can mount after the transition starts. Observe DOM changes
@@ -82,31 +82,18 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     {
       screen: "home",
       target: "nav-analysis",
-      title: "See your beliefs, in detail, in Mind",
-      body: "The beliefs behind what you've been noticing lately, laid out in full — what connects them, and where they show up. Want to tap in and take a look?",
+      title: "See how close you are, in Mind",
+      body: "Your week toward who you want to be, and what keeps repeating underneath it. Want to tap in and take a look?",
       navTo: "analysis",
     },
     {
       screen: "analysis",
-      target: "mind-neurons",
-      title: "Your confirmed beliefs, mapped",
-      body: "Each belief here is a real, confirmed pattern — not everything you've ever said, just what's repeated enough to count.",
-    },
-    {
-      screen: "analysis",
-      target: "nav-discoveryAnalysis",
-      title: "See why in Analysis",
-      body: "This is where we walk through today's one discovery — the evidence behind it, how it's evolved, and what to do with it. Want to tap in and take a look?",
-      navTo: "discoveryAnalysis",
-    },
-    {
-      screen: "discoveryAnalysis",
       target: "today-discovery",
       title: "Today's discovery",
       body: "This is where we show you beliefs that keep repeating without you noticing. Not a diagnosis — just an observation, as-is.",
     },
     {
-      screen: "discoveryAnalysis",
+      screen: "analysis",
       target: "nav-history",
       title: "Your past thoughts, in your Diary",
       body: "They're gathered here by the date you spoke them. Want to tap in and take a look?",

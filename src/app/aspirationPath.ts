@@ -29,20 +29,52 @@ export function entryStep(e: StoredHistoryEntry): Step {
 
 const written = (history: StoredHistoryEntry[]) => history.filter((e) => !isMoodCheckIn(e));
 
-// Closeness from the last RECENT entries with a direction, written on or
-// before `until`. null until there's at least one step to go on.
-export function closenessAt(history: StoredHistoryEntry[], until?: Date): number | null {
+// A score from one or two entries jumps straight to 0 or 100, which says more
+// about the arithmetic than about the person. So the number waits until
+// there are MIN_STEPS steps to go on; until then the voyage is "fog".
+export const MIN_STEPS = 3;
+
+function directedSteps(history: StoredHistoryEntry[], until?: Date): Step[] {
   const cutoff = until ? formatDateDots(until) : null;
-  const steps = written(history)
+  return written(history)
     .filter((e) => !cutoff || e.date <= cutoff)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
     .map(entryStep)
-    .filter((s) => s.dir !== 0)
-    .slice(-RECENT);
-  if (steps.length === 0) return null;
+    .filter((s) => s.dir !== 0);
+}
+
+// Closeness from the last RECENT entries with a direction, written on or
+// before `until`. null until there are MIN_STEPS steps to go on.
+export function closenessAt(history: StoredHistoryEntry[], until?: Date): number | null {
+  const steps = directedSteps(history, until).slice(-RECENT);
+  if (steps.length < MIN_STEPS) return null;
   const weight = steps.reduce((a, s) => a + s.size, 0);
   const net = steps.reduce((a, s) => a + s.dir * s.size, 0);
   return Math.round(50 + (50 * net) / weight);
+}
+
+// How many steps there are so far, capped at MIN_STEPS (for "1 of 3").
+export function stepsSoFar(history: StoredHistoryEntry[]): number {
+  return Math.min(MIN_STEPS, directedSteps(history).length);
+}
+
+// How many of the latest steps in a row went away. Three or more is a
+// "current", shown gently rather than as a falling score.
+export function awayStreak(history: StoredHistoryEntry[]): number {
+  const steps = directedSteps(history);
+  let n = 0;
+  for (let i = steps.length - 1; i >= 0 && steps[i].dir < 0; i -= 1) n += 1;
+  return n;
+}
+export const CURRENT_STREAK = 3;
+
+// The small thing to try next, from the latest written entry, only while
+// that entry was a step away (a step toward needs no correction).
+export function latestTryNext(history: StoredHistoryEntry[]): string | null {
+  const last = written(history)
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .pop();
+  return last?.aspirationStep?.direction === "away" ? last.aspirationStep.tryNext || null : null;
 }
 
 export type PathDay = { date: string; score: number | null; wrote: boolean; moods: string[] };

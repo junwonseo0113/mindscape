@@ -43,7 +43,6 @@ const ScreenAuth = React.lazy(() => loadAccountScreens().then((module) => ({ def
 const ScreenLogin = React.lazy(() => loadAccountScreens().then((module) => ({ default: module.ScreenLogin })));
 const ScreenSignup = React.lazy(() => loadAccountScreens().then((module) => ({ default: module.ScreenSignup })));
 const ScreenOnboarding = React.lazy(() => loadOnboardingScreen().then((module) => ({ default: module.ScreenOnboarding })));
-const ScreenAnalysis = React.lazy(() => loadAnalysisScreens().then((module) => ({ default: module.ScreenAnalysis })));
 const ScreenDiscoveryAnalysis = React.lazy(() => loadAnalysisScreens().then((module) => ({ default: module.ScreenDiscoveryAnalysis })));
 const ScreenThink = React.lazy(() => loadWritingScreens().then((module) => ({ default: module.ScreenThink })));
 const ScreenProcessing = React.lazy(() => loadWritingScreens().then((module) => ({ default: module.ScreenProcessing })));
@@ -171,7 +170,7 @@ export default function App() {
   // Investigate is reachable from two places now — the legacy standalone
   // hypothesisDetail screen, and the Analysis tab's inline discovery body —
   // so its back button needs to know which one to return to.
-  const [investigateReturnTo, setInvestigateReturnTo] = React.useState<"hypothesisDetail" | "discoveryAnalysis">("hypothesisDetail");
+  const [investigateReturnTo, setInvestigateReturnTo] = React.useState<"hypothesisDetail" | "analysis">("hypothesisDetail");
   // Same idea, for the Brain Map: it's now reachable from both Home's jar
   // and the Mind tab's constellation, and "back" needs to return wherever
   // the trip actually started instead of always landing on Home.
@@ -556,24 +555,22 @@ export default function App() {
         <BrainNodeMapScreen beliefs={store.beliefs} connections={store.connections} onBack={leaveBrainMap} modernist initialActiveRegion={brainMapInitialRegion} initialSelectedBeliefId={brainMapInitialBeliefId} />
       </React.Suspense>
     ); break;
-    case "analysis": content = (
-      <ScreenAnalysis
-        onNavSelect={goToTab}
-        onOpenArtifact={(id) => { if (id === "drift") setDriftReturnTo("analysis"); setScreen(id); }}
-        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
-        store={store}
-      />
-    ); break;
+    // Mind and Analysis were one tab's worth of content split in two (both
+    // led with the same daily discovery), so they're one screen again: Mind.
+    // "discoveryAnalysis" stays as an alias for older links and returns.
+    case "analysis":
     case "discoveryAnalysis": content = (
       <ScreenDiscoveryAnalysis
         onNavSelect={goToTab}
+        onOpenArtifact={(id) => { if (id === "drift") setDriftReturnTo("analysis"); setScreen(id); }}
+        onOpenBrainMap={(region) => { setBrainMapInitialRegion(region ?? null); setBrainMapInitialBeliefId(null); setBrainMapReturnTo("analysis"); setScreen("brainmap"); }}
         store={store}
         updateStore={updateStore}
         onAgreeHypothesis={agreeToHypothesis}
         onDisagreeHypothesis={disagreeWithHypothesis}
         onInvestigateHypothesis={(index) => {
           setHypothesisIndex(index);
-          setInvestigateReturnTo("discoveryAnalysis");
+          setInvestigateReturnTo("analysis");
           setScreen("investigate");
         }}
         onAgreeBeliefDiscovery={agreeToBeliefDiscovery}
@@ -644,7 +641,7 @@ export default function App() {
         onCancel={() => setScreen("home")}
       />
     ); break;
-    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("discoveryAnalysis")} />; break;
+    case "sessionSummary": content = <ScreenSessionSummary store={store} onDone={() => setScreen("analysis")} />; break;
     case "aiConsent": content = (
       <ScreenAiConsent
         current={realStore.aiConsent ?? null}

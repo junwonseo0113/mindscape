@@ -3,8 +3,8 @@ import { motion, useReducedMotion } from "motion/react";
 import { REGION_CONFIG } from "./brainRegions";
 import { Store } from "./types";
 import { relativeDayLabel } from "./dateUtils";
-import { closenessAt, entryStep, pathSeries, weekChange } from "./aspirationPath";
-import { PathChart, PathLegend, VoyageCard } from "./Voyage";
+import { awayStreak, closenessAt, CURRENT_STREAK, entryStep, stepsSoFar, weekChange } from "./aspirationPath";
+import { VoyageCard } from "./Voyage";
 import { isMoodCheckIn } from "./realStore";
 import { Breathe } from "./motionPrimitives";
 import { display, hand, mono, sans } from "./typefaces";
@@ -201,14 +201,8 @@ export function ScreenDrift({ onBack, store, onSetupAspiration }: { onBack?: () 
             {/* Where you are now, and the steps that got you here. */}
             <section style={{ marginTop: 26 }}>
               <SectionHeading>Where you are</SectionHeading>
-              <VoyageCard closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))} aspiration={store.aspiration} />
-            </section>
-            <section style={{ marginTop: 26 }}>
-              <SectionHeading>The last two weeks</SectionHeading>
-              <div style={{ ...quietCard, padding: "16px 14px 12px" }}>
-                <PathChart days={pathSeries(store.history, 14, voyageAnchor(store.history))} />
-                <div style={{ marginTop: 8 }}><PathLegend /></div>
-              </div>
+              <VoyageCard closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+                steps={stepsSoFar(store.history)} adrift={awayStreak(store.history) >= CURRENT_STREAK} aspiration={store.aspiration} />
             </section>
             {(() => {
               const steps = store.history.filter((e) => !isMoodCheckIn(e)).map((e) => ({ e, st: entryStep(e) })).filter(({ st }) => st.dir !== 0)

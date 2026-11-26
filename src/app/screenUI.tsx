@@ -5,7 +5,7 @@ import { CognitiveRegion } from "./neuralBrainLayout";
 import { haptic } from "./native";
 import { AnimatedNumber, Breathe, MeterFill, SETTLE } from "./motionPrimitives";
 import { display, hand, mono, sans } from "./typefaces";
-import { ArrowLeft, BookOpen, Graph, House, Lightbulb, Sparkle, User, Waveform } from "@phosphor-icons/react";
+import { ArrowLeft, BookOpen, Graph, House, Sparkle, User, Waveform } from "@phosphor-icons/react";
 import { subtle, hair, accent, dkHeading, dkBody, dkAccent, dkAccentLight, dkTrack, dkDivider, mdBg, mdHeading, mdBody, mdAccent, mdAccentText, mdAccentSoft, mdTrack, mdDivider, ivCardShadow, shape, ivBorder, ivHeading, ivBody, ivFaint } from "./screenTheme";
 
 // ── Opening a page from the row you tapped ───────────────────────────────────
@@ -98,7 +98,6 @@ function NavIcon({ id, color, size = 23, active = false }: { id: string; color: 
   if (id === "home") return <House size={size} color={color} weight={weight} />;
   if (id === "analysis") return <Graph size={size} color={color} weight={weight} />;
   if (id === "history") return <BookOpen size={size} color={color} weight={weight} />;
-  if (id === "discoveryAnalysis") return <Lightbulb size={size} color={color} weight={weight} />;
   return <User size={size} color={color} weight={weight} />;
 }
 
@@ -111,13 +110,10 @@ function NavIcon({ id, color, size = 23, active = false }: { id: string; color: 
 export function BottomNav({ active, onSelect, dark, modernist, vintage }: { active: string; onSelect?: (id: string) => void; dark?: boolean; modernist?: boolean; vintage?: boolean }) {
   const items = [
     { id: "home", label: "Home" },
+    // Mind is one screen: how close you are to who you want to be, today's
+    // discovery, further insights and the links to go deeper. (It was split
+    // into Mind and Analysis for a while; both led with the same discovery.)
     { id: "analysis", label: "Mind" },
-    // Split out of Mind — Mind itself is now just the belief-network graph
-    // (see ScreenAnalysis), and everything that used to sit below it there
-    // (today's discovery, evidence, evolution, reflection) moved here to
-    // its own tab (see ScreenDiscoveryAnalysis and the App shell's
-    // "discoveryAnalysis" case).
-    { id: "discoveryAnalysis", label: "Analysis" },
     // The tab is the person's diary (entries by day, see JournalView); the
     // route id stays "history".
     { id: "history", label: "Diary" },

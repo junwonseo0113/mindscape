@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { REGION_CONFIG } from "./brainRegions";
 import { LanguageObservation, Store, StoredAssumption, StoredBelief, StoredHistoryEntry } from "./types";
 import { apiUrl } from "./apiBase";
-import { closenessAt, entryStep, stepHeadline, type Step } from "./aspirationPath";
+import { closenessAt, entryStep, stepHeadline, stepsSoFar, type Step } from "./aspirationPath";
 import { VoyageCard } from "./Voyage";
 import { haptic, isNative, startNativeSpeech, type NativeSpeechSession } from "./native";
 import { type EntryMemory, type RecentMood } from "./realStore";
@@ -1225,7 +1225,7 @@ export function ScreenSessionSummary({ store, onDone }: { store: Store; onDone?:
         )}
         <RevealItem>
           <div style={{ marginTop: 18 }}>
-            <VoyageCard theme="night" closeness={closeness} from={before} change={null} aspiration={store.aspiration} />
+            <VoyageCard theme="night" closeness={closeness} from={before} change={null} steps={stepsSoFar(store.history)} aspiration={store.aspiration} />
           </div>
         </RevealItem>
         {entry?.sessionSummary && (

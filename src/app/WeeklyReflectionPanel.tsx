@@ -9,7 +9,7 @@ import { display, sans } from "./typefaces";
 import { weeklyReflectionsEnabled, type MindscapePlan } from "./mindscapePlan";
 import { supabase } from "./supabaseClient";
 import type { Store } from "./types";
-import { MAX_REFLECTION_ENTRY_LENGTH, mergeWeeklyReflections, reflectionSource, sanitizeWeeklyReflection, type WeeklyReflection } from "./weeklyReflection";
+import { MAX_ASPIRATION_LENGTH, MAX_REFLECTION_ENTRY_LENGTH, mergeWeeklyReflections, reflectionSource, sanitizeWeeklyReflection, type Portrait, type WeeklyReflection } from "./weeklyReflection";
 
 const SIGN_IN_MESSAGE = "Sign in with an account to try a weekly reflection.";
 const FREE_USED_MESSAGE = "You’ve used your free reflection. Mindscape Plus adds a new reflection every week.";
@@ -61,7 +61,10 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
       const response = await fetch(apiUrl("/api/weekly-reflection"), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ entries: source.entries.map((entry) => entry.text.trim().slice(0, MAX_REFLECTION_ENTRY_LENGTH)) }),
+        body: JSON.stringify({
+          entries: source.entries.map((entry) => entry.text.trim().slice(0, MAX_REFLECTION_ENTRY_LENGTH)),
+          ...(store.aspiration?.trim() && store.aspiration.trim().length <= MAX_ASPIRATION_LENGTH ? { aspiration: store.aspiration.trim() } : {}),
+        }),
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -71,10 +74,11 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
         if (response.status === 403 && plus) throw new ShownError("Your Plus access couldn’t be verified.");
         throw new Error("Reflection request failed");
       }
-      const { summary, evidence } = await response.json();
+      const { summary, evidence, portrait } = await response.json();
       const reflection = sanitizeWeeklyReflection({
         weekStart: source.weekStart,
         summary,
+        portrait,
         entryIds: Array.isArray(evidence) ? evidence.map((index) => source.entries[index]?.id) : null,
       });
       if (!reflection) throw new Error("Invalid reflection");
@@ -107,6 +111,7 @@ export function WeeklyReflectionPanel({ store, cloudUserId, plan, updateStore, o
           {formatWeek(reflection.weekStart)}
         </summary>
         <p style={{ ...sans, fontSize: 14, lineHeight: 1.55, color: ivBody, margin: "8px 0" }}>{reflection.summary}</p>
+        {reflection.portrait && <PortraitPair portrait={reflection.portrait} />}
         {onOpenEntry && (
           <ul aria-label="Supporting entries" style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {reflection.entryIds.map((id) => {
@@ -162,4 +167,23 @@ function formatWeek(weekStart: string) {
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   const dates = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
   return `${dates.format(start)} – ${dates.format(end)}`;
+}
+
+// Who you said you want to be, beside who this week showed: the distance
+// in words, not just a number.
+function PortraitPair({ portrait }: { portrait: Portrait }) {
+  const column = (title: string, traits: string[], tint: string) => (
+    <div style={{ flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 12, backgroundColor: `${tint}14`, boxShadow: `inset 0 0 0 1px ${tint}33` }}>
+      <div style={{ ...sans, fontSize: 11, fontWeight: 600, letterSpacing: 0.3, color: ivBody, marginBottom: 6 }}>{title}</div>
+      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+        {traits.map((t) => <li key={t} style={{ ...sans, fontSize: 13, lineHeight: 1.4, color: ivHeading }}>{t}</li>)}
+      </ul>
+    </div>
+  );
+  return (
+    <div role="group" aria-label="Who you said you want to be, and who this week showed" style={{ display: "flex", gap: 8, margin: "4px 0 10px" }}>
+      {column("Who you said", portrait.said, "#E2A847")}
+      {column("This week showed", portrait.showed, "#5B8FB9")}
+    </div>
+  );
 }

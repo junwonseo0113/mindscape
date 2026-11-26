@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { REGION_CONFIG, resolveRegion } from "./brainRegions";
 import { CognitiveRegion, COGNITIVE_REGIONS } from "./neuralBrainLayout";
 import { Store, StoredBelief } from "./types";
-import { closenessAt, weekChange } from "./aspirationPath";
+import { awayStreak, closenessAt, CURRENT_STREAK, latestTryNext, stepsSoFar, weekChange } from "./aspirationPath";
 import { VoyageCard } from "./Voyage";
 import { AnimatedNumber, Breathe, SETTLE } from "./motionPrimitives";
 import { HomeOrbField } from "./HomeOrbField";
@@ -84,8 +84,17 @@ export function ScreenHome({ onNavSelect, onStartThink, onOpenBrainMap, onOpenVo
       <div data-tutorial="voyage-card" style={{ padding: "16px 18px 0", flexShrink: 0 }}>
         <VoyageCard
           closeness={closenessAt(store.history)} change={weekChange(store.history, voyageAnchor(store.history))}
+          steps={stepsSoFar(store.history)} adrift={awayStreak(store.history) >= CURRENT_STREAK}
           aspiration={store.aspiration} onOpen={onOpenVoyage} onSetAspiration={onSetAspiration}
         />
+        {/* After a step away: one small thing to try, until the next entry. */}
+        {store.aspiration && latestTryNext(store.history) && (
+          <div role="note" style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "10px 4px 0", padding: "9px 12px", borderRadius: 12,
+            backgroundColor: ivSurfaceSolid, boxShadow: `inset 0 0 0 1px ${REGION_CONFIG.security.color}40` }}>
+            <span style={{ ...hand, fontSize: 17, fontWeight: 600, color: REGION_CONFIG.security.ink, flexShrink: 0 }}>Try next</span>
+            <span style={{ ...sans, fontSize: 13, color: ivBody, lineHeight: 1.45 }}>{latestTryNext(store.history)}</span>
+          </div>
+        )}
       </div>
 
         <>
