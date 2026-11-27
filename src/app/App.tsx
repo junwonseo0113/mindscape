@@ -26,7 +26,7 @@ import { ScreenQuoteOfTheDay, ScreenSplash } from "./OpeningScreens";
 import { PlanIntroduction } from "./PlanSection";
 import { PLUS_INTRO_KEY, readPlanPreference, savePlanPreference, useMindscapePlan, weeklyReflectionsEnabled } from "./mindscapePlan";
 import { ScreenHome } from "./HomeScreen";
-import { dkBg, mdBg } from "./screenTheme";
+import { dkBg, mdBg, ivBg2 } from "./screenTheme";
 import { OpenFromContext, StatusBar } from "./screenUI";
 
 const loadAccountScreens = () => import("./AccountScreens");
@@ -864,9 +864,9 @@ export default function App() {
           // Home, 30 elsewhere) made the whole frame visibly jump on every
           // screen change, since AnimatePresence crossfades the *content*
           // but this padding lives on the frame itself, outside that
-          // animation, so it was snapping instantly. Home still runs its
-          // photo edge-to-edge behind the transparent overlay — it just
-          // does that itself now (a negative margin on its own hero, see
+          // animation, so it was snapping instantly. Home still paints its
+          // background edge-to-edge behind the transparent overlay — it just
+          // does that itself now (a negative top offset on its root, see
           // ScreenHome) instead of asking the shared frame to change shape
           // under it.
           paddingTop: showStatusBar ? 30 : "env(safe-area-inset-top)",
@@ -878,7 +878,7 @@ export default function App() {
         <motion.div
           aria-hidden
           initial={false}
-          animate={{ backgroundColor: isModernistScreen ? mdBg : dkBg }}
+          animate={{ backgroundColor: screen === "home" ? ivBg2 : isModernistScreen ? mdBg : dkBg }}
           transition={{ duration: reduceMotion ? 0.01 : 0.18, ease: "easeOut" }}
           style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}
         />
@@ -922,7 +922,7 @@ export default function App() {
         the real screen content instead of a flex row that used to reserve
         its own strip of the frame's flat mdBg/dkBg fallback color behind
         it. That fallback color rarely matched whatever screen was actually
-        showing (Home's photo especially), which is what read as a visibly
+        showing, which is what read as a visibly
         cut-off band sitting on top of the screen. Non-interactive so it
         never blocks a tap at the very top of whatever's under it. */}
         {showStatusBar && (
